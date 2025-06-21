@@ -937,51 +937,107 @@ app.get('/order', (req, res) => {
           console.log('JavaScript is working!');
           
           function switchLanguage(lang) {
-            console.log('Function called with: ' + lang);
+            console.log('Switching to language: ' + lang);
             
             if (lang === 'fr') {
-              // Test one simple element first
-              let basic = document.querySelector('[data-translate="package-basic-title"]');
-              if (basic) {
-                basic.textContent = 'Basique';
-                console.log('✅ Changed basic package to French');
-                basic.style.backgroundColor = 'yellow'; // Visual confirmation
-              } else {
-                console.log('❌ Could not find basic package element');
-              }
-              
-              // Try main title
+              // Main title
               let title = document.querySelector('h1');
-              if (title) {
-                title.textContent = '🚀 CV avec IA - Obtenez votre emploi de reve';
-                console.log('✅ Changed title to French');
-                title.style.backgroundColor = 'lightgreen'; // Visual confirmation
-              }
+              if (title) title.textContent = '🚀 Obtenez votre emploi de reve avec un CV assiste par IA';
+              
+              // Subtitle  
+              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
+              if (subtitle) subtitle.textContent = 'Service professionnel de CV assiste par IA';
+              
+              // Package titles
+              let basic = document.querySelector('[data-translate="package-basic-title"]');
+              if (basic) basic.textContent = 'Basique';
+              
+              let professional = document.querySelector('[data-translate="package-pro-title"]');
+              if (professional) professional.textContent = 'Professionnel';
+              
+              let executive = document.querySelector('[data-translate="package-exec-title"]');
+              if (executive) executive.textContent = 'Executif';
+              
+              // Section headers
+              let contactTitle = document.querySelector('[data-translate="contact-title"]');
+              if (contactTitle) contactTitle.textContent = 'Informations de Contact';
+              
+              let jobTitle = document.querySelector('[data-translate="job-title"]');
+              if (jobTitle) jobTitle.textContent = 'Details de votre emploi';
+              
+              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
+              if (backgroundTitle) backgroundTitle.textContent = 'Votre parcours';
+              
+              // Form labels
+              let firstName = document.querySelector('[data-translate="form-firstname"]');
+              if (firstName) firstName.textContent = 'Prenom *';
+              
+              let lastName = document.querySelector('[data-translate="form-lastname"]');
+              if (lastName) lastName.textContent = 'Nom de famille *';
+              
+              let email = document.querySelector('[data-translate="form-email"]');
+              if (email) email.textContent = 'Courriel *';
+              
+              let phone = document.querySelector('[data-translate="form-phone"]');
+              if (phone) phone.textContent = 'Telephone';
+              
+              // Submit button
+              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
+              if (submitBtn) submitBtn.textContent = '💳 Proceder au paiement securise';
+              
+              console.log('✅ Page translated to French');
               
             } else {
-              // English
-              let basic = document.querySelector('[data-translate="package-basic-title"]');
-              if (basic) {
-                basic.textContent = 'Basic';
-                basic.style.backgroundColor = '';
-              }
-              
+              // Switch back to English
               let title = document.querySelector('h1');
-              if (title) {
-                title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
-                title.style.backgroundColor = '';
-              }
+              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+              
+              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
+              if (subtitle) subtitle.textContent = 'Professional AI-powered resume optimization service';
+              
+              let basic = document.querySelector('[data-translate="package-basic-title"]');
+              if (basic) basic.textContent = 'Basic';
+              
+              let professional = document.querySelector('[data-translate="package-pro-title"]');
+              if (professional) professional.textContent = 'Professional';
+              
+              let executive = document.querySelector('[data-translate="package-exec-title"]');
+              if (executive) executive.textContent = 'Executive';
+              
+              let contactTitle = document.querySelector('[data-translate="contact-title"]');
+              if (contactTitle) contactTitle.textContent = 'Contact Information';
+              
+              let jobTitle = document.querySelector('[data-translate="job-title"]');
+              if (jobTitle) jobTitle.textContent = 'Job Details';
+              
+              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
+              if (backgroundTitle) backgroundTitle.textContent = 'Your Background';
+              
+              let firstName = document.querySelector('[data-translate="form-firstname"]');
+              if (firstName) firstName.textContent = 'First Name *';
+              
+              let lastName = document.querySelector('[data-translate="form-lastname"]');
+              if (lastName) lastName.textContent = 'Last Name *';
+              
+              let email = document.querySelector('[data-translate="form-email"]');
+              if (email) email.textContent = 'Email *';
+              
+              let phone = document.querySelector('[data-translate="form-phone"]');
+              if (phone) phone.textContent = 'Phone';
+              
+              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
+              if (submitBtn) submitBtn.textContent = '💳 Proceed to Secure Payment';
+              
+              console.log('✅ Page translated to English');
             }
           }
         </script>
         <div class="header">
           <div style="position: absolute; top: 20px; right: 30px;">
-            <select id="languageSelect" onchange="switchLanguage(this.value)" onclick="switchLanguage(this.value)" style="padding: 5px; font-size: 14px;">
+            <select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
-            <br>
-            <button onclick="switchLanguage('fr')" style="margin-top: 5px; padding: 5px; font-size: 12px;">Test French</button>
           </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
