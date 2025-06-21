@@ -52,12 +52,38 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
   try {
     console.log('📝 Resume generation request received');
     
+    // Validate promo code if provided
+    let finalPrice = parseInt(req.body.price) || 45;
+    let promoInfo = null;
+    
+    if (req.body.promoCode) {
+      const validPromoCodes = {
+        'FAMILY2025': { discount: 100, type: 'percentage', description: 'Family Test - 100% OFF' },
+        'TEST50': { discount: 50, type: 'percentage', description: '50% OFF Test Code' },
+        'FIRST10': { discount: 10, type: 'fixed', description: '$10 OFF Your First Order' }
+      };
+      
+      const promo = validPromoCodes[req.body.promoCode.toUpperCase()];
+      if (promo) {
+        promoInfo = {
+          code: req.body.promoCode.toUpperCase(),
+          ...promo,
+          originalPrice: req.body.originalPrice || finalPrice,
+          discountAmount: req.body.discountAmount || 0
+        };
+        finalPrice = Math.max(0, finalPrice);
+        console.log(`🎟️ Promo code applied: ${promoInfo.code} - ${promoInfo.description}`);
+      }
+    }
+    
     const orderData = {
       ...req.body,
       orderId: `order_${Date.now()}`,
       timestamp: new Date().toISOString(),
       status: 'received',
       packageType: req.body.packageType || 'professional',
+      finalPrice: finalPrice,
+      promoCode: promoInfo,
       revisions: {
         total: req.body.packageType === 'executive' ? 5 : req.body.packageType === 'professional' ? 3 : 1,
         used: 0,
@@ -923,6 +949,23 @@ app.get('/order', (req, res) => {
               <p style="font-size: 12px; color: #666;">Accepted formats: PDF, DOC, DOCX (Max 10MB)</p>
             </div>
             
+            <!-- Promo Code Section -->
+            <div class="form-group full">
+              <label>Promo Code (Optional)</label>
+              <div style="display: flex; gap: 12px;">
+                <input type="text" id="promoCode" name="promoCode" placeholder="Enter promo code" style="flex: 1;">
+                <button type="button" id="applyPromo" style="width: auto; padding: 16px 24px; margin: 0; background: #48bb78; font-size: 14px;">Apply</button>
+              </div>
+              <div id="promoMessage" style="margin-top: 8px; font-size: 14px;"></div>
+            </div>
+            
+            <div id="priceDisplay" style="background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%); padding: 20px; border-radius: 16px; margin: 20px 0; text-align: center; border: 2px solid rgba(102,126,234,0.1);">
+              <div style="font-size: 16px; color: #4a5568; margin-bottom: 8px;">Total Price:</div>
+              <div id="finalPrice" style="font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">$45</div>
+              <div id="originalPrice" style="display: none; font-size: 16px; color: #a0aec0; text-decoration: line-through; margin-top: 4px;"></div>
+              <div id="discount" style="display: none; font-size: 14px; color: #48bb78; font-weight: 600; margin-top: 4px;"></div>
+            </div>
+
             <button type="submit">💳 Proceed to Secure Payment</button>
             
             <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 14px; color: #555;">
@@ -937,15 +980,95 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
+          let currentPrice = 45;
+          let appliedDiscount = 0;
+          let promoCodeApplied = false;
+          
+          // Promo codes configuration
+          const promoCodes = {
+            'FAMILY2025': { discount: 100, type: 'percentage', description: 'Family Test - 100% OFF' },
+            'TEST50': { discount: 50, type: 'percentage', description: '50% OFF Test Code' },
+            'FIRST10': { discount: 10, type: 'fixed', description: '$10 OFF Your First Order' }
+          };
+          
+          // Update price display
+          function updatePriceDisplay() {
+            const finalPrice = Math.max(0, currentPrice - appliedDiscount);
+            document.getElementById('finalPrice').textContent = '$' + finalPrice;
+            
+            if (appliedDiscount > 0) {
+              document.getElementById('originalPrice').style.display = 'block';
+              document.getElementById('originalPrice').textContent = '$' + currentPrice;
+              document.getElementById('discount').style.display = 'block';
+              document.getElementById('discount').textContent = appliedDiscount >= currentPrice ? 'FREE!' : '-$' + appliedDiscount;
+            } else {
+              document.getElementById('originalPrice').style.display = 'none';
+              document.getElementById('discount').style.display = 'none';
+            }
+            
+            // Update hidden price field
+            document.querySelector('input[name="price"]').value = finalPrice;
+          }
+          
           // Package selection
           document.querySelectorAll('.package').forEach(pkg => {
             pkg.addEventListener('click', function() {
               document.querySelectorAll('.package').forEach(p => p.classList.remove('selected'));
               this.classList.add('selected');
               document.querySelector('input[name="packageType"]').value = this.dataset.package;
-              document.querySelector('input[name="price"]').value = this.dataset.price;
+              
+              // Update current price
+              currentPrice = parseInt(this.dataset.price);
+              
+              // Recalculate discount if promo code is applied
+              if (promoCodeApplied) {
+                const promoCode = document.getElementById('promoCode').value.toUpperCase();
+                const promo = promoCodes[promoCode];
+                if (promo) {
+                  appliedDiscount = promo.type === 'percentage' ? 
+                    Math.round(currentPrice * promo.discount / 100) : 
+                    Math.min(promo.discount, currentPrice);
+                }
+              }
+              
+              updatePriceDisplay();
             });
           });
+          
+          // Promo code application
+          document.getElementById('applyPromo').addEventListener('click', function() {
+            const promoCode = document.getElementById('promoCode').value.toUpperCase();
+            const messageEl = document.getElementById('promoMessage');
+            
+            if (!promoCode) {
+              messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
+              return;
+            }
+            
+            const promo = promoCodes[promoCode];
+            if (promo) {
+              appliedDiscount = promo.type === 'percentage' ? 
+                Math.round(currentPrice * promo.discount / 100) : 
+                Math.min(promo.discount, currentPrice);
+              
+              promoCodeApplied = true;
+              messageEl.innerHTML = '<span style="color: #48bb78;">✅ ' + promo.description + ' applied!</span>';
+              updatePriceDisplay();
+              
+              // Disable the apply button
+              this.disabled = true;
+              this.textContent = 'Applied';
+              this.style.background = '#a0aec0';
+            } else {
+              messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
+              appliedDiscount = 0;
+              promoCodeApplied = false;
+              updatePriceDisplay();
+            }
+          });
+          
+          // Initialize price display
+          updatePriceDisplay();
           
           // Form submission
           document.getElementById('orderForm').onsubmit = async (e) => {
@@ -955,6 +1078,13 @@ app.get('/order', (req, res) => {
             
             // Combine names
             data.customerName = data.firstName + ' ' + data.lastName;
+            
+            // Add promo code info
+            if (promoCodeApplied) {
+              data.promoCode = document.getElementById('promoCode').value.toUpperCase();
+              data.originalPrice = currentPrice;
+              data.discountAmount = appliedDiscount;
+            }
             
             // Show loading
             const btn = e.target.querySelector('button');
@@ -972,14 +1102,23 @@ app.get('/order', (req, res) => {
               const orderResult = await orderResponse.json();
               
               if (orderResult.status === 'success') {
-                // Then redirect to payment
+                const finalPrice = parseInt(data.price);
+                
+                // If free order (promo code), skip payment
+                if (finalPrice === 0) {
+                  alert('🎉 FREE Order Confirmed!\\n\\nOrder ID: ' + orderResult.orderId + '\\n\\nWe will process your resume and send it to your email within the promised timeframe.');
+                  window.location.href = '/order-confirmation?session=' + orderResult.orderId + '&package=' + data.packageType + '&price=0&promo=true';
+                  return;
+                }
+                
+                // Otherwise proceed to payment
                 const paymentResponse = await fetch('/api/payments/resume-checkout', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     customerEmail: data.customerEmail,
                     packageType: data.packageType,
-                    price: parseInt(data.price),
+                    price: finalPrice,
                     customerName: data.customerName,
                     orderId: orderResult.orderId
                   })
@@ -1010,44 +1149,95 @@ app.get('/order', (req, res) => {
 
 // Order confirmation page
 app.get('/order-confirmation', (req, res) => {
-  const { session, package: packageType, price } = req.query;
+  const { session, package: packageType, price, promo } = req.query;
+  const isPromo = promo === 'true';
+  const finalPrice = price || '45';
+  
   res.send(`
     <html>
       <head>
         <title>Order Confirmed - Neuro.Pilot.AI</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 40px; background: #f5f5f5; margin: 0; }
-          .container { max-width: 600px; margin: auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); text-align: center; }
-          h1 { color: #28a745; }
-          .order-details { background: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
-          .next-steps { text-align: left; margin: 20px 0; }
-          .next-steps li { margin: 10px 0; }
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+          body { 
+            font-family: 'Inter', sans-serif; 
+            padding: 0; 
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .container { 
+            max-width: 600px; 
+            margin: 20px; 
+            background: rgba(255,255,255,0.98); 
+            padding: 50px 40px; 
+            border-radius: 24px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15); 
+            text-align: center;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+          }
+          h1 { 
+            color: #1a202c;
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 16px;
+          }
+          .order-details { 
+            background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%); 
+            padding: 30px; 
+            border-radius: 16px; 
+            margin: 30px 0;
+            border: 2px solid rgba(102,126,234,0.1);
+          }
+          .next-steps { text-align: left; margin: 30px 0; }
+          .next-steps li { margin: 12px 0; font-weight: 500; }
+          .promo-badge {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 10px 0;
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>✅ Order Confirmed!</h1>
-          <p>Thank you for your order. We've received your payment and will start working on your resume immediately.</p>
+          <h1>🎉 Order Confirmed!</h1>
+          ${isPromo ? '<div class="promo-badge">🎟️ PROMO CODE APPLIED</div>' : ''}
+          <p style="font-size: 18px; color: #4a5568; margin: 20px 0;">
+            ${isPromo ? 'Your FREE test order has been confirmed!' : 'Thank you for your order. We\'ve received your payment and will start working on your resume immediately.'}
+          </p>
           
           <div class="order-details">
-            <h3>Order Details</h3>
+            <h3 style="color: #2d3748; margin-bottom: 20px;">Order Details</h3>
             <p><strong>Package:</strong> ${packageType ? packageType.charAt(0).toUpperCase() + packageType.slice(1) : 'Professional'}</p>
             <p><strong>Order ID:</strong> ${session || 'Processing'}</p>
+            <p><strong>Amount Paid:</strong> ${finalPrice === '0' ? 'FREE' : '$' + finalPrice}</p>
             <p><strong>Delivery Time:</strong> Within ${packageType === 'executive' ? '6' : packageType === 'professional' ? '12' : '24'} hours</p>
           </div>
           
           <div class="next-steps">
-            <h3>What Happens Next?</h3>
-            <ol>
+            <h3 style="color: #2d3748;">What Happens Next?</h3>
+            <ol style="color: #4a5568;">
               <li>Our AI will analyze your information and the job description</li>
               <li>A professional resume will be created and ATS-optimized</li>
               <li>You'll receive your resume via email within the promised timeframe</li>
               <li>If you need any revisions, just reply to the email</li>
+              ${isPromo ? '<li><strong>As a test order, please provide honest feedback to help us improve!</strong></li>' : ''}
             </ol>
           </div>
           
-          <p>Check your email for order confirmation and updates.</p>
-          <p>Questions? Email us at support@neuro-pilot.ai</p>
+          <p style="color: #4a5568;">Check your email for order confirmation and updates.</p>
+          <p style="color: #4a5568;">Questions? Email us at support@neuro-pilot.ai</p>
+          
+          ${isPromo ? '<p style="color: #48bb78; font-weight: 600; margin-top: 30px;">🌟 Thank you for testing our service!</p>' : ''}
         </div>
       </body>
     </html>
