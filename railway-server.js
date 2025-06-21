@@ -692,7 +692,7 @@ app.get('/order', (req, res) => {
                 <ul>
                   <li>Professional formatting</li>
                   <li>ATS optimization</li>
-                  <li>1 revision</li>
+                  <li>1 revision (within 1 year)</li>
                   <li>24-hour delivery</li>
                 </ul>
               </div>
@@ -703,7 +703,7 @@ app.get('/order', (req, res) => {
                   <li>Everything in Basic</li>
                   <li>Cover letter included</li>
                   <li>LinkedIn optimization tips</li>
-                  <li>3 revisions</li>
+                  <li>3 revisions (within 1 year)</li>
                   <li>12-hour delivery</li>
                 </ul>
               </div>
