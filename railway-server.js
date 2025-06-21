@@ -1521,59 +1521,55 @@ app.get('/order', (req, res) => {
             }
           }
           
-          // Language selector event listener (script runs after DOM)
-          const languageSelect = document.getElementById('languageSelect');
-          console.log('Looking for languageSelect:', languageSelect);
-          
-          if (languageSelect) {
-            languageSelect.addEventListener('change', function() {
-              // Simple direct approach - force translate key elements
-              if (this.value === 'fr') {
-                // Translate main title
-                const title = document.querySelector('[data-translate="main-title"]');
-                if (title) title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-                
-                // Translate subtitle
-                const subtitle = document.querySelector('[data-translate="main-subtitle"]');
-                if (subtitle) subtitle.textContent = 'Service d\\'optimisation de CV professionnel assisté par IA';
-                
-                // Translate package titles
-                const basicTitle = document.querySelector('[data-translate="package-basic-title"]');
-                if (basicTitle) basicTitle.textContent = 'Basique';
-                
-                const proTitle = document.querySelector('[data-translate="package-pro-title"]');
-                if (proTitle) proTitle.textContent = 'Professionnel';
-                
-                const execTitle = document.querySelector('[data-translate="package-exec-title"]');
-                if (execTitle) execTitle.textContent = 'Exécutif';
-                
-                // Translate form labels
-                const firstName = document.querySelector('[data-translate="form-firstname"]');
-                if (firstName) firstName.textContent = 'Prénom *';
-                
-                const lastName = document.querySelector('[data-translate="form-lastname"]');
-                if (lastName) lastName.textContent = 'Nom de famille *';
-                
-                // Translate button
-                const submitBtn = document.querySelector('[data-translate="btn-payment"]');
-                if (submitBtn) submitBtn.textContent = '💳 Procéder au paiement sécurisé';
-                
-                alert('Page traduite en français!');
-              } else {
-                // Switch back to English
-                translatePage('en');
-              }
-              
-              translatePage(this.value);
-            });
+          // Simple direct event binding
+          setTimeout(function() {
+            const languageSelect = document.getElementById('languageSelect');
+            console.log('Found language selector:', !!languageSelect);
             
-            // Initialize with English
-            translatePage('en');
-            console.log('Bilingual system initialized');
-          } else {
-            console.error('Language selector not found - ID:', 'languageSelect');
-            console.log('Available elements with IDs:', Array.from(document.querySelectorAll('[id]')).map(el => el.id));
-          }
+            if (languageSelect) {
+              // Add onchange directly to the element
+              languageSelect.onchange = function() {
+                console.log('Language selector changed to:', this.value);
+                
+                if (this.value === 'fr') {
+                  // Test if we can find and change elements
+                  const title = document.querySelector('h1[data-translate="main-title"]');
+                  console.log('Found title element:', !!title);
+                  
+                  if (title) {
+                    title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
+                    console.log('Title changed to French');
+                  }
+                  
+                  // Change a package title
+                  const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
+                  if (basicTitle) {
+                    basicTitle.textContent = 'Basique';
+                    console.log('Basic package changed to French');
+                  }
+                  
+                  // Show alert to confirm it's working
+                  alert('Français sélectionné! Some text should change.');
+                  
+                } else {
+                  // Switch back to English
+                  const title = document.querySelector('h1[data-translate="main-title"]');
+                  if (title) {
+                    title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+                  }
+                  
+                  const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
+                  if (basicTitle) {
+                    basicTitle.textContent = 'Basic';
+                  }
+                }
+              };
+              
+              console.log('Language selector event handler attached');
+            } else {
+              console.error('Language selector not found!');
+            }
+          }, 1000);
         </script>
       </body>
     </html>
