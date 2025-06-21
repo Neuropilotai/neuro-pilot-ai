@@ -1527,14 +1527,41 @@ app.get('/order', (req, res) => {
           
           if (languageSelect) {
             languageSelect.addEventListener('change', function() {
-              console.log('Language changed to:', this.value);
-              
-              // Test direct translation first
-              const testElement = document.querySelector('[data-translate="main-title"]');
-              console.log('Test element found:', testElement);
-              if (testElement && this.value === 'fr') {
-                testElement.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-                console.log('Direct translation applied');
+              // Simple direct approach - force translate key elements
+              if (this.value === 'fr') {
+                // Translate main title
+                const title = document.querySelector('[data-translate="main-title"]');
+                if (title) title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
+                
+                // Translate subtitle
+                const subtitle = document.querySelector('[data-translate="main-subtitle"]');
+                if (subtitle) subtitle.textContent = 'Service d\'optimisation de CV professionnel assisté par IA';
+                
+                // Translate package titles
+                const basicTitle = document.querySelector('[data-translate="package-basic-title"]');
+                if (basicTitle) basicTitle.textContent = 'Basique';
+                
+                const proTitle = document.querySelector('[data-translate="package-pro-title"]');
+                if (proTitle) proTitle.textContent = 'Professionnel';
+                
+                const execTitle = document.querySelector('[data-translate="package-exec-title"]');
+                if (execTitle) execTitle.textContent = 'Exécutif';
+                
+                // Translate form labels
+                const firstName = document.querySelector('[data-translate="form-firstname"]');
+                if (firstName) firstName.textContent = 'Prénom *';
+                
+                const lastName = document.querySelector('[data-translate="form-lastname"]');
+                if (lastName) lastName.textContent = 'Nom de famille *';
+                
+                // Translate button
+                const submitBtn = document.querySelector('[data-translate="btn-payment"]');
+                if (submitBtn) submitBtn.textContent = '💳 Procéder au paiement sécurisé';
+                
+                alert('Page traduite en français!');
+              } else {
+                // Switch back to English
+                translatePage('en');
               }
               
               translatePage(this.value);
