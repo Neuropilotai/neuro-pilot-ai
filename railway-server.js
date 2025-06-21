@@ -400,17 +400,50 @@ app.get('/order', (req, res) => {
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 30%, #f093fb 60%, #f5576c 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
             min-height: 100vh;
             line-height: 1.6;
+            position: relative;
+            overflow-x: hidden;
+          }
+          @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+              radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+              radial-gradient(circle at 40% 40%, rgba(120, 200, 255, 0.2) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
           }
           .header {
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(20px);
-            padding: 25px 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%);
+            backdrop-filter: blur(25px);
+            padding: 30px 0;
             text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.3);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.4);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+            position: relative;
+          }
+          .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
           }
           .logo {
             display: inline-flex;
@@ -419,19 +452,24 @@ app.get('/order', (req, res) => {
             text-decoration: none;
           }
           .logo-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            border-radius: 16px;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 30%, #f093fb 70%, #f5576c 100%);
+            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 32px;
             color: white;
             font-weight: 800;
-            box-shadow: 0 8px 25px rgba(102,126,234,0.4);
+            box-shadow: 0 12px 30px rgba(102,126,234,0.5);
             position: relative;
             overflow: hidden;
+            animation: logoGlow 3s ease-in-out infinite alternate;
+          }
+          @keyframes logoGlow {
+            0% { box-shadow: 0 12px 30px rgba(102,126,234,0.5); }
+            100% { box-shadow: 0 16px 40px rgba(245,87,108,0.6); }
           }
           .logo-icon::before {
             content: '';
@@ -440,50 +478,96 @@ app.get('/order', (req, res) => {
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(45deg, rgba(255,255,255,0.2), transparent);
+            background: linear-gradient(45deg, rgba(255,255,255,0.3), transparent, rgba(255,255,255,0.1));
+            animation: shimmer 2s ease-in-out infinite;
+          }
+          @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(200%) rotate(45deg); }
           }
           .logo-text {
-            color: #333;
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-          }
-          .logo-subtitle {
-            color: #666;
-            font-size: 14px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-          }
-          .container { 
-            max-width: 900px; 
-            margin: 40px auto; 
-            background: rgba(255,255,255,0.98); 
-            padding: 60px 50px; 
-            border-radius: 32px; 
-            box-shadow: 0 32px 64px rgba(0,0,0,0.12);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.2);
-          }
-          h1 { 
-            color: #1a1a1a; 
-            text-align: center; 
-            margin-bottom: 16px;
-            font-size: 48px;
-            font-weight: 800;
-            letter-spacing: -1px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+          }
+          .logo-subtitle {
+            color: #4a5568;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+          }
+          .container { 
+            max-width: 950px; 
+            margin: 50px auto; 
+            background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%); 
+            padding: 70px 60px; 
+            border-radius: 40px; 
+            box-shadow: 
+              0 40px 80px rgba(0,0,0,0.08),
+              0 20px 40px rgba(102,126,234,0.1),
+              inset 0 1px 0 rgba(255,255,255,0.6);
+            backdrop-filter: blur(25px);
+            border: 2px solid rgba(255,255,255,0.3);
+            position: relative;
+            overflow: hidden;
+          }
+          .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+            border-radius: 40px 40px 0 0;
+          }
+          h1 { 
+            text-align: center; 
+            margin-bottom: 20px;
+            font-size: 56px;
+            font-weight: 900;
+            letter-spacing: -1.5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 30%, #f093fb 70%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            background-size: 200% 200%;
+            animation: textGradient 4s ease infinite;
+            line-height: 1.1;
+            text-shadow: 0 4px 20px rgba(102,126,234,0.3);
+          }
+          @keyframes textGradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
           }
           h2 {
-            color: #2d3748;
-            border-bottom: 3px solid transparent;
-            border-image: linear-gradient(90deg, #667eea, #764ba2, #f093fb) 1;
-            padding-bottom: 16px;
-            margin-top: 48px;
-            font-size: 28px;
-            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            border-bottom: 4px solid transparent;
+            border-image: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c) 1;
+            padding-bottom: 20px;
+            margin-top: 56px;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            position: relative;
+          }
+          h2::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #f093fb);
+            border-radius: 2px;
           }
           .subtitle { 
             text-align: center; 
@@ -778,77 +862,83 @@ app.get('/order', (req, res) => {
       </head>
       <body>
         <div class="header">
+          <div style="position: absolute; top: 20px; right: 30px;">
+            <select id="languageSelect" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
+              <option value="en">🇺🇸 English</option>
+              <option value="fr">🇫🇷 Français</option>
+            </select>
+          </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
             <div>
               <div class="logo-text">NEURO.PILOT.AI</div>
-              <div class="logo-subtitle">Professional Resume Service</div>
+              <div class="logo-subtitle" data-translate="header-subtitle">Professional Resume Service</div>
             </div>
           </a>
         </div>
         
         <div class="container">
-          <h1>🚀 Get Your Dream Job with AI-Powered Resume</h1>
-          <p class="subtitle">Professional AI-powered resume optimization service</p>
+          <h1 data-translate="main-title">🚀 Get Your Dream Job with AI-Powered Resume</h1>
+          <p class="subtitle" data-translate="main-subtitle">Professional AI-powered resume optimization service</p>
           
           <div class="features">
             <div class="feature">
               <div class="feature-icon">🤖</div>
-              <h4>AI-Powered</h4>
-              <p>Advanced AI optimization</p>
+              <h4 data-translate="feature-ai-title">AI-Powered</h4>
+              <p data-translate="feature-ai-desc">Advanced AI optimization</p>
             </div>
             <div class="feature">
               <div class="feature-icon">⚡</div>
-              <h4>Fast Delivery</h4>
-              <p>Get your resume in hours</p>
+              <h4 data-translate="feature-fast-title">Fast Delivery</h4>
+              <p data-translate="feature-fast-desc">Get your resume in hours</p>
             </div>
             <div class="feature">
               <div class="feature-icon">✅</div>
-              <h4>ATS-Friendly</h4>
-              <p>Pass applicant tracking systems</p>
+              <h4 data-translate="feature-ats-title">ATS-Friendly</h4>
+              <p data-translate="feature-ats-desc">Pass applicant tracking systems</p>
             </div>
             <div class="feature">
               <div class="feature-icon">💼</div>
-              <h4>Professional</h4>
-              <p>Industry-specific keywords</p>
+              <h4 data-translate="feature-pro-title">Professional</h4>
+              <p data-translate="feature-pro-desc">Industry-specific keywords</p>
             </div>
           </div>
           
           
           <form id="orderForm">
             <!-- Package Selection -->
-            <h2>Select Your Package</h2>
+            <h2 data-translate="package-title">Select Your Package</h2>
             <div class="package-selector">
               <div class="package" data-package="basic" data-price="25">
-                <h3>Basic</h3>
+                <h3 data-translate="package-basic-title">Basic</h3>
                 <div class="price">$25</div>
                 <ul>
-                  <li>Professional formatting</li>
-                  <li>ATS optimization</li>
-                  <li>1 revision (within 1 year)</li>
-                  <li>24-hour delivery</li>
+                  <li data-translate="package-basic-feat1">Professional formatting</li>
+                  <li data-translate="package-basic-feat2">ATS optimization</li>
+                  <li data-translate="package-basic-feat3">1 revision (within 1 year)</li>
+                  <li data-translate="package-basic-feat4">24-hour delivery</li>
                 </ul>
               </div>
               <div class="package selected" data-package="professional" data-price="45">
-                <h3>Professional</h3>
+                <h3 data-translate="package-pro-title">Professional</h3>
                 <div class="price">$45</div>
                 <ul>
-                  <li>Everything in Basic</li>
-                  <li>Cover letter included</li>
-                  <li>LinkedIn optimization tips</li>
-                  <li>3 revisions (within 1 year)</li>
-                  <li>12-hour delivery</li>
+                  <li data-translate="package-pro-feat1">Everything in Basic</li>
+                  <li data-translate="package-pro-feat2">Cover letter included</li>
+                  <li data-translate="package-pro-feat3">LinkedIn optimization tips</li>
+                  <li data-translate="package-pro-feat4">3 revisions (within 1 year)</li>
+                  <li data-translate="package-pro-feat5">12-hour delivery</li>
                 </ul>
               </div>
               <div class="package" data-package="executive" data-price="85">
-                <h3>Executive</h3>
+                <h3 data-translate="package-exec-title">Executive</h3>
                 <div class="price">$85</div>
                 <ul>
-                  <li>Everything in Professional</li>
-                  <li>Executive summary</li>
-                  <li>Industry-specific keywords</li>
-                  <li>5 revisions (within 1 year)</li>
-                  <li>6-hour delivery</li>
+                  <li data-translate="package-exec-feat1">Everything in Professional</li>
+                  <li data-translate="package-exec-feat2">Executive summary</li>
+                  <li data-translate="package-exec-feat3">Industry-specific keywords</li>
+                  <li data-translate="package-exec-feat4">5 revisions (within 1 year)</li>
+                  <li data-translate="package-exec-feat5">6-hour delivery</li>
                 </ul>
               </div>
             </div>
@@ -857,125 +947,125 @@ app.get('/order', (req, res) => {
             <input type="hidden" name="price" value="45">
             
             <!-- Contact Information -->
-            <h2>Contact Information</h2>
+            <h2 data-translate="contact-title">Contact Information</h2>
             <div class="form-grid">
               <div class="form-group">
-                <label>First Name <span class="required">*</span></label>
+                <label data-translate="form-firstname">First Name <span class="required">*</span></label>
                 <input type="text" name="firstName" required>
               </div>
               <div class="form-group">
-                <label>Last Name <span class="required">*</span></label>
+                <label data-translate="form-lastname">Last Name <span class="required">*</span></label>
                 <input type="text" name="lastName" required>
               </div>
               <div class="form-group">
-                <label>Email <span class="required">*</span></label>
+                <label data-translate="form-email">Email <span class="required">*</span></label>
                 <input type="email" name="customerEmail" required>
               </div>
               <div class="form-group">
-                <label>Phone</label>
+                <label data-translate="form-phone">Phone</label>
                 <input type="tel" name="phone" placeholder="(555) 123-4567">
               </div>
             </div>
             
             <!-- Job Information -->
-            <h2>Job Details</h2>
+            <h2 data-translate="job-title">Job Details</h2>
             <div class="form-grid">
               <div class="form-group full">
-                <label>Job Title You're Applying For <span class="required">*</span></label>
-                <input type="text" name="targetJobTitle" required placeholder="e.g., Senior Software Engineer">
+                <label data-translate="form-jobtitle">Job Title You're Applying For <span class="required">*</span></label>
+                <input type="text" name="targetJobTitle" required data-translate-placeholder="placeholder-jobtitle">
               </div>
               <div class="form-group full">
-                <label>Job Description <span class="required">*</span></label>
-                <textarea name="jobDescription" required placeholder="Paste the job description here..."></textarea>
+                <label data-translate="form-jobdesc">Job Description <span class="required">*</span></label>
+                <textarea name="jobDescription" required data-translate-placeholder="placeholder-jobdesc"></textarea>
               </div>
               <div class="form-group">
-                <label>Company Name</label>
-                <input type="text" name="companyName" placeholder="e.g., Google">
+                <label data-translate="form-company">Company Name</label>
+                <input type="text" name="companyName" data-translate-placeholder="placeholder-company">
               </div>
               <div class="form-group">
-                <label>Industry</label>
+                <label data-translate="form-industry">Industry</label>
                 <select name="industry">
-                  <option value="">Select Industry</option>
-                  <option value="technology">Technology</option>
-                  <option value="healthcare">Healthcare</option>
-                  <option value="finance">Finance</option>
-                  <option value="retail">Retail</option>
-                  <option value="education">Education</option>
-                  <option value="other">Other</option>
+                  <option value="" data-translate="select-industry">Select Industry</option>
+                  <option value="technology" data-translate="industry-tech">Technology</option>
+                  <option value="healthcare" data-translate="industry-health">Healthcare</option>
+                  <option value="finance" data-translate="industry-finance">Finance</option>
+                  <option value="retail" data-translate="industry-retail">Retail</option>
+                  <option value="education" data-translate="industry-education">Education</option>
+                  <option value="other" data-translate="industry-other">Other</option>
                 </select>
               </div>
             </div>
             
             <!-- Experience Information -->
-            <h2>Your Background</h2>
+            <h2 data-translate="background-title">Your Background</h2>
             <div class="form-grid">
               <div class="form-group full">
-                <label>Work Experience <span class="required">*</span></label>
-                <textarea name="experience" required placeholder="Describe your work experience, including job titles, companies, and key achievements..."></textarea>
+                <label data-translate="form-experience">Work Experience <span class="required">*</span></label>
+                <textarea name="experience" required data-translate-placeholder="placeholder-experience"></textarea>
               </div>
               <div class="form-group full">
-                <label>Key Skills <span class="required">*</span></label>
-                <input type="text" name="skills" required placeholder="e.g., Project Management, Python, Sales, Customer Service">
+                <label data-translate="form-skills">Key Skills <span class="required">*</span></label>
+                <input type="text" name="skills" required data-translate-placeholder="placeholder-skills">
               </div>
               <div class="form-group">
-                <label>Education Level</label>
+                <label data-translate="form-education">Education Level</label>
                 <select name="educationLevel">
-                  <option value="">Select Education</option>
-                  <option value="highschool">High School</option>
-                  <option value="bachelors">Bachelor's Degree</option>
-                  <option value="masters">Master's Degree</option>
-                  <option value="phd">PhD</option>
-                  <option value="other">Other</option>
+                  <option value="" data-translate="select-education">Select Education</option>
+                  <option value="highschool" data-translate="edu-highschool">High School</option>
+                  <option value="bachelors" data-translate="edu-bachelors">Bachelor's Degree</option>
+                  <option value="masters" data-translate="edu-masters">Master's Degree</option>
+                  <option value="phd" data-translate="edu-phd">PhD</option>
+                  <option value="other" data-translate="edu-other">Other</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Years of Experience</label>
+                <label data-translate="form-years">Years of Experience</label>
                 <select name="yearsExperience">
-                  <option value="">Select Years</option>
-                  <option value="0-1">0-1 years</option>
-                  <option value="2-5">2-5 years</option>
-                  <option value="6-10">6-10 years</option>
-                  <option value="11-15">11-15 years</option>
-                  <option value="16+">16+ years</option>
+                  <option value="" data-translate="select-years">Select Years</option>
+                  <option value="0-1" data-translate="years-0-1">0-1 years</option>
+                  <option value="2-5" data-translate="years-2-5">2-5 years</option>
+                  <option value="6-10" data-translate="years-6-10">6-10 years</option>
+                  <option value="11-15" data-translate="years-11-15">11-15 years</option>
+                  <option value="16+" data-translate="years-16plus">16+ years</option>
                 </select>
               </div>
             </div>
             
             <!-- File Upload -->
-            <h2>Current Resume (Optional)</h2>
+            <h2 data-translate="upload-title">Current Resume (Optional)</h2>
             <div class="file-upload">
-              <p>📎 Upload your current resume for reference</p>
+              <p data-translate="upload-desc">📎 Upload your current resume for reference</p>
               <input type="file" name="currentResume" accept=".pdf,.doc,.docx">
-              <p style="font-size: 12px; color: #666;">Accepted formats: PDF, DOC, DOCX (Max 10MB)</p>
+              <p style="font-size: 12px; color: #666;" data-translate="upload-formats">Accepted formats: PDF, DOC, DOCX (Max 10MB)</p>
             </div>
             
             <!-- Promo Code Section -->
             <div class="form-group full">
-              <label>Promo Code (Optional)</label>
+              <label data-translate="form-promo">Promo Code (Optional)</label>
               <div style="display: flex; gap: 12px;">
-                <input type="text" id="promoCode" name="promoCode" placeholder="Enter promo code" style="flex: 1;">
-                <button type="button" id="applyPromo" style="width: auto; padding: 16px 24px; margin: 0; background: #48bb78; font-size: 14px;">Apply</button>
+                <input type="text" id="promoCode" name="promoCode" data-translate-placeholder="placeholder-promo" style="flex: 1;">
+                <button type="button" id="applyPromo" style="width: auto; padding: 16px 24px; margin: 0; background: #48bb78; font-size: 14px;" data-translate="btn-apply">Apply</button>
               </div>
               <div id="promoMessage" style="margin-top: 8px; font-size: 14px;"></div>
             </div>
             
             <div id="priceDisplay" style="background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%); padding: 20px; border-radius: 16px; margin: 20px 0; text-align: center; border: 2px solid rgba(102,126,234,0.1);">
-              <div style="font-size: 16px; color: #4a5568; margin-bottom: 8px;">Total Price:</div>
+              <div style="font-size: 16px; color: #4a5568; margin-bottom: 8px;" data-translate="price-total">Total Price:</div>
               <div id="finalPrice" style="font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">$45</div>
               <div id="originalPrice" style="display: none; font-size: 16px; color: #a0aec0; text-decoration: line-through; margin-top: 4px;"></div>
               <div id="discount" style="display: none; font-size: 14px; color: #48bb78; font-weight: 600; margin-top: 4px;"></div>
             </div>
 
-            <button type="submit">💳 Proceed to Secure Payment</button>
+            <button type="submit" data-translate="btn-payment">💳 Proceed to Secure Payment</button>
             
             <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 14px; color: #555;">
-              <strong>📋 Revision Policy:</strong><br>
-              • Basic: 1 revision | Professional: 3 revisions | Executive: 5 revisions<br>
-              • All revisions must be used within 1 year of purchase<br>
-              • Your resume will be saved in our system for easy access
+              <strong data-translate="revision-policy">📋 Revision Policy:</strong><br>
+              <span data-translate="revision-limits">• Basic: 1 revision | Professional: 3 revisions | Executive: 5 revisions</span><br>
+              <span data-translate="revision-time">• All revisions must be used within 1 year of purchase</span><br>
+              <span data-translate="revision-saved">• Your resume will be saved in our system for easy access</span>
             </div>
             
-            <p class="security">🔒 Your information is secure and encrypted</p>
+            <p class="security" data-translate="security-notice">🔒 Your information is secure and encrypted</p>
           </form>
         </div>
         
@@ -1141,6 +1231,219 @@ app.get('/order', (req, res) => {
               btn.disabled = false;
             }
           };
+          
+          // Bilingual Translation System - English/French for North America
+          const translations = {
+            'en': {
+              'header-subtitle': 'Professional Resume Service',
+              'main-title': '🚀 Get Your Dream Job with AI-Powered Resume',
+              'main-subtitle': 'Professional AI-powered resume optimization service',
+              'feature-ai-title': 'AI-Powered',
+              'feature-ai-desc': 'Advanced AI optimization',
+              'feature-fast-title': 'Fast Delivery',
+              'feature-fast-desc': 'Get your resume in hours',
+              'feature-ats-title': 'ATS-Friendly',
+              'feature-ats-desc': 'Pass applicant tracking systems',
+              'feature-pro-title': 'Professional',
+              'feature-pro-desc': 'Industry-specific keywords',
+              'package-title': 'Select Your Package',
+              'package-basic-title': 'Basic',
+              'package-basic-feat1': 'Professional formatting',
+              'package-basic-feat2': 'ATS optimization',
+              'package-basic-feat3': '1 revision (within 1 year)',
+              'package-basic-feat4': '24-hour delivery',
+              'package-pro-title': 'Professional',
+              'package-pro-feat1': 'Everything in Basic',
+              'package-pro-feat2': 'Cover letter included',
+              'package-pro-feat3': 'LinkedIn optimization tips',
+              'package-pro-feat4': '3 revisions (within 1 year)',
+              'package-pro-feat5': '12-hour delivery',
+              'package-exec-title': 'Executive',
+              'package-exec-feat1': 'Everything in Professional',
+              'package-exec-feat2': 'Executive summary',
+              'package-exec-feat3': 'Industry-specific keywords',
+              'package-exec-feat4': '5 revisions (within 1 year)',
+              'package-exec-feat5': '6-hour delivery',
+              'contact-title': 'Contact Information',
+              'form-firstname': 'First Name',
+              'form-lastname': 'Last Name',
+              'form-email': 'Email',
+              'form-phone': 'Phone',
+              'job-title': 'Job Details',
+              'form-jobtitle': 'Job Title You\'re Applying For',
+              'form-jobdesc': 'Job Description',
+              'form-company': 'Company Name',
+              'form-industry': 'Industry',
+              'select-industry': 'Select Industry',
+              'industry-tech': 'Technology',
+              'industry-health': 'Healthcare',
+              'industry-finance': 'Finance',
+              'industry-retail': 'Retail',
+              'industry-education': 'Education',
+              'industry-other': 'Other',
+              'background-title': 'Your Background',
+              'form-experience': 'Work Experience',
+              'form-skills': 'Key Skills',
+              'form-education': 'Education Level',
+              'select-education': 'Select Education',
+              'edu-highschool': 'High School',
+              'edu-bachelors': 'Bachelor\'s Degree',
+              'edu-masters': 'Master\'s Degree',
+              'edu-phd': 'PhD',
+              'edu-other': 'Other',
+              'form-years': 'Years of Experience',
+              'select-years': 'Select Years',
+              'years-0-1': '0-1 years',
+              'years-2-5': '2-5 years',
+              'years-6-10': '6-10 years',
+              'years-11-15': '11-15 years',
+              'years-16plus': '16+ years',
+              'upload-title': 'Current Resume (Optional)',
+              'upload-desc': '📎 Upload your current resume for reference',
+              'upload-formats': 'Accepted formats: PDF, DOC, DOCX (Max 10MB)',
+              'form-promo': 'Promo Code (Optional)',
+              'btn-apply': 'Apply',
+              'price-total': 'Total Price:',
+              'btn-payment': '💳 Proceed to Secure Payment',
+              'revision-policy': '📋 Revision Policy:',
+              'revision-limits': '• Basic: 1 revision | Professional: 3 revisions | Executive: 5 revisions',
+              'revision-time': '• All revisions must be used within 1 year of purchase',
+              'revision-saved': '• Your resume will be saved in our system for easy access',
+              'security-notice': '🔒 Your information is secure and encrypted',
+              'placeholder-jobtitle': 'e.g., Senior Software Engineer',
+              'placeholder-jobdesc': 'Paste the job description here...',
+              'placeholder-company': 'e.g., Google',
+              'placeholder-experience': 'Describe your work experience, including job titles, companies, and key achievements...',
+              'placeholder-skills': 'e.g., Project Management, Python, Sales, Customer Service',
+              'placeholder-promo': 'Enter promo code'
+            },
+            'fr': {
+              'header-subtitle': 'Service de CV Professionnel',
+              'main-title': '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA',
+              'main-subtitle': 'Service d\'optimisation de CV professionnel assisté par IA',
+              'feature-ai-title': 'Assisté par IA',
+              'feature-ai-desc': 'Optimisation IA avancée',
+              'feature-fast-title': 'Livraison Rapide',
+              'feature-fast-desc': 'Recevez votre CV en quelques heures',
+              'feature-ats-title': 'Compatible ATS',
+              'feature-ats-desc': 'Passe les systèmes de suivi des candidats',
+              'feature-pro-title': 'Professionnel',
+              'feature-pro-desc': 'Mots-clés spécifiques à l\'industrie',
+              'package-title': 'Sélectionnez votre forfait',
+              'package-basic-title': 'Basique',
+              'package-basic-feat1': 'Formatage professionnel',
+              'package-basic-feat2': 'Optimisation ATS',
+              'package-basic-feat3': '1 révision (dans l\'année)',
+              'package-basic-feat4': 'Livraison en 24h',
+              'package-pro-title': 'Professionnel',
+              'package-pro-feat1': 'Tout ce qui est dans Basique',
+              'package-pro-feat2': 'Lettre de motivation incluse',
+              'package-pro-feat3': 'Conseils d\'optimisation LinkedIn',
+              'package-pro-feat4': '3 révisions (dans l\'année)',
+              'package-pro-feat5': 'Livraison en 12h',
+              'package-exec-title': 'Exécutif',
+              'package-exec-feat1': 'Tout ce qui est dans Professionnel',
+              'package-exec-feat2': 'Résumé exécutif',
+              'package-exec-feat3': 'Mots-clés spécifiques à l\'industrie',
+              'package-exec-feat4': '5 révisions (dans l\'année)',
+              'package-exec-feat5': 'Livraison en 6h',
+              'contact-title': 'Informations de Contact',
+              'form-firstname': 'Prénom',
+              'form-lastname': 'Nom de famille',
+              'form-email': 'Courriel',
+              'form-phone': 'Téléphone',
+              'job-title': 'Détails de l\'emploi',
+              'form-jobtitle': 'Titre du poste pour lequel vous postulez',
+              'form-jobdesc': 'Description de l\'emploi',
+              'form-company': 'Nom de l\'entreprise',
+              'form-industry': 'Industrie',
+              'select-industry': 'Sélectionner une industrie',
+              'industry-tech': 'Technologie',
+              'industry-health': 'Santé',
+              'industry-finance': 'Finance',
+              'industry-retail': 'Vente au détail',
+              'industry-education': 'Éducation',
+              'industry-other': 'Autre',
+              'background-title': 'Votre parcours',
+              'form-experience': 'Expérience de travail',
+              'form-skills': 'Compétences clés',
+              'form-education': 'Niveau d\'éducation',
+              'select-education': 'Sélectionner l\'éducation',
+              'edu-highschool': 'École secondaire',
+              'edu-bachelors': 'Baccalauréat',
+              'edu-masters': 'Maîtrise',
+              'edu-phd': 'Doctorat',
+              'edu-other': 'Autre',
+              'form-years': 'Années d\'expérience',
+              'select-years': 'Sélectionner les années',
+              'years-0-1': '0-1 années',
+              'years-2-5': '2-5 années',
+              'years-6-10': '6-10 années',
+              'years-11-15': '11-15 années',
+              'years-16plus': '16+ années',
+              'upload-title': 'CV actuel (Optionnel)',
+              'upload-desc': '📎 Téléchargez votre CV actuel pour référence',
+              'upload-formats': 'Formats acceptés: PDF, DOC, DOCX (Max 10MB)',
+              'form-promo': 'Code promo (Optionnel)',
+              'btn-apply': 'Appliquer',
+              'price-total': 'Prix total:',
+              'btn-payment': '💳 Procéder au paiement sécurisé',
+              'revision-policy': '📋 Politique de révision:',
+              'revision-limits': '• Basique: 1 révision | Professionnel: 3 révisions | Exécutif: 5 révisions',
+              'revision-time': '• Toutes les révisions doivent être utilisées dans l\'année d\'achat',
+              'revision-saved': '• Votre CV sera sauvegardé dans notre système pour un accès facile',
+              'security-notice': '🔒 Vos informations sont sécurisées et cryptées',
+              'placeholder-jobtitle': 'ex., Ingénieur logiciel senior',
+              'placeholder-jobdesc': 'Collez la description de l\'emploi ici...',
+              'placeholder-company': 'ex., Google',
+              'placeholder-experience': 'Décrivez votre expérience de travail, y compris les titres de poste, les entreprises et les réalisations clés...',
+              'placeholder-skills': 'ex., Gestion de projet, Python, Ventes, Service à la clientèle',
+              'placeholder-promo': 'Entrez le code promo'
+            }
+          };
+          
+          let currentLanguage = 'en';
+          
+          function translatePage(language) {
+            currentLanguage = language;
+            const langData = translations[language];
+            
+            // Translate text content
+            document.querySelectorAll('[data-translate]').forEach(element => {
+              const key = element.getAttribute('data-translate');
+              if (langData[key]) {
+                element.textContent = langData[key];
+              }
+            });
+            
+            // Translate placeholders
+            document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+              const key = element.getAttribute('data-translate-placeholder');
+              if (langData[key]) {
+                element.placeholder = langData[key];
+              }
+            });
+            
+            // Update button text after translation
+            const applyBtn = document.getElementById('applyPromo');
+            const submitBtn = document.querySelector('button[type="submit"]');
+            
+            if (applyBtn && !applyBtn.disabled) {
+              applyBtn.textContent = langData['btn-apply'] || 'Apply';
+            }
+            
+            if (submitBtn && !submitBtn.disabled) {
+              submitBtn.textContent = langData['btn-payment'] || '💳 Proceed to Secure Payment';
+            }
+          }
+          
+          // Language selector event listener
+          document.getElementById('languageSelect').addEventListener('change', function() {
+            translatePage(this.value);
+          });
+          
+          // Initialize with English
+          translatePage('en');
         </script>
       </body>
     </html>
