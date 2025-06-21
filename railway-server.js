@@ -422,7 +422,7 @@ app.get('/', (req, res) => {
               'feat-fast': 'Livraison rapide',
               'btn-order': '📝 Commandez votre CV',
               'btn-fiverr': '💼 Voir sur Fiverr',
-              'home-description': 'Service d\'optimisation de CV professionnel assisté par IA'
+              'home-description': 'Service d\\'optimisation de CV professionnel assisté par IA'
             }
           };
           
@@ -1392,7 +1392,7 @@ app.get('/order', (req, res) => {
             'fr': {
               'header-subtitle': 'Service de CV Professionnel',
               'main-title': '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA',
-              'main-subtitle': 'Service d\'optimisation de CV professionnel assisté par IA',
+              'main-subtitle': 'Service d\\'optimisation de CV professionnel assisté par IA',
               'feature-ai-title': 'Assisté par IA',
               'feature-ai-desc': 'Optimisation IA avancée',
               'feature-fast-title': 'Livraison Rapide',
@@ -1410,7 +1410,7 @@ app.get('/order', (req, res) => {
               'package-pro-title': 'Professionnel',
               'package-pro-feat1': 'Tout ce qui est dans Basique',
               'package-pro-feat2': 'Lettre de motivation incluse',
-              'package-pro-feat3': 'Conseils d\'optimisation LinkedIn',
+              'package-pro-feat3': 'Conseils d\\'optimisation LinkedIn',
               'package-pro-feat4': '3 révisions (dans l\'année)',
               'package-pro-feat5': 'Livraison en 12h',
               'package-exec-title': 'Exécutif',
@@ -1439,14 +1439,14 @@ app.get('/order', (req, res) => {
               'background-title': 'Votre parcours',
               'form-experience': 'Expérience de travail',
               'form-skills': 'Compétences clés',
-              'form-education': 'Niveau d\'éducation',
+              'form-education': 'Niveau d\\'éducation',
               'select-education': 'Sélectionner l\'éducation',
               'edu-highschool': 'École secondaire',
               'edu-bachelors': 'Baccalauréat',
               'edu-masters': 'Maîtrise',
               'edu-phd': 'Doctorat',
               'edu-other': 'Autre',
-              'form-years': 'Années d\'expérience',
+              'form-years': 'Années d\\'expérience',
               'select-years': 'Sélectionner les années',
               'years-0-1': '0-1 années',
               'years-2-5': '2-5 années',
@@ -1462,7 +1462,7 @@ app.get('/order', (req, res) => {
               'btn-payment': '💳 Procéder au paiement sécurisé',
               'revision-policy': '📋 Politique de révision:',
               'revision-limits': '• Basique: 1 révision | Professionnel: 3 révisions | Exécutif: 5 révisions',
-              'revision-time': '• Toutes les révisions doivent être utilisées dans l\'année d\'achat',
+              'revision-time': '• Toutes les révisions doivent être utilisées dans l\\'année d\\'achat',
               'revision-saved': '• Votre CV sera sauvegardé dans notre système pour un accès facile',
               'security-notice': '🔒 Vos informations sont sécurisées et cryptées',
               'placeholder-jobtitle': 'ex., Ingénieur logiciel senior',
