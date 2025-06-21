@@ -575,7 +575,6 @@ io.on('connection', (socket) => {
   // Function to get real learning data for WebSocket updates
   const getRealLearningData = () => {
     const fs = require('fs');
-    const path = require('path');
     let learningData = { modelAccuracy: 0.95, performance: { dataPointsCollected: 0 }, learningProgress: 0 };
     
     try {
@@ -672,7 +671,6 @@ app.get('/api/agents/status', (req, res) => {
   
   // Read real learning progress for accurate data
   const fs = require('fs');
-  const path = require('path');
   let learningData = { modelAccuracy: 0.95, performance: { dataPointsCollected: 0 } };
   
   try {
@@ -998,7 +996,6 @@ app.post('/api/trading/ai-stop', (req, res) => {
 app.get('/api/trading/paper-performance', (req, res) => {
   try {
     const fs = require('fs');
-    const path = require('path');
     
     // Read the real learning progress file
     const learningFile = path.join(__dirname, '../TradingDrive/performance_logs/learning_progress.json');
@@ -1164,7 +1161,6 @@ app.get('/api/trading/paper-performance', (req, res) => {
 app.get('/api/trading/learning-curve', (req, res) => {
   try {
     const fs = require('fs');
-    const path = require('path');
     
     // Read the real learning progress file
     const learningFile = path.join(__dirname, '../TradingDrive/performance_logs/learning_progress.json');
