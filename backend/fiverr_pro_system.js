@@ -14,7 +14,7 @@ class FiverrProSystem {
     constructor() {
         this.app = express();
         this.port = process.env.PORT || process.env.FIVERR_PORT || 8082;
-        this.apiBaseUrl = process.env.PRODUCTION_URL || 'http://localhost:8000';
+        this.apiBaseUrl = process.env.PRODUCTION_URL || process.env.RAILWAY_URL || 'https://neuro-pilot-ai-production.up.railway.app';
         
         // Enhanced Fiverr Pro data management
         this.fiverrData = {

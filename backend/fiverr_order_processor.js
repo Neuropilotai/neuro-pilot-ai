@@ -13,7 +13,7 @@ const path = require('path');
 
 class FiverrOrderProcessor {
   constructor() {
-    this.apiUrl = process.env.PRODUCTION_URL ? `${process.env.PRODUCTION_URL}/api/resume/generate` : 'http://localhost:8000/api/resume/generate';
+    this.apiUrl = process.env.PRODUCTION_URL ? `${process.env.PRODUCTION_URL}/api/resume/generate` : (process.env.RAILWAY_URL ? `${process.env.RAILWAY_URL}/api/resume/generate` : 'https://neuro-pilot-ai-production.up.railway.app/api/resume/generate');
     this.ordersDir = path.join(__dirname, '../fiverr_orders');
     this.completedDir = path.join(__dirname, '../fiverr_completed');
     

@@ -138,10 +138,12 @@
             };
 
             try {
-                // Use environment variable for production URL, fallback to localhost for development
+                // Use environment variable for production URL, fallback to Railway for development
                 const apiUrl = window.location.hostname === 'localhost' ? 
                     'http://localhost:8000/api/resume/generate' : 
-                    `${window.location.protocol}//${window.location.hostname}/api/resume/generate`;
+                    window.location.hostname.includes('railway.app') ? 
+                    `${window.location.protocol}//${window.location.hostname}/api/resume/generate` :
+                    'https://neuro-pilot-ai-production.up.railway.app/api/resume/generate';
                 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
