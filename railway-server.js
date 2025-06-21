@@ -441,21 +441,20 @@ app.get('/', (req, res) => {
             });
           }
           
-          // Wait for DOM to be fully loaded
-          document.addEventListener('DOMContentLoaded', function() {
-            // Language selector event listener
-            const languageSelect = document.getElementById('languageSelect');
-            if (languageSelect) {
-              languageSelect.addEventListener('change', function() {
-                translatePage(this.value);
-              });
-              
-              // Initialize with English
-              translatePage('en');
-            } else {
-              console.error('Language selector not found');
-            }
-          });
+          // Language selector event listener (script runs after DOM)
+          const languageSelect = document.getElementById('languageSelect');
+          if (languageSelect) {
+            languageSelect.addEventListener('change', function() {
+              console.log('Language changed to:', this.value);
+              translatePage(this.value);
+            });
+            
+            // Initialize with English
+            translatePage('en');
+            console.log('Bilingual system initialized');
+          } else {
+            console.error('Language selector not found - ID:', 'languageSelect');
+          }
         </script>
       </body>
     </html>
@@ -1480,20 +1479,32 @@ app.get('/order', (req, res) => {
           function translatePage(language) {
             currentLanguage = language;
             const langData = translations[language];
+            console.log('Translating to:', language, 'Data available:', !!langData);
             
             // Translate text content
-            document.querySelectorAll('[data-translate]').forEach(element => {
+            const elementsToTranslate = document.querySelectorAll('[data-translate]');
+            console.log('Found elements to translate:', elementsToTranslate.length);
+            
+            elementsToTranslate.forEach(element => {
               const key = element.getAttribute('data-translate');
               if (langData[key]) {
+                const oldText = element.textContent;
                 element.textContent = langData[key];
+                console.log('Translated:', key, oldText, '->', langData[key]);
+              } else {
+                console.log('Missing translation for key:', key);
               }
             });
             
             // Translate placeholders
-            document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+            const placeholderElements = document.querySelectorAll('[data-translate-placeholder]');
+            console.log('Found placeholder elements:', placeholderElements.length);
+            
+            placeholderElements.forEach(element => {
               const key = element.getAttribute('data-translate-placeholder');
               if (langData[key]) {
                 element.placeholder = langData[key];
+                console.log('Translated placeholder:', key, '->', langData[key]);
               }
             });
             
@@ -1510,21 +1521,20 @@ app.get('/order', (req, res) => {
             }
           }
           
-          // Wait for DOM to be fully loaded
-          document.addEventListener('DOMContentLoaded', function() {
-            // Language selector event listener
-            const languageSelect = document.getElementById('languageSelect');
-            if (languageSelect) {
-              languageSelect.addEventListener('change', function() {
-                translatePage(this.value);
-              });
-              
-              // Initialize with English
-              translatePage('en');
-            } else {
-              console.error('Language selector not found');
-            }
-          });
+          // Language selector event listener (script runs after DOM)
+          const languageSelect = document.getElementById('languageSelect');
+          if (languageSelect) {
+            languageSelect.addEventListener('change', function() {
+              console.log('Language changed to:', this.value);
+              translatePage(this.value);
+            });
+            
+            // Initialize with English
+            translatePage('en');
+            console.log('Bilingual system initialized');
+          } else {
+            console.error('Language selector not found - ID:', 'languageSelect');
+          }
         </script>
       </body>
     </html>
