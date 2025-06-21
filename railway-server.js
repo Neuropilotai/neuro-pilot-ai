@@ -934,35 +934,43 @@ app.get('/order', (req, res) => {
       </head>
       <body>
         <script>
-          alert('JavaScript is working!');
+          console.log('JavaScript is working!');
           
           function switchLanguage(lang) {
-            alert('Function called with: ' + lang);
+            console.log('Function called with: ' + lang);
             
             if (lang === 'fr') {
               // Test one simple element first
               let basic = document.querySelector('[data-translate="package-basic-title"]');
               if (basic) {
                 basic.textContent = 'Basique';
-                alert('Changed basic package to French');
+                console.log('✅ Changed basic package to French');
+                basic.style.backgroundColor = 'yellow'; // Visual confirmation
               } else {
-                alert('Could not find basic package element');
+                console.log('❌ Could not find basic package element');
               }
               
               // Try main title
               let title = document.querySelector('h1');
               if (title) {
                 title.textContent = '🚀 CV avec IA - Obtenez votre emploi de reve';
-                alert('Changed title to French');
+                console.log('✅ Changed title to French');
+                title.style.backgroundColor = 'lightgreen'; // Visual confirmation
               }
               
             } else {
               // English
               let basic = document.querySelector('[data-translate="package-basic-title"]');
-              if (basic) basic.textContent = 'Basic';
+              if (basic) {
+                basic.textContent = 'Basic';
+                basic.style.backgroundColor = '';
+              }
               
               let title = document.querySelector('h1');
-              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+              if (title) {
+                title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+                title.style.backgroundColor = '';
+              }
             }
           }
         </script>
