@@ -150,17 +150,93 @@ app.get('/', (req, res) => {
           h1 { color: #333; }
           .status { color: green; font-weight: bold; }
           .endpoint { background: #f0f0f0; padding: 10px; margin: 10px; border-radius: 5px; }
+          .btn { background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px; }
+          .btn:hover { background: #0056b3; }
         </style>
       </head>
       <body>
         <h1>🚀 Neuro.Pilot.AI Resume Service</h1>
         <p class="status">✅ Service is Online</p>
         <div class="endpoint">
-          <strong>API Endpoints:</strong><br>
-          POST /api/resume/generate - Generate Resume<br>
-          GET /api/health - Health Check
+          <a href="/order" class="btn">📝 Order a Resume</a>
+          <a href="https://pro.fiverr.com/users/neuropilot" class="btn" target="_blank">💼 View on Fiverr</a>
         </div>
-        <p>Connected to Fiverr Pro System</p>
+        <p>Professional AI-Powered Resume Generation</p>
+      </body>
+    </html>
+  `);
+});
+
+// Order page
+app.get('/order', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Order Resume - Neuro.Pilot.AI</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; max-width: 600px; margin: auto; }
+          h1 { color: #333; text-align: center; }
+          form { background: #f9f9f9; padding: 30px; border-radius: 10px; }
+          label { display: block; margin-top: 15px; font-weight: bold; }
+          input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 5px; }
+          button { background: #28a745; color: white; padding: 15px; width: 100%; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; margin-top: 20px; }
+          button:hover { background: #218838; }
+          .price { color: #666; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <h1>📝 Order Your AI Resume</h1>
+        <form id="orderForm">
+          <label>Your Name</label>
+          <input type="text" name="name" required>
+          
+          <label>Email</label>
+          <input type="email" name="email" required>
+          
+          <label>Package</label>
+          <select name="packageType">
+            <option value="basic">Basic - $25</option>
+            <option value="professional" selected>Professional - $45</option>
+            <option value="executive">Executive - $85</option>
+          </select>
+          
+          <label>Job Title You're Applying For</label>
+          <input type="text" name="jobTitle" required placeholder="e.g. Customer Service Representative">
+          
+          <label>Your Experience</label>
+          <textarea name="experience" rows="4" required placeholder="Briefly describe your work experience..."></textarea>
+          
+          <label>Key Skills</label>
+          <input type="text" name="skills" required placeholder="e.g. Customer Service, Sales, Microsoft Office">
+          
+          <button type="submit">🚀 Order Resume</button>
+        </form>
+        
+        <script>
+          document.getElementById('orderForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+              const response = await fetch('/api/resume/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+              });
+              
+              const result = await response.json();
+              if (result.status === 'success') {
+                alert('✅ Order received! Order ID: ' + result.orderId + '\\n\\nWe will process your resume and send it to your email.');
+                e.target.reset();
+              } else {
+                alert('Error: ' + (result.error || 'Failed to process order'));
+              }
+            } catch (error) {
+              alert('Error submitting order: ' + error.message);
+            }
+          };
+        </script>
       </body>
     </html>
   `);
@@ -182,6 +258,7 @@ app.use((req, res) => {
     message: 'The requested endpoint does not exist',
     availableEndpoints: [
       'GET /',
+      'GET /order',
       'GET /api/health',
       'POST /api/resume/generate',
       'POST /api/payments/resume-checkout'
