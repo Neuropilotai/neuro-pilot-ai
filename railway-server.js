@@ -933,6 +933,13 @@ app.get('/order', (req, res) => {
         </style>
       </head>
       <body>
+        <script>
+          alert('JavaScript is working!');
+          
+          function switchLanguage(lang) {
+            alert('switchLanguage called with: ' + lang);
+          }
+        </script>
         <div class="header">
           <div style="position: absolute; top: 20px; right: 30px;">
             <select id="languageSelect" onchange="switchLanguage(this.value)" onclick="switchLanguage(this.value)" style="padding: 5px; font-size: 14px;">
