@@ -1002,6 +1002,31 @@ app.get('/order', (req, res) => {
                 console.log('Submit button translated');
               }
               
+              // Feature descriptions
+              let features = document.querySelectorAll('.feature h4, .feature p');
+              console.log('Found feature elements:', features.length);
+              if (features.length >= 8) {
+                features[0].textContent = 'Assiste par IA';
+                features[1].textContent = 'Optimisation IA avancee';
+                features[2].textContent = 'Livraison Rapide';
+                features[3].textContent = 'Recevez votre CV en quelques heures';
+                features[4].textContent = 'Compatible ATS';
+                features[5].textContent = 'Passe les systemes de suivi';
+                features[6].textContent = 'Professionnel';
+                features[7].textContent = 'Mots-cles specifiques a l\'industrie';
+              }
+              
+              // Translate dropdown options where possible
+              let selectElements = document.querySelectorAll('select option');
+              selectElements.forEach(option => {
+                if (option.textContent === 'Select Industry') option.textContent = 'Selectionnez une industrie';
+                if (option.textContent === 'Technology') option.textContent = 'Technologie';
+                if (option.textContent === 'Healthcare') option.textContent = 'Sante';
+                if (option.textContent === 'Finance') option.textContent = 'Finance';
+                if (option.textContent === 'Education') option.textContent = 'Education';
+                if (option.textContent === 'Other') option.textContent = 'Autre';
+              });
+              
               console.log('✅ Page translated to French');
               
             } else {
