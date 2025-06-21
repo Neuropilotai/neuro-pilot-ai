@@ -937,90 +937,32 @@ app.get('/order', (req, res) => {
           alert('JavaScript is working!');
           
           function switchLanguage(lang) {
+            alert('Function called with: ' + lang);
+            
             if (lang === 'fr') {
-              // Main title
-              let title = document.querySelector('h1[data-translate="main-title"]');
-              if (!title) title = document.querySelector('h1');
-              if (title) title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-              
-              // Subtitle
-              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
-              if (subtitle) subtitle.textContent = 'Service d\'optimisation de CV professionnel assisté par IA';
-              
-              // Package titles
+              // Test one simple element first
               let basic = document.querySelector('[data-translate="package-basic-title"]');
-              if (basic) basic.textContent = 'Basique';
+              if (basic) {
+                basic.textContent = 'Basique';
+                alert('Changed basic package to French');
+              } else {
+                alert('Could not find basic package element');
+              }
               
-              let professional = document.querySelector('[data-translate="package-pro-title"]');
-              if (professional) professional.textContent = 'Professionnel';
-              
-              let executive = document.querySelector('[data-translate="package-exec-title"]');
-              if (executive) executive.textContent = 'Exécutif';
-              
-              // Form sections
-              let contactTitle = document.querySelector('[data-translate="contact-title"]');
-              if (contactTitle) contactTitle.textContent = 'Informations de Contact';
-              
-              let jobTitle = document.querySelector('[data-translate="job-title"]');
-              if (jobTitle) jobTitle.textContent = 'Détails de l\'emploi';
-              
-              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
-              if (backgroundTitle) backgroundTitle.textContent = 'Votre parcours';
-              
-              // Form labels
-              let firstName = document.querySelector('[data-translate="form-firstname"]');
-              if (firstName) firstName.textContent = 'Prénom *';
-              
-              let lastName = document.querySelector('[data-translate="form-lastname"]');
-              if (lastName) lastName.textContent = 'Nom de famille *';
-              
-              let email = document.querySelector('[data-translate="form-email"]');
-              if (email) email.textContent = 'Courriel *';
-              
-              // Submit button
-              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
-              if (submitBtn) submitBtn.textContent = '💳 Procéder au paiement sécurisé';
-              
-              alert('Page traduite en français!');
+              // Try main title
+              let title = document.querySelector('h1');
+              if (title) {
+                title.textContent = '🚀 CV avec IA - Obtenez votre emploi de reve';
+                alert('Changed title to French');
+              }
               
             } else {
-              // Switch back to English
-              let title = document.querySelector('h1[data-translate="main-title"]');
-              if (!title) title = document.querySelector('h1');
-              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
-              
-              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
-              if (subtitle) subtitle.textContent = 'Professional AI-powered resume optimization service';
-              
+              // English
               let basic = document.querySelector('[data-translate="package-basic-title"]');
               if (basic) basic.textContent = 'Basic';
               
-              let professional = document.querySelector('[data-translate="package-pro-title"]');
-              if (professional) professional.textContent = 'Professional';
-              
-              let executive = document.querySelector('[data-translate="package-exec-title"]');
-              if (executive) executive.textContent = 'Executive';
-              
-              let contactTitle = document.querySelector('[data-translate="contact-title"]');
-              if (contactTitle) contactTitle.textContent = 'Contact Information';
-              
-              let jobTitle = document.querySelector('[data-translate="job-title"]');
-              if (jobTitle) jobTitle.textContent = 'Job Details';
-              
-              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
-              if (backgroundTitle) backgroundTitle.textContent = 'Your Background';
-              
-              let firstName = document.querySelector('[data-translate="form-firstname"]');
-              if (firstName) firstName.textContent = 'First Name *';
-              
-              let lastName = document.querySelector('[data-translate="form-lastname"]');
-              if (lastName) lastName.textContent = 'Last Name *';
-              
-              let email = document.querySelector('[data-translate="form-email"]');
-              if (email) email.textContent = 'Email *';
-              
-              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
-              if (submitBtn) submitBtn.textContent = '💳 Proceed to Secure Payment';
+              let title = document.querySelector('h1');
+              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
             }
           }
         </script>
