@@ -1030,10 +1030,6 @@ app.get('/order', (req, res) => {
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
-            <br>
-            <button onclick="testFunction()" style="background: #ff6b6b; color: white; padding: 5px 10px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer;">SIMPLE TEST</button>
-            <button onclick="switchLanguage('fr')" style="background: #48bb78; color: white; padding: 5px 10px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer;">TEST FRENCH</button>
-            <button onclick="switchLanguage('en')" style="background: #667eea; color: white; padding: 5px 10px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer;">TEST ENGLISH</button>
           </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
