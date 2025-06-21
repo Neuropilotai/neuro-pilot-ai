@@ -144,24 +144,194 @@ app.get('/', (req, res) => {
   res.send(`
     <html>
       <head>
-        <title>Neuro.Pilot.AI - Resume Service</title>
+        <title>Neuro.Pilot.AI - Professional Resume Service</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 40px; text-align: center; }
-          h1 { color: #333; }
-          .status { color: green; font-weight: bold; }
-          .endpoint { background: #f0f0f0; padding: 10px; margin: 10px; border-radius: 5px; }
-          .btn { background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px; }
-          .btn:hover { background: #0056b3; }
+          body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            max-width: 600px;
+            margin: 20px;
+          }
+          .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+          }
+          .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+          }
+          .logo-text {
+            text-align: left;
+          }
+          .logo-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+          }
+          .logo-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin: 0;
+          }
+          h1 { 
+            color: #333; 
+            margin: 20px 0;
+            font-size: 28px;
+          }
+          .status { 
+            color: #28a745; 
+            font-weight: bold;
+            font-size: 20px;
+            margin: 20px 0;
+          }
+          .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            padding: 20px 0;
+            border-top: 1px solid #eee;
+            border-bottom: 1px solid #eee;
+          }
+          .stat {
+            text-align: center;
+          }
+          .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+          }
+          .stat-label {
+            color: #666;
+            font-size: 14px;
+          }
+          .buttons {
+            margin: 30px 0;
+          }
+          .btn { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; 
+            padding: 18px 40px; 
+            text-decoration: none; 
+            border-radius: 50px; 
+            display: inline-block; 
+            margin: 10px;
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          }
+          .btn:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+          }
+          .btn.secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+          }
+          .btn.secondary:hover {
+            background: #f0f4ff;
+          }
+          .features {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+          }
+          .feature {
+            flex: 1;
+            margin: 10px;
+            min-width: 120px;
+          }
+          .feature-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+          }
+          .feature-text {
+            color: #666;
+            font-size: 14px;
+          }
         </style>
       </head>
       <body>
-        <h1>🚀 Neuro.Pilot.AI Resume Service</h1>
-        <p class="status">✅ Service is Online</p>
-        <div class="endpoint">
-          <a href="/order" class="btn">📝 Order a Resume</a>
-          <a href="https://pro.fiverr.com/users/neuropilot" class="btn" target="_blank">💼 View on Fiverr</a>
+        <div class="container">
+          <div class="logo">
+            <div class="logo-icon">N.P</div>
+            <div class="logo-text">
+              <h2 class="logo-title">NEURO.PILOT.AI</h2>
+              <p class="logo-subtitle">Professional Resume Service</p>
+            </div>
+          </div>
+          
+          <h1>🚀 AI-Powered Resume Generation</h1>
+          <p class="status">✅ Service is Online</p>
+          
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-number">10K+</div>
+              <div class="stat-label">Happy Customers</div>
+            </div>
+            <div class="stat">
+              <div class="stat-number">98%</div>
+              <div class="stat-label">Success Rate</div>
+            </div>
+            <div class="stat">
+              <div class="stat-number">24h</div>
+              <div class="stat-label">Fast Delivery</div>
+            </div>
+          </div>
+          
+          <div class="features">
+            <div class="feature">
+              <div class="feature-icon">🤖</div>
+              <div class="feature-text">AI-Optimized</div>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">✅</div>
+              <div class="feature-text">ATS-Friendly</div>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">💼</div>
+              <div class="feature-text">Professional</div>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">⚡</div>
+              <div class="feature-text">Fast Delivery</div>
+            </div>
+          </div>
+          
+          <div class="buttons">
+            <a href="/order" class="btn">📝 Order Your Resume</a>
+            <a href="https://pro.fiverr.com/users/neuropilot" class="btn secondary" target="_blank">💼 View on Fiverr</a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">Trusted by professionals at Google, Amazon, Microsoft, and more</p>
         </div>
-        <p>Professional AI-Powered Resume Generation</p>
       </body>
     </html>
   `);
@@ -175,39 +345,319 @@ app.get('/order', (req, res) => {
         <title>Order Professional AI Resume - Neuro.Pilot.AI</title>
         <style>
           * { box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; margin: 0; }
-          .container { max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-          h1 { color: #333; text-align: center; margin-bottom: 10px; }
-          .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
-          .package-selector { display: flex; gap: 15px; margin: 20px 0; }
-          .package { flex: 1; padding: 20px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.3s; }
-          .package:hover { border-color: #007bff; }
-          .package.selected { border-color: #28a745; background: #f0f8ff; }
-          .package h3 { margin: 0 0 10px 0; color: #333; }
-          .package .price { font-size: 24px; font-weight: bold; color: #28a745; }
-          .package ul { text-align: left; padding-left: 20px; margin: 10px 0; font-size: 14px; }
-          .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+          body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 0; 
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+          }
+          .header {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+          }
+          .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+            text-decoration: none;
+          }
+          .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+          }
+          .logo-text {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+          }
+          .logo-subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+            font-weight: normal;
+          }
+          .container { 
+            max-width: 800px; 
+            margin: 30px auto; 
+            background: white; 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+          }
+          h1 { 
+            color: #333; 
+            text-align: center; 
+            margin-bottom: 10px;
+            font-size: 32px;
+          }
+          h2 {
+            color: #667eea;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+            margin-top: 30px;
+          }
+          .subtitle { 
+            text-align: center; 
+            color: #666; 
+            margin-bottom: 30px;
+            font-size: 18px;
+          }
+          .package-selector { 
+            display: flex; 
+            gap: 15px; 
+            margin: 20px 0;
+            flex-wrap: wrap;
+          }
+          .package { 
+            flex: 1; 
+            padding: 25px; 
+            border: 3px solid #e0e0e0; 
+            border-radius: 15px; 
+            cursor: pointer; 
+            text-align: center; 
+            transition: all 0.3s;
+            background: #fafafa;
+            position: relative;
+            overflow: hidden;
+            min-width: 220px;
+          }
+          .package:hover { 
+            border-color: #667eea; 
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+          }
+          .package.selected { 
+            border-color: #667eea; 
+            background: linear-gradient(to bottom, #f0f4ff, #ffffff);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+          }
+          .package.selected::before {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+          }
+          .package h3 { 
+            margin: 0 0 10px 0; 
+            color: #333;
+            font-size: 22px;
+          }
+          .package .price { 
+            font-size: 36px; 
+            font-weight: bold; 
+            color: #667eea;
+            margin: 10px 0;
+          }
+          .package ul { 
+            text-align: left; 
+            padding-left: 0; 
+            margin: 15px 0; 
+            font-size: 14px;
+            list-style: none;
+          }
+          .package ul li {
+            padding: 5px 0;
+            padding-left: 25px;
+            position: relative;
+          }
+          .package ul li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+          }
+          .form-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+            margin: 20px 0;
+          }
+          @media (max-width: 600px) {
+            .form-grid {
+              grid-template-columns: 1fr;
+            }
+            .package-selector {
+              flex-direction: column;
+            }
+          }
           .form-group { margin-bottom: 15px; }
           .form-group.full { grid-column: 1 / -1; }
-          label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-          .required { color: red; }
-          input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+          label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            color: #444;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .required { color: #e74c3c; }
+          input, select, textarea { 
+            width: 100%; 
+            padding: 12px 15px; 
+            border: 2px solid #e0e0e0; 
+            border-radius: 8px; 
+            font-size: 16px;
+            transition: all 0.3s;
+            background: #fafafa;
+          }
+          input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+          }
           textarea { resize: vertical; min-height: 100px; }
-          .file-upload { border: 2px dashed #ddd; padding: 20px; text-align: center; border-radius: 5px; background: #fafafa; }
-          button { background: #28a745; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%; margin-top: 20px; }
-          button:hover { background: #218838; }
-          .security { text-align: center; color: #666; font-size: 14px; margin-top: 20px; }
-          .guarantee { background: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-          .error { color: red; font-size: 14px; margin-top: 5px; }
+          .file-upload { 
+            border: 3px dashed #667eea; 
+            padding: 30px; 
+            text-align: center; 
+            border-radius: 10px; 
+            background: #f8f9ff;
+            transition: all 0.3s;
+          }
+          .file-upload:hover {
+            background: #f0f4ff;
+            border-color: #764ba2;
+          }
+          button { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; 
+            padding: 18px 40px; 
+            border: none; 
+            border-radius: 50px; 
+            font-size: 18px; 
+            cursor: pointer; 
+            width: 100%; 
+            margin-top: 20px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          }
+          button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+          }
+          button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+          }
+          .security { 
+            text-align: center; 
+            color: #666; 
+            font-size: 14px; 
+            margin-top: 20px;
+          }
+          .guarantee { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 25px; 
+            border-radius: 15px; 
+            margin: 20px 0; 
+            text-align: center;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+          }
+          .features {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+          }
+          .feature {
+            text-align: center;
+            flex: 1;
+            min-width: 150px;
+          }
+          .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-size: 24px;
+            color: white;
+          }
+          .feature h4 {
+            margin: 10px 0 5px;
+            color: #333;
+          }
+          .feature p {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+          }
         </style>
       </head>
       <body>
+        <div class="header">
+          <a href="/" class="logo">
+            <div class="logo-icon">N.P</div>
+            <div>
+              <div class="logo-text">NEURO.PILOT.AI</div>
+              <div class="logo-subtitle">Professional Resume Service</div>
+            </div>
+          </a>
+        </div>
+        
         <div class="container">
-          <h1>🚀 Get Your Professional AI Resume</h1>
-          <p class="subtitle">Stand out from the competition with an ATS-optimized resume</p>
+          <h1>🚀 Get Your Dream Job with AI-Powered Resume</h1>
+          <p class="subtitle">Join 10,000+ professionals who landed their dream jobs</p>
+          
+          <div class="features">
+            <div class="feature">
+              <div class="feature-icon">🤖</div>
+              <h4>AI-Powered</h4>
+              <p>Advanced AI optimization</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">⚡</div>
+              <h4>Fast Delivery</h4>
+              <p>Get your resume in hours</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">✅</div>
+              <h4>ATS-Friendly</h4>
+              <p>Pass applicant tracking systems</p>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">💼</div>
+              <h4>Professional</h4>
+              <p>Industry-specific keywords</p>
+            </div>
+          </div>
           
           <div class="guarantee">
-            ✅ <strong>100% Satisfaction Guarantee</strong> - Unlimited revisions until you're happy!
+            🌟 <strong>100% Satisfaction Guarantee</strong> - Unlimited revisions until you land your dream job!
           </div>
           
           <form id="orderForm">
