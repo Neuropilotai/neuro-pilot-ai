@@ -937,6 +937,7 @@ app.get('/order', (req, res) => {
           console.log('JavaScript is working!');
           
           function switchLanguage(lang) {
+            alert('Function called! Language: ' + lang);
             console.log('Switching to language: ' + lang);
             
             if (lang === 'fr') {
@@ -1076,10 +1077,13 @@ app.get('/order', (req, res) => {
         </script>
         <div class="header">
           <div style="position: absolute; top: 20px; right: 30px;">
-            <select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
+            <select id="languageSelect" onchange="switchLanguage(this.value)" onclick="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
+            <br>
+            <button onclick="switchLanguage('fr')" style="background: #48bb78; color: white; padding: 5px 10px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer;">TEST FRENCH</button>
+            <button onclick="switchLanguage('en')" style="background: #667eea; color: white; padding: 5px 10px; margin-top: 5px; border: none; border-radius: 5px; cursor: pointer;">TEST ENGLISH</button>
           </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
