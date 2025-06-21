@@ -56,22 +56,44 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
       ...req.body,
       orderId: `order_${Date.now()}`,
       timestamp: new Date().toISOString(),
-      status: 'received'
+      status: 'received',
+      packageType: req.body.packageType || 'professional',
+      revisions: {
+        total: req.body.packageType === 'executive' ? 5 : req.body.packageType === 'professional' ? 3 : 1,
+        used: 0,
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
+      },
+      resumeFiles: []
     };
     
-    // Store order data (in production, this would go to database)
+    // Create directories for orders and resumes
     const orderPath = path.join(__dirname, 'orders', `${orderData.orderId}.json`);
+    const resumeDir = path.join(__dirname, 'sent_resumes', orderData.orderId);
+    
     if (!fs.existsSync(path.dirname(orderPath))) {
       fs.mkdirSync(path.dirname(orderPath), { recursive: true });
     }
+    if (!fs.existsSync(resumeDir)) {
+      fs.mkdirSync(resumeDir, { recursive: true });
+    }
+    
+    // Save uploaded file if provided
+    if (req.file) {
+      const uploadedPath = path.join(resumeDir, `original_${req.file.originalname}`);
+      fs.renameSync(req.file.path, uploadedPath);
+      orderData.originalResume = uploadedPath;
+    }
+    
     fs.writeFileSync(orderPath, JSON.stringify(orderData, null, 2));
     
     console.log(`✅ Order ${orderData.orderId} stored successfully`);
+    console.log(`📊 Package: ${orderData.packageType} | Revisions: ${orderData.revisions.total}`);
     
     res.json({
       status: 'success',
       orderId: orderData.orderId,
-      message: 'Resume generation request received'
+      message: 'Resume generation request received',
+      revisions: orderData.revisions
     });
     
   } catch (error) {
@@ -657,7 +679,7 @@ app.get('/order', (req, res) => {
           </div>
           
           <div class="guarantee">
-            🌟 <strong>100% Satisfaction Guarantee</strong> - Unlimited revisions until you land your dream job!
+            🌟 <strong>100% Satisfaction Guarantee</strong> - Revisions included with each package (valid for 1 year)!
           </div>
           
           <form id="orderForm">
@@ -692,7 +714,7 @@ app.get('/order', (req, res) => {
                   <li>Everything in Professional</li>
                   <li>Executive summary</li>
                   <li>Industry-specific keywords</li>
-                  <li>Unlimited revisions</li>
+                  <li>5 revisions (within 1 year)</li>
                   <li>6-hour delivery</li>
                 </ul>
               </div>
@@ -795,6 +817,13 @@ app.get('/order', (req, res) => {
             </div>
             
             <button type="submit">💳 Proceed to Secure Payment</button>
+            
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 14px; color: #555;">
+              <strong>📋 Revision Policy:</strong><br>
+              • Basic: 1 revision | Professional: 3 revisions | Executive: 5 revisions<br>
+              • All revisions must be used within 1 year of purchase<br>
+              • Your resume will be saved in our system for easy access
+            </div>
             
             <p class="security">🔒 Your information is secure and encrypted</p>
           </form>
@@ -918,6 +947,114 @@ app.get('/order-confirmation', (req, res) => {
   `);
 });
 
+// Get order status and files
+app.get('/api/order/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const orderPath = path.join(__dirname, 'orders', `${orderId}.json`);
+    
+    if (!fs.existsSync(orderPath)) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    const orderData = JSON.parse(fs.readFileSync(orderPath, 'utf8'));
+    res.json(orderData);
+    
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+});
+
+// Save sent resume
+app.post('/api/order/:orderId/resume', upload.single('resume'), async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { version = 'final' } = req.body;
+    
+    const orderPath = path.join(__dirname, 'orders', `${orderId}.json`);
+    const resumeDir = path.join(__dirname, 'sent_resumes', orderId);
+    
+    if (!fs.existsSync(orderPath)) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Read order data
+    const orderData = JSON.parse(fs.readFileSync(orderPath, 'utf8'));
+    
+    // Save resume file
+    if (req.file) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const resumePath = path.join(resumeDir, `resume_${version}_${timestamp}.pdf`);
+      fs.renameSync(req.file.path, resumePath);
+      
+      // Update order data
+      orderData.resumeFiles.push({
+        path: resumePath,
+        version,
+        timestamp: new Date().toISOString(),
+        filename: `resume_${version}_${timestamp}.pdf`
+      });
+      
+      orderData.status = 'delivered';
+      fs.writeFileSync(orderPath, JSON.stringify(orderData, null, 2));
+      
+      console.log(`📄 Resume saved for order ${orderId}`);
+      res.json({ status: 'success', message: 'Resume saved', file: resumePath });
+    } else {
+      res.status(400).json({ error: 'No file provided' });
+    }
+    
+  } catch (error) {
+    console.error('Error saving resume:', error);
+    res.status(500).json({ error: 'Failed to save resume' });
+  }
+});
+
+// Track revision usage
+app.post('/api/order/:orderId/revision', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const orderPath = path.join(__dirname, 'orders', `${orderId}.json`);
+    
+    if (!fs.existsSync(orderPath)) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    const orderData = JSON.parse(fs.readFileSync(orderPath, 'utf8'));
+    
+    // Check if revisions are available and not expired
+    const now = new Date();
+    const expiresAt = new Date(orderData.revisions.expiresAt);
+    
+    if (now > expiresAt) {
+      return res.status(400).json({ error: 'Revisions have expired (1 year limit)' });
+    }
+    
+    if (orderData.revisions.used >= orderData.revisions.total) {
+      return res.status(400).json({ 
+        error: `No revisions left. Used ${orderData.revisions.used} of ${orderData.revisions.total}` 
+      });
+    }
+    
+    // Increment revision count
+    orderData.revisions.used++;
+    orderData.revisions.lastUsed = new Date().toISOString();
+    
+    fs.writeFileSync(orderPath, JSON.stringify(orderData, null, 2));
+    
+    res.json({
+      status: 'success',
+      revisions: orderData.revisions,
+      message: `Revision ${orderData.revisions.used} of ${orderData.revisions.total} used`
+    });
+    
+  } catch (error) {
+    console.error('Error tracking revision:', error);
+    res.status(500).json({ error: 'Failed to track revision' });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -937,8 +1074,11 @@ app.use((req, res) => {
       'GET /order',
       'GET /order-confirmation',
       'GET /api/health',
+      'GET /api/order/:orderId',
       'POST /api/resume/generate',
-      'POST /api/payments/resume-checkout'
+      'POST /api/payments/resume-checkout',
+      'POST /api/order/:orderId/resume',
+      'POST /api/order/:orderId/revision'
     ]
   });
 });
