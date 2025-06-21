@@ -938,140 +938,36 @@ app.get('/order', (req, res) => {
           
           function switchLanguage(lang) {
             alert('Function called! Language: ' + lang);
-            console.log('Switching to language: ' + lang);
             
             if (lang === 'fr') {
-              // Main title
+              // Simple test - just change title and one package
               let title = document.querySelector('h1');
               if (title) {
-                title.textContent = '🚀 Obtenez votre emploi de reve avec un CV assiste par IA';
-                console.log('Title translated');
-              }
-              
-              // Subtitle  
-              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
-              if (subtitle) {
-                subtitle.textContent = 'Service professionnel de CV assiste par IA';
-                console.log('Subtitle translated');
-              }
-              
-              // Package titles - try different selectors
-              let basic = document.querySelector('[data-translate="package-basic-title"]');
-              if (!basic) basic = document.querySelector('h3');
-              if (basic) {
-                basic.textContent = 'Basique';
-                console.log('Basic package translated');
+                title.textContent = '🚀 CV en francais avec IA';
+                title.style.color = 'red';
               }
               
               let allH3 = document.querySelectorAll('h3');
-              console.log('Found h3 elements:', allH3.length);
-              if (allH3.length >= 3) {
-                allH3[0].textContent = 'Basique';
-                allH3[1].textContent = 'Professionnel'; 
-                allH3[2].textContent = 'Executif';
-                console.log('All packages translated via h3');
+              if (allH3.length > 0) {
+                allH3[0].textContent = 'BASIQUE';
+                allH3[0].style.color = 'green';
               }
               
-              // Section headers - try all h2 elements
-              let allH2 = document.querySelectorAll('h2');
-              console.log('Found h2 elements:', allH2.length);
-              if (allH2.length >= 3) {
-                allH2[0].textContent = 'Selectionnez votre forfait';
-                allH2[1].textContent = 'Informations de Contact';
-                allH2[2].textContent = 'Details de votre emploi';
-                if (allH2[3]) allH2[3].textContent = 'Votre parcours';
-                console.log('H2 headers translated');
-              }
-              
-              // Form labels - try all labels
-              let allLabels = document.querySelectorAll('label');
-              console.log('Found label elements:', allLabels.length);
-              if (allLabels.length > 0) {
-                // Translate first few labels we can find
-                if (allLabels[0]) allLabels[0].textContent = 'Prenom *';
-                if (allLabels[1]) allLabels[1].textContent = 'Nom de famille *';
-                if (allLabels[2]) allLabels[2].textContent = 'Courriel *';
-                if (allLabels[3]) allLabels[3].textContent = 'Telephone';
-                console.log('Labels translated');
-              }
-              
-              // Submit button - try different selectors
-              let submitBtn = document.querySelector('button[type="submit"]');
-              if (!submitBtn) submitBtn = document.querySelector('button');
-              if (submitBtn) {
-                submitBtn.textContent = '💳 Proceder au paiement securise';
-                console.log('Submit button translated');
-              }
-              
-              // Feature descriptions
-              let features = document.querySelectorAll('.feature h4, .feature p');
-              console.log('Found feature elements:', features.length);
-              if (features.length >= 8) {
-                features[0].textContent = 'Assiste par IA';
-                features[1].textContent = 'Optimisation IA avancee';
-                features[2].textContent = 'Livraison Rapide';
-                features[3].textContent = 'Recevez votre CV en quelques heures';
-                features[4].textContent = 'Compatible ATS';
-                features[5].textContent = 'Passe les systemes de suivi';
-                features[6].textContent = 'Professionnel';
-                features[7].textContent = 'Mots-cles specifiques a l\'industrie';
-              }
-              
-              // Translate dropdown options where possible
-              let selectElements = document.querySelectorAll('select option');
-              selectElements.forEach(option => {
-                if (option.textContent === 'Select Industry') option.textContent = 'Selectionnez une industrie';
-                if (option.textContent === 'Technology') option.textContent = 'Technologie';
-                if (option.textContent === 'Healthcare') option.textContent = 'Sante';
-                if (option.textContent === 'Finance') option.textContent = 'Finance';
-                if (option.textContent === 'Education') option.textContent = 'Education';
-                if (option.textContent === 'Other') option.textContent = 'Autre';
-              });
-              
-              console.log('✅ Page translated to French');
+              alert('French applied - check if title is red and first package is green');
               
             } else {
-              // Switch back to English
+              // English
               let title = document.querySelector('h1');
-              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+              if (title) {
+                title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+                title.style.color = '';
+              }
               
-              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
-              if (subtitle) subtitle.textContent = 'Professional AI-powered resume optimization service';
-              
-              let basic = document.querySelector('[data-translate="package-basic-title"]');
-              if (basic) basic.textContent = 'Basic';
-              
-              let professional = document.querySelector('[data-translate="package-pro-title"]');
-              if (professional) professional.textContent = 'Professional';
-              
-              let executive = document.querySelector('[data-translate="package-exec-title"]');
-              if (executive) executive.textContent = 'Executive';
-              
-              let contactTitle = document.querySelector('[data-translate="contact-title"]');
-              if (contactTitle) contactTitle.textContent = 'Contact Information';
-              
-              let jobTitle = document.querySelector('[data-translate="job-title"]');
-              if (jobTitle) jobTitle.textContent = 'Job Details';
-              
-              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
-              if (backgroundTitle) backgroundTitle.textContent = 'Your Background';
-              
-              let firstName = document.querySelector('[data-translate="form-firstname"]');
-              if (firstName) firstName.textContent = 'First Name *';
-              
-              let lastName = document.querySelector('[data-translate="form-lastname"]');
-              if (lastName) lastName.textContent = 'Last Name *';
-              
-              let email = document.querySelector('[data-translate="form-email"]');
-              if (email) email.textContent = 'Email *';
-              
-              let phone = document.querySelector('[data-translate="form-phone"]');
-              if (phone) phone.textContent = 'Phone';
-              
-              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
-              if (submitBtn) submitBtn.textContent = '💳 Proceed to Secure Payment';
-              
-              console.log('✅ Page translated to English');
+              let allH3 = document.querySelectorAll('h3');
+              if (allH3.length > 0) {
+                allH3[0].textContent = 'Basic';
+                allH3[0].style.color = '';
+              }
             }
           }
         </script>
