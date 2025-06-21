@@ -1,0 +1,41 @@
+{
+  "name": "neuro-pilot-ai",
+  "version": "1.0.0",
+  "description": "Autonomous AI Company - Trading & Resume Generation Agents",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && node server.js",
+    "frontend": "cd frontend && npm start",
+    "landing": "cd landing-page && node server.js",
+    "all": "concurrently \"npm run backend\" \"npm run frontend\" \"npm run landing\"",
+    "setup": "./scripts/setup.sh",
+    "start-agents": "pm2 start ecosystem.config.js",
+    "dashboard": "cd frontend && npm start",
+    "start": "node railway-server.js",
+    "start:railway": "node railway-server.js"
+  },
+  "keywords": [
+    "ai",
+    "autonomous",
+    "trading",
+    "resume",
+    "agents"
+  ],
+  "author": "Neuro.Pilot.AI",
+  "license": "MIT",
+  "dependencies": {
+    "ccxt": "^4.4.89",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
+    "openai": "^5.5.1",
+    "socket.io": "^4.8.1",
+    "multer": "^1.4.5-lts.1",
+    "stripe": "^18.2.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
