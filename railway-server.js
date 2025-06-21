@@ -1523,9 +1523,20 @@ app.get('/order', (req, res) => {
           
           // Language selector event listener (script runs after DOM)
           const languageSelect = document.getElementById('languageSelect');
+          console.log('Looking for languageSelect:', languageSelect);
+          
           if (languageSelect) {
             languageSelect.addEventListener('change', function() {
               console.log('Language changed to:', this.value);
+              
+              // Test direct translation first
+              const testElement = document.querySelector('[data-translate="main-title"]');
+              console.log('Test element found:', testElement);
+              if (testElement && this.value === 'fr') {
+                testElement.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
+                console.log('Direct translation applied');
+              }
+              
               translatePage(this.value);
             });
             
@@ -1534,6 +1545,7 @@ app.get('/order', (req, res) => {
             console.log('Bilingual system initialized');
           } else {
             console.error('Language selector not found - ID:', 'languageSelect');
+            console.log('Available elements with IDs:', Array.from(document.querySelectorAll('[id]')).map(el => el.id));
           }
         </script>
       </body>
