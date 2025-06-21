@@ -441,13 +441,21 @@ app.get('/', (req, res) => {
             });
           }
           
-          // Language selector event listener
-          document.getElementById('languageSelect').addEventListener('change', function() {
-            translatePage(this.value);
+          // Wait for DOM to be fully loaded
+          document.addEventListener('DOMContentLoaded', function() {
+            // Language selector event listener
+            const languageSelect = document.getElementById('languageSelect');
+            if (languageSelect) {
+              languageSelect.addEventListener('change', function() {
+                translatePage(this.value);
+              });
+              
+              // Initialize with English
+              translatePage('en');
+            } else {
+              console.error('Language selector not found');
+            }
           });
-          
-          // Initialize with English
-          translatePage('en');
         </script>
       </body>
     </html>
@@ -1502,13 +1510,21 @@ app.get('/order', (req, res) => {
             }
           }
           
-          // Language selector event listener
-          document.getElementById('languageSelect').addEventListener('change', function() {
-            translatePage(this.value);
+          // Wait for DOM to be fully loaded
+          document.addEventListener('DOMContentLoaded', function() {
+            // Language selector event listener
+            const languageSelect = document.getElementById('languageSelect');
+            if (languageSelect) {
+              languageSelect.addEventListener('change', function() {
+                translatePage(this.value);
+              });
+              
+              // Initialize with English
+              translatePage('en');
+            } else {
+              console.error('Language selector not found');
+            }
           });
-          
-          // Initialize with English
-          translatePage('en');
         </script>
       </body>
     </html>
