@@ -935,7 +935,7 @@ app.get('/order', (req, res) => {
       <body>
         <div class="header">
           <div style="position: absolute; top: 20px; right: 30px;">
-            <select id="languageSelect" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
+            <select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
@@ -1142,6 +1142,46 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
+          // Global language switching function
+          function switchLanguage(lang) {
+            alert('Language switch triggered: ' + lang);
+            
+            if (lang === 'fr') {
+              // Change main title
+              const title = document.querySelector('h1[data-translate="main-title"]');
+              if (title) {
+                title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
+                alert('Title changed to French!');
+              } else {
+                alert('Title element not found');
+              }
+              
+              // Change package titles  
+              const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
+              if (basicTitle) basicTitle.textContent = 'Basique';
+              
+              const proTitle = document.querySelector('h3[data-translate="package-pro-title"]');
+              if (proTitle) proTitle.textContent = 'Professionnel';
+              
+              const execTitle = document.querySelector('h3[data-translate="package-exec-title"]');
+              if (execTitle) execTitle.textContent = 'Exécutif';
+              
+            } else {
+              // Switch back to English
+              const title = document.querySelector('h1[data-translate="main-title"]');
+              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+              
+              const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
+              if (basicTitle) basicTitle.textContent = 'Basic';
+              
+              const proTitle = document.querySelector('h3[data-translate="package-pro-title"]');
+              if (proTitle) proTitle.textContent = 'Professional';
+              
+              const execTitle = document.querySelector('h3[data-translate="package-exec-title"]');
+              if (execTitle) execTitle.textContent = 'Executive';
+            }
+          }
+          
           let currentPrice = 45;
           let appliedDiscount = 0;
           let promoCodeApplied = false;
