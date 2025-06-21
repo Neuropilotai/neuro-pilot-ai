@@ -139,6 +139,33 @@ app.post('/api/payments/resume-checkout', async (req, res) => {
   }
 });
 
+// Homepage
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Neuro.Pilot.AI - Resume Service</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; text-align: center; }
+          h1 { color: #333; }
+          .status { color: green; font-weight: bold; }
+          .endpoint { background: #f0f0f0; padding: 10px; margin: 10px; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <h1>🚀 Neuro.Pilot.AI Resume Service</h1>
+        <p class="status">✅ Service is Online</p>
+        <div class="endpoint">
+          <strong>API Endpoints:</strong><br>
+          POST /api/resume/generate - Generate Resume<br>
+          GET /api/health - Health Check
+        </div>
+        <p>Connected to Fiverr Pro System</p>
+      </body>
+    </html>
+  `);
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -148,12 +175,19 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Catch all handler for frontend routes (must be last)
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, './frontend/build/index.html'));
+// 404 handler for undefined routes
+app.use((req, res) => {
+  res.status(404).json({ 
+    error: 'Not Found', 
+    message: 'The requested endpoint does not exist',
+    availableEndpoints: [
+      'GET /',
+      'GET /api/health',
+      'POST /api/resume/generate',
+      'POST /api/payments/resume-checkout'
+    ]
   });
-}
+});
 
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
@@ -161,7 +195,5 @@ server.listen(PORT, () => {
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`💳 Payment processing ready`);
   console.log(`📝 Resume orders ready`);
-  if (process.env.NODE_ENV === 'production') {
-    console.log(`🌐 Frontend served from: /frontend/build`);
-  }
+  console.log(`🌐 Homepage: http://localhost:${PORT}/`);
 });
