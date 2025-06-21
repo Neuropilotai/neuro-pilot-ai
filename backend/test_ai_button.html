@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Button Test</title>
+</head>
+<body>
+    <h1>Test AI Task Button</h1>
+    <textarea id="aiTaskInput" placeholder="Enter test task">Add analytics to dashboard</textarea>
+    <button onclick="sendAITask()">🚀 Execute Task</button>
+    <div id="results"></div>
+
+    <script>
+        function sendAITask() {
+            console.log('Button clicked!');
+            const input = document.getElementById('aiTaskInput');
+            const task = input.value.trim();
+            
+            if (!task) {
+                alert('Please enter a task');
+                return;
+            }
+            
+            document.getElementById('results').innerHTML = 'Processing: ' + task;
+            
+            // Test API call
+            fetch('http://localhost:3007/api/ai-assistant/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task, priority: 'high' })
+            })
+            .then(response => response.json())
+            .then(result => {
+                document.getElementById('results').innerHTML = 'Success: ' + JSON.stringify(result, null, 2);
+            })
+            .catch(error => {
+                document.getElementById('results').innerHTML = 'Error: ' + error.message;
+            });
+        }
+    </script>
+</body>
+</html>

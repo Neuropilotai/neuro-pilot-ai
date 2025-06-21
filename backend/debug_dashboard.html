@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Dashboard Loading</title>
+</head>
+<body>
+    <h1>Dashboard Loading Debug</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testAllAPIs() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing APIs...\n';
+            
+            const apis = [
+                '/api/overview',
+                '/api/projects', 
+                '/api/research',
+                '/api/development',
+                '/api/recommendations'
+            ];
+            
+            for (const api of apis) {
+                try {
+                    const response = await fetch(`http://localhost:3007${api}`);
+                    const data = await response.json();
+                    results.innerHTML += `✅ ${api}: ${JSON.stringify(data).substring(0, 100)}...\n`;
+                } catch (error) {
+                    results.innerHTML += `❌ ${api}: Error - ${error.message}\n`;
+                }
+            }
+        }
+        
+        testAllAPIs();
+    </script>
+</body>
+</html>

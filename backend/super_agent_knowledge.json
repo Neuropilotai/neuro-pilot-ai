@@ -1,0 +1,66 @@
+[
+  [
+    "SERVICE_DOWN_Enhanced Dashboard",
+    {
+      "pattern": {
+        "issueType": "SERVICE_DOWN",
+        "service": "Enhanced Dashboard",
+        "fixType": "SERVICE_RESTART",
+        "command": "PORT=3006 nohup node enhanced_dashboard.js > enhanced_dashboard.log 2>&1 &",
+        "success": true,
+        "timestamp": "2025-06-20T15:51:46.931Z"
+      },
+      "count": 5,
+      "successRate": 1,
+      "lastUsed": "2025-06-20T22:55:58.371Z"
+    }
+  ],
+  [
+    "SERVICE_DOWN_Admin Server",
+    {
+      "pattern": {
+        "issueType": "SERVICE_DOWN",
+        "service": "Admin Server",
+        "fixType": "SERVICE_RESTART",
+        "command": "PORT=8081 nohup node admin_server.js > admin_8081.log 2>&1 &",
+        "success": true,
+        "timestamp": "2025-06-20T18:18:17.109Z"
+      },
+      "count": 3,
+      "successRate": 1,
+      "lastUsed": "2025-06-21T00:11:53.161Z"
+    }
+  ],
+  [
+    "SERVICE_DOWN_Dashboard",
+    {
+      "pattern": {
+        "issueType": "SERVICE_DOWN",
+        "service": "Dashboard",
+        "fixType": "SERVICE_RESTART",
+        "command": "PORT=3005 nohup node agent_dashboard.js > dashboard.log 2>&1 &",
+        "success": true,
+        "timestamp": "2025-06-20T18:18:22.280Z"
+      },
+      "count": 4,
+      "successRate": 1,
+      "lastUsed": "2025-06-20T22:55:53.209Z"
+    }
+  ],
+  [
+    "SERVICE_DOWN_Ngrok Manager",
+    {
+      "pattern": {
+        "issueType": "SERVICE_DOWN",
+        "service": "Ngrok Manager",
+        "fixType": "SERVICE_RESTART",
+        "command": "nohup node ngrok_manager.js > ngrok_manager.log 2>&1 &",
+        "success": true,
+        "timestamp": "2025-06-20T21:52:17.974Z"
+      },
+      "count": 1,
+      "successRate": 1,
+      "lastUsed": "2025-06-20T21:52:17.974Z"
+    }
+  ]
+]
