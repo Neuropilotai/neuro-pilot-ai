@@ -167,76 +167,302 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Order page
+// Order page with full form and payment
 app.get('/order', (req, res) => {
   res.send(`
     <html>
       <head>
-        <title>Order Resume - Neuro.Pilot.AI</title>
+        <title>Order Professional AI Resume - Neuro.Pilot.AI</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 40px; max-width: 600px; margin: auto; }
-          h1 { color: #333; text-align: center; }
-          form { background: #f9f9f9; padding: 30px; border-radius: 10px; }
-          label { display: block; margin-top: 15px; font-weight: bold; }
-          input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 5px; }
-          button { background: #28a745; color: white; padding: 15px; width: 100%; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; margin-top: 20px; }
+          * { box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; margin: 0; }
+          .container { max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+          h1 { color: #333; text-align: center; margin-bottom: 10px; }
+          .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+          .package-selector { display: flex; gap: 15px; margin: 20px 0; }
+          .package { flex: 1; padding: 20px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.3s; }
+          .package:hover { border-color: #007bff; }
+          .package.selected { border-color: #28a745; background: #f0f8ff; }
+          .package h3 { margin: 0 0 10px 0; color: #333; }
+          .package .price { font-size: 24px; font-weight: bold; color: #28a745; }
+          .package ul { text-align: left; padding-left: 20px; margin: 10px 0; font-size: 14px; }
+          .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+          .form-group { margin-bottom: 15px; }
+          .form-group.full { grid-column: 1 / -1; }
+          label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+          .required { color: red; }
+          input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+          textarea { resize: vertical; min-height: 100px; }
+          .file-upload { border: 2px dashed #ddd; padding: 20px; text-align: center; border-radius: 5px; background: #fafafa; }
+          button { background: #28a745; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; width: 100%; margin-top: 20px; }
           button:hover { background: #218838; }
-          .price { color: #666; font-size: 14px; }
+          .security { text-align: center; color: #666; font-size: 14px; margin-top: 20px; }
+          .guarantee { background: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+          .error { color: red; font-size: 14px; margin-top: 5px; }
         </style>
       </head>
       <body>
-        <h1>📝 Order Your AI Resume</h1>
-        <form id="orderForm">
-          <label>Your Name</label>
-          <input type="text" name="name" required>
+        <div class="container">
+          <h1>🚀 Get Your Professional AI Resume</h1>
+          <p class="subtitle">Stand out from the competition with an ATS-optimized resume</p>
           
-          <label>Email</label>
-          <input type="email" name="email" required>
+          <div class="guarantee">
+            ✅ <strong>100% Satisfaction Guarantee</strong> - Unlimited revisions until you're happy!
+          </div>
           
-          <label>Package</label>
-          <select name="packageType">
-            <option value="basic">Basic - $25</option>
-            <option value="professional" selected>Professional - $45</option>
-            <option value="executive">Executive - $85</option>
-          </select>
-          
-          <label>Job Title You're Applying For</label>
-          <input type="text" name="jobTitle" required placeholder="e.g. Customer Service Representative">
-          
-          <label>Your Experience</label>
-          <textarea name="experience" rows="4" required placeholder="Briefly describe your work experience..."></textarea>
-          
-          <label>Key Skills</label>
-          <input type="text" name="skills" required placeholder="e.g. Customer Service, Sales, Microsoft Office">
-          
-          <button type="submit">🚀 Order Resume</button>
-        </form>
+          <form id="orderForm">
+            <!-- Package Selection -->
+            <h2>Select Your Package</h2>
+            <div class="package-selector">
+              <div class="package" data-package="basic" data-price="25">
+                <h3>Basic</h3>
+                <div class="price">$25</div>
+                <ul>
+                  <li>Professional formatting</li>
+                  <li>ATS optimization</li>
+                  <li>1 revision</li>
+                  <li>24-hour delivery</li>
+                </ul>
+              </div>
+              <div class="package selected" data-package="professional" data-price="45">
+                <h3>Professional</h3>
+                <div class="price">$45</div>
+                <ul>
+                  <li>Everything in Basic</li>
+                  <li>Cover letter included</li>
+                  <li>LinkedIn optimization tips</li>
+                  <li>3 revisions</li>
+                  <li>12-hour delivery</li>
+                </ul>
+              </div>
+              <div class="package" data-package="executive" data-price="85">
+                <h3>Executive</h3>
+                <div class="price">$85</div>
+                <ul>
+                  <li>Everything in Professional</li>
+                  <li>Executive summary</li>
+                  <li>Industry-specific keywords</li>
+                  <li>Unlimited revisions</li>
+                  <li>6-hour delivery</li>
+                </ul>
+              </div>
+            </div>
+            
+            <input type="hidden" name="packageType" value="professional">
+            <input type="hidden" name="price" value="45">
+            
+            <!-- Contact Information -->
+            <h2>Contact Information</h2>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>First Name <span class="required">*</span></label>
+                <input type="text" name="firstName" required>
+              </div>
+              <div class="form-group">
+                <label>Last Name <span class="required">*</span></label>
+                <input type="text" name="lastName" required>
+              </div>
+              <div class="form-group">
+                <label>Email <span class="required">*</span></label>
+                <input type="email" name="customerEmail" required>
+              </div>
+              <div class="form-group">
+                <label>Phone</label>
+                <input type="tel" name="phone" placeholder="(555) 123-4567">
+              </div>
+            </div>
+            
+            <!-- Job Information -->
+            <h2>Job Details</h2>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Job Title You're Applying For <span class="required">*</span></label>
+                <input type="text" name="targetJobTitle" required placeholder="e.g., Senior Software Engineer">
+              </div>
+              <div class="form-group full">
+                <label>Job Description <span class="required">*</span></label>
+                <textarea name="jobDescription" required placeholder="Paste the job description here..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Company Name</label>
+                <input type="text" name="companyName" placeholder="e.g., Google">
+              </div>
+              <div class="form-group">
+                <label>Industry</label>
+                <select name="industry">
+                  <option value="">Select Industry</option>
+                  <option value="technology">Technology</option>
+                  <option value="healthcare">Healthcare</option>
+                  <option value="finance">Finance</option>
+                  <option value="retail">Retail</option>
+                  <option value="education">Education</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- Experience Information -->
+            <h2>Your Background</h2>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Work Experience <span class="required">*</span></label>
+                <textarea name="experience" required placeholder="Describe your work experience, including job titles, companies, and key achievements..."></textarea>
+              </div>
+              <div class="form-group full">
+                <label>Key Skills <span class="required">*</span></label>
+                <input type="text" name="skills" required placeholder="e.g., Project Management, Python, Sales, Customer Service">
+              </div>
+              <div class="form-group">
+                <label>Education Level</label>
+                <select name="educationLevel">
+                  <option value="">Select Education</option>
+                  <option value="highschool">High School</option>
+                  <option value="bachelors">Bachelor's Degree</option>
+                  <option value="masters">Master's Degree</option>
+                  <option value="phd">PhD</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Years of Experience</label>
+                <select name="yearsExperience">
+                  <option value="">Select Years</option>
+                  <option value="0-1">0-1 years</option>
+                  <option value="2-5">2-5 years</option>
+                  <option value="6-10">6-10 years</option>
+                  <option value="11-15">11-15 years</option>
+                  <option value="16+">16+ years</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- File Upload -->
+            <h2>Current Resume (Optional)</h2>
+            <div class="file-upload">
+              <p>📎 Upload your current resume for reference</p>
+              <input type="file" name="currentResume" accept=".pdf,.doc,.docx">
+              <p style="font-size: 12px; color: #666;">Accepted formats: PDF, DOC, DOCX (Max 10MB)</p>
+            </div>
+            
+            <button type="submit">💳 Proceed to Secure Payment</button>
+            
+            <p class="security">🔒 Your information is secure and encrypted</p>
+          </form>
+        </div>
         
         <script>
+          // Package selection
+          document.querySelectorAll('.package').forEach(pkg => {
+            pkg.addEventListener('click', function() {
+              document.querySelectorAll('.package').forEach(p => p.classList.remove('selected'));
+              this.classList.add('selected');
+              document.querySelector('input[name="packageType"]').value = this.dataset.package;
+              document.querySelector('input[name="price"]').value = this.dataset.price;
+            });
+          });
+          
+          // Form submission
           document.getElementById('orderForm').onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
             
+            // Combine names
+            data.customerName = data.firstName + ' ' + data.lastName;
+            
+            // Show loading
+            const btn = e.target.querySelector('button');
+            btn.textContent = '⏳ Processing...';
+            btn.disabled = true;
+            
             try {
-              const response = await fetch('/api/resume/generate', {
+              // First save the order
+              const orderResponse = await fetch('/api/resume/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
               });
               
-              const result = await response.json();
-              if (result.status === 'success') {
-                alert('✅ Order received! Order ID: ' + result.orderId + '\\n\\nWe will process your resume and send it to your email.');
-                e.target.reset();
+              const orderResult = await orderResponse.json();
+              
+              if (orderResult.status === 'success') {
+                // Then redirect to payment
+                const paymentResponse = await fetch('/api/payments/resume-checkout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    customerEmail: data.customerEmail,
+                    packageType: data.packageType,
+                    price: parseInt(data.price),
+                    customerName: data.customerName,
+                    orderId: orderResult.orderId
+                  })
+                });
+                
+                const paymentResult = await paymentResponse.json();
+                
+                if (paymentResult.checkout_url) {
+                  window.location.href = paymentResult.checkout_url;
+                } else {
+                  alert('Payment system unavailable. Your order has been saved. Order ID: ' + orderResult.orderId);
+                }
               } else {
-                alert('Error: ' + (result.error || 'Failed to process order'));
+                alert('Error: ' + (orderResult.error || 'Failed to process order'));
               }
             } catch (error) {
               alert('Error submitting order: ' + error.message);
+            } finally {
+              btn.textContent = '💳 Proceed to Secure Payment';
+              btn.disabled = false;
             }
           };
         </script>
+      </body>
+    </html>
+  `);
+});
+
+// Order confirmation page
+app.get('/order-confirmation', (req, res) => {
+  const { session, package: packageType, price } = req.query;
+  res.send(`
+    <html>
+      <head>
+        <title>Order Confirmed - Neuro.Pilot.AI</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; background: #f5f5f5; margin: 0; }
+          .container { max-width: 600px; margin: auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); text-align: center; }
+          h1 { color: #28a745; }
+          .order-details { background: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
+          .next-steps { text-align: left; margin: 20px 0; }
+          .next-steps li { margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>✅ Order Confirmed!</h1>
+          <p>Thank you for your order. We've received your payment and will start working on your resume immediately.</p>
+          
+          <div class="order-details">
+            <h3>Order Details</h3>
+            <p><strong>Package:</strong> ${packageType ? packageType.charAt(0).toUpperCase() + packageType.slice(1) : 'Professional'}</p>
+            <p><strong>Order ID:</strong> ${session || 'Processing'}</p>
+            <p><strong>Delivery Time:</strong> Within ${packageType === 'executive' ? '6' : packageType === 'professional' ? '12' : '24'} hours</p>
+          </div>
+          
+          <div class="next-steps">
+            <h3>What Happens Next?</h3>
+            <ol>
+              <li>Our AI will analyze your information and the job description</li>
+              <li>A professional resume will be created and ATS-optimized</li>
+              <li>You'll receive your resume via email within the promised timeframe</li>
+              <li>If you need any revisions, just reply to the email</li>
+            </ol>
+          </div>
+          
+          <p>Check your email for order confirmation and updates.</p>
+          <p>Questions? Email us at support@neuro-pilot.ai</p>
+        </div>
       </body>
     </html>
   `);
@@ -259,6 +485,7 @@ app.use((req, res) => {
     availableEndpoints: [
       'GET /',
       'GET /order',
+      'GET /order-confirmation',
       'GET /api/health',
       'POST /api/resume/generate',
       'POST /api/payments/resume-checkout'
