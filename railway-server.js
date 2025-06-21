@@ -942,48 +942,65 @@ app.get('/order', (req, res) => {
             if (lang === 'fr') {
               // Main title
               let title = document.querySelector('h1');
-              if (title) title.textContent = '🚀 Obtenez votre emploi de reve avec un CV assiste par IA';
+              if (title) {
+                title.textContent = '🚀 Obtenez votre emploi de reve avec un CV assiste par IA';
+                console.log('Title translated');
+              }
               
               // Subtitle  
               let subtitle = document.querySelector('[data-translate="main-subtitle"]');
-              if (subtitle) subtitle.textContent = 'Service professionnel de CV assiste par IA';
+              if (subtitle) {
+                subtitle.textContent = 'Service professionnel de CV assiste par IA';
+                console.log('Subtitle translated');
+              }
               
-              // Package titles
+              // Package titles - try different selectors
               let basic = document.querySelector('[data-translate="package-basic-title"]');
-              if (basic) basic.textContent = 'Basique';
+              if (!basic) basic = document.querySelector('h3');
+              if (basic) {
+                basic.textContent = 'Basique';
+                console.log('Basic package translated');
+              }
               
-              let professional = document.querySelector('[data-translate="package-pro-title"]');
-              if (professional) professional.textContent = 'Professionnel';
+              let allH3 = document.querySelectorAll('h3');
+              console.log('Found h3 elements:', allH3.length);
+              if (allH3.length >= 3) {
+                allH3[0].textContent = 'Basique';
+                allH3[1].textContent = 'Professionnel'; 
+                allH3[2].textContent = 'Executif';
+                console.log('All packages translated via h3');
+              }
               
-              let executive = document.querySelector('[data-translate="package-exec-title"]');
-              if (executive) executive.textContent = 'Executif';
+              // Section headers - try all h2 elements
+              let allH2 = document.querySelectorAll('h2');
+              console.log('Found h2 elements:', allH2.length);
+              if (allH2.length >= 3) {
+                allH2[0].textContent = 'Selectionnez votre forfait';
+                allH2[1].textContent = 'Informations de Contact';
+                allH2[2].textContent = 'Details de votre emploi';
+                if (allH2[3]) allH2[3].textContent = 'Votre parcours';
+                console.log('H2 headers translated');
+              }
               
-              // Section headers
-              let contactTitle = document.querySelector('[data-translate="contact-title"]');
-              if (contactTitle) contactTitle.textContent = 'Informations de Contact';
+              // Form labels - try all labels
+              let allLabels = document.querySelectorAll('label');
+              console.log('Found label elements:', allLabels.length);
+              if (allLabels.length > 0) {
+                // Translate first few labels we can find
+                if (allLabels[0]) allLabels[0].textContent = 'Prenom *';
+                if (allLabels[1]) allLabels[1].textContent = 'Nom de famille *';
+                if (allLabels[2]) allLabels[2].textContent = 'Courriel *';
+                if (allLabels[3]) allLabels[3].textContent = 'Telephone';
+                console.log('Labels translated');
+              }
               
-              let jobTitle = document.querySelector('[data-translate="job-title"]');
-              if (jobTitle) jobTitle.textContent = 'Details de votre emploi';
-              
-              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
-              if (backgroundTitle) backgroundTitle.textContent = 'Votre parcours';
-              
-              // Form labels
-              let firstName = document.querySelector('[data-translate="form-firstname"]');
-              if (firstName) firstName.textContent = 'Prenom *';
-              
-              let lastName = document.querySelector('[data-translate="form-lastname"]');
-              if (lastName) lastName.textContent = 'Nom de famille *';
-              
-              let email = document.querySelector('[data-translate="form-email"]');
-              if (email) email.textContent = 'Courriel *';
-              
-              let phone = document.querySelector('[data-translate="form-phone"]');
-              if (phone) phone.textContent = 'Telephone';
-              
-              // Submit button
-              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
-              if (submitBtn) submitBtn.textContent = '💳 Proceder au paiement securise';
+              // Submit button - try different selectors
+              let submitBtn = document.querySelector('button[type="submit"]');
+              if (!submitBtn) submitBtn = document.querySelector('button');
+              if (submitBtn) {
+                submitBtn.textContent = '💳 Proceder au paiement securise';
+                console.log('Submit button translated');
+              }
               
               console.log('✅ Page translated to French');
               
