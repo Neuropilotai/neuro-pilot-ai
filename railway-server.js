@@ -331,59 +331,124 @@ app.get('/', (req, res) => {
         </style>
       </head>
       <body>
+        <div style="position: absolute; top: 20px; right: 30px; z-index: 1000;">
+          <select id="languageSelect" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
+            <option value="en">🇺🇸 English</option>
+            <option value="fr">🇨🇦 Français</option>
+          </select>
+        </div>
         <div class="container">
           <div class="logo">
             <div class="logo-icon">N.P</div>
             <div class="logo-text">
               <h2 class="logo-title">NEURO.PILOT.AI</h2>
-              <p class="logo-subtitle">Professional Resume Service</p>
+              <p class="logo-subtitle" data-translate="home-subtitle">Professional Resume Service</p>
             </div>
           </div>
           
-          <h1>🚀 AI-Powered Resume Generation</h1>
-          <p class="status">✅ Service is Online</p>
+          <h1 data-translate="home-title">🚀 AI-Powered Resume Generation</h1>
+          <p class="status" data-translate="home-status">✅ Service is Online</p>
           
           <div class="stats">
             <div class="stat">
               <div class="stat-number">AI</div>
-              <div class="stat-label">Powered</div>
+              <div class="stat-label" data-translate="stat-powered">Powered</div>
             </div>
             <div class="stat">
               <div class="stat-number">ATS</div>
-              <div class="stat-label">Optimized</div>
+              <div class="stat-label" data-translate="stat-optimized">Optimized</div>
             </div>
             <div class="stat">
               <div class="stat-number">24h</div>
-              <div class="stat-label">Delivery</div>
+              <div class="stat-label" data-translate="stat-delivery">Delivery</div>
             </div>
           </div>
           
           <div class="features">
             <div class="feature">
               <div class="feature-icon">🤖</div>
-              <div class="feature-text">AI-Optimized</div>
+              <div class="feature-text" data-translate="feat-ai">AI-Optimized</div>
             </div>
             <div class="feature">
               <div class="feature-icon">✅</div>
-              <div class="feature-text">ATS-Friendly</div>
+              <div class="feature-text" data-translate="feat-ats">ATS-Friendly</div>
             </div>
             <div class="feature">
               <div class="feature-icon">💼</div>
-              <div class="feature-text">Professional</div>
+              <div class="feature-text" data-translate="feat-professional">Professional</div>
             </div>
             <div class="feature">
               <div class="feature-icon">⚡</div>
-              <div class="feature-text">Fast Delivery</div>
+              <div class="feature-text" data-translate="feat-fast">Fast Delivery</div>
             </div>
           </div>
           
           <div class="buttons">
-            <a href="/order" class="btn">📝 Order Your Resume</a>
-            <a href="https://pro.fiverr.com/users/neuropilot" class="btn secondary" target="_blank">💼 View on Fiverr</a>
+            <a href="/order" class="btn" data-translate="btn-order">📝 Order Your Resume</a>
+            <a href="https://pro.fiverr.com/users/neuropilot" class="btn secondary" target="_blank" data-translate="btn-fiverr">💼 View on Fiverr</a>
           </div>
           
-          <p style="color: #666; font-size: 14px;">Professional AI resume optimization service</p>
+          <p style="color: #666; font-size: 14px;" data-translate="home-description">Professional AI resume optimization service</p>
         </div>
+        
+        <script>
+          // Bilingual Translation System - English/French for North America (Homepage)
+          const translations = {
+            'en': {
+              'home-subtitle': 'Professional Resume Service',
+              'home-title': '🚀 AI-Powered Resume Generation',
+              'home-status': '✅ Service is Online',
+              'stat-powered': 'Powered',
+              'stat-optimized': 'Optimized',
+              'stat-delivery': 'Delivery',
+              'feat-ai': 'AI-Optimized',
+              'feat-ats': 'ATS-Friendly',
+              'feat-professional': 'Professional',
+              'feat-fast': 'Fast Delivery',
+              'btn-order': '📝 Order Your Resume',
+              'btn-fiverr': '💼 View on Fiverr',
+              'home-description': 'Professional AI resume optimization service'
+            },
+            'fr': {
+              'home-subtitle': 'Service de CV Professionnel',
+              'home-title': '🚀 Génération de CV assistée par IA',
+              'home-status': '✅ Service en ligne',
+              'stat-powered': 'Assisté',
+              'stat-optimized': 'Optimisé',
+              'stat-delivery': 'Livraison',
+              'feat-ai': 'Optimisé IA',
+              'feat-ats': 'Compatible ATS',
+              'feat-professional': 'Professionnel',
+              'feat-fast': 'Livraison rapide',
+              'btn-order': '📝 Commandez votre CV',
+              'btn-fiverr': '💼 Voir sur Fiverr',
+              'home-description': 'Service d\'optimisation de CV professionnel assisté par IA'
+            }
+          };
+          
+          let currentLanguage = 'en';
+          
+          function translatePage(language) {
+            currentLanguage = language;
+            const langData = translations[language];
+            
+            // Translate text content
+            document.querySelectorAll('[data-translate]').forEach(element => {
+              const key = element.getAttribute('data-translate');
+              if (langData[key]) {
+                element.textContent = langData[key];
+              }
+            });
+          }
+          
+          // Language selector event listener
+          document.getElementById('languageSelect').addEventListener('change', function() {
+            translatePage(this.value);
+          });
+          
+          // Initialize with English
+          translatePage('en');
+        </script>
       </body>
     </html>
   `);
@@ -865,7 +930,7 @@ app.get('/order', (req, res) => {
           <div style="position: absolute; top: 20px; right: 30px;">
             <select id="languageSelect" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
               <option value="en">🇺🇸 English</option>
-              <option value="fr">🇫🇷 Français</option>
+              <option value="fr">🇨🇦 Français</option>
             </select>
           </div>
           <a href="/" class="logo">
