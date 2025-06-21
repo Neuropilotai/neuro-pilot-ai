@@ -937,37 +937,80 @@ app.get('/order', (req, res) => {
           console.log('JavaScript is working!');
           
           function switchLanguage(lang) {
-            alert('Function called! Language: ' + lang);
-            
             if (lang === 'fr') {
-              // Simple test - just change title and one package
+              // Main title
               let title = document.querySelector('h1');
-              if (title) {
-                title.textContent = '🚀 CV en francais avec IA';
-                title.style.color = 'red';
-              }
+              if (title) title.textContent = '🚀 Obtenez votre emploi de reve avec un CV assiste par IA';
               
+              // Subtitle
+              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
+              if (subtitle) subtitle.textContent = 'Service professionnel de CV assiste par IA';
+              
+              // Package titles
               let allH3 = document.querySelectorAll('h3');
-              if (allH3.length > 0) {
-                allH3[0].textContent = 'BASIQUE';
-                allH3[0].style.color = 'green';
+              if (allH3.length >= 3) {
+                allH3[0].textContent = 'Basique';
+                allH3[1].textContent = 'Professionnel';
+                allH3[2].textContent = 'Executif';
               }
               
-              alert('French applied - check if title is red and first package is green');
+              // Section headers  
+              let allH2 = document.querySelectorAll('h2');
+              if (allH2.length >= 4) {
+                allH2[0].textContent = 'Selectionnez votre forfait';
+                allH2[1].textContent = 'Informations de Contact';
+                allH2[2].textContent = 'Details de votre emploi';
+                allH2[3].textContent = 'Votre parcours';
+              }
+              
+              // Form labels
+              let allLabels = document.querySelectorAll('label');
+              if (allLabels.length >= 4) {
+                allLabels[0].textContent = 'Prenom *';
+                allLabels[1].textContent = 'Nom de famille *';
+                allLabels[2].textContent = 'Courriel *';
+                allLabels[3].textContent = 'Telephone';
+              }
+              
+              // Submit button
+              let submitBtn = document.querySelector('button[type="submit"]');
+              if (submitBtn) submitBtn.textContent = '💳 Proceder au paiement securise';
+              
+              alert('Page traduite en francais!');
               
             } else {
-              // English
+              // English - reset everything back
               let title = document.querySelector('h1');
-              if (title) {
-                title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
-                title.style.color = '';
-              }
+              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+              
+              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
+              if (subtitle) subtitle.textContent = 'Professional AI-powered resume optimization service';
               
               let allH3 = document.querySelectorAll('h3');
-              if (allH3.length > 0) {
+              if (allH3.length >= 3) {
                 allH3[0].textContent = 'Basic';
-                allH3[0].style.color = '';
+                allH3[1].textContent = 'Professional';
+                allH3[2].textContent = 'Executive';
               }
+              
+              let allH2 = document.querySelectorAll('h2');
+              if (allH2.length >= 4) {
+                allH2[0].textContent = 'Select Your Package';
+                allH2[1].textContent = 'Contact Information';
+                allH2[2].textContent = 'Job Details';
+                allH2[3].textContent = 'Your Background';
+              }
+              
+              let allLabels = document.querySelectorAll('label');
+              if (allLabels.length >= 4) {
+                allLabels[0].textContent = 'First Name *';
+                allLabels[1].textContent = 'Last Name *';
+                allLabels[2].textContent = 'Email *';
+                allLabels[3].textContent = 'Phone';
+              }
+              
+              let submitBtn = document.querySelector('button[type="submit"]');
+              if (submitBtn) submitBtn.textContent = '💳 Proceed to Secure Payment';
             }
           }
         </script>
