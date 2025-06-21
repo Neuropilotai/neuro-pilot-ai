@@ -24,14 +24,14 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "https://b290-23-233-176-252.ngrok-free.app"],
+    origin: process.env.NODE_ENV === 'production' ? true : ["http://localhost:3000"],
     methods: ["GET", "POST"]
   }
 });
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "https://b290-23-233-176-252.ngrok-free.app"],
+  origin: process.env.NODE_ENV === 'production' ? true : ["http://localhost:3000"],
   credentials: true
 }));
 app.use(express.json());
@@ -39,7 +39,6 @@ app.use(express.static('public'));
 
 // Multer for file uploads
 const multer = require('multer');
-const path = require('path');
 const upload = multer({ 
   dest: 'uploads/',
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
@@ -61,18 +60,29 @@ const superTradingAgent = new SuperTradingAgent(); // Premium AI trading agent
 const paymentProcessor = new PaymentProcessor();
 const customerServiceAgent = new CustomerServiceAgent(); // Customer Service Super Agent
 
+// Create necessary directories
+const requiredDirs = ['uploads', 'generated_resumes', 'public'];
+requiredDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`📁 Created directory: ${dir}`);
+  }
+});
+
 // Initialize database
 initDatabase().catch(console.error);
 
-// Connect to live dashboard
+// Connect to live dashboard (only in development)
 let dashboardSocket;
-try {
-    dashboardSocket = dashboardIO('http://localhost:3008');
-    dashboardSocket.on('connect', () => {
-        console.log('📊 Connected to Live Dashboard');
-    });
-} catch (error) {
-    console.log('📊 Live Dashboard not available');
+if (process.env.NODE_ENV !== 'production') {
+  try {
+      dashboardSocket = dashboardIO('http://localhost:3008');
+      dashboardSocket.on('connect', () => {
+          console.log('📊 Connected to Live Dashboard');
+      });
+  } catch (error) {
+      console.log('📊 Live Dashboard not available');
+  }
 }
 
 // Helper function to broadcast events to live dashboard
