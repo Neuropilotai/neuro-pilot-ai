@@ -938,6 +938,32 @@ app.get('/order', (req, res) => {
           
           function switchLanguage(lang) {
             alert('switchLanguage called with: ' + lang);
+            
+            if (lang === 'fr') {
+              // Test different selectors to find the main title
+              let title = document.querySelector('h1[data-translate="main-title"]');
+              if (!title) title = document.querySelector('h1');
+              if (!title) title = document.querySelector('[data-translate="main-title"]');
+              
+              alert('Found title element: ' + (title ? 'YES' : 'NO'));
+              
+              if (title) {
+                const oldText = title.textContent;
+                title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
+                alert('Changed title from: "' + oldText + '" to French');
+              }
+              
+              // Test package elements
+              let basic = document.querySelector('h3[data-translate="package-basic-title"]');
+              if (!basic) basic = document.querySelector('h3');
+              
+              alert('Found basic package: ' + (basic ? 'YES' : 'NO'));
+              
+              if (basic) {
+                basic.textContent = 'Basique';
+                alert('Changed package to Basique');
+              }
+            }
           }
         </script>
         <div class="header">
