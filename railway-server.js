@@ -937,32 +937,90 @@ app.get('/order', (req, res) => {
           alert('JavaScript is working!');
           
           function switchLanguage(lang) {
-            alert('switchLanguage called with: ' + lang);
-            
             if (lang === 'fr') {
-              // Test different selectors to find the main title
+              // Main title
               let title = document.querySelector('h1[data-translate="main-title"]');
               if (!title) title = document.querySelector('h1');
-              if (!title) title = document.querySelector('[data-translate="main-title"]');
+              if (title) title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
               
-              alert('Found title element: ' + (title ? 'YES' : 'NO'));
+              // Subtitle
+              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
+              if (subtitle) subtitle.textContent = 'Service d\'optimisation de CV professionnel assisté par IA';
               
-              if (title) {
-                const oldText = title.textContent;
-                title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-                alert('Changed title from: "' + oldText + '" to French');
-              }
+              // Package titles
+              let basic = document.querySelector('[data-translate="package-basic-title"]');
+              if (basic) basic.textContent = 'Basique';
               
-              // Test package elements
-              let basic = document.querySelector('h3[data-translate="package-basic-title"]');
-              if (!basic) basic = document.querySelector('h3');
+              let professional = document.querySelector('[data-translate="package-pro-title"]');
+              if (professional) professional.textContent = 'Professionnel';
               
-              alert('Found basic package: ' + (basic ? 'YES' : 'NO'));
+              let executive = document.querySelector('[data-translate="package-exec-title"]');
+              if (executive) executive.textContent = 'Exécutif';
               
-              if (basic) {
-                basic.textContent = 'Basique';
-                alert('Changed package to Basique');
-              }
+              // Form sections
+              let contactTitle = document.querySelector('[data-translate="contact-title"]');
+              if (contactTitle) contactTitle.textContent = 'Informations de Contact';
+              
+              let jobTitle = document.querySelector('[data-translate="job-title"]');
+              if (jobTitle) jobTitle.textContent = 'Détails de l\'emploi';
+              
+              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
+              if (backgroundTitle) backgroundTitle.textContent = 'Votre parcours';
+              
+              // Form labels
+              let firstName = document.querySelector('[data-translate="form-firstname"]');
+              if (firstName) firstName.textContent = 'Prénom *';
+              
+              let lastName = document.querySelector('[data-translate="form-lastname"]');
+              if (lastName) lastName.textContent = 'Nom de famille *';
+              
+              let email = document.querySelector('[data-translate="form-email"]');
+              if (email) email.textContent = 'Courriel *';
+              
+              // Submit button
+              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
+              if (submitBtn) submitBtn.textContent = '💳 Procéder au paiement sécurisé';
+              
+              alert('Page traduite en français!');
+              
+            } else {
+              // Switch back to English
+              let title = document.querySelector('h1[data-translate="main-title"]');
+              if (!title) title = document.querySelector('h1');
+              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
+              
+              let subtitle = document.querySelector('[data-translate="main-subtitle"]');
+              if (subtitle) subtitle.textContent = 'Professional AI-powered resume optimization service';
+              
+              let basic = document.querySelector('[data-translate="package-basic-title"]');
+              if (basic) basic.textContent = 'Basic';
+              
+              let professional = document.querySelector('[data-translate="package-pro-title"]');
+              if (professional) professional.textContent = 'Professional';
+              
+              let executive = document.querySelector('[data-translate="package-exec-title"]');
+              if (executive) executive.textContent = 'Executive';
+              
+              let contactTitle = document.querySelector('[data-translate="contact-title"]');
+              if (contactTitle) contactTitle.textContent = 'Contact Information';
+              
+              let jobTitle = document.querySelector('[data-translate="job-title"]');
+              if (jobTitle) jobTitle.textContent = 'Job Details';
+              
+              let backgroundTitle = document.querySelector('[data-translate="background-title"]');
+              if (backgroundTitle) backgroundTitle.textContent = 'Your Background';
+              
+              let firstName = document.querySelector('[data-translate="form-firstname"]');
+              if (firstName) firstName.textContent = 'First Name *';
+              
+              let lastName = document.querySelector('[data-translate="form-lastname"]');
+              if (lastName) lastName.textContent = 'Last Name *';
+              
+              let email = document.querySelector('[data-translate="form-email"]');
+              if (email) email.textContent = 'Email *';
+              
+              let submitBtn = document.querySelector('[data-translate="btn-payment"]');
+              if (submitBtn) submitBtn.textContent = '💳 Proceed to Secure Payment';
             }
           }
         </script>
