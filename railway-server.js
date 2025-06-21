@@ -315,16 +315,16 @@ app.get('/', (req, res) => {
           
           <div class="stats">
             <div class="stat">
-              <div class="stat-number">10K+</div>
-              <div class="stat-label">Happy Customers</div>
+              <div class="stat-number">AI</div>
+              <div class="stat-label">Powered</div>
             </div>
             <div class="stat">
-              <div class="stat-number">98%</div>
-              <div class="stat-label">Success Rate</div>
+              <div class="stat-number">ATS</div>
+              <div class="stat-label">Optimized</div>
             </div>
             <div class="stat">
               <div class="stat-number">24h</div>
-              <div class="stat-label">Fast Delivery</div>
+              <div class="stat-label">Delivery</div>
             </div>
           </div>
           
@@ -352,7 +352,7 @@ app.get('/', (req, res) => {
             <a href="https://pro.fiverr.com/users/neuropilot" class="btn secondary" target="_blank">💼 View on Fiverr</a>
           </div>
           
-          <p style="color: #666; font-size: 14px;">Trusted by professionals at Google, Amazon, Microsoft, and more</p>
+          <p style="color: #666; font-size: 14px;">Professional AI resume optimization service</p>
         </div>
       </body>
     </html>
@@ -653,7 +653,7 @@ app.get('/order', (req, res) => {
         
         <div class="container">
           <h1>🚀 Get Your Dream Job with AI-Powered Resume</h1>
-          <p class="subtitle">Join 10,000+ professionals who landed their dream jobs</p>
+          <p class="subtitle">Professional AI-powered resume optimization service</p>
           
           <div class="features">
             <div class="feature">
@@ -678,9 +678,6 @@ app.get('/order', (req, res) => {
             </div>
           </div>
           
-          <div class="guarantee">
-            🌟 <strong>100% Satisfaction Guarantee</strong> - Revisions included with each package (valid for 1 year)!
-          </div>
           
           <form id="orderForm">
             <!-- Package Selection -->
