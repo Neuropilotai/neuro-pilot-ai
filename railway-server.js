@@ -1535,7 +1535,7 @@ app.get('/order', (req, res) => {
                 
                 // Translate subtitle
                 const subtitle = document.querySelector('[data-translate="main-subtitle"]');
-                if (subtitle) subtitle.textContent = 'Service d\'optimisation de CV professionnel assisté par IA';
+                if (subtitle) subtitle.textContent = 'Service d\\'optimisation de CV professionnel assisté par IA';
                 
                 // Translate package titles
                 const basicTitle = document.querySelector('[data-translate="package-basic-title"]');
