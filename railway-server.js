@@ -1750,7 +1750,7 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
-  console.log(`🚀 Neuro.Pilot.AI Railway Server running on port ${PORT}`);
+  console.log(`🚀 Neuro.Pilot.AI Railway Server (Bilingual 🇺🇸🇨🇦) running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`💳 Payment processing ready`);
   console.log(`📝 Resume orders ready`);
