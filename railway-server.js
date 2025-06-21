@@ -427,34 +427,6 @@ app.get('/', (req, res) => {
           };
           
           let currentLanguage = 'en';
-          
-          function translatePage(language) {
-            currentLanguage = language;
-            const langData = translations[language];
-            
-            // Translate text content
-            document.querySelectorAll('[data-translate]').forEach(element => {
-              const key = element.getAttribute('data-translate');
-              if (langData[key]) {
-                element.textContent = langData[key];
-              }
-            });
-          }
-          
-          // Language selector event listener (script runs after DOM)
-          const languageSelect = document.getElementById('languageSelect');
-          if (languageSelect) {
-            languageSelect.addEventListener('change', function() {
-              console.log('Language changed to:', this.value);
-              translatePage(this.value);
-            });
-            
-            // Initialize with English
-            translatePage('en');
-            console.log('Bilingual system initialized');
-          } else {
-            console.error('Language selector not found - ID:', 'languageSelect');
-          }
         </script>
       </body>
     </html>
@@ -1408,45 +1380,6 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
-          // Global language switching function
-          function switchLanguage(lang) {
-            alert('Language switch triggered: ' + lang);
-            
-            if (lang === 'fr') {
-              // Change main title
-              const title = document.querySelector('h1[data-translate="main-title"]');
-              if (title) {
-                title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-                alert('Title changed to French!');
-              } else {
-                alert('Title element not found');
-              }
-              
-              // Change package titles  
-              const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
-              if (basicTitle) basicTitle.textContent = 'Basique';
-              
-              const proTitle = document.querySelector('h3[data-translate="package-pro-title"]');
-              if (proTitle) proTitle.textContent = 'Professionnel';
-              
-              const execTitle = document.querySelector('h3[data-translate="package-exec-title"]');
-              if (execTitle) execTitle.textContent = 'Exécutif';
-              
-            } else {
-              // Switch back to English
-              const title = document.querySelector('h1[data-translate="main-title"]');
-              if (title) title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
-              
-              const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
-              if (basicTitle) basicTitle.textContent = 'Basic';
-              
-              const proTitle = document.querySelector('h3[data-translate="package-pro-title"]');
-              if (proTitle) proTitle.textContent = 'Professional';
-              
-              const execTitle = document.querySelector('h3[data-translate="package-exec-title"]');
-              if (execTitle) execTitle.textContent = 'Executive';
-            }
-          }
           
           let currentPrice = 45;
           let appliedDiscount = 0;
@@ -1779,103 +1712,6 @@ app.get('/order', (req, res) => {
               'placeholder-promo': 'Entrez le code promo'
             }
           };
-          
-          let currentLanguage = 'en';
-          
-          function translatePage(language) {
-            currentLanguage = language;
-            const langData = translations[language];
-            console.log('Translating to:', language, 'Data available:', !!langData);
-            
-            // Translate text content
-            const elementsToTranslate = document.querySelectorAll('[data-translate]');
-            console.log('Found elements to translate:', elementsToTranslate.length);
-            
-            elementsToTranslate.forEach(element => {
-              const key = element.getAttribute('data-translate');
-              if (langData[key]) {
-                const oldText = element.textContent;
-                element.textContent = langData[key];
-                console.log('Translated:', key, oldText, '->', langData[key]);
-              } else {
-                console.log('Missing translation for key:', key);
-              }
-            });
-            
-            // Translate placeholders
-            const placeholderElements = document.querySelectorAll('[data-translate-placeholder]');
-            console.log('Found placeholder elements:', placeholderElements.length);
-            
-            placeholderElements.forEach(element => {
-              const key = element.getAttribute('data-translate-placeholder');
-              if (langData[key]) {
-                element.placeholder = langData[key];
-                console.log('Translated placeholder:', key, '->', langData[key]);
-              }
-            });
-            
-            // Update button text after translation
-            const applyBtn = document.getElementById('applyPromo');
-            const submitBtn = document.querySelector('button[type="submit"]');
-            
-            if (applyBtn && !applyBtn.disabled) {
-              applyBtn.textContent = langData['btn-apply'] || 'Apply';
-            }
-            
-            if (submitBtn && !submitBtn.disabled) {
-              submitBtn.textContent = langData['btn-payment'] || '💳 Proceed to Secure Payment';
-            }
-          }
-          
-          // Simple direct event binding
-          setTimeout(function() {
-            const languageSelect = document.getElementById('languageSelect');
-            console.log('Found language selector:', !!languageSelect);
-            
-            if (languageSelect) {
-              // Add onchange directly to the element
-              languageSelect.onchange = function() {
-                console.log('Language selector changed to:', this.value);
-                
-                if (this.value === 'fr') {
-                  // Test if we can find and change elements
-                  const title = document.querySelector('h1[data-translate="main-title"]');
-                  console.log('Found title element:', !!title);
-                  
-                  if (title) {
-                    title.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-                    console.log('Title changed to French');
-                  }
-                  
-                  // Change a package title
-                  const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
-                  if (basicTitle) {
-                    basicTitle.textContent = 'Basique';
-                    console.log('Basic package changed to French');
-                  }
-                  
-                  // Show alert to confirm it's working
-                  alert('Français sélectionné! Some text should change.');
-                  
-                } else {
-                  // Switch back to English
-                  const title = document.querySelector('h1[data-translate="main-title"]');
-                  if (title) {
-                    title.textContent = '🚀 Get Your Dream Job with AI-Powered Resume';
-                  }
-                  
-                  const basicTitle = document.querySelector('h3[data-translate="package-basic-title"]');
-                  if (basicTitle) {
-                    basicTitle.textContent = 'Basic';
-                  }
-                }
-              };
-              
-              console.log('Language selector event handler attached');
-            } else {
-              console.error('Language selector not found!');
-            }
-          }, 1000);
         </script>
       </body>
     </html>
