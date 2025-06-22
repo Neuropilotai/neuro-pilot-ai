@@ -1,15 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Order Professional AI Resume - Neuro.Pilot.AI [UPDATED-v2.6]</title>
+    <title>Order Professional AI Resume - Neuro.Pilot.AI [UPDATED-v2.7-BILINGUAL]</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; position: relative; }
+        .container { max-width: 800px; margin: 0 auto; position: relative; }
+        .language-selector { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            z-index: 1000; 
+            background: white; 
+            padding: 5px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
         h1 { color: #333; text-align: center; }
         .package { border: 2px solid #ddd; padding: 15px; margin: 10px 0; cursor: pointer; border-radius: 8px; }
         .package.selected { border-color: #4CAF50; background-color: #f0f8f0; }
@@ -32,41 +43,54 @@
     </style>
 </head>
 <body>
+    <div class="language-selector">
+        <select id="languageSelect" style="background: white; border: 2px solid #ddd; border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer;">
+            <option value="en">🇺🇸 English</option>
+            <option value="fr">🇨🇦 Français</option>
+        </select>
+    </div>
     <div class="container">
-        <h1>Order Professional AI Resume</h1>
+        <div style="text-align: right; margin-bottom: 20px;">
+            <strong>Language / Langue:</strong>
+            <select id="languageSelect2" style="margin-left: 10px; background: #f0f8ff; border: 2px solid #4CAF50; border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                <option value="en">🇺🇸 English</option>
+                <option value="fr">🇨🇦 Français</option>
+            </select>
+        </div>
+        <h1 data-translate="order-title">Order Professional AI Resume</h1>
         
         <div class="package" data-package="basic" data-price="25">
-            <h3>Basic Package</h3>
+            <h3 data-translate="pkg-basic-title">Basic Package</h3>
             <div class="price">$25</div>
             <ul>
-                <li>Professional formatting</li>
-                <li>ATS optimization</li>
-                <li>1 revision</li>
-                <li>24-hour delivery</li>
+                <li data-translate="pkg-basic-1">Professional formatting</li>
+                <li data-translate="pkg-basic-2">ATS optimization</li>
+                <li data-translate="pkg-basic-3">1 revision</li>
+                <li data-translate="pkg-basic-4">24-hour delivery</li>
             </ul>
         </div>
         
         <div class="package selected" data-package="professional" data-price="45">
-            <h3>Professional Package</h3>
+            <h3 data-translate="pkg-pro-title">Professional Package</h3>
             <div class="price">$45</div>
             <ul>
-                <li>Everything in Basic</li>
-                <li>Cover letter included</li>
-                <li>LinkedIn optimization tips</li>
-                <li>3 revisions</li>
-                <li>12-hour delivery</li>
+                <li data-translate="pkg-pro-1">Everything in Basic</li>
+                <li data-translate="pkg-pro-2">Cover letter included</li>
+                <li data-translate="pkg-pro-3">LinkedIn optimization tips</li>
+                <li data-translate="pkg-pro-4">3 revisions</li>
+                <li data-translate="pkg-pro-5">12-hour delivery</li>
             </ul>
         </div>
         
         <div class="package" data-package="executive" data-price="85">
-            <h3>Executive Package</h3>
+            <h3 data-translate="pkg-exec-title">Executive Package</h3>
             <div class="price">$85</div>
             <ul>
-                <li>Everything in Professional</li>
-                <li>Executive summary</li>
-                <li>Industry-specific keywords</li>
-                <li>5 revisions</li>
-                <li>6-hour delivery</li>
+                <li data-translate="pkg-exec-1">Everything in Professional</li>
+                <li data-translate="pkg-exec-2">Executive summary</li>
+                <li data-translate="pkg-exec-3">Industry-specific keywords</li>
+                <li data-translate="pkg-exec-4">5 revisions</li>
+                <li data-translate="pkg-exec-5">6-hour delivery</li>
             </ul>
         </div>
         
@@ -75,48 +99,48 @@
             <input type="hidden" name="price" value="45">
             
             <div class="form-group">
-                <label for="firstName">First Name *</label>
-                <input type="text" id="firstName" name="firstName" required>
+                <label for="firstName" data-translate="form-firstname">First Name *</label>
+                <input type="text" id="firstName" name="firstName" autocomplete="given-name" required>
             </div>
             
             <div class="form-group">
-                <label for="lastName">Last Name *</label>
-                <input type="text" id="lastName" name="lastName" required>
+                <label for="lastName" data-translate="form-lastname">Last Name *</label>
+                <input type="text" id="lastName" name="lastName" autocomplete="family-name" required>
             </div>
             
             <div class="form-group">
-                <label for="email">Email *</label>
-                <input type="email" id="email" name="email" required>
+                <label for="email" data-translate="form-email">Email *</label>
+                <input type="email" id="email" name="email" autocomplete="email" required>
             </div>
             
             <div class="form-group">
-                <label for="jobTitle">Job Title You're Applying For *</label>
-                <input type="text" id="jobTitle" name="jobTitle" required>
+                <label for="jobTitle" data-translate="form-jobtitle">Job Title You're Applying For *</label>
+                <input type="text" id="jobTitle" name="jobTitle" autocomplete="organization-title" required>
             </div>
             
             <div class="promo-section">
-                <h3>Promo Code (Optional)</h3>
+                <h3 data-translate="promo-title">Promo Code (Optional)</h3>
                 <div class="promo-input">
-                    <input type="text" id="promoCode" placeholder="Enter promo code">
-                    <button type="button" id="applyPromo">Apply</button>
+                    <input type="text" id="promoCode" data-translate-placeholder="promo-placeholder" placeholder="Enter promo code" autocomplete="off">
+                    <button type="button" id="applyPromo" data-translate="promo-apply">Apply</button>
                 </div>
                 <div id="promoMessage" style="margin-top: 10px;"></div>
             </div>
             
             <div class="price-display">
-                <div class="final-price">Total: <span id="finalPrice">$45</span></div>
+                <div class="final-price"><span data-translate="price-total">Total:</span> <span id="finalPrice">$45</span></div>
                 <div style="margin-top: 10px;">
                     <span id="originalPrice" style="display: none;">$45</span>
                     <span id="discount" style="display: none;">-$0</span>
                 </div>
             </div>
             
-            <button type="submit" class="submit-button">💳 Proceed to Secure Payment</button>
+            <button type="submit" class="submit-button" data-translate="btn-payment">💳 Proceed to Secure Payment</button>
         </form>
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v2.6 - STANDALONE FILE - " + new Date().toISOString() + " ===");
+        console.log("=== SCRIPT STARTING v2.7 - WITH BILINGUAL SUPPORT - " + new Date().toISOString() + " ===");
         
         // Define promo codes object
         var promoCodes = {
@@ -251,6 +275,126 @@
             });
             
             console.log("All event listeners attached successfully!");
+        });
+        
+        // Bilingual Translation System - English/French for North America (Order Page)
+        const translations = {
+            'en': {
+                'order-title': 'Order Professional AI Resume',
+                'pkg-basic-title': 'Basic Package',
+                'pkg-basic-1': 'Professional formatting',
+                'pkg-basic-2': 'ATS optimization',
+                'pkg-basic-3': '1 revision',
+                'pkg-basic-4': '24-hour delivery',
+                'pkg-pro-title': 'Professional Package',
+                'pkg-pro-1': 'Everything in Basic',
+                'pkg-pro-2': 'Cover letter included',
+                'pkg-pro-3': 'LinkedIn optimization tips',
+                'pkg-pro-4': '3 revisions',
+                'pkg-pro-5': '12-hour delivery',
+                'pkg-exec-title': 'Executive Package',
+                'pkg-exec-1': 'Everything in Professional',
+                'pkg-exec-2': 'Executive summary',
+                'pkg-exec-3': 'Industry-specific keywords',
+                'pkg-exec-4': '5 revisions',
+                'pkg-exec-5': '6-hour delivery',
+                'form-firstname': 'First Name *',
+                'form-lastname': 'Last Name *',
+                'form-email': 'Email *',
+                'form-jobtitle': 'Job Title You\'re Applying For *',
+                'promo-title': 'Promo Code (Optional)',
+                'promo-placeholder': 'Enter promo code',
+                'promo-apply': 'Apply',
+                'price-total': 'Total:',
+                'btn-payment': '💳 Proceed to Secure Payment'
+            },
+            'fr': {
+                'order-title': 'Commandez un CV IA Professionnel',
+                'pkg-basic-title': 'Forfait de Base',
+                'pkg-basic-1': 'Formatage professionnel',
+                'pkg-basic-2': 'Optimisation ATS',
+                'pkg-basic-3': '1 révision',
+                'pkg-basic-4': 'Livraison 24h',
+                'pkg-pro-title': 'Forfait Professionnel',
+                'pkg-pro-1': 'Tout du forfait de base',
+                'pkg-pro-2': 'Lettre de motivation incluse',
+                'pkg-pro-3': 'Conseils d\'optimisation LinkedIn',
+                'pkg-pro-4': '3 révisions',
+                'pkg-pro-5': 'Livraison 12h',
+                'pkg-exec-title': 'Forfait Exécutif',
+                'pkg-exec-1': 'Tout du forfait professionnel',
+                'pkg-exec-2': 'Résumé exécutif',
+                'pkg-exec-3': 'Mots-clés spécifiques à l\'industrie',
+                'pkg-exec-4': '5 révisions',
+                'pkg-exec-5': 'Livraison 6h',
+                'form-firstname': 'Prénom *',
+                'form-lastname': 'Nom de famille *',
+                'form-email': 'Courriel *',
+                'form-jobtitle': 'Titre du poste souhaité *',
+                'promo-title': 'Code promo (Optionnel)',
+                'promo-placeholder': 'Entrez le code promo',
+                'promo-apply': 'Appliquer',
+                'price-total': 'Total:',
+                'btn-payment': '💳 Procéder au paiement sécurisé'
+            }
+        };
+        
+        let currentLanguage = 'en';
+        
+        function switchLanguage(lang) {
+            currentLanguage = lang;
+            const elementsToTranslate = document.querySelectorAll('[data-translate]');
+            
+            elementsToTranslate.forEach(element => {
+                const key = element.getAttribute('data-translate');
+                if (translations[lang] && translations[lang][key]) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+            
+            // Handle placeholder translations
+            const placeholderElements = document.querySelectorAll('[data-translate-placeholder]');
+            placeholderElements.forEach(element => {
+                const key = element.getAttribute('data-translate-placeholder');
+                if (translations[lang] && translations[lang][key]) {
+                    element.placeholder = translations[lang][key];
+                }
+            });
+            
+            console.log('Language switched to:', lang);
+        }
+        
+        // Set up language switcher
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Setting up language switcher...');
+            const languageSelect = document.getElementById('languageSelect');
+            const languageSelect2 = document.getElementById('languageSelect2');
+            console.log('Language select element:', languageSelect);
+            console.log('Language select2 element:', languageSelect2);
+            
+            if (languageSelect) {
+                console.log('Language selector 1 found! Adding event listener...');
+                languageSelect.addEventListener('change', function() {
+                    console.log('Language changed to:', this.value);
+                    switchLanguage(this.value);
+                    // Sync the other selector
+                    if (languageSelect2) languageSelect2.value = this.value;
+                });
+            }
+            
+            if (languageSelect2) {
+                console.log('Language selector 2 found! Adding event listener...');
+                languageSelect2.addEventListener('change', function() {
+                    console.log('Language changed to:', this.value);
+                    switchLanguage(this.value);
+                    // Sync the other selector
+                    if (languageSelect) languageSelect.value = this.value;
+                });
+            }
+            
+            if (!languageSelect && !languageSelect2) {
+                console.error('No language selectors found in DOM!');
+            }
         });
     </script>
 </body>
