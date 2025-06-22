@@ -477,20 +477,42 @@ app.get('/order', (req, res) => {
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
         <script>
-          // Global function to handle language change
+          // Simple immediate translation function
           function handleLanguageChange(lang) {
-            console.log('handleLanguageChange called with:', lang);
-            alert('Language change to: ' + lang);
+            console.log('Language change to:', lang);
             
-            // We'll call switchLanguage once it's available
-            if (typeof window.switchLanguage === 'function') {
-              console.log('Calling switchLanguage...');
-              window.switchLanguage(lang);
+            if (lang === 'fr') {
+              // Direct French translations
+              document.querySelectorAll('h1').forEach(h1 => {
+                if (h1.textContent.includes('Get Your Dream Job')) {
+                  h1.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
+                }
+              });
+              
+              document.querySelectorAll('h2').forEach(h2 => {
+                if (h2.textContent === 'Select Your Package') h2.textContent = 'Sélectionnez votre forfait';
+                if (h2.textContent === 'Contact Information') h2.textContent = 'Informations de Contact';
+                if (h2.textContent === 'Job Details') h2.textContent = 'Détails de votre emploi';
+                if (h2.textContent === 'Your Background') h2.textContent = 'Votre parcours';
+              });
+              
+              document.querySelectorAll('h3').forEach(h3 => {
+                if (h3.textContent === 'Basic') h3.textContent = 'Basique';
+                if (h3.textContent === 'Professional') h3.textContent = 'Professionnel';
+                if (h3.textContent === 'Executive') h3.textContent = 'Exécutif';
+              });
+              
+              document.querySelectorAll('label').forEach(label => {
+                if (label.textContent === 'First Name *') label.textContent = 'Prénom *';
+                if (label.textContent === 'Last Name *') label.textContent = 'Nom de famille *';
+                if (label.textContent === 'Email *') label.textContent = 'Courriel *';
+                if (label.textContent === 'Phone') label.textContent = 'Téléphone';
+              });
+              
+              alert('Page traduite en français! 🇨🇦');
             } else {
-              // Store the selection for later
-              window.pendingLanguageChange = lang;
-              console.log('switchLanguage not ready yet, stored selection:', lang);
-              alert('Translation system not ready. Will try when page loads.');
+              // Reset to English
+              location.reload(); // Simple reload to reset
             }
           }
         </script>
