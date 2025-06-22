@@ -1350,6 +1350,15 @@ app.get('/order', (req, res) => {
           
           console.log('Global variables set - currentPrice:', currentPrice, 'promoCodeApplied:', promoCodeApplied);
           
+          // Define promo codes object
+          var promoCodes = {
+            'FAMILY2025': { discount: 100, type: 'percentage', description: 'Family Test - 100% OFF' },
+            'TEST50': { discount: 50, type: 'percentage', description: '50% OFF Test Code' },
+            'FIRST10': { discount: 10, type: 'fixed', description: '$10 OFF Your First Order' }
+          };
+          
+          console.log('Promo codes defined:', Object.keys(promoCodes));
+          
           // Define updatePriceDisplay function FIRST - before any other code
           function updatePriceDisplay() {
             const finalPrice = Math.max(0, currentPrice - appliedDiscount);
