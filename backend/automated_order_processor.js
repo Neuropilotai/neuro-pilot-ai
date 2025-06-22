@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const EmailOrderSystem = require('./email_order_system');
-const { generateResume } = require('./ai_resume_generator');
+// Note: AI resume generator will be implemented as a simulated process for now
 
 class AutomatedOrderProcessor {
     constructor() {
@@ -75,14 +75,14 @@ class AutomatedOrderProcessor {
             // Prepare resume data
             const resumeData = {
                 personalInfo: {
-                    name: orderData.fullName,
+                    name: `${orderData.firstName || ''} ${orderData.lastName || ''}`.trim() || orderData.fullName,
                     email: orderData.email,
                     phone: orderData.phone || ''
                 },
-                targetRole: orderData.targetRole,
-                industry: orderData.industry,
-                experience: orderData.experience,
-                keywords: orderData.keywords ? orderData.keywords.split(',').map(k => k.trim()) : [],
+                targetRole: orderData.jobTitle || orderData.targetRole || 'Professional Role',
+                industry: orderData.targetIndustry || orderData.industry || 'Technology',
+                experience: orderData.careerLevel || orderData.experience || 'Mid-level',
+                keywords: orderData.skills ? orderData.skills.split(',').map(k => k.trim()) : [],
                 jobDescription: orderData.jobDescription || '',
                 currentResumePath: orderData.resumePath || null
             };
@@ -114,7 +114,7 @@ class AutomatedOrderProcessor {
                 await fs.writeFile(completedPath, JSON.stringify(orderData, null, 2));
                 await fs.unlink(orderPath);
                 
-                console.log('📧 Resume delivered to david.mikulis@sodexo.com');
+                console.log(`📧 Resume delivered to ${orderData.email}`);
                 console.log('✅ Order completed successfully!');
                 
             } else {
