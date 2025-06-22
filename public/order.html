@@ -721,7 +721,7 @@
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v4.1 - BADGE POSITIONING FIXED - " + new Date().toISOString() + " ===");
+        console.log("=== SCRIPT STARTING v4.2 - IMPROVED CV UPLOAD UX - " + new Date().toISOString() + " ===");
         
         // Define promo codes object
         var promoCodes = {
@@ -882,13 +882,25 @@
                             if (hasFile) {
                                 // Make optional when file is uploaded
                                 field.removeAttribute('required');
-                                label.innerHTML = label.innerHTML.replace(' *', ' (Optional - extracted from your uploaded resume)');
-                                field.style.borderColor = '#ddd';
+                                const labelText = label.textContent.replace(' *', '').replace(' (Optional)', '');
+                                if (currentLanguage === 'fr') {
+                                    label.innerHTML = labelText + ' <span style="color: #48bb78; font-weight: 500;">(Optionnel)</span>';
+                                } else {
+                                    label.innerHTML = labelText + ' <span style="color: #48bb78; font-weight: 500;">(Optional)</span>';
+                                }
+                                field.style.borderColor = '#48bb78';
+                                field.style.backgroundColor = '#f0fdf4';
+                                field.placeholder = currentLanguage === 'fr' ? 
+                                    'Optionnel - sera extrait de votre CV' : 
+                                    'Optional - will be extracted from your resume';
                             } else {
                                 // Make required when no file
                                 field.setAttribute('required', '');
-                                label.innerHTML = label.innerHTML.replace(' (Optional - extracted from your uploaded resume)', ' *');
+                                const labelText = label.textContent.replace(' (Optional)', '').replace(' (Optionnel)', '');
+                                label.innerHTML = labelText + ' *';
                                 field.style.borderColor = '';
+                                field.style.backgroundColor = '';
+                                field.placeholder = '';
                             }
                         }
                     });
@@ -916,15 +928,29 @@
                     if (sectionDesc) {
                         if (hasFile) {
                             if (currentLanguage === 'fr') {
-                                sectionDesc.textContent = 'Vos informations seront extraites automatiquement de votre CV. Vous pouvez compléter ou modifier ci-dessous.';
+                                sectionDesc.innerHTML = '<strong>✅ CV téléchargé!</strong> Notre IA analysera votre CV pour extraire vos informations. Les champs ci-dessous sont maintenant optionnels, mais vous pouvez les remplir pour fournir des détails supplémentaires ou des mises à jour.';
                             } else {
-                                sectionDesc.textContent = 'Your information will be extracted automatically from your uploaded resume. You can supplement or modify below.';
+                                sectionDesc.innerHTML = '<strong>✅ Resume uploaded!</strong> Our AI will analyze your resume to extract your information. The fields below are now optional, but you can fill them to provide additional details or updates.';
                             }
                         } else {
                             if (currentLanguage === 'fr') {
                                 sectionDesc.textContent = 'Veuillez fournir les informations suivantes pour créer un CV personnalisé et de haute qualité.';
                             } else {
                                 sectionDesc.textContent = 'Please provide the following information to create a personalized, high-quality resume.';
+                            }
+                        }
+                    }
+                    
+                    // Show upload success message
+                    if (hasFile && this.files[0]) {
+                        const fileName = this.files[0].name;
+                        const fileSize = (this.files[0].size / 1024 / 1024).toFixed(2); // MB
+                        const uploadText = document.querySelector('.file-upload-text');
+                        if (uploadText) {
+                            if (currentLanguage === 'fr') {
+                                uploadText.innerHTML = `<strong style="color: #48bb78;">✅ Fichier téléchargé: ${fileName} (${fileSize} MB)</strong><br>Votre CV sera analysé par notre IA.`;
+                            } else {
+                                uploadText.innerHTML = `<strong style="color: #48bb78;">✅ File uploaded: ${fileName} (${fileSize} MB)</strong><br>Your resume will be analyzed by our AI.`;
                             }
                         }
                     }
