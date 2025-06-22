@@ -30,6 +30,10 @@
         .price-display .discount { color: #e53e3e; font-weight: bold; }
         .submit-button { width: 100%; padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; }
         .submit-button:hover { background: #45a049; }
+        .file-upload { position: relative; overflow: hidden; display: inline-block; width: 100%; }
+        .file-upload input[type=file] { width: 100%; padding: 12px; border: 2px dashed #ddd; border-radius: 8px; background: #f9f9f9; cursor: pointer; }
+        .file-upload input[type=file]:hover { border-color: #4CAF50; background: #f0f8f0; }
+        .file-upload-text { margin-top: 8px; font-size: 12px; color: #666; }
     </style>
 </head>
 <body>
@@ -78,7 +82,7 @@
             </ul>
         </div>
         
-        <form id="orderForm">
+        <form id="orderForm" enctype="multipart/form-data">
             <input type="hidden" name="packageType" value="professional">
             <input type="hidden" name="price" value="45">
             
@@ -100,6 +104,14 @@
             <div class="form-group">
                 <label for="jobTitle" data-translate="form-jobtitle">Job Title You're Applying For *</label>
                 <input type="text" id="jobTitle" name="jobTitle" autocomplete="organization-title" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="currentResume" data-translate="form-resume-upload">Upload Your Current Resume (Optional)</label>
+                <div class="file-upload">
+                    <input type="file" id="currentResume" name="currentResume" accept=".pdf,.doc,.docx">
+                    <div class="file-upload-text" data-translate="form-resume-help">Accepted formats: PDF, DOC, DOCX (Max 10MB). This helps us understand your experience better.</div>
+                </div>
             </div>
             
             <div class="promo-section">
@@ -124,7 +136,7 @@
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v2.8 - SINGLE LANGUAGE SELECTOR - " + new Date().toISOString() + " ===");
+        console.log("=== SCRIPT STARTING v2.9 - WITH FILE UPLOAD - " + new Date().toISOString() + " ===");
         
         // Define promo codes object
         var promoCodes = {
@@ -286,6 +298,8 @@
                 'form-lastname': 'Last Name *',
                 'form-email': 'Email *',
                 'form-jobtitle': 'Job Title You\'re Applying For *',
+                'form-resume-upload': 'Upload Your Current Resume (Optional)',
+                'form-resume-help': 'Accepted formats: PDF, DOC, DOCX (Max 10MB). This helps us understand your experience better.',
                 'promo-title': 'Promo Code (Optional)',
                 'promo-placeholder': 'Enter promo code',
                 'promo-apply': 'Apply',
@@ -315,6 +329,8 @@
                 'form-lastname': 'Nom de famille *',
                 'form-email': 'Courriel *',
                 'form-jobtitle': 'Titre du poste souhaité *',
+                'form-resume-upload': 'Téléchargez votre CV actuel (Optionnel)',
+                'form-resume-help': 'Formats acceptés: PDF, DOC, DOCX (Max 10MB). Cela nous aide à mieux comprendre votre expérience.',
                 'promo-title': 'Code promo (Optionnel)',
                 'promo-placeholder': 'Entrez le code promo',
                 'promo-apply': 'Appliquer',
