@@ -538,15 +538,58 @@ app.get('/order', (req, res) => {
                 if (button.textContent.includes('Proceed to Secure Payment')) button.textContent = '💳 Procéder au paiement sécurisé';
               });
               
-              // Translate other text elements
-              document.querySelectorAll('*').forEach(element => {
+              // Translate more specific elements
+              document.querySelectorAll('p, span, div, li').forEach(element => {
+                // Subtitle
                 if (element.textContent === 'Professional AI-powered resume optimization service') {
                   element.textContent = 'Service professionnel d\'optimisation de CV assisté par IA';
                 }
+                if (element.textContent === 'Professional Resume Service') {
+                  element.textContent = 'Service de CV Professionnel';
+                }
+                
+                // Package features
+                if (element.textContent === 'Professional formatting') element.textContent = 'Formatage professionnel';
+                if (element.textContent === 'ATS optimization') element.textContent = 'Optimisation ATS';
+                if (element.textContent === 'Everything in Basic') element.textContent = 'Tout dans Basique';
+                if (element.textContent === 'Cover letter included') element.textContent = 'Lettre de motivation incluse';
+                if (element.textContent === 'LinkedIn optimization tips') element.textContent = 'Conseils d\'optimisation LinkedIn';
+                if (element.textContent === 'Everything in Professional') element.textContent = 'Tout dans Professionnel';
+                if (element.textContent === 'Executive summary') element.textContent = 'Résumé exécutif';
+                
+                // Other text
                 if (element.textContent === 'Total Price:') element.textContent = 'Prix total:';
-                if (element.textContent === 'Select Industry') element.textContent = 'Sélectionnez industrie';
-                if (element.textContent === 'Select Education') element.textContent = 'Sélectionnez éducation';
-                if (element.textContent === 'Select Years') element.textContent = 'Sélectionnez années';
+                if (element.textContent === 'No file chosen') element.textContent = 'Aucun fichier choisi';
+                if (element.textContent === 'Accepted formats: PDF, DOC, DOCX (Max 10MB)') {
+                  element.textContent = 'Formats acceptés: PDF, DOC, DOCX (Max 10MB)';
+                }
+                if (element.textContent === 'Upload your current resume for reference') {
+                  element.textContent = 'Téléchargez votre CV actuel pour référence';
+                }
+                if (element.textContent.includes('Revision Policy:')) {
+                  element.textContent = '📋 Politique de révision:';
+                }
+                if (element.textContent.includes('All revisions must be used within 1 year')) {
+                  element.textContent = '• Toutes les révisions doivent être utilisées dans l\'année';
+                }
+                if (element.textContent.includes('Your resume will be saved')) {
+                  element.textContent = '• Votre CV sera sauvegardé dans notre système';
+                }
+                if (element.textContent.includes('Your information is secure')) {
+                  element.textContent = '🔒 Vos informations sont sécurisées et chiffrées';
+                }
+              });
+              
+              // Translate dropdown options
+              document.querySelectorAll('option').forEach(option => {
+                if (option.textContent === 'Select Industry') option.textContent = 'Sélectionnez industrie';
+                if (option.textContent === 'Select Education') option.textContent = 'Sélectionnez éducation';
+                if (option.textContent === 'Select Years') option.textContent = 'Sélectionnez années';
+                if (option.textContent === 'Technology') option.textContent = 'Technologie';
+                if (option.textContent === 'Healthcare') option.textContent = 'Santé';
+                if (option.textContent === 'Finance') option.textContent = 'Finance';
+                if (option.textContent === 'Education') option.textContent = 'Éducation';
+                if (option.textContent === 'Other') option.textContent = 'Autre';
               });
               
               alert('Page entièrement traduite en français! 🇨🇦');
