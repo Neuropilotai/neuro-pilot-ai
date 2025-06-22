@@ -584,7 +584,7 @@ app.get('/order', (req, res) => {
                   
                   // If free order (promo code), skip payment
                   if (finalPrice === 0) {
-                    alert('🎉 FREE Order Confirmed!\\n\\nOrder ID: ' + orderResult.orderId + '\\n\\nWe will process your resume and send it to your email within the promised timeframe.');
+                    alert('🎉 FREE Order Confirmed!\n\nOrder ID: ' + orderResult.orderId + '\n\nWe will process your resume and send it to your email within the promised timeframe.');
                     window.location.href = '/order-confirmation?session=' + orderResult.orderId + '&package=' + data.packageType + '&price=0&promo=true';
                     return;
                   }
@@ -1350,16 +1350,7 @@ app.get('/order', (req, res) => {
           
           console.log('Global variables set - currentPrice:', currentPrice, 'promoCodeApplied:', promoCodeApplied);
           
-          console.log('Variables initialized - currentPrice:', currentPrice);
-          
-          // Promo codes configuration
-          const promoCodes = {
-            'FAMILY2025': { discount: 100, type: 'percentage', description: 'Family Test - 100% OFF' },
-            'TEST50': { discount: 50, type: 'percentage', description: '50% OFF Test Code' },
-            'FIRST10': { discount: 10, type: 'fixed', description: '$10 OFF Your First Order' }
-          };
-          
-          // Global function - accessible from everywhere
+          // Define updatePriceDisplay function FIRST - before any other code
           function updatePriceDisplay() {
             const finalPrice = Math.max(0, currentPrice - appliedDiscount);
             console.log('updatePriceDisplay called - currentPrice:', currentPrice, 'appliedDiscount:', appliedDiscount, 'finalPrice:', finalPrice);
