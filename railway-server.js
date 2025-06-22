@@ -477,6 +477,10 @@ app.get('/order', (req, res) => {
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
         <script>
+          // Test if JavaScript is working at all
+          alert('JavaScript is loading!');
+          console.log('Script started loading...');
+          
           // Simple immediate translation function - NEW NAME
           function translatePage(lang) {
             console.log('translatePage called with:', lang);
@@ -1073,6 +1077,7 @@ app.get('/order', (req, res) => {
               <option value="fr">🇨🇦 Français</option>
             </select>
             <br>
+            <button onclick="alert('Button clicked!')" style="margin-top: 5px; background: #ff0000; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Test Click</button>
             <button onclick="translatePage('fr')" style="margin-top: 5px; background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Test FR</button>
           </div>
           <a href="/" class="logo">
