@@ -508,9 +508,48 @@ app.get('/order', (req, res) => {
                 if (label.textContent === 'Last Name *') label.textContent = 'Nom de famille *';
                 if (label.textContent === 'Email *') label.textContent = 'Courriel *';
                 if (label.textContent === 'Phone') label.textContent = 'Téléphone';
+                if (label.textContent.includes('Job Title')) label.textContent = 'Titre du poste recherché *';
+                if (label.textContent.includes('Job Description')) label.textContent = 'Description du poste *';
+                if (label.textContent.includes('Company Name')) label.textContent = 'Nom de l\'entreprise';
+                if (label.textContent.includes('Industry')) label.textContent = 'Industrie';
+                if (label.textContent.includes('Work Experience')) label.textContent = 'Expérience de travail *';
+                if (label.textContent.includes('Key Skills')) label.textContent = 'Compétences clés *';
+                if (label.textContent.includes('Education Level')) label.textContent = 'Niveau d\'éducation';
+                if (label.textContent.includes('Years of Experience')) label.textContent = 'Années d\'expérience';
+                if (label.textContent.includes('Current Resume')) label.textContent = 'CV actuel (Optionnel)';
+                if (label.textContent.includes('Promo Code')) label.textContent = 'Code promo (Optionnel)';
               });
               
-              alert('Page traduite en français! 🇨🇦');
+              // Translate feature descriptions
+              document.querySelectorAll('h4, p').forEach(element => {
+                if (element.textContent === 'AI-Powered') element.textContent = 'Assisté par IA';
+                if (element.textContent === 'Advanced AI optimization') element.textContent = 'Optimisation IA avancée';
+                if (element.textContent === 'Fast Delivery') element.textContent = 'Livraison Rapide';
+                if (element.textContent === 'Get your resume in hours') element.textContent = 'Recevez votre CV en heures';
+                if (element.textContent === 'ATS-Friendly') element.textContent = 'Compatible ATS';
+                if (element.textContent === 'Pass applicant tracking systems') element.textContent = 'Passe les systèmes de suivi';
+                if (element.textContent === 'Professional') element.textContent = 'Professionnel';
+                if (element.textContent === 'Industry-specific keywords') element.textContent = 'Mots-clés spécifiques';
+              });
+              
+              // Translate buttons and other text
+              document.querySelectorAll('button').forEach(button => {
+                if (button.textContent.includes('Apply')) button.textContent = 'Appliquer';
+                if (button.textContent.includes('Proceed to Secure Payment')) button.textContent = '💳 Procéder au paiement sécurisé';
+              });
+              
+              // Translate other text elements
+              document.querySelectorAll('*').forEach(element => {
+                if (element.textContent === 'Professional AI-powered resume optimization service') {
+                  element.textContent = 'Service professionnel d\'optimisation de CV assisté par IA';
+                }
+                if (element.textContent === 'Total Price:') element.textContent = 'Prix total:';
+                if (element.textContent === 'Select Industry') element.textContent = 'Sélectionnez industrie';
+                if (element.textContent === 'Select Education') element.textContent = 'Sélectionnez éducation';
+                if (element.textContent === 'Select Years') element.textContent = 'Sélectionnez années';
+              });
+              
+              alert('Page entièrement traduite en français! 🇨🇦');
             } else {
               // Reset to English
               location.reload(); // Simple reload to reset
