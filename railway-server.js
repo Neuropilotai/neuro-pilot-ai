@@ -1402,6 +1402,8 @@ app.get('/order', (req, res) => {
             }
           }
           
+          console.log('updatePriceDisplay function defined!');
+          
           
           // Note: All event listeners have been moved to DOMContentLoaded block above
           
@@ -1647,7 +1649,7 @@ app.get('/order-confirmation', (req, res) => {
           <h1>🎉 Order Confirmed!</h1>
           ${isPromo ? '<div class="promo-badge">🎟️ PROMO CODE APPLIED</div>' : ''}
           <p style="font-size: 18px; color: #4a5568; margin: 20px 0;">
-            ${isPromo ? 'Your FREE test order has been confirmed!' : 'Thank you for your order. We've received your payment and will start working on your resume immediately.'}
+            ${isPromo ? 'Your FREE test order has been confirmed!' : 'Thank you for your order. We have received your payment and will start working on your resume immediately.'}
           </p>
           
           <div class="order-details">
