@@ -905,22 +905,9 @@ app.get('/order', (req, res) => {
         </style>
       </head>
       <body>
-        <script>
-          console.log('JavaScript is working!');
-          
-          // Define switchLanguage as a placeholder that will be replaced later
-          window.switchLanguage = function(lang) {
-            console.log('Language switch requested:', lang);
-            // The actual implementation will be added when translations are loaded
-            alert('Translations are still loading. Please try again in a moment.');
-          };
-        </script>
         <div class="header">
-          <div style="position: absolute; top: 20px; right: 30px;">
-            <select id="languageSelect" onchange="switchLanguage(this.value)" onclick="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
-              <option value="en">🇺🇸 English</option>
-              <option value="fr">🇨🇦 Français</option>
-            </select>
+          <div id="languageSelectorContainer" style="position: absolute; top: 20px; right: 30px;">
+            <!-- Language selector will be added by JavaScript -->
           </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
@@ -1504,6 +1491,11 @@ app.get('/order', (req, res) => {
               console.log('Error:', error);
             }
           }
+          
+          // Create and insert language selector
+          const languageSelectorHTML = '<select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;"><option value="en">🇺🇸 English</option><option value="fr">🇨🇦 Français</option></select>';
+          document.getElementById('languageSelectorContainer').innerHTML = languageSelectorHTML;
+          console.log('Language selector created and switchLanguage function ready');
         </script>
       </body>
     </html>
