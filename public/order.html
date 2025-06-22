@@ -1289,31 +1289,7 @@
                 console.error('Promo button not found!');
             }
             
-            // Form submission handler - moved inside DOMContentLoaded
-            const orderForm = document.getElementById('orderForm');
-            console.log('🔍 Looking for orderForm element:', orderForm);
-            
-            if (orderForm) {
-                console.log('✅ Found orderForm, adding submit listener...');
-                orderForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    console.log('Form submitted, processing order...');
-                    await processOrder();
-                });
-                
-                // Also add click listener to submit button as backup
-                const submitButton = document.querySelector('.submit-button');
-                if (submitButton) {
-                    console.log('✅ Found submit button, adding click listener...');
-                    submitButton.addEventListener('click', async function(e) {
-                        e.preventDefault();
-                        console.log('Submit button clicked, processing order...');
-                        await processOrder();
-                    });
-                }
-            }
-            
-            // Process order function
+            // Process order function - defined first
             async function processOrder() {
                 console.log('🚀 Processing order...');
                 
@@ -1373,9 +1349,32 @@
                     submitButton.textContent = originalText;
                 }
             }
-        } else {
-            console.error('❌ orderForm element not found!');
-        }
+            
+            // Form submission handler - moved after processOrder definition
+            const orderForm = document.getElementById('orderForm');
+            console.log('🔍 Looking for orderForm element:', orderForm);
+            
+            if (orderForm) {
+                console.log('✅ Found orderForm, adding submit listener...');
+                orderForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    console.log('Form submitted, processing order...');
+                    await processOrder();
+                });
+                
+                // Also add click listener to submit button as backup
+                const submitButton = document.querySelector('.submit-button');
+                if (submitButton) {
+                    console.log('✅ Found submit button, adding click listener...');
+                    submitButton.addEventListener('click', async function(e) {
+                        e.preventDefault();
+                        console.log('Submit button clicked, processing order...');
+                        await processOrder();
+                    });
+                }
+            } else {
+                console.error('❌ orderForm element not found!');
+            }
         });
     </script>
 </body>
