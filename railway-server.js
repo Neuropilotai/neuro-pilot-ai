@@ -1537,11 +1537,30 @@ app.get('/order', (req, res) => {
           (function() {
             const selector = document.getElementById('languageSelect');
             if (selector) {
-              selector.addEventListener('change', function() {
-                window.switchLanguage(this.value);
+              selector.addEventListener('change', function(e) {
+                console.log('Language changed to:', this.value);
+                console.log('Calling switchLanguage...');
+                
+                // Debug checks
+                console.log('window.switchLanguage exists?', typeof window.switchLanguage);
+                console.log('translations exists?', typeof translations);
+                
+                if (typeof window.switchLanguage === 'function') {
+                  window.switchLanguage(this.value);
+                } else {
+                  alert('Error: switchLanguage function not found!');
+                  console.error('switchLanguage is not a function:', window.switchLanguage);
+                }
               });
-              console.log('Language selector event listener added - Version 3.0');
+              console.log('Language selector event listener added - Version 3.1');
               console.log('Language selector is visible and ready!');
+              
+              // Also test if we can access translations
+              if (typeof translations !== 'undefined') {
+                console.log('Translations available:', Object.keys(translations));
+              } else {
+                console.error('Translations object not found!');
+              }
             } else {
               console.error('CRITICAL ERROR: Cannot find languageSelect element');
             }
