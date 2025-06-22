@@ -303,7 +303,7 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
         orderId: orderData.orderId,
         message: 'Free order confirmed! Check your email for confirmation.',
         revisions: orderData.revisions,
-        checkoutUrl: `/order-confirmation?session_id=free_${orderData.orderId}&order_id=${orderData.orderId}`
+        checkoutUrl: `/order-confirmation?session=free_${orderData.orderId}&order_id=${orderData.orderId}&package=${orderData.packageType}&price=0&promo=true`
       });
     }
     
@@ -661,10 +661,27 @@ app.get('/order', (req, res) => {
 });
 
 // Order confirmation page
-app.get('/order-confirmation', (req, res) => {
-  const { session, package: packageType, price, promo } = req.query;
+app.get('/order-confirmation', async (req, res) => {
+  const { session, package: packageType, price, promo, order_id } = req.query;
   const isPromo = promo === 'true';
-  const finalPrice = price || '45';
+  let finalPrice = price || '45';
+  let actualPackage = packageType || 'professional';
+  let orderId = session || 'Processing';
+  
+  // If we have an order_id, try to load the actual order data
+  if (order_id) {
+    try {
+      const orderPath = path.join(__dirname, 'orders', `${order_id}.json`);
+      if (fs.existsSync(orderPath)) {
+        const orderData = JSON.parse(fs.readFileSync(orderPath, 'utf8'));
+        actualPackage = orderData.packageType || actualPackage;
+        finalPrice = orderData.finalPrice || finalPrice;
+        orderId = orderData.orderId || orderId;
+      }
+    } catch (error) {
+      console.log('Could not load order data:', error.message);
+    }
+  }
   
   res.send(`
     <html>
@@ -730,10 +747,10 @@ app.get('/order-confirmation', (req, res) => {
           
           <div class="order-details">
             <h3 style="color: #2d3748; margin-bottom: 20px;">Order Details</h3>
-            <p><strong>Package:</strong> ${packageType ? packageType.charAt(0).toUpperCase() + packageType.slice(1) : 'Professional'}</p>
-            <p><strong>Order ID:</strong> ${session || 'Processing'}</p>
-            <p><strong>Amount Paid:</strong> ${finalPrice === '0' ? 'FREE' : '$' + finalPrice}</p>
-            <p><strong>Delivery Time:</strong> Within ${packageType === 'executive' ? '6' : packageType === 'professional' ? '12' : '24'} hours</p>
+            <p><strong>Package:</strong> ${actualPackage.charAt(0).toUpperCase() + actualPackage.slice(1)}</p>
+            <p><strong>Order ID:</strong> ${orderId}</p>
+            <p><strong>Amount Paid:</strong> ${finalPrice === '0' || finalPrice === 0 ? 'FREE' : '$' + finalPrice}</p>
+            <p><strong>Delivery Time:</strong> Within ${actualPackage === 'executive' ? '6' : actualPackage === 'professional' ? '12' : '24'} hours</p>
           </div>
           
           <div class="next-steps">
