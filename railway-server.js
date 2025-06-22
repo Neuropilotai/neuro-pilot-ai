@@ -609,7 +609,7 @@ app.get('/order', (req, res) => {
             console.log('All event listeners attached successfully!');
           });
           
-          // Simple immediate translation function - NEW NAME
+          // Global translation function - must be outside DOMContentLoaded to be accessible from HTML onclick
           function translatePage(lang) {
             try {
               console.log('translatePage called with:', lang);
@@ -617,13 +617,11 @@ app.get('/order', (req, res) => {
               if (lang === 'fr') {
                 console.log('Starting French translation...');
                 
-                // Test simple translation first
+                // Translate main title
                 let mainTitle = document.querySelector('h1');
                 if (mainTitle && mainTitle.textContent.includes('Get Your Dream Job')) {
                   mainTitle.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-                  alert('Title translated successfully!');
-                } else {
-                  alert('Could not find main title to translate');
+                  console.log('Title translated successfully!');
                 }
                 
                 // Translate headers
@@ -743,8 +741,11 @@ app.get('/order', (req, res) => {
                   if (option.textContent === '16+ years') option.textContent = '16+ ans';
                 });
                 
-                alert('Page entièrement traduite en français! 🇨🇦 (100% complet)');
-              } else {
+                // Show completion message in console instead of alert to avoid interruption
+                console.log('✅ Page entièrement traduite en français! 🇨🇦 (100% complet)');
+              } else if (lang === 'en') {
+                // Reload page to return to English
+                console.log('Switching back to English - reloading page');
                 location.reload();
               }
             } catch (error) {
