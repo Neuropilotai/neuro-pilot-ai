@@ -9,84 +9,597 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; position: relative; }
-        .container { max-width: 800px; margin: 0 auto; position: relative; }
-        h1 { color: #333; text-align: center; }
-        .package { border: 2px solid #ddd; padding: 15px; margin: 10px 0; cursor: pointer; border-radius: 8px; }
-        .package.selected { border-color: #4CAF50; background-color: #f0f8f0; }
-        .package h3 { margin: 0 0 10px 0; color: #333; }
-        .package .price { font-size: 24px; font-weight: bold; color: #4CAF50; margin: 10px 0; }
-        .form-group { margin: 15px 0; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-        .form-group textarea { height: 100px; resize: vertical; }
-        .promo-section { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
-        .promo-input { display: flex; gap: 10px; margin-top: 10px; }
-        .promo-input input { flex: 1; }
-        .promo-input button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .price-display { background: #e8f5e8; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0; }
-        .price-display .final-price { font-size: 28px; font-weight: bold; color: #2d5a3d; }
-        .price-display .original-price { text-decoration: line-through; color: #666; margin-right: 10px; }
-        .price-display .discount { color: #e53e3e; font-weight: bold; }
-        .submit-button { width: 100%; padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; }
-        .submit-button:hover { background: #45a049; }
-        .file-upload { position: relative; overflow: hidden; display: inline-block; width: 100%; }
-        .file-upload input[type=file] { width: 100%; padding: 12px; border: 2px dashed #ddd; border-radius: 8px; background: #f9f9f9; cursor: pointer; }
-        .file-upload input[type=file]:hover { border-color: #4CAF50; background: #f0f8f0; }
-        .file-upload-text { margin-top: 8px; font-size: 12px; color: #666; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Header with company branding */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .logo {
+            width: 70px;
+            height: 70px;
+            background: white;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        
+        .company-info {
+            color: white;
+        }
+        
+        .company-name {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .company-tagline {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .trust-badges {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .badge {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 40px auto; 
+            padding: 0 20px;
+        }
+        /* Main content area */
+        .main-content {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+        
+        h1 { 
+            color: #2d3748; 
+            text-align: center; 
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 40px;
+            position: relative;
+        }
+        
+        h1::after {
+            content: '';
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            display: block;
+            margin: 20px auto 0;
+            border-radius: 2px;
+        }
+        
+        /* Package cards with premium design */
+        .packages-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .package { 
+            background: white;
+            border: 2px solid #e2e8f0;
+            padding: 30px;
+            margin: 0;
+            cursor: pointer;
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .package::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .package:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        
+        .package.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #f0f4ff 0%, #e6ecff 100%);
+            transform: scale(1.05);
+            box-shadow: 0 20px 50px rgba(102, 126, 234, 0.2);
+        }
+        
+        .package.selected::before {
+            transform: scaleX(1);
+        }
+        
+        .package h3 { 
+            margin: 0 0 15px 0;
+            color: #2d3748;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .package .price { 
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 20px 0;
+        }
+        
+        .package ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .package li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #4a5568;
+        }
+        
+        .package li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #48bb78;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        /* Form styling */
+        .form-section {
+            background: #f7fafc;
+            padding: 40px;
+            border-radius: 16px;
+            margin-top: 40px;
+        }
+        
+        .form-group { 
+            margin: 20px 0; 
+        }
+        
+        .form-group label { 
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 16px;
+        }
+        
+        .form-group input, 
+        .form-group textarea, 
+        .form-group select { 
+            width: 100%;
+            padding: 14px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-group textarea { 
+            height: 120px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        /* Promo section */
+        .promo-section { 
+            background: linear-gradient(135deg, #f0f4ff 0%, #e6ecff 100%);
+            padding: 25px;
+            border-radius: 16px;
+            margin: 30px 0;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .promo-section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .promo-input { 
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .promo-input input { 
+            flex: 1;
+        }
+        
+        .promo-input button { 
+            padding: 14px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .promo-input button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* Price display */
+        .price-display { 
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            margin: 30px 0;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .price-display::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        
+        .price-display .final-price { 
+            font-size: 42px;
+            font-weight: 800;
+            color: white;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .price-display .original-price { 
+            text-decoration: line-through;
+            color: rgba(255,255,255,0.7);
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        
+        .price-display .discount { 
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        
+        /* Submit button */
+        .submit-button { 
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .submit-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .submit-button:hover::before {
+            width: 600px;
+            height: 600px;
+        }
+        
+        .submit-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(72, 187, 120, 0.4);
+        }
+        /* File upload styling */
+        .file-upload { 
+            position: relative;
+            overflow: hidden;
+            display: block;
+            width: 100%;
+        }
+        
+        .file-upload input[type=file] { 
+            width: 100%;
+            padding: 20px;
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            background: #f0f4ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .file-upload input[type=file]:hover { 
+            border-color: #764ba2;
+            background: #e6ecff;
+            transform: scale(1.02);
+        }
+        
+        .file-upload-text { 
+            margin-top: 10px;
+            font-size: 14px;
+            color: #718096;
+            text-align: center;
+        }
+        
+        /* Resume info section special styling */
+        .resume-info-section {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            padding: 30px;
+            border-radius: 16px;
+            margin: 30px 0;
+            border: 2px solid #f59e0b;
+            position: relative;
+        }
+        
+        .resume-info-section h3 {
+            color: #92400e;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .resume-info-section p {
+            color: #b45309;
+            margin-bottom: 20px;
+        }
+        
+        /* Language selector styling */
+        .language-selector-container {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        
+        .language-selector-container strong {
+            color: #4a5568;
+            margin-right: 10px;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+            
+            .trust-badges {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .packages-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .form-section {
+                padding: 20px;
+            }
+            
+            .company-name {
+                font-size: 24px;
+            }
+            
+            h1 {
+                font-size: 28px;
+            }
+        }
+        
+        /* Star rating display */
+        .star-rating {
+            color: #fbbf24;
+            font-size: 20px;
+            margin-left: 10px;
+        }
+        
+        /* Popular badge */
+        .popular-badge {
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            padding: 5px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
     </style>
 </head>
 <body>
+    <!-- Premium Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo">N.P</div>
+                <div class="company-info">
+                    <h2 class="company-name">NEURO.PILOT.AI</h2>
+                    <p class="company-tagline" data-translate="header-tagline">AI-Powered Resume Excellence</p>
+                </div>
+            </div>
+            <div class="trust-badges">
+                <div class="badge">
+                    <span>⭐⭐⭐⭐⭐</span>
+                    <span data-translate="badge-rating">5.0 Rating</span>
+                </div>
+                <div class="badge">
+                    <span>✓</span>
+                    <span data-translate="badge-guarantee">100% Satisfaction</span>
+                </div>
+                <div class="badge">
+                    <span>🚀</span>
+                    <span data-translate="badge-delivery">Fast Delivery</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
     <div class="container">
-        <div style="text-align: right; margin-bottom: 20px;">
-            <strong>Language / Langue:</strong>
-            <select id="languageSelect2" style="margin-left: 10px; background: #f0f8ff; border: 2px solid #4CAF50; border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                <option value="en">🇺🇸 English</option>
-                <option value="fr">🇨🇦 Français</option>
-            </select>
-        </div>
-        <h1 data-translate="order-title">Order Professional AI Resume</h1>
-        
-        <div class="package" data-package="basic" data-price="25">
-            <h3 data-translate="pkg-basic-title">Basic Package</h3>
-            <div class="price">$25</div>
-            <ul>
-                <li data-translate="pkg-basic-1">Professional formatting</li>
-                <li data-translate="pkg-basic-2">ATS optimization</li>
-                <li data-translate="pkg-basic-3">1 revision</li>
-                <li data-translate="pkg-basic-4">24-hour delivery</li>
-            </ul>
-        </div>
-        
-        <div class="package selected" data-package="professional" data-price="45">
-            <h3 data-translate="pkg-pro-title">Professional Package</h3>
-            <div class="price">$45</div>
-            <ul>
-                <li data-translate="pkg-pro-1">Everything in Basic</li>
-                <li data-translate="pkg-pro-2">Cover letter included</li>
-                <li data-translate="pkg-pro-3">LinkedIn optimization tips</li>
-                <li data-translate="pkg-pro-4">3 revisions</li>
-                <li data-translate="pkg-pro-5">12-hour delivery</li>
-            </ul>
-        </div>
-        
-        <div class="package" data-package="executive" data-price="85">
-            <h3 data-translate="pkg-exec-title">Executive Package</h3>
-            <div class="price">$85</div>
-            <ul>
-                <li data-translate="pkg-exec-1">Everything in Professional</li>
-                <li data-translate="pkg-exec-2">Executive summary</li>
-                <li data-translate="pkg-exec-3">Industry-specific keywords</li>
-                <li data-translate="pkg-exec-4">5 revisions</li>
-                <li data-translate="pkg-exec-5">6-hour delivery</li>
-            </ul>
-        </div>
-        
-        <form id="orderForm" enctype="multipart/form-data">
-            <input type="hidden" name="packageType" value="professional">
-            <input type="hidden" name="price" value="45">
+        <div class="main-content">
+            <div class="language-selector-container">
+                <strong>Language / Langue:</strong>
+                <select id="languageSelect2" style="margin-left: 10px; background: #f0f8ff; border: 2px solid #667eea; border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                    <option value="en">🇺🇸 English</option>
+                    <option value="fr">🇨🇦 Français</option>
+                </select>
+            </div>
             
-            <div class="form-group">
+            <h1 data-translate="order-title">Order Professional AI Resume</h1>
+            
+            <div class="packages-container">
+        
+                <div class="package" data-package="basic" data-price="25">
+                    <h3 data-translate="pkg-basic-title">Basic Package</h3>
+                    <div class="price">$25</div>
+                    <ul>
+                        <li data-translate="pkg-basic-1">Professional formatting</li>
+                        <li data-translate="pkg-basic-2">ATS optimization</li>
+                        <li data-translate="pkg-basic-3">1 revision</li>
+                        <li data-translate="pkg-basic-4">24-hour delivery</li>
+                    </ul>
+                </div>
+                
+                <div class="package selected" data-package="professional" data-price="45">
+                    <span class="popular-badge" data-translate="badge-popular">MOST POPULAR</span>
+                    <h3 data-translate="pkg-pro-title">Professional Package</h3>
+                    <div class="price">$45</div>
+                    <ul>
+                        <li data-translate="pkg-pro-1">Everything in Basic</li>
+                        <li data-translate="pkg-pro-2">Cover letter included</li>
+                        <li data-translate="pkg-pro-3">LinkedIn optimization tips</li>
+                        <li data-translate="pkg-pro-4">3 revisions</li>
+                        <li data-translate="pkg-pro-5">12-hour delivery</li>
+                    </ul>
+                </div>
+                
+                <div class="package" data-package="executive" data-price="85">
+                    <h3 data-translate="pkg-exec-title">Executive Package</h3>
+                    <div class="price">$85</div>
+                    <ul>
+                        <li data-translate="pkg-exec-1">Everything in Professional</li>
+                        <li data-translate="pkg-exec-2">Executive summary</li>
+                        <li data-translate="pkg-exec-3">Industry-specific keywords</li>
+                        <li data-translate="pkg-exec-4">5 revisions</li>
+                        <li data-translate="pkg-exec-5">6-hour delivery</li>
+                    </ul>
+                </div>
+            </div>
+        
+            <form id="orderForm" enctype="multipart/form-data">
+                <input type="hidden" name="packageType" value="professional">
+                <input type="hidden" name="price" value="45">
+                
+                <div class="form-section">
+                    <div class="form-group">
                 <label for="firstName" data-translate="form-firstname">First Name *</label>
                 <input type="text" id="firstName" name="firstName" autocomplete="given-name" required>
             </div>
@@ -114,10 +627,12 @@
                 </div>
             </div>
 
-            <!-- Resume Information Section -->
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
-                <h3 data-translate="resume-info-title" style="color: #333; margin-top: 0;">📝 Resume Information (Required for Best Results)</h3>
-                <p data-translate="resume-info-desc" style="color: #666; margin-bottom: 20px;">Please provide the following information to create a personalized, high-quality resume.</p>
+                </div>
+                
+                <!-- Resume Information Section -->
+                <div class="resume-info-section">
+                    <h3 data-translate="resume-info-title">📝 Resume Information (Required for Best Results)</h3>
+                    <p data-translate="resume-info-desc">Please provide the following information to create a personalized, high-quality resume.</p>
                 
                 <div class="form-group">
                     <label for="workExperience" data-translate="form-experience">Work Experience (Last 3-5 positions) *</label>
@@ -190,12 +705,14 @@
                 </div>
             </div>
             
-            <button type="submit" class="submit-button" data-translate="btn-payment">💳 Proceed to Secure Payment</button>
-        </form>
+                    <button type="submit" class="submit-button" data-translate="btn-payment">💳 Proceed to Secure Payment</button>
+                </div>
+            </form>
+        </div>
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v3.2 - SMART REQUIRED FIELDS - " + new Date().toISOString() + " ===");
+        console.log("=== SCRIPT STARTING v4.0 - PREMIUM 5-STAR DESIGN - " + new Date().toISOString() + " ===");
         
         // Define promo codes object
         var promoCodes = {
@@ -409,6 +926,11 @@
         // Bilingual Translation System - English/French for North America (Order Page)
         const translations = {
             'en': {
+                'header-tagline': 'AI-Powered Resume Excellence',
+                'badge-rating': '5.0 Rating',
+                'badge-guarantee': '100% Satisfaction',
+                'badge-delivery': 'Fast Delivery',
+                'badge-popular': 'MOST POPULAR',
                 'order-title': 'Order Professional AI Resume',
                 'pkg-basic-title': 'Basic Package',
                 'pkg-basic-1': 'Professional formatting',
@@ -469,6 +991,11 @@
                 'btn-payment': '💳 Proceed to Secure Payment'
             },
             'fr': {
+                'header-tagline': 'Excellence CV assistée par IA',
+                'badge-rating': 'Note 5.0',
+                'badge-guarantee': '100% Satisfaction',
+                'badge-delivery': 'Livraison Rapide',
+                'badge-popular': 'LE PLUS POPULAIRE',
                 'order-title': 'Commandez un CV IA Professionnel',
                 'pkg-basic-title': 'Forfait de Base',
                 'pkg-basic-1': 'Formatage professionnel',
