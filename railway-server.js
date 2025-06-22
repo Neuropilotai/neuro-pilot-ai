@@ -422,7 +422,7 @@ app.get('/', (req, res) => {
               'feat-fast': 'Livraison rapide',
               'btn-order': '📝 Commandez votre CV',
               'btn-fiverr': '💼 Voir sur Fiverr',
-              'home-description': 'Service d\\'optimisation de CV professionnel assisté par IA'
+              'home-description': 'Service d'optimisation de CV professionnel assisté par IA'
             }
           };
           
@@ -1341,12 +1341,14 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
-          console.log('=== SCRIPT STARTING v2.1 ===');
+          console.log('=== SCRIPT STARTING v2.2 ===');
           
-          // Global variables - accessible from everywhere
-          let currentPrice = 45;
-          let appliedDiscount = 0;
-          let promoCodeApplied = false;
+          // Global variables - accessible from everywhere (using var for maximum compatibility)
+          var currentPrice = 45;
+          var appliedDiscount = 0;
+          var promoCodeApplied = false;
+          
+          console.log('Global variables set - currentPrice:', currentPrice, 'promoCodeApplied:', promoCodeApplied);
           
           console.log('Variables initialized - currentPrice:', currentPrice);
           
@@ -1441,7 +1443,7 @@ app.get('/order', (req, res) => {
               'form-email': 'Email',
               'form-phone': 'Phone',
               'job-title': 'Job Details',
-              'form-jobtitle': 'Job Title You\'re Applying For',
+              'form-jobtitle': 'Job Title You're Applying For',
               'form-jobdesc': 'Job Description',
               'form-company': 'Company Name',
               'form-industry': 'Industry',
@@ -1458,8 +1460,8 @@ app.get('/order', (req, res) => {
               'form-education': 'Education Level',
               'select-education': 'Select Education',
               'edu-highschool': 'High School',
-              'edu-bachelors': 'Bachelor\'s Degree',
-              'edu-masters': 'Master\'s Degree',
+              'edu-bachelors': 'Bachelor's Degree',
+              'edu-masters': 'Master's Degree',
               'edu-phd': 'PhD',
               'edu-other': 'Other',
               'form-years': 'Years of Experience',
@@ -1491,7 +1493,7 @@ app.get('/order', (req, res) => {
             'fr': {
               'header-subtitle': 'Service de CV Professionnel',
               'main-title': '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA',
-              'main-subtitle': 'Service d\\'optimisation de CV professionnel assisté par IA',
+              'main-subtitle': 'Service d'optimisation de CV professionnel assisté par IA',
               'feature-ai-title': 'Assisté par IA',
               'feature-ai-desc': 'Optimisation IA avancée',
               'feature-fast-title': 'Livraison Rapide',
@@ -1499,34 +1501,34 @@ app.get('/order', (req, res) => {
               'feature-ats-title': 'Compatible ATS',
               'feature-ats-desc': 'Passe les systèmes de suivi des candidats',
               'feature-pro-title': 'Professionnel',
-              'feature-pro-desc': 'Mots-clés spécifiques à l\'industrie',
+              'feature-pro-desc': 'Mots-clés spécifiques à l'industrie',
               'package-title': 'Sélectionnez votre forfait',
               'package-basic-title': 'Basique',
               'package-basic-feat1': 'Formatage professionnel',
               'package-basic-feat2': 'Optimisation ATS',
-              'package-basic-feat3': '1 révision (dans l\'année)',
+              'package-basic-feat3': '1 révision (dans l'année)',
               'package-basic-feat4': 'Livraison en 24h',
               'package-pro-title': 'Professionnel',
               'package-pro-feat1': 'Tout ce qui est dans Basique',
               'package-pro-feat2': 'Lettre de motivation incluse',
-              'package-pro-feat3': 'Conseils d\\'optimisation LinkedIn',
-              'package-pro-feat4': '3 révisions (dans l\'année)',
+              'package-pro-feat3': 'Conseils d'optimisation LinkedIn',
+              'package-pro-feat4': '3 révisions (dans l'année)',
               'package-pro-feat5': 'Livraison en 12h',
               'package-exec-title': 'Exécutif',
               'package-exec-feat1': 'Tout ce qui est dans Professionnel',
               'package-exec-feat2': 'Résumé exécutif',
-              'package-exec-feat3': 'Mots-clés spécifiques à l\'industrie',
-              'package-exec-feat4': '5 révisions (dans l\'année)',
+              'package-exec-feat3': 'Mots-clés spécifiques à l'industrie',
+              'package-exec-feat4': '5 révisions (dans l'année)',
               'package-exec-feat5': 'Livraison en 6h',
               'contact-title': 'Informations de Contact',
               'form-firstname': 'Prénom',
               'form-lastname': 'Nom de famille',
               'form-email': 'Courriel',
               'form-phone': 'Téléphone',
-              'job-title': 'Détails de l\'emploi',
+              'job-title': 'Détails de l'emploi',
               'form-jobtitle': 'Titre du poste pour lequel vous postulez',
-              'form-jobdesc': 'Description de l\'emploi',
-              'form-company': 'Nom de l\'entreprise',
+              'form-jobdesc': 'Description de l'emploi',
+              'form-company': 'Nom de l'entreprise',
               'form-industry': 'Industrie',
               'select-industry': 'Sélectionner une industrie',
               'industry-tech': 'Technologie',
@@ -1538,14 +1540,14 @@ app.get('/order', (req, res) => {
               'background-title': 'Votre parcours',
               'form-experience': 'Expérience de travail',
               'form-skills': 'Compétences clés',
-              'form-education': 'Niveau d\\'éducation',
-              'select-education': 'Sélectionner l\'éducation',
+              'form-education': 'Niveau d\'éducation',
+              'select-education': 'Sélectionner l'éducation',
               'edu-highschool': 'École secondaire',
               'edu-bachelors': 'Baccalauréat',
               'edu-masters': 'Maîtrise',
               'edu-phd': 'Doctorat',
               'edu-other': 'Autre',
-              'form-years': 'Années d\\'expérience',
+              'form-years': 'Années d\'expérience',
               'select-years': 'Sélectionner les années',
               'years-0-1': '0-1 années',
               'years-2-5': '2-5 années',
@@ -1561,11 +1563,11 @@ app.get('/order', (req, res) => {
               'btn-payment': '💳 Procéder au paiement sécurisé',
               'revision-policy': '📋 Politique de révision:',
               'revision-limits': '• Basique: 1 révision | Professionnel: 3 révisions | Exécutif: 5 révisions',
-              'revision-time': '• Toutes les révisions doivent être utilisées dans l\'année d\'achat',
+              'revision-time': '• Toutes les révisions doivent être utilisées dans l'année d'achat',
               'revision-saved': '• Votre CV sera sauvegardé dans notre système pour un accès facile',
               'security-notice': '🔒 Vos informations sont sécurisées et cryptées',
               'placeholder-jobtitle': 'ex., Ingénieur logiciel senior',
-              'placeholder-jobdesc': 'Collez la description de l\'emploi ici...',
+              'placeholder-jobdesc': 'Collez la description de l'emploi ici...',
               'placeholder-company': 'ex., Google',
               'placeholder-experience': 'Décrivez votre expérience de travail, y compris les titres de poste, les entreprises et les réalisations clés...',
               'placeholder-skills': 'ex., Gestion de projet, Python, Ventes, Service à la clientèle',
@@ -1645,7 +1647,7 @@ app.get('/order-confirmation', (req, res) => {
           <h1>🎉 Order Confirmed!</h1>
           ${isPromo ? '<div class="promo-badge">🎟️ PROMO CODE APPLIED</div>' : ''}
           <p style="font-size: 18px; color: #4a5568; margin: 20px 0;">
-            ${isPromo ? 'Your FREE test order has been confirmed!' : 'Thank you for your order. We\'ve received your payment and will start working on your resume immediately.'}
+            ${isPromo ? 'Your FREE test order has been confirmed!' : 'Thank you for your order. We've received your payment and will start working on your resume immediately.'}
           </p>
           
           <div class="order-details">
