@@ -195,7 +195,7 @@
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v3.1 - SYNTAX FIXED - " + new Date().toISOString() + " ===");
+        console.log("=== SCRIPT STARTING v3.2 - SMART REQUIRED FIELDS - " + new Date().toISOString() + " ===");
         
         // Define promo codes object
         var promoCodes = {
@@ -330,6 +330,80 @@
             });
             
             console.log("All event listeners attached successfully!");
+            
+            // Handle file upload - make fields optional when resume is uploaded
+            const currentResumeInput = document.getElementById('currentResume');
+            if (currentResumeInput) {
+                currentResumeInput.addEventListener('change', function() {
+                    const hasFile = this.files && this.files.length > 0;
+                    console.log('Resume file uploaded:', hasFile);
+                    
+                    // Get all required resume fields
+                    const resumeFields = [
+                        'workExperience',
+                        'skills', 
+                        'education',
+                        'targetIndustry',
+                        'careerLevel'
+                    ];
+                    
+                    // Toggle required attribute and visual indicator
+                    resumeFields.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        const label = document.querySelector(`label[for="${fieldId}"]`);
+                        
+                        if (field && label) {
+                            if (hasFile) {
+                                // Make optional when file is uploaded
+                                field.removeAttribute('required');
+                                label.innerHTML = label.innerHTML.replace(' *', ' (Optional - extracted from your uploaded resume)');
+                                field.style.borderColor = '#ddd';
+                            } else {
+                                // Make required when no file
+                                field.setAttribute('required', '');
+                                label.innerHTML = label.innerHTML.replace(' (Optional - extracted from your uploaded resume)', ' *');
+                                field.style.borderColor = '';
+                            }
+                        }
+                    });
+                    
+                    // Update section title
+                    const sectionTitle = document.querySelector('[data-translate="resume-info-title"]');
+                    if (sectionTitle) {
+                        if (hasFile) {
+                            if (currentLanguage === 'fr') {
+                                sectionTitle.textContent = '📝 Informations CV (Optionnel - extrait de votre CV téléchargé)';
+                            } else {
+                                sectionTitle.textContent = '📝 Resume Information (Optional - extracted from uploaded resume)';
+                            }
+                        } else {
+                            if (currentLanguage === 'fr') {
+                                sectionTitle.textContent = '📝 Informations CV (Requis pour de meilleurs résultats)';
+                            } else {
+                                sectionTitle.textContent = '📝 Resume Information (Required for Best Results)';
+                            }
+                        }
+                    }
+                    
+                    // Update description
+                    const sectionDesc = document.querySelector('[data-translate="resume-info-desc"]');
+                    if (sectionDesc) {
+                        if (hasFile) {
+                            if (currentLanguage === 'fr') {
+                                sectionDesc.textContent = 'Vos informations seront extraites automatiquement de votre CV. Vous pouvez compléter ou modifier ci-dessous.';
+                            } else {
+                                sectionDesc.textContent = 'Your information will be extracted automatically from your uploaded resume. You can supplement or modify below.';
+                            }
+                        } else {
+                            if (currentLanguage === 'fr') {
+                                sectionDesc.textContent = 'Veuillez fournir les informations suivantes pour créer un CV personnalisé et de haute qualité.';
+                            } else {
+                                sectionDesc.textContent = 'Please provide the following information to create a personalized, high-quality resume.';
+                            }
+                        }
+                    }
+                });
+            }
         });
         
         // Bilingual Translation System - English/French for North America (Order Page)
