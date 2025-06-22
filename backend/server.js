@@ -495,7 +495,7 @@ app.get('/api/pricing', (req, res) => {
 });
 
 // Stripe webhook for payment confirmations
-app.post('/api/payments/webhook', express.raw({type: 'application/json'}), (req, res) => {
+app.post('/api/payments/webhook', express.raw({type: 'application/json'}), async (req, res) => {
   if (!stripe) {
     return res.status(503).json({ error: 'Payment processing not configured' });
   }
@@ -512,6 +512,30 @@ app.post('/api/payments/webhook', express.raw({type: 'application/json'}), (req,
       // Update revenue tracking
       if (session.mode === 'payment') {
         agentData.resume.revenue_today += session.amount_total / 100;
+      }
+      
+      // Send confirmation email for paid orders
+      try {
+        const { EmailOrderSystem } = require('./email_order_system');
+        const emailSystem = new EmailOrderSystem();
+        
+        const orderData = {
+          email: session.customer_email || session.customer_details?.email,
+          orderId: session.metadata?.orderId || session.id,
+          packageType: session.metadata?.packageType || 'professional',
+          firstName: session.customer_details?.name?.split(' ')[0] || 'Customer',
+          lastName: session.customer_details?.name?.split(' ').slice(1).join(' ') || '',
+          finalPrice: session.amount_total / 100,
+          originalPrice: session.metadata?.originalPrice || session.amount_total / 100,
+          promoCode: session.metadata?.promoCode || '',
+          discountAmount: session.metadata?.discountAmount || 0
+        };
+        
+        await emailSystem.sendOrderConfirmation(orderData);
+        console.log(`📧 Confirmation email sent to ${orderData.email} for order ${orderData.orderId}`);
+        
+      } catch (emailError) {
+        console.error('❌ Failed to send confirmation email:', emailError);
       }
     }
     

@@ -603,7 +603,7 @@
                 </div>
             </div>
         
-            <form id="orderForm" enctype="multipart/form-data">
+            <form id="orderForm" enctype="multipart/form-data" onsubmit="return false;">
                 <input type="hidden" name="packageType" value="professional">
                 <input type="hidden" name="price" value="45">
                 
@@ -857,10 +857,10 @@
             
             console.log("All event listeners attached successfully!");
             
-            // Handle file upload - make fields optional when resume is uploaded
+            // Handle file upload - extract data and fill fields
             const currentResumeInput = document.getElementById('currentResume');
             if (currentResumeInput) {
-                currentResumeInput.addEventListener('change', function() {
+                currentResumeInput.addEventListener('change', async function() {
                     const hasFile = this.files && this.files.length > 0;
                     console.log('Resume file uploaded:', hasFile);
                     
@@ -941,16 +941,95 @@
                         }
                     }
                     
-                    // Show upload success message
+                    // Process file upload and extract data
                     if (hasFile && this.files[0]) {
-                        const fileName = this.files[0].name;
-                        const fileSize = (this.files[0].size / 1024 / 1024).toFixed(2); // MB
+                        const file = this.files[0];
+                        const fileName = file.name;
+                        const fileSize = (file.size / 1024 / 1024).toFixed(2); // MB
                         const uploadText = document.querySelector('.file-upload-text');
+                        
+                        // Show processing message
                         if (uploadText) {
                             if (currentLanguage === 'fr') {
-                                uploadText.innerHTML = `<strong style="color: #48bb78;">✅ Fichier téléchargé: ${fileName} (${fileSize} MB)</strong><br>Votre CV sera analysé par notre IA.`;
+                                uploadText.innerHTML = `<strong style="color: #f59e0b;">⏳ Analyse en cours...</strong><br>Extraction des informations de votre CV...`;
                             } else {
-                                uploadText.innerHTML = `<strong style="color: #48bb78;">✅ File uploaded: ${fileName} (${fileSize} MB)</strong><br>Your resume will be analyzed by our AI.`;
+                                uploadText.innerHTML = `<strong style="color: #f59e0b;">⏳ Processing...</strong><br>Extracting information from your resume...`;
+                            }
+                        }
+                        
+                        // Create FormData for file upload
+                        const formData = new FormData();
+                        formData.append('resume', file);
+                        
+                        try {
+                            // Call API to extract data
+                            const response = await fetch('/api/resume/extract', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.status === 'success' && result.data) {
+                                console.log('Resume data extracted:', result.data);
+                                
+                                // Fill the form fields with extracted data
+                                if (result.data.workExperience) {
+                                    document.getElementById('workExperience').value = result.data.workExperience;
+                                }
+                                if (result.data.skills) {
+                                    document.getElementById('skills').value = result.data.skills;
+                                }
+                                if (result.data.education) {
+                                    document.getElementById('education').value = result.data.education;
+                                }
+                                if (result.data.achievements) {
+                                    document.getElementById('achievements').value = result.data.achievements;
+                                }
+                                if (result.data.targetIndustry) {
+                                    document.getElementById('targetIndustry').value = result.data.targetIndustry;
+                                }
+                                if (result.data.careerLevel) {
+                                    document.getElementById('careerLevel').value = result.data.careerLevel;
+                                }
+                                
+                                // Update success message
+                                if (uploadText) {
+                                    if (currentLanguage === 'fr') {
+                                        uploadText.innerHTML = `<strong style="color: #48bb78;">✅ CV analysé avec succès!</strong><br>Les informations ont été extraites et remplies automatiquement. Veuillez vérifier et compléter si nécessaire.`;
+                                    } else {
+                                        uploadText.innerHTML = `<strong style="color: #48bb78;">✅ Resume analyzed successfully!</strong><br>Information has been extracted and filled automatically. Please review and complete if needed.`;
+                                    }
+                                }
+                                
+                                // Check for missing required fields
+                                const missingFields = [];
+                                if (!document.getElementById('firstName').value) missingFields.push(currentLanguage === 'fr' ? 'Prénom' : 'First Name');
+                                if (!document.getElementById('lastName').value) missingFields.push(currentLanguage === 'fr' ? 'Nom' : 'Last Name');
+                                if (!document.getElementById('email').value) missingFields.push(currentLanguage === 'fr' ? 'Courriel' : 'Email');
+                                if (!document.getElementById('jobTitle').value) missingFields.push(currentLanguage === 'fr' ? 'Titre du poste' : 'Job Title');
+                                
+                                if (missingFields.length > 0) {
+                                    const missingMsg = currentLanguage === 'fr' ? 
+                                        `<br><span style="color: #e53e3e;">⚠️ Champs manquants: ${missingFields.join(', ')}</span>` :
+                                        `<br><span style="color: #e53e3e;">⚠️ Missing fields: ${missingFields.join(', ')}</span>`;
+                                    uploadText.innerHTML += missingMsg;
+                                }
+                                
+                            } else {
+                                throw new Error(result.error || 'Failed to extract data');
+                            }
+                            
+                        } catch (error) {
+                            console.error('Error extracting resume data:', error);
+                            
+                            // Show error message but still make fields optional
+                            if (uploadText) {
+                                if (currentLanguage === 'fr') {
+                                    uploadText.innerHTML = `<strong style="color: #e53e3e;">⚠️ Impossible d'extraire automatiquement</strong><br>Veuillez remplir manuellement les champs ci-dessous.`;
+                                } else {
+                                    uploadText.innerHTML = `<strong style="color: #e53e3e;">⚠️ Could not extract automatically</strong><br>Please fill in the fields below manually.`;
+                                }
                             }
                         }
                     }
@@ -1131,6 +1210,94 @@
                 });
             } else {
                 console.error('Language selector not found in DOM!');
+            }
+            
+            // Form submission handler - moved inside DOMContentLoaded
+            const orderForm = document.getElementById('orderForm');
+            console.log('🔍 Looking for orderForm element:', orderForm);
+            
+            if (orderForm) {
+                console.log('✅ Found orderForm, adding submit listener...');
+                orderForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    console.log('Form submitted, processing order...');
+                    await processOrder();
+                });
+                
+                // Also add click listener to submit button as backup
+                const submitButton = document.querySelector('.submit-button');
+                if (submitButton) {
+                    console.log('✅ Found submit button, adding click listener...');
+                    submitButton.addEventListener('click', async function(e) {
+                        e.preventDefault();
+                        console.log('Submit button clicked, processing order...');
+                        await processOrder();
+                    });
+                }
+            }
+            
+            // Process order function
+            async function processOrder() {
+                console.log('🚀 Processing order...');
+                
+                const submitButton = document.querySelector('.submit-button');
+                const originalText = submitButton.textContent;
+                submitButton.disabled = true;
+                submitButton.textContent = '⏳ Processing...';
+                
+                try {
+                    // Collect form data from the form element
+                    const formElement = document.getElementById('orderForm');
+                    const formData = new FormData(formElement);
+                    const orderData = {
+                        packageType: formData.get('packageType'),
+                        firstName: formData.get('firstName'),
+                        lastName: formData.get('lastName'),
+                        email: formData.get('email'),
+                        jobTitle: formData.get('jobTitle'),
+                        currentResume: formData.get('currentResume') || '',
+                        workExperience: formData.get('workExperience') || '',
+                        skills: formData.get('skills') || '',
+                        education: formData.get('education') || '',
+                        achievements: formData.get('achievements') || '',
+                        targetIndustry: formData.get('targetIndustry') || '',
+                        careerLevel: formData.get('careerLevel') || '',
+                        promoCode: promoCodeApplied ? document.getElementById('promoCode').value.toUpperCase() : '',
+                        finalPrice: Math.max(0, currentPrice - appliedDiscount),
+                        originalPrice: currentPrice,
+                        discount: appliedDiscount
+                    };
+                    
+                    console.log('Order data:', orderData);
+                    
+                    // Submit order to backend
+                    const response = await fetch('/api/resume/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(orderData)
+                    });
+                    
+                    const result = await response.json();
+                    console.log('Order response:', result);
+                    
+                    if (result.status === 'success' && result.checkoutUrl) {
+                        // Redirect to Stripe checkout
+                        window.location.href = result.checkoutUrl;
+                    } else {
+                        throw new Error(result.message || 'Failed to process order');
+                    }
+                    
+                } catch (error) {
+                    console.error('Order submission error:', error);
+                    alert('Error processing order: ' + error.message + '. Please try again.');
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText;
+                }
+            }
+            } else {
+                console.error('❌ orderForm element not found!');
             }
         });
     </script>

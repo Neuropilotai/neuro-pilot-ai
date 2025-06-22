@@ -5,6 +5,8 @@ const { createServer } = require('http');
 const fs = require('fs');
 const path = require('path');
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
+const { OpenAI } = require('openai');
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
 const app = express();
 const server = createServer(app);
@@ -39,11 +41,87 @@ const upload = multer({
 });
 
 // Create necessary directories
-const requiredDirs = ['uploads', 'generated_resumes', 'public'];
+const requiredDirs = ['uploads', 'generated_resumes', 'public', 'temp'];
 requiredDirs.forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
     console.log(`📁 Created directory: ${dir}`);
+  }
+});
+
+// Extract data from uploaded resume
+app.post('/api/resume/extract', upload.single('resume'), async (req, res) => {
+  try {
+    console.log('📄 Resume extraction request received');
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // For demo/development without OpenAI API key
+    if (!openai) {
+      console.log('⚠️ OpenAI not configured - using demo extraction');
+      
+      // Return demo data for testing
+      const demoData = {
+        workExperience: "Software Engineer - Tech Company (2020-2023)\n• Developed web applications using React and Node.js\n• Led team of 3 developers\n\nJunior Developer - StartUp Inc (2018-2020)\n• Built REST APIs\n• Implemented database schemas",
+        skills: "JavaScript, React, Node.js, Python, SQL, Git, Agile, Team Leadership",
+        education: "Bachelor's in Computer Science - University Name (2018)",
+        achievements: "• AWS Certified Developer\n• Increased application performance by 40%\n• Published 2 technical articles",
+        targetIndustry: "technology",
+        careerLevel: "mid"
+      };
+      
+      return res.json({
+        status: 'success',
+        data: demoData,
+        message: 'Demo extraction (OpenAI not configured)'
+      });
+    }
+
+    // Read the file
+    const fileContent = fs.readFileSync(req.file.path, 'utf8');
+    
+    // Use OpenAI to extract information
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are a resume parser. Extract the following information from the resume and return it in JSON format: workExperience (last 3-5 positions with achievements), skills (comma-separated), education, achievements (optional), targetIndustry (technology/healthcare/finance/marketing/sales/education/engineering/consulting/retail/manufacturing/nonprofit/government/other), careerLevel (entry/mid/senior/executive/student/career-change). Be concise and accurate."
+        },
+        {
+          role: "user",
+          content: fileContent
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000
+    });
+
+    const extractedData = JSON.parse(completion.choices[0].message.content);
+    
+    // Clean up uploaded file
+    fs.unlinkSync(req.file.path);
+    
+    console.log('✅ Resume data extracted successfully');
+    res.json({
+      status: 'success',
+      data: extractedData
+    });
+
+  } catch (error) {
+    console.error('❌ Error extracting resume data:', error);
+    
+    // Clean up file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to extract resume data',
+      message: error.message 
+    });
   }
 });
 
@@ -65,14 +143,25 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
       
       const promo = validPromoCodes[req.body.promoCode.toUpperCase()];
       if (promo) {
+        // Calculate discount amount
+        let discountAmount;
+        if (promo.type === 'percentage') {
+          discountAmount = Math.round(finalPrice * promo.discount / 100);
+        } else {
+          discountAmount = Math.min(promo.discount, finalPrice);
+        }
+        
         promoInfo = {
           code: req.body.promoCode.toUpperCase(),
           ...promo,
-          originalPrice: req.body.originalPrice || finalPrice,
-          discountAmount: req.body.discountAmount || 0
+          originalPrice: finalPrice,
+          discountAmount: discountAmount
         };
-        finalPrice = Math.max(0, finalPrice);
+        
+        // Apply discount to final price
+        finalPrice = Math.max(0, finalPrice - discountAmount);
         console.log(`🎟️ Promo code applied: ${promoInfo.code} - ${promoInfo.description}`);
+        console.log(`💰 Original price: $${promoInfo.originalPrice}, Discount: $${discountAmount}, Final price: $${finalPrice}`);
       }
     }
     
@@ -115,12 +204,92 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
     console.log(`✅ Order ${orderData.orderId} stored successfully`);
     console.log(`📊 Package: ${orderData.packageType} | Revisions: ${orderData.revisions.total}`);
     
-    res.json({
-      status: 'success',
-      orderId: orderData.orderId,
-      message: 'Resume generation request received',
-      revisions: orderData.revisions
-    });
+    // Create Stripe checkout session if price > 0
+    if (finalPrice > 0 && stripe) {
+      try {
+        const stripeProducts = {
+          'basic': { product: 'prod_SX1GYQQ8BvJgxb', price: 'price_1RbxDxKjYpIntZr4daYBM2Lq' },
+          'professional': { product: 'prod_SX1GgTt74flOLY', price: 'price_1RbxDxKjYpIntZr4ehrIge3d' },
+          'executive': { product: 'prod_SX1G2Wgnlay7CO', price: 'price_1RbxDyKjYpIntZr4uesVOE74' }
+        };
+        
+        const stripeProduct = stripeProducts[orderData.packageType] || stripeProducts['professional'];
+        
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: [{
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `${orderData.packageType.charAt(0).toUpperCase() + orderData.packageType.slice(1)} Resume Package`,
+                description: `Professional AI-powered resume optimization (${orderData.revisions.total} revisions included)`,
+              },
+              unit_amount: finalPrice * 100, // Convert to cents
+            },
+            quantity: 1,
+          }],
+          mode: 'payment',
+          success_url: `${process.env.DOMAIN || 'https://neuro-pilot-ai-production.up.railway.app'}/order-confirmation?session_id={CHECKOUT_SESSION_ID}&order_id=${orderData.orderId}`,
+          cancel_url: `${process.env.DOMAIN || 'https://neuro-pilot-ai-production.up.railway.app'}/order?cancelled=true`,
+          customer_email: orderData.email,
+          metadata: {
+            orderId: orderData.orderId,
+            packageType: orderData.packageType,
+            originalPrice: orderData.originalPrice || finalPrice,
+            promoCode: promoInfo ? promoInfo.code : '',
+            discountAmount: promoInfo ? promoInfo.discountAmount : 0
+          }
+        });
+        
+        console.log(`💳 Stripe checkout session created: ${session.id}`);
+        
+        res.json({
+          status: 'success',
+          orderId: orderData.orderId,
+          checkoutUrl: session.url,
+          sessionId: session.id,
+          message: 'Order created, redirecting to payment',
+          revisions: orderData.revisions
+        });
+        
+      } catch (stripeError) {
+        console.error('❌ Stripe error:', stripeError);
+        res.status(500).json({ error: 'Failed to create payment session' });
+      }
+    } else {
+      // Free order (100% promo code)
+      console.log('🎁 Free order - no payment required');
+      
+      // Send confirmation email for free order
+      try {
+        const { EmailOrderSystem } = require('./backend/email_order_system');
+        const emailSystem = new EmailOrderSystem();
+        
+        await emailSystem.sendOrderConfirmation({
+          email: orderData.email,
+          orderId: orderData.orderId,
+          packageType: orderData.packageType,
+          firstName: orderData.firstName,
+          lastName: orderData.lastName,
+          finalPrice: 0,
+          originalPrice: orderData.originalPrice || finalPrice,
+          promoCode: promoInfo ? promoInfo.code : '',
+          discountAmount: promoInfo ? promoInfo.discountAmount : 0
+        });
+        
+        console.log(`📧 Confirmation email sent to ${orderData.email}`);
+      } catch (emailError) {
+        console.error('❌ Failed to send confirmation email:', emailError);
+      }
+      
+      res.json({
+        status: 'success',
+        orderId: orderData.orderId,
+        message: 'Free order confirmed! Check your email for confirmation.',
+        revisions: orderData.revisions,
+        checkoutUrl: `/order-confirmation?session_id=free_${orderData.orderId}&order_id=${orderData.orderId}`
+      });
+    }
     
   } catch (error) {
     console.error('❌ Error processing resume order:', error);
