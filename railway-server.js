@@ -908,6 +908,12 @@ app.get('/order', (req, res) => {
         <script>
           console.log('JavaScript is working!');
           
+          // Define switchLanguage as a placeholder that will be replaced later
+          window.switchLanguage = function(lang) {
+            console.log('Language switch requested:', lang);
+            // The actual implementation will be added when translations are loaded
+            alert('Translations are still loading. Please try again in a moment.');
+          };
         </script>
         <div class="header">
           <div style="position: absolute; top: 20px; right: 30px;">
@@ -1451,8 +1457,8 @@ app.get('/order', (req, res) => {
             }
           };
           
-          // Global language switching function
-          function switchLanguage(lang) {
+          // Global language switching function - replace the placeholder
+          window.switchLanguage = function(lang) {
             try {
               console.log('Switching language to:', lang);
               
