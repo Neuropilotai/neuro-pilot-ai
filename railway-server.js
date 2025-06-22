@@ -1341,7 +1341,7 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
-          console.log('=== SCRIPT STARTING ===');
+          console.log('=== SCRIPT STARTING v2.1 ===');
           
           // Global variables - accessible from everywhere
           let currentPrice = 45;
@@ -1561,7 +1561,7 @@ app.get('/order', (req, res) => {
               'btn-payment': '💳 Procéder au paiement sécurisé',
               'revision-policy': '📋 Politique de révision:',
               'revision-limits': '• Basique: 1 révision | Professionnel: 3 révisions | Exécutif: 5 révisions',
-              'revision-time': '• Toutes les révisions doivent être utilisées dans l\\'année d\\'achat',
+              'revision-time': '• Toutes les révisions doivent être utilisées dans l\'année d\'achat',
               'revision-saved': '• Votre CV sera sauvegardé dans notre système pour un accès facile',
               'security-notice': '🔒 Vos informations sont sécurisées et cryptées',
               'placeholder-jobtitle': 'ex., Ingénieur logiciel senior',
