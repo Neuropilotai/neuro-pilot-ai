@@ -732,25 +732,15 @@
         
         console.log("Promo codes defined:", Object.keys(promoCodes));
         
-        // Wait for DOM to be ready before attaching event listeners
-        document.addEventListener("DOMContentLoaded", function() {
-            console.log("DOM is ready, attaching event listeners...");
-            
-            // Test basic DOM elements
-            console.log("Package elements found:", document.querySelectorAll(".package").length);
-            console.log("Apply promo button:", !!document.getElementById("applyPromo"));
-            console.log("Final price element:", !!document.getElementById("finalPrice"));
-            console.log("Promo message element:", !!document.getElementById("promoMessage"));
-            
-            // Global variables - accessible from everywhere (using var for maximum compatibility)
-            var currentPrice = 45;
-            var appliedDiscount = 0;
-            var promoCodeApplied = false;
-            
-            console.log("Global variables set - currentPrice:", currentPrice, "promoCodeApplied:", promoCodeApplied);
-            
-            // Define updatePriceDisplay function FIRST - before any other code
-            function updatePriceDisplay() {
+        // Global variables - accessible from everywhere (using var for maximum compatibility)
+        var currentPrice = 45;
+        var appliedDiscount = 0;
+        var promoCodeApplied = false;
+        
+        console.log("Global variables set - currentPrice:", currentPrice, "promoCodeApplied:", promoCodeApplied);
+        
+        // Define updatePriceDisplay function FIRST - before any other code
+        function updatePriceDisplay() {
                 const finalPrice = Math.max(0, currentPrice - appliedDiscount);
                 console.log("updatePriceDisplay called - currentPrice:", currentPrice, "appliedDiscount:", appliedDiscount, "finalPrice:", finalPrice);
                 
@@ -792,9 +782,17 @@
                 }
             }
             
-            console.log("updatePriceDisplay function defined!");
+        console.log("updatePriceDisplay function defined!");
+        
+        // Wait for DOM to be ready before attaching event listeners
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log("DOM is ready, attaching event listeners...");
             
-            // Event listeners moved to DOMContentLoaded section below
+            // Test basic DOM elements
+            console.log("Package elements found:", document.querySelectorAll(".package").length);
+            console.log("Apply promo button:", !!document.getElementById("applyPromo"));
+            console.log("Final price element:", !!document.getElementById("finalPrice"));
+            console.log("Promo message element:", !!document.getElementById("promoMessage"));
             
             // Handle file upload - extract data and fill fields
             const currentResumeInput = document.getElementById('currentResume');
