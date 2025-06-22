@@ -1343,6 +1343,7 @@ app.get('/order', (req, res) => {
         <script>
           console.log('=== SCRIPT STARTING ===');
           
+          // Global variables - accessible from everywhere
           let currentPrice = 45;
           let appliedDiscount = 0;
           let promoCodeApplied = false;
@@ -1356,7 +1357,7 @@ app.get('/order', (req, res) => {
             'FIRST10': { discount: 10, type: 'fixed', description: '$10 OFF Your First Order' }
           };
           
-          // Update price display
+          // Global function - accessible from everywhere
           function updatePriceDisplay() {
             const finalPrice = Math.max(0, currentPrice - appliedDiscount);
             console.log('updatePriceDisplay called - currentPrice:', currentPrice, 'appliedDiscount:', appliedDiscount, 'finalPrice:', finalPrice);
