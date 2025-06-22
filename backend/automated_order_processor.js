@@ -13,7 +13,7 @@ class AutomatedOrderProcessor {
 
     async start() {
         console.log('🤖 Automated Order Processor Started');
-        console.log('📧 Monitoring orders for david.mikulis@sodexo.com');
+        console.log('📧 Monitoring orders for all customer emails');
         
         // Create directories if they don't exist
         await fs.mkdir(this.ordersDir, { recursive: true });
@@ -42,15 +42,18 @@ class AutomatedOrderProcessor {
                 const orderPath = path.join(this.ordersDir, file);
                 const orderData = JSON.parse(await fs.readFile(orderPath, 'utf8'));
                 
-                // Check if this is David's order and has required info
-                if (orderData.email === 'david.mikulis@sodexo.com' && 
-                    orderData.status === 'pending' &&
-                    orderData.fullName && 
-                    orderData.targetRole) {
+                // Check if this is a valid order ready for processing
+                const customerEmails = ['david.mikulis@sodexo.com', 'davidmikulis66@gmail.com'];
+                
+                if (customerEmails.includes(orderData.email) && 
+                    (orderData.status === 'pending' || orderData.status === 'received') &&
+                    orderData.firstName && 
+                    orderData.lastName) {
                     
-                    console.log(`\n🎯 Processing order for David Mikulis`);
+                    console.log(`\n🎯 Processing order for ${orderData.firstName} ${orderData.lastName}`);
+                    console.log(`📧 Email: ${orderData.email}`);
                     console.log(`📋 Order ID: ${orderData.orderId}`);
-                    console.log(`💼 Target Role: ${orderData.targetRole}`);
+                    console.log(`💼 Package: ${orderData.packageType}`);
                     
                     await this.processOrder(orderData, orderPath);
                 }

@@ -8,6 +8,9 @@ const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STR
 const { OpenAI } = require('openai');
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
+// Import automated order processor
+const AutomatedOrderProcessor = require('./backend/automated_order_processor');
+
 const app = express();
 const server = createServer(app);
 
@@ -918,6 +921,14 @@ console.log(`- PORT: ${PORT}`);
 console.log(`- STRIPE_SECRET_KEY exists: ${!!process.env.STRIPE_SECRET_KEY}`);
 console.log(`- EMAIL_USER: ${process.env.EMAIL_USER || 'NOT SET'}`);
 
+// Start automated order processor
+const orderProcessor = new AutomatedOrderProcessor();
+orderProcessor.start().then(() => {
+  console.log('🤖 Automated Order Processor initialized');
+}).catch(error => {
+  console.error('❌ Failed to start order processor:', error);
+});
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Neuro.Pilot.AI Railway Server (Bilingual 🇺🇸🇨🇦) running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
@@ -925,5 +936,6 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📝 Resume orders ready`);
   console.log(`🌐 Homepage: http://localhost:${PORT}/`);
   console.log(`🔗 Order page: http://localhost:${PORT}/order`);
+  console.log(`🤖 AI Order Processing: ACTIVE`);
   console.log('✅ Server started successfully on Railway');
 });
