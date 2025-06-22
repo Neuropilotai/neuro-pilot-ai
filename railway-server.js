@@ -477,15 +477,142 @@ app.get('/order', (req, res) => {
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
         <script>
-          // Test if JavaScript is working at all
-          alert('JavaScript is loading!');
-          console.log('Script started loading...');
+          // Wait for DOM to be ready before attaching event listeners
+          document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM is ready, attaching event listeners...');
+            
+            // Package selection - attach event listeners
+            document.querySelectorAll('.package').forEach(pkg => {
+              pkg.addEventListener('click', function() {
+                console.log('Package clicked:', this.dataset.package);
+                document.querySelectorAll('.package').forEach(p => p.classList.remove('selected'));
+                this.classList.add('selected');
+                document.querySelector('input[name="packageType"]').value = this.dataset.package;
+                
+                // Update current price
+                currentPrice = parseInt(this.dataset.price);
+                
+                // Recalculate discount if promo code is applied
+                if (promoCodeApplied) {
+                  const promoCode = document.getElementById('promoCode').value.toUpperCase();
+                  const promo = promoCodes[promoCode];
+                  if (promo) {
+                    appliedDiscount = promo.type === 'percentage' ? 
+                      Math.round(currentPrice * promo.discount / 100) : 
+                      Math.min(promo.discount, currentPrice);
+                  }
+                }
+                
+                updatePriceDisplay();
+              });
+            });
+            
+            // Promo code application
+            document.getElementById('applyPromo').addEventListener('click', function() {
+              const promoCode = document.getElementById('promoCode').value.toUpperCase();
+              const messageEl = document.getElementById('promoMessage');
+              
+              if (!promoCode) {
+                messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
+                return;
+              }
+              
+              const promo = promoCodes[promoCode];
+              if (promo) {
+                appliedDiscount = promo.type === 'percentage' ? 
+                  Math.round(currentPrice * promo.discount / 100) : 
+                  Math.min(promo.discount, currentPrice);
+                
+                promoCodeApplied = true;
+                messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + promo.description + ' applied!</span>';
+                updatePriceDisplay();
+              } else {
+                messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
+              }
+            });
+
+            // Form submission
+            document.getElementById('orderForm').onsubmit = async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const data = Object.fromEntries(formData);
+              
+              // Combine names
+              data.customerName = data.firstName + ' ' + data.lastName;
+              
+              // Add promo code info
+              if (promoCodeApplied) {
+                data.promoCode = document.getElementById('promoCode').value.toUpperCase();
+                data.originalPrice = currentPrice;
+                data.discountAmount = appliedDiscount;
+              }
+              
+              // Show loading
+              const btn = e.target.querySelector('button');
+              btn.textContent = '⏳ Processing...';
+              btn.disabled = true;
+              
+              try {
+                // First save the order
+                const orderResponse = await fetch('/api/resume/generate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(data)
+                });
+                
+                const orderResult = await orderResponse.json();
+                
+                if (orderResult.status === 'success') {
+                  const finalPrice = parseInt(data.price);
+                  
+                  // If free order (promo code), skip payment
+                  if (finalPrice === 0) {
+                    alert('🎉 FREE Order Confirmed!\\n\\nOrder ID: ' + orderResult.orderId + '\\n\\nWe will process your resume and send it to your email within the promised timeframe.');
+                    window.location.href = '/order-confirmation?session=' + orderResult.orderId + '&package=' + data.packageType + '&price=0&promo=true';
+                    return;
+                  }
+                  
+                  // Otherwise proceed to payment
+                  const paymentResponse = await fetch('/api/payments/resume-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      customerEmail: data.customerEmail,
+                      packageType: data.packageType,
+                      price: finalPrice,
+                      customerName: data.customerName,
+                      orderId: orderResult.orderId
+                    })
+                  });
+                  
+                  const paymentResult = await paymentResponse.json();
+                  
+                  if (paymentResult.checkout_url) {
+                    window.location.href = paymentResult.checkout_url;
+                  } else {
+                    alert('Payment system unavailable. Your order has been saved. Order ID: ' + orderResult.orderId);
+                  }
+                } else {
+                  alert('Error: ' + (orderResult.error || 'Failed to process order'));
+                }
+              } catch (error) {
+                alert('Error submitting order: ' + error.message);
+              } finally {
+                btn.textContent = '💳 Proceed to Secure Payment';
+                btn.disabled = false;
+              }
+            };
+
+            // Initialize price display
+            updatePriceDisplay();
+            
+            console.log('All event listeners attached successfully!');
+          });
           
           // Simple immediate translation function - NEW NAME
           function translatePage(lang) {
             try {
               console.log('translatePage called with:', lang);
-              alert('Translation starting for: ' + lang);
               
               if (lang === 'fr') {
                 console.log('Starting French translation...');
@@ -1335,137 +1462,8 @@ app.get('/order', (req, res) => {
             document.querySelector('input[name="price"]').value = finalPrice;
           }
           
-          // Package selection
-          document.querySelectorAll('.package').forEach(pkg => {
-            pkg.addEventListener('click', function() {
-              document.querySelectorAll('.package').forEach(p => p.classList.remove('selected'));
-              this.classList.add('selected');
-              document.querySelector('input[name="packageType"]').value = this.dataset.package;
-              
-              // Update current price
-              currentPrice = parseInt(this.dataset.price);
-              
-              // Recalculate discount if promo code is applied
-              if (promoCodeApplied) {
-                const promoCode = document.getElementById('promoCode').value.toUpperCase();
-                const promo = promoCodes[promoCode];
-                if (promo) {
-                  appliedDiscount = promo.type === 'percentage' ? 
-                    Math.round(currentPrice * promo.discount / 100) : 
-                    Math.min(promo.discount, currentPrice);
-                }
-              }
-              
-              updatePriceDisplay();
-            });
-          });
           
-          // Promo code application
-          document.getElementById('applyPromo').addEventListener('click', function() {
-            const promoCode = document.getElementById('promoCode').value.toUpperCase();
-            const messageEl = document.getElementById('promoMessage');
-            
-            if (!promoCode) {
-              messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
-              return;
-            }
-            
-            const promo = promoCodes[promoCode];
-            if (promo) {
-              appliedDiscount = promo.type === 'percentage' ? 
-                Math.round(currentPrice * promo.discount / 100) : 
-                Math.min(promo.discount, currentPrice);
-              
-              promoCodeApplied = true;
-              messageEl.innerHTML = '<span style="color: #48bb78;">✅ ' + promo.description + ' applied!</span>';
-              updatePriceDisplay();
-              
-              // Disable the apply button
-              this.disabled = true;
-              this.textContent = 'Applied';
-              this.style.background = '#a0aec0';
-            } else {
-              messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
-              appliedDiscount = 0;
-              promoCodeApplied = false;
-              updatePriceDisplay();
-            }
-          });
-          
-          // Initialize price display
-          updatePriceDisplay();
-          
-          // Form submission
-          document.getElementById('orderForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData);
-            
-            // Combine names
-            data.customerName = data.firstName + ' ' + data.lastName;
-            
-            // Add promo code info
-            if (promoCodeApplied) {
-              data.promoCode = document.getElementById('promoCode').value.toUpperCase();
-              data.originalPrice = currentPrice;
-              data.discountAmount = appliedDiscount;
-            }
-            
-            // Show loading
-            const btn = e.target.querySelector('button');
-            btn.textContent = '⏳ Processing...';
-            btn.disabled = true;
-            
-            try {
-              // First save the order
-              const orderResponse = await fetch('/api/resume/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-              });
-              
-              const orderResult = await orderResponse.json();
-              
-              if (orderResult.status === 'success') {
-                const finalPrice = parseInt(data.price);
-                
-                // If free order (promo code), skip payment
-                if (finalPrice === 0) {
-                  alert('🎉 FREE Order Confirmed!\\n\\nOrder ID: ' + orderResult.orderId + '\\n\\nWe will process your resume and send it to your email within the promised timeframe.');
-                  window.location.href = '/order-confirmation?session=' + orderResult.orderId + '&package=' + data.packageType + '&price=0&promo=true';
-                  return;
-                }
-                
-                // Otherwise proceed to payment
-                const paymentResponse = await fetch('/api/payments/resume-checkout', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    customerEmail: data.customerEmail,
-                    packageType: data.packageType,
-                    price: finalPrice,
-                    customerName: data.customerName,
-                    orderId: orderResult.orderId
-                  })
-                });
-                
-                const paymentResult = await paymentResponse.json();
-                
-                if (paymentResult.checkout_url) {
-                  window.location.href = paymentResult.checkout_url;
-                } else {
-                  alert('Payment system unavailable. Your order has been saved. Order ID: ' + orderResult.orderId);
-                }
-              } else {
-                alert('Error: ' + (orderResult.error || 'Failed to process order'));
-              }
-            } catch (error) {
-              alert('Error submitting order: ' + error.message);
-            } finally {
-              btn.textContent = '💳 Proceed to Secure Payment';
-              btn.disabled = false;
-            }
-          };
+          // Note: All event listeners have been moved to DOMContentLoaded block above
           
           // Bilingual Translation System - English/French for North America
           const translations = {
