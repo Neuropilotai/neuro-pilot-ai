@@ -1590,7 +1590,14 @@ app.get('/order', (req, res) => {
             console.log('Language selector found:', !!selector);
             console.log('switchLanguage available:', typeof window.switchLanguage);
             console.log('translations available:', typeof translations);
-            console.log('Translation system ready - Version 3.2');
+            console.log('Translation system ready - Version 3.4');
+            
+            // Update the global handleLanguageChange to use the now-available switchLanguage
+            window.handleLanguageChange = function(lang) {
+              console.log('handleLanguageChange called with:', lang);
+              window.switchLanguage(lang);
+            };
+            console.log('handleLanguageChange updated to use switchLanguage directly');
           })();
         </script>
       </body>
