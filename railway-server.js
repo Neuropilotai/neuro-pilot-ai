@@ -537,7 +537,86 @@ app.get('/order', (req, res) => {
                   if (button.textContent.includes('Proceed to Secure Payment')) button.textContent = '💳 Procéder au paiement sécurisé';
                 });
                 
-                alert('Page entièrement traduite en français! 🇨🇦');
+                // Translate subtitle and feature descriptions
+                document.querySelectorAll('p, div, span').forEach(element => {
+                  if (element.textContent === 'Professional Resume Service') element.textContent = 'Service de CV Professionnel';
+                  if (element.textContent === 'Professional AI-powered resume optimization service') element.textContent = 'Service professionnel d\\'optimisation de CV assisté par IA';
+                  if (element.textContent === 'Advanced AI optimization') element.textContent = 'Optimisation IA avancée';
+                  if (element.textContent === 'Get your resume in hours') element.textContent = 'Recevez votre CV en heures';
+                  if (element.textContent === 'Pass applicant tracking systems') element.textContent = 'Passe les systèmes de suivi';
+                  if (element.textContent === 'Industry-specific keywords') element.textContent = 'Mots-clés spécifiques';
+                });
+                
+                // Translate feature titles
+                document.querySelectorAll('h4').forEach(h4 => {
+                  if (h4.textContent === 'AI-Powered') h4.textContent = 'Assisté par IA';
+                  if (h4.textContent === 'Fast Delivery') h4.textContent = 'Livraison Rapide';
+                  if (h4.textContent === 'ATS-Friendly') h4.textContent = 'Compatible ATS';
+                  if (h4.textContent === 'Professional') h4.textContent = 'Professionnel';
+                });
+                
+                // Translate package features and details
+                document.querySelectorAll('li, small, div').forEach(element => {
+                  if (element.textContent === 'Professional formatting') element.textContent = 'Formatage professionnel';
+                  if (element.textContent === 'ATS optimization') element.textContent = 'Optimisation ATS';
+                  if (element.textContent === '1 revision (within 1 year)') element.textContent = '1 révision (dans l\\'année)';
+                  if (element.textContent === '24-hour delivery') element.textContent = 'Livraison 24h';
+                  if (element.textContent === 'Everything in Basic') element.textContent = 'Tout dans Basique';
+                  if (element.textContent === 'Cover letter included') element.textContent = 'Lettre de motivation incluse';
+                  if (element.textContent === 'LinkedIn optimization tips') element.textContent = 'Conseils d\\'optimisation LinkedIn';
+                  if (element.textContent === '3 revisions (within 1 year)') element.textContent = '3 révisions (dans l\\'année)';
+                  if (element.textContent === '12-hour delivery') element.textContent = 'Livraison 12h';
+                  if (element.textContent === 'Everything in Professional') element.textContent = 'Tout dans Professionnel';
+                  if (element.textContent === 'Executive summary') element.textContent = 'Résumé exécutif';
+                  if (element.textContent === '5 revisions (within 1 year)') element.textContent = '5 révisions (dans l\\'année)';
+                  if (element.textContent === '6-hour delivery') element.textContent = 'Livraison 6h';
+                  if (element.textContent === 'Total Price:') element.textContent = 'Prix total:';
+                  if (element.textContent === 'No file chosen') element.textContent = 'Aucun fichier choisi';
+                  if (element.textContent === 'Current Resume (Optional)') element.textContent = 'CV actuel (Optionnel)';
+                });
+                
+                // Translate file upload and policy text
+                document.querySelectorAll('*').forEach(element => {
+                  if (element.textContent === 'Upload your current resume for reference') element.textContent = 'Téléchargez votre CV actuel pour référence';
+                  if (element.textContent === 'Accepted formats: PDF, DOC, DOCX (Max 10MB)') element.textContent = 'Formats acceptés: PDF, DOC, DOCX (Max 10MB)';
+                  if (element.textContent.includes('Revision Policy:')) element.textContent = '📋 Politique de révision:';
+                  if (element.textContent.includes('Basic: 1 revision | Professional: 3 revisions | Executive: 5 revisions')) {
+                    element.textContent = '• Basique: 1 révision | Professionnel: 3 révisions | Exécutif: 5 révisions';
+                  }
+                  if (element.textContent.includes('All revisions must be used within 1 year')) {
+                    element.textContent = '• Toutes les révisions doivent être utilisées dans l\\'année';
+                  }
+                  if (element.textContent.includes('Your resume will be saved')) {
+                    element.textContent = '• Votre CV sera sauvegardé dans notre système pour un accès facile';
+                  }
+                  if (element.textContent.includes('Your information is secure')) {
+                    element.textContent = '🔒 Vos informations sont sécurisées et chiffrées';
+                  }
+                });
+                
+                // Translate dropdown options
+                document.querySelectorAll('option').forEach(option => {
+                  if (option.textContent === 'Select Industry') option.textContent = 'Sélectionnez industrie';
+                  if (option.textContent === 'Select Education') option.textContent = 'Sélectionnez éducation';
+                  if (option.textContent === 'Select Years') option.textContent = 'Sélectionnez années';
+                  if (option.textContent === 'Technology') option.textContent = 'Technologie';
+                  if (option.textContent === 'Healthcare') option.textContent = 'Santé';
+                  if (option.textContent === 'Finance') option.textContent = 'Finance';
+                  if (option.textContent === 'Education') option.textContent = 'Éducation';
+                  if (option.textContent === 'Retail') option.textContent = 'Commerce de détail';
+                  if (option.textContent === 'Other') option.textContent = 'Autre';
+                  if (option.textContent === 'High School') option.textContent = 'École secondaire';
+                  if (option.textContent === 'Bachelor\\'s Degree') option.textContent = 'Baccalauréat';
+                  if (option.textContent === 'Master\\'s Degree') option.textContent = 'Maîtrise';
+                  if (option.textContent === 'PhD') option.textContent = 'Doctorat';
+                  if (option.textContent === '0-1 years') option.textContent = '0-1 ans';
+                  if (option.textContent === '2-5 years') option.textContent = '2-5 ans';
+                  if (option.textContent === '6-10 years') option.textContent = '6-10 ans';
+                  if (option.textContent === '11-15 years') option.textContent = '11-15 ans';
+                  if (option.textContent === '16+ years') option.textContent = '16+ ans';
+                });
+                
+                alert('Page entièrement traduite en français! 🇨🇦 (100% complet)');
               } else {
                 location.reload();
               }
