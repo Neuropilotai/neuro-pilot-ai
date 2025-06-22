@@ -439,6 +439,11 @@ app.get('/order', (req, res) => {
     <html>
       <head>
         <title>Order Professional AI Resume - Neuro.Pilot.AI</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
           * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1496,6 +1501,7 @@ app.get('/order', (req, res) => {
           const languageSelectorHTML = '<select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;"><option value="en">🇺🇸 English</option><option value="fr">🇨🇦 Français</option></select>';
           document.getElementById('languageSelectorContainer').innerHTML = languageSelectorHTML;
           console.log('Language selector created and switchLanguage function ready');
+          console.log('Translation system initialized. Version: 2.0');
         </script>
       </body>
     </html>
