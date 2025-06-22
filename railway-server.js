@@ -434,6 +434,38 @@ app.get('/', (req, res) => {
 });
 
 // Order page with full form and payment
+// Test route for translation
+app.get('/test-translation', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Translation Test</title>
+      </head>
+      <body>
+        <h1>Translation Test Page</h1>
+        <p>If you can see this page and click the button below, basic JavaScript is working.</p>
+        <button onclick="alert('JavaScript works!')">Test JavaScript</button>
+        <br><br>
+        <button onclick="testTranslation()">Test Translation System</button>
+        <script>
+          function testTranslation() {
+            if (typeof switchLanguage === 'function') {
+              alert('switchLanguage function exists!');
+            } else {
+              alert('switchLanguage function NOT found');
+            }
+            if (typeof translations !== 'undefined') {
+              alert('translations object exists with ' + Object.keys(translations).length + ' languages');
+            } else {
+              alert('translations object NOT found');
+            }
+          }
+        </script>
+      </body>
+    </html>
+  `);
+});
+
 app.get('/order', (req, res) => {
   res.send(`
     <html>
@@ -1502,6 +1534,19 @@ app.get('/order', (req, res) => {
           document.getElementById('languageSelectorContainer').innerHTML = languageSelectorHTML;
           console.log('Language selector created and switchLanguage function ready');
           console.log('Translation system initialized. Version: 2.0');
+          
+          // Debug info
+          console.log('switchLanguage type:', typeof window.switchLanguage);
+          console.log('translations type:', typeof translations);
+          console.log('Available languages:', Object.keys(translations));
+          
+          // Test the function immediately
+          console.log('Testing switchLanguage with English...');
+          try {
+            window.switchLanguage('en');
+          } catch (e) {
+            console.error('Error testing switchLanguage:', e);
+          }
         </script>
       </body>
     </html>
