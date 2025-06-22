@@ -477,9 +477,10 @@ app.get('/order', (req, res) => {
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
         <script>
-          // Simple immediate translation function
-          function handleLanguageChange(lang) {
-            console.log('Language change to:', lang);
+          // Simple immediate translation function - NEW NAME
+          function translatePage(lang) {
+            console.log('translatePage called with:', lang);
+            alert('New translation function called with: ' + lang);
             
             if (lang === 'fr') {
               // Direct French translations
@@ -984,7 +985,7 @@ app.get('/order', (req, res) => {
       <body>
         <div class="header">
           <div style="position: absolute; top: 20px; right: 30px; z-index: 1000;">
-            <select id="languageSelect" onchange="handleLanguageChange(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
+            <select id="languageSelect" onchange="translatePage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
