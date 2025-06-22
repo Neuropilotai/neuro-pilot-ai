@@ -481,6 +481,12 @@ app.get('/order', (req, res) => {
           document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM is ready, attaching event listeners...');
             
+            // Test basic DOM elements
+            console.log('Package elements found:', document.querySelectorAll('.package').length);
+            console.log('Apply promo button:', !!document.getElementById('applyPromo'));
+            console.log('Final price element:', !!document.getElementById('finalPrice'));
+            console.log('Promo message element:', !!document.getElementById('promoMessage'));
+            
             // Package selection - attach event listeners
             document.querySelectorAll('.package').forEach(pkg => {
               pkg.addEventListener('click', function() {
@@ -1130,6 +1136,8 @@ app.get('/order', (req, res) => {
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
+            <br>
+            <button onclick="console.log('TEST BUTTON CLICKED'); alert('JavaScript is working!');" style="margin-top: 5px; background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Test JS</button>
           </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
@@ -1333,10 +1341,13 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
+          console.log('=== SCRIPT STARTING ===');
           
           let currentPrice = 45;
           let appliedDiscount = 0;
           let promoCodeApplied = false;
+          
+          console.log('Variables initialized - currentPrice:', currentPrice);
           
           // Promo codes configuration
           const promoCodes = {
