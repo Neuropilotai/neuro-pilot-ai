@@ -113,6 +113,65 @@
                     <div class="file-upload-text" data-translate="form-resume-help">Accepted formats: PDF, DOC, DOCX (Max 10MB). This helps us understand your experience better.</div>
                 </div>
             </div>
+
+            <!-- Resume Information Section -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+                <h3 data-translate="resume-info-title" style="color: #333; margin-top: 0;">📝 Resume Information (Required for Best Results)</h3>
+                <p data-translate="resume-info-desc" style="color: #666; margin-bottom: 20px;">Please provide the following information to create a personalized, high-quality resume.</p>
+                
+                <div class="form-group">
+                    <label for="workExperience" data-translate="form-experience">Work Experience (Last 3-5 positions) *</label>
+                    <textarea id="workExperience" name="workExperience" required placeholder="Job Title - Company Name (Year-Year)&#10;• Key achievement or responsibility&#10;• Another achievement with numbers/results&#10;&#10;Previous Job Title - Previous Company (Year-Year)&#10;• Achievement or responsibility&#10;• Another achievement"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="skills" data-translate="form-skills">Key Skills & Technologies *</label>
+                    <input type="text" id="skills" name="skills" required placeholder="e.g., Python, Project Management, Digital Marketing, Excel, Communication">
+                </div>
+
+                <div class="form-group">
+                    <label for="education" data-translate="form-education">Education *</label>
+                    <input type="text" id="education" name="education" required placeholder="e.g., Bachelor's in Computer Science - University Name (Year)">
+                </div>
+
+                <div class="form-group">
+                    <label for="achievements" data-translate="form-achievements">Key Achievements/Certifications (Optional)</label>
+                    <textarea id="achievements" name="achievements" placeholder="• Increased sales by 30% in 2023&#10;• AWS Certified Solutions Architect&#10;• Led team of 5 developers on successful project"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="targetIndustry" data-translate="form-industry">Target Industry/Field *</label>
+                    <select id="targetIndustry" name="targetIndustry" required>
+                        <option value="" data-translate="industry-select">Select your industry...</option>
+                        <option value="technology" data-translate="industry-tech">Technology/IT</option>
+                        <option value="healthcare" data-translate="industry-health">Healthcare</option>
+                        <option value="finance" data-translate="industry-finance">Finance/Banking</option>
+                        <option value="marketing" data-translate="industry-marketing">Marketing/Advertising</option>
+                        <option value="sales" data-translate="industry-sales">Sales</option>
+                        <option value="education" data-translate="industry-education">Education</option>
+                        <option value="engineering" data-translate="industry-engineering">Engineering</option>
+                        <option value="consulting" data-translate="industry-consulting">Consulting</option>
+                        <option value="retail" data-translate="industry-retail">Retail/Customer Service</option>
+                        <option value="manufacturing" data-translate="industry-manufacturing">Manufacturing</option>
+                        <option value="nonprofit" data-translate="industry-nonprofit">Non-profit</option>
+                        <option value="government" data-translate="industry-government">Government</option>
+                        <option value="other" data-translate="industry-other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="careerLevel" data-translate="form-career-level">Career Level *</label>
+                    <select id="careerLevel" name="careerLevel" required>
+                        <option value="" data-translate="level-select">Select your level...</option>
+                        <option value="entry" data-translate="level-entry">Entry Level (0-2 years)</option>
+                        <option value="mid" data-translate="level-mid">Mid Level (3-7 years)</option>
+                        <option value="senior" data-translate="level-senior">Senior Level (8-15 years)</option>
+                        <option value="executive" data-translate="level-executive">Executive Level (15+ years)</option>
+                        <option value="student" data-translate="level-student">Student/Recent Graduate</option>
+                        <option value="career-change" data-translate="level-change">Career Change</option>
+                    </select>
+                </div>
+            </div>
             
             <div class="promo-section">
                 <h3 data-translate="promo-title">Promo Code (Optional)</h3>
@@ -136,7 +195,7 @@
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v2.9 - WITH FILE UPLOAD - " + new Date().toISOString() + " ===");
+        console.log("=== SCRIPT STARTING v3.0 - COMPREHENSIVE RESUME BUILDER - " + new Date().toISOString() + " ===");
         
         // Define promo codes object
         var promoCodes = {
@@ -300,7 +359,36 @@
                 'form-jobtitle': 'Job Title You\'re Applying For *',
                 'form-resume-upload': 'Upload Your Current Resume (Optional)',
                 'form-resume-help': 'Accepted formats: PDF, DOC, DOCX (Max 10MB). This helps us understand your experience better.',
-                'promo-title': 'Promo Code (Optional)',
+                'resume-info-title': '📝 Resume Information (Required for Best Results)',
+                'resume-info-desc': 'Please provide the following information to create a personalized, high-quality resume.',
+                'form-experience': 'Work Experience (Last 3-5 positions) *',
+                'form-skills': 'Key Skills & Technologies *',
+                'form-education': 'Education *',
+                'form-achievements': 'Key Achievements/Certifications (Optional)',
+                'form-industry': 'Target Industry/Field *',
+                'form-career-level': 'Career Level *',
+                'industry-select': 'Select your industry...',
+                'industry-tech': 'Technology/IT',
+                'industry-health': 'Healthcare',
+                'industry-finance': 'Finance/Banking',
+                'industry-marketing': 'Marketing/Advertising',
+                'industry-sales': 'Sales',
+                'industry-education': 'Education',
+                'industry-engineering': 'Engineering',
+                'industry-consulting': 'Consulting',
+                'industry-retail': 'Retail/Customer Service',
+                'industry-manufacturing': 'Manufacturing',
+                'industry-nonprofit': 'Non-profit',
+                'industry-government': 'Government',
+                'industry-other': 'Other',
+                'level-select': 'Select your level...',
+                'level-entry': 'Entry Level (0-2 years)',
+                'level-mid': 'Mid Level (3-7 years)',
+                'level-senior': 'Senior Level (8-15 years)',
+                'level-executive': 'Executive Level (15+ years)',
+                'level-student': 'Student/Recent Graduate',
+                'level-change': 'Career Change',
+                'promo-title': 'Promo Code (Optional)'
                 'promo-placeholder': 'Enter promo code',
                 'promo-apply': 'Apply',
                 'price-total': 'Total:',
@@ -331,7 +419,36 @@
                 'form-jobtitle': 'Titre du poste souhaité *',
                 'form-resume-upload': 'Téléchargez votre CV actuel (Optionnel)',
                 'form-resume-help': 'Formats acceptés: PDF, DOC, DOCX (Max 10MB). Cela nous aide à mieux comprendre votre expérience.',
-                'promo-title': 'Code promo (Optionnel)',
+                'resume-info-title': '📝 Informations CV (Requis pour de meilleurs résultats)',
+                'resume-info-desc': 'Veuillez fournir les informations suivantes pour créer un CV personnalisé et de haute qualité.',
+                'form-experience': 'Expérience professionnelle (3-5 derniers postes) *',
+                'form-skills': 'Compétences clés et technologies *',
+                'form-education': 'Formation *',
+                'form-achievements': 'Réalisations/Certifications clés (Optionnel)',
+                'form-industry': 'Secteur/Domaine ciblé *',
+                'form-career-level': 'Niveau de carrière *',
+                'industry-select': 'Sélectionnez votre secteur...',
+                'industry-tech': 'Technologie/Informatique',
+                'industry-health': 'Santé',
+                'industry-finance': 'Finance/Banque',
+                'industry-marketing': 'Marketing/Publicité',
+                'industry-sales': 'Ventes',
+                'industry-education': 'Éducation',
+                'industry-engineering': 'Ingénierie',
+                'industry-consulting': 'Conseil',
+                'industry-retail': 'Commerce/Service client',
+                'industry-manufacturing': 'Fabrication',
+                'industry-nonprofit': 'Organisme sans but lucratif',
+                'industry-government': 'Gouvernement',
+                'industry-other': 'Autre',
+                'level-select': 'Sélectionnez votre niveau...',
+                'level-entry': 'Niveau débutant (0-2 ans)',
+                'level-mid': 'Niveau intermédiaire (3-7 ans)',
+                'level-senior': 'Niveau senior (8-15 ans)',
+                'level-executive': 'Niveau exécutif (15+ ans)',
+                'level-student': 'Étudiant/Récent diplômé',
+                'level-change': 'Reconversion professionnelle',
+                'promo-title': 'Code promo (Optionnel)'
                 'promo-placeholder': 'Entrez le code promo',
                 'promo-apply': 'Appliquer',
                 'price-total': 'Total:',
