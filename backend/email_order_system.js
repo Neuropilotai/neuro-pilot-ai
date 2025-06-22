@@ -133,7 +133,7 @@ class EmailOrderSystem {
             <p>Thank you for your order!</p>
         </div>
         <div class="content">
-            <h2>Hi ${orderData.fullName}!</h2>
+            <h2>Hi ${orderData.firstName || orderData.fullName || 'there'}!</h2>
             
             <div class="status">
                 <strong>✅ Order Received!</strong><br>
@@ -144,11 +144,14 @@ class EmailOrderSystem {
             
             <div class="order-details">
                 <h3>Order Details:</h3>
-                <p><strong>Package:</strong> ${orderData.package.charAt(0).toUpperCase() + orderData.package.slice(1)}</p>
-                <p><strong>Target Role:</strong> ${orderData.targetRole}</p>
-                <p><strong>Industry:</strong> ${orderData.industry}</p>
-                <p><strong>Experience:</strong> ${orderData.experience}</p>
-                ${orderData.keywords ? `<p><strong>Key Skills:</strong> ${orderData.keywords}</p>` : ''}
+                <p><strong>Package:</strong> ${(orderData.packageType || orderData.package || 'professional').charAt(0).toUpperCase() + (orderData.packageType || orderData.package || 'professional').slice(1)}</p>
+                <p><strong>Final Price:</strong> $${orderData.finalPrice || 0}</p>
+                ${orderData.originalPrice !== orderData.finalPrice ? `<p><strong>Original Price:</strong> $${orderData.originalPrice || 0}</p>` : ''}
+                ${orderData.promoCode ? `<p><strong>Promo Code Applied:</strong> ${orderData.promoCode} (${orderData.discountAmount ? '$' + orderData.discountAmount : ''})</p>` : ''}
+                <p><strong>Target Role:</strong> ${orderData.jobTitle || orderData.targetRole || 'Professional Role'}</p>
+                <p><strong>Industry:</strong> ${orderData.targetIndustry || orderData.industry || 'Various'}</p>
+                <p><strong>Experience:</strong> ${orderData.careerLevel || orderData.experience || 'Professional'}</p>
+                ${orderData.skills ? `<p><strong>Key Skills:</strong> ${orderData.skills}</p>` : ''}
                 ${attachmentPath ? '<p><strong>Resume Uploaded:</strong> ✅ We received your current resume</p>' : ''}
             </div>
             
@@ -179,7 +182,7 @@ class EmailOrderSystem {
             to: orderData.email,
             subject: `Order Confirmation #${orderData.orderId || 'AI-' + Date.now()} - Neuro.Pilot.AI`,
             html: confirmationTemplate,
-            text: `Order Confirmation\n\nHi ${orderData.fullName}!\n\nWe've received your order for the ${orderData.package} package.\n\nTarget Role: ${orderData.targetRole}\nIndustry: ${orderData.industry}\n\nYour AI-optimized resume will be delivered within 24-48 hours.\n\nThank you for choosing Neuro.Pilot.AI!`
+            text: `Order Confirmation\n\nHi ${orderData.firstName || orderData.fullName || 'there'}!\n\nWe've received your order for the ${orderData.packageType || 'professional'} package.\n\nTarget Role: ${orderData.jobTitle || 'Professional Role'}\nIndustry: ${orderData.targetIndustry || 'Various'}\nFinal Price: $${orderData.finalPrice || 0}\n\nYour AI-optimized resume will be delivered within 24-48 hours.\n\nThank you for choosing Neuro.Pilot.AI!`
         };
 
         try {

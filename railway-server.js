@@ -130,8 +130,9 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
   try {
     console.log('📝 Resume generation request received');
     
-    // Validate promo code if provided
-    let finalPrice = parseInt(req.body.price) || 45;
+    // Validate promo code if provided  
+    let finalPrice = parseInt(req.body.finalPrice) || parseInt(req.body.originalPrice) || 45;
+    let originalPrice = parseInt(req.body.originalPrice) || 45;
     let promoInfo = null;
     
     if (req.body.promoCode) {
@@ -143,25 +144,39 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
       
       const promo = validPromoCodes[req.body.promoCode.toUpperCase()];
       if (promo) {
-        // Calculate discount amount
-        let discountAmount;
-        if (promo.type === 'percentage') {
-          discountAmount = Math.round(finalPrice * promo.discount / 100);
+        // Use the final price and discount from frontend if already calculated
+        if (req.body.finalPrice !== undefined && req.body.discount !== undefined) {
+          finalPrice = parseInt(req.body.finalPrice);
+          const discountAmount = parseInt(req.body.discount);
+          
+          promoInfo = {
+            code: req.body.promoCode.toUpperCase(),
+            ...promo,
+            originalPrice: originalPrice,
+            discountAmount: discountAmount
+          };
         } else {
-          discountAmount = Math.min(promo.discount, finalPrice);
+          // Calculate discount amount if not provided
+          let discountAmount;
+          if (promo.type === 'percentage') {
+            discountAmount = Math.round(originalPrice * promo.discount / 100);
+          } else {
+            discountAmount = Math.min(promo.discount, originalPrice);
+          }
+          
+          promoInfo = {
+            code: req.body.promoCode.toUpperCase(),
+            ...promo,
+            originalPrice: originalPrice,
+            discountAmount: discountAmount
+          };
+          
+          // Apply discount to final price
+          finalPrice = Math.max(0, originalPrice - discountAmount);
         }
         
-        promoInfo = {
-          code: req.body.promoCode.toUpperCase(),
-          ...promo,
-          originalPrice: finalPrice,
-          discountAmount: discountAmount
-        };
-        
-        // Apply discount to final price
-        finalPrice = Math.max(0, finalPrice - discountAmount);
         console.log(`🎟️ Promo code applied: ${promoInfo.code} - ${promoInfo.description}`);
-        console.log(`💰 Original price: $${promoInfo.originalPrice}, Discount: $${discountAmount}, Final price: $${finalPrice}`);
+        console.log(`💰 Original price: $${originalPrice}, Discount: $${promoInfo.discountAmount}, Final price: $${finalPrice}`);
       }
     }
     
@@ -172,6 +187,7 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
       status: 'received',
       packageType: req.body.packageType || 'professional',
       finalPrice: finalPrice,
+      originalPrice: originalPrice,
       promoCode: promoInfo,
       revisions: {
         total: req.body.packageType === 'executive' ? 5 : req.body.packageType === 'professional' ? 3 : 1,
@@ -271,8 +287,8 @@ app.post('/api/resume/generate', upload.single('resumeFile'), async (req, res) =
           packageType: orderData.packageType,
           firstName: orderData.firstName,
           lastName: orderData.lastName,
-          finalPrice: 0,
-          originalPrice: orderData.originalPrice || finalPrice,
+          finalPrice: finalPrice,
+          originalPrice: originalPrice,
           promoCode: promoInfo ? promoInfo.code : '',
           discountAmount: promoInfo ? promoInfo.discountAmount : 0
         });
