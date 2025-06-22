@@ -499,14 +499,45 @@ app.get('/order', (req, res) => {
                   alert('Could not find main title to translate');
                 }
                 
-                // Try a few more simple translations
+                // Translate headers
+                document.querySelectorAll('h2').forEach(h2 => {
+                  if (h2.textContent === 'Select Your Package') h2.textContent = 'Sélectionnez votre forfait';
+                  if (h2.textContent === 'Contact Information') h2.textContent = 'Informations de Contact';
+                  if (h2.textContent === 'Job Details') h2.textContent = 'Détails de votre emploi';
+                  if (h2.textContent === 'Your Background') h2.textContent = 'Votre parcours';
+                });
+                
                 document.querySelectorAll('h3').forEach(h3 => {
                   if (h3.textContent === 'Basic') h3.textContent = 'Basique';
                   if (h3.textContent === 'Professional') h3.textContent = 'Professionnel';
-                  if (h3.textContent === 'Executive') h3.textContent = 'Executif';
+                  if (h3.textContent === 'Executive') h3.textContent = 'Exécutif';
                 });
                 
-                alert('Basic translation completed!');
+                // Translate form labels
+                document.querySelectorAll('label').forEach(label => {
+                  if (label.textContent === 'First Name *') label.textContent = 'Prénom *';
+                  if (label.textContent === 'Last Name *') label.textContent = 'Nom de famille *';
+                  if (label.textContent === 'Email *') label.textContent = 'Courriel *';
+                  if (label.textContent === 'Phone') label.textContent = 'Téléphone';
+                  if (label.textContent.includes('Job Title')) label.textContent = 'Titre du poste recherché *';
+                  if (label.textContent.includes('Job Description')) label.textContent = 'Description du poste *';
+                  if (label.textContent.includes('Company Name')) label.textContent = 'Nom de l\\'entreprise';
+                  if (label.textContent.includes('Industry')) label.textContent = 'Industrie';
+                  if (label.textContent.includes('Work Experience')) label.textContent = 'Expérience de travail *';
+                  if (label.textContent.includes('Key Skills')) label.textContent = 'Compétences clés *';
+                  if (label.textContent.includes('Education Level')) label.textContent = 'Niveau d\\'éducation';
+                  if (label.textContent.includes('Years of Experience')) label.textContent = 'Années d\\'expérience';
+                  if (label.textContent.includes('Current Resume')) label.textContent = 'CV actuel (Optionnel)';
+                  if (label.textContent.includes('Promo Code')) label.textContent = 'Code promo (Optionnel)';
+                });
+                
+                // Translate buttons
+                document.querySelectorAll('button').forEach(button => {
+                  if (button.textContent.includes('Apply')) button.textContent = 'Appliquer';
+                  if (button.textContent.includes('Proceed to Secure Payment')) button.textContent = '💳 Procéder au paiement sécurisé';
+                });
+                
+                alert('Page entièrement traduite en français! 🇨🇦');
               } else {
                 location.reload();
               }
