@@ -484,13 +484,14 @@ app.get('/order', (req, res) => {
             // Package selection - attach event listeners
             document.querySelectorAll('.package').forEach(pkg => {
               pkg.addEventListener('click', function() {
-                console.log('Package clicked:', this.dataset.package);
+                console.log('Package clicked:', this.dataset.package, 'Price:', this.dataset.price);
                 document.querySelectorAll('.package').forEach(p => p.classList.remove('selected'));
                 this.classList.add('selected');
                 document.querySelector('input[name="packageType"]').value = this.dataset.package;
                 
                 // Update current price
                 currentPrice = parseInt(this.dataset.price);
+                console.log('Current price updated to:', currentPrice);
                 
                 // Recalculate discount if promo code is applied
                 if (promoCodeApplied) {
@@ -500,9 +501,11 @@ app.get('/order', (req, res) => {
                     appliedDiscount = promo.type === 'percentage' ? 
                       Math.round(currentPrice * promo.discount / 100) : 
                       Math.min(promo.discount, currentPrice);
+                    console.log('Discount recalculated:', appliedDiscount);
                   }
                 }
                 
+                console.log('Calling updatePriceDisplay...');
                 updatePriceDisplay();
               });
             });
@@ -512,22 +515,30 @@ app.get('/order', (req, res) => {
               const promoCode = document.getElementById('promoCode').value.toUpperCase();
               const messageEl = document.getElementById('promoMessage');
               
+              console.log('Promo code apply clicked:', promoCode);
+              
               if (!promoCode) {
                 messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
                 return;
               }
               
               const promo = promoCodes[promoCode];
+              console.log('Found promo:', promo);
+              
               if (promo) {
                 appliedDiscount = promo.type === 'percentage' ? 
                   Math.round(currentPrice * promo.discount / 100) : 
                   Math.min(promo.discount, currentPrice);
                 
+                console.log('Discount calculated:', appliedDiscount, 'for current price:', currentPrice);
+                
                 promoCodeApplied = true;
                 messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + promo.description + ' applied!</span>';
+                console.log('Calling updatePriceDisplay from promo code...');
                 updatePriceDisplay();
               } else {
                 messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
+                console.log('Invalid promo code entered');
               }
             });
 
@@ -1337,20 +1348,44 @@ app.get('/order', (req, res) => {
           // Update price display
           function updatePriceDisplay() {
             const finalPrice = Math.max(0, currentPrice - appliedDiscount);
-            document.getElementById('finalPrice').textContent = '$' + finalPrice;
+            console.log('updatePriceDisplay called - currentPrice:', currentPrice, 'appliedDiscount:', appliedDiscount, 'finalPrice:', finalPrice);
+            
+            const finalPriceEl = document.getElementById('finalPrice');
+            if (finalPriceEl) {
+              finalPriceEl.textContent = '$' + finalPrice;
+              console.log('Final price updated to:', '$' + finalPrice);
+            } else {
+              console.error('finalPrice element not found!');
+            }
             
             if (appliedDiscount > 0) {
-              document.getElementById('originalPrice').style.display = 'block';
-              document.getElementById('originalPrice').textContent = '$' + currentPrice;
-              document.getElementById('discount').style.display = 'block';
-              document.getElementById('discount').textContent = appliedDiscount >= currentPrice ? 'FREE!' : '-$' + appliedDiscount;
+              const originalPriceEl = document.getElementById('originalPrice');
+              const discountEl = document.getElementById('discount');
+              
+              if (originalPriceEl) {
+                originalPriceEl.style.display = 'block';
+                originalPriceEl.textContent = '$' + currentPrice;
+              }
+              if (discountEl) {
+                discountEl.style.display = 'block';
+                discountEl.textContent = appliedDiscount >= currentPrice ? 'FREE!' : '-$' + appliedDiscount;
+              }
             } else {
-              document.getElementById('originalPrice').style.display = 'none';
-              document.getElementById('discount').style.display = 'none';
+              const originalPriceEl = document.getElementById('originalPrice');
+              const discountEl = document.getElementById('discount');
+              
+              if (originalPriceEl) originalPriceEl.style.display = 'none';
+              if (discountEl) discountEl.style.display = 'none';
             }
             
             // Update hidden price field
-            document.querySelector('input[name="price"]').value = finalPrice;
+            const priceInput = document.querySelector('input[name="price"]');
+            if (priceInput) {
+              priceInput.value = finalPrice;
+              console.log('Hidden price input updated to:', finalPrice);
+            } else {
+              console.error('Price input field not found!');
+            }
           }
           
           
