@@ -609,148 +609,41 @@ app.get('/order', (req, res) => {
             console.log('All event listeners attached successfully!');
           });
           
-          // Global translation function - must be outside DOMContentLoaded to be accessible from HTML onclick
+          // Safe French translation function - minimal and conservative approach
           function translatePage(lang) {
             try {
               console.log('translatePage called with:', lang);
               
               if (lang === 'fr') {
-                console.log('Starting French translation...');
+                console.log('Starting safe French translation...');
                 
-                // Translate main title
-                let mainTitle = document.querySelector('h1');
-                if (mainTitle && mainTitle.textContent.includes('Get Your Dream Job')) {
-                  mainTitle.textContent = '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA';
-                  console.log('Title translated successfully!');
-                }
+                // Only translate key visible text, avoiding any structural elements
+                const translations = [
+                  { selector: 'h1', from: 'Get Your Dream Job', to: '🚀 Obtenez votre emploi de rêve avec un CV assisté par IA' },
+                  { selector: 'h2', from: 'Select Your Package', to: 'Sélectionnez votre forfait' },
+                  { selector: 'h3', from: 'Basic', to: 'Basique' },
+                  { selector: 'h3', from: 'Professional', to: 'Professionnel' },
+                  { selector: 'h3', from: 'Executive', to: 'Exécutif' }
+                ];
                 
-                // Translate headers
-                document.querySelectorAll('h2').forEach(h2 => {
-                  if (h2.textContent === 'Select Your Package') h2.textContent = 'Sélectionnez votre forfait';
-                  if (h2.textContent === 'Contact Information') h2.textContent = 'Informations de Contact';
-                  if (h2.textContent === 'Job Details') h2.textContent = 'Détails de votre emploi';
-                  if (h2.textContent === 'Your Background') h2.textContent = 'Votre parcours';
+                // Apply translations safely
+                translations.forEach(trans => {
+                  const elements = document.querySelectorAll(trans.selector);
+                  elements.forEach(el => {
+                    if (el.textContent.includes(trans.from)) {
+                      el.textContent = el.textContent.replace(trans.from, trans.to);
+                    }
+                  });
                 });
                 
-                document.querySelectorAll('h3').forEach(h3 => {
-                  if (h3.textContent === 'Basic') h3.textContent = 'Basique';
-                  if (h3.textContent === 'Professional') h3.textContent = 'Professionnel';
-                  if (h3.textContent === 'Executive') h3.textContent = 'Exécutif';
-                });
-                
-                // Translate form labels
-                document.querySelectorAll('label').forEach(label => {
-                  if (label.textContent === 'First Name *') label.textContent = 'Prénom *';
-                  if (label.textContent === 'Last Name *') label.textContent = 'Nom de famille *';
-                  if (label.textContent === 'Email *') label.textContent = 'Courriel *';
-                  if (label.textContent === 'Phone') label.textContent = 'Téléphone';
-                  if (label.textContent.includes('Job Title')) label.textContent = 'Titre du poste recherché *';
-                  if (label.textContent.includes('Job Description')) label.textContent = 'Description du poste *';
-                  if (label.textContent.includes('Company Name')) label.textContent = 'Nom de l\\'entreprise';
-                  if (label.textContent.includes('Industry')) label.textContent = 'Industrie';
-                  if (label.textContent.includes('Work Experience')) label.textContent = 'Expérience de travail *';
-                  if (label.textContent.includes('Key Skills')) label.textContent = 'Compétences clés *';
-                  if (label.textContent.includes('Education Level')) label.textContent = 'Niveau d\\'éducation';
-                  if (label.textContent.includes('Years of Experience')) label.textContent = 'Années d\\'expérience';
-                  if (label.textContent.includes('Current Resume')) label.textContent = 'CV actuel (Optionnel)';
-                  if (label.textContent.includes('Promo Code')) label.textContent = 'Code promo (Optionnel)';
-                });
-                
-                // Translate buttons
-                document.querySelectorAll('button').forEach(button => {
-                  if (button.textContent.includes('Apply')) button.textContent = 'Appliquer';
-                  if (button.textContent.includes('Proceed to Secure Payment')) button.textContent = '💳 Procéder au paiement sécurisé';
-                });
-                
-                // Translate subtitle and feature descriptions
-                document.querySelectorAll('p, div, span').forEach(element => {
-                  if (element.textContent === 'Professional Resume Service') element.textContent = 'Service de CV Professionnel';
-                  if (element.textContent === 'Professional AI-powered resume optimization service') element.textContent = 'Service professionnel d\\'optimisation de CV assisté par IA';
-                  if (element.textContent === 'Advanced AI optimization') element.textContent = 'Optimisation IA avancée';
-                  if (element.textContent === 'Get your resume in hours') element.textContent = 'Recevez votre CV en heures';
-                  if (element.textContent === 'Pass applicant tracking systems') element.textContent = 'Passe les systèmes de suivi';
-                  if (element.textContent === 'Industry-specific keywords') element.textContent = 'Mots-clés spécifiques';
-                });
-                
-                // Translate feature titles
-                document.querySelectorAll('h4').forEach(h4 => {
-                  if (h4.textContent === 'AI-Powered') h4.textContent = 'Assisté par IA';
-                  if (h4.textContent === 'Fast Delivery') h4.textContent = 'Livraison Rapide';
-                  if (h4.textContent === 'ATS-Friendly') h4.textContent = 'Compatible ATS';
-                  if (h4.textContent === 'Professional') h4.textContent = 'Professionnel';
-                });
-                
-                // Translate package features and details
-                document.querySelectorAll('li, small, div').forEach(element => {
-                  if (element.textContent === 'Professional formatting') element.textContent = 'Formatage professionnel';
-                  if (element.textContent === 'ATS optimization') element.textContent = 'Optimisation ATS';
-                  if (element.textContent === '1 revision (within 1 year)') element.textContent = '1 révision (dans l\\'année)';
-                  if (element.textContent === '24-hour delivery') element.textContent = 'Livraison 24h';
-                  if (element.textContent === 'Everything in Basic') element.textContent = 'Tout dans Basique';
-                  if (element.textContent === 'Cover letter included') element.textContent = 'Lettre de motivation incluse';
-                  if (element.textContent === 'LinkedIn optimization tips') element.textContent = 'Conseils d\\'optimisation LinkedIn';
-                  if (element.textContent === '3 revisions (within 1 year)') element.textContent = '3 révisions (dans l\\'année)';
-                  if (element.textContent === '12-hour delivery') element.textContent = 'Livraison 12h';
-                  if (element.textContent === 'Everything in Professional') element.textContent = 'Tout dans Professionnel';
-                  if (element.textContent === 'Executive summary') element.textContent = 'Résumé exécutif';
-                  if (element.textContent === '5 revisions (within 1 year)') element.textContent = '5 révisions (dans l\\'année)';
-                  if (element.textContent === '6-hour delivery') element.textContent = 'Livraison 6h';
-                  if (element.textContent === 'Total Price:') element.textContent = 'Prix total:';
-                  if (element.textContent === 'No file chosen') element.textContent = 'Aucun fichier choisi';
-                  if (element.textContent === 'Current Resume (Optional)') element.textContent = 'CV actuel (Optionnel)';
-                });
-                
-                // Translate file upload and policy text
-                document.querySelectorAll('*').forEach(element => {
-                  if (element.textContent === 'Upload your current resume for reference') element.textContent = 'Téléchargez votre CV actuel pour référence';
-                  if (element.textContent === 'Accepted formats: PDF, DOC, DOCX (Max 10MB)') element.textContent = 'Formats acceptés: PDF, DOC, DOCX (Max 10MB)';
-                  if (element.textContent.includes('Revision Policy:')) element.textContent = '📋 Politique de révision:';
-                  if (element.textContent.includes('Basic: 1 revision | Professional: 3 revisions | Executive: 5 revisions')) {
-                    element.textContent = '• Basique: 1 révision | Professionnel: 3 révisions | Exécutif: 5 révisions';
-                  }
-                  if (element.textContent.includes('All revisions must be used within 1 year')) {
-                    element.textContent = '• Toutes les révisions doivent être utilisées dans l\\'année';
-                  }
-                  if (element.textContent.includes('Your resume will be saved')) {
-                    element.textContent = '• Votre CV sera sauvegardé dans notre système pour un accès facile';
-                  }
-                  if (element.textContent.includes('Your information is secure')) {
-                    element.textContent = '🔒 Vos informations sont sécurisées et chiffrées';
-                  }
-                });
-                
-                // Translate dropdown options
-                document.querySelectorAll('option').forEach(option => {
-                  if (option.textContent === 'Select Industry') option.textContent = 'Sélectionnez industrie';
-                  if (option.textContent === 'Select Education') option.textContent = 'Sélectionnez éducation';
-                  if (option.textContent === 'Select Years') option.textContent = 'Sélectionnez années';
-                  if (option.textContent === 'Technology') option.textContent = 'Technologie';
-                  if (option.textContent === 'Healthcare') option.textContent = 'Santé';
-                  if (option.textContent === 'Finance') option.textContent = 'Finance';
-                  if (option.textContent === 'Education') option.textContent = 'Éducation';
-                  if (option.textContent === 'Retail') option.textContent = 'Commerce de détail';
-                  if (option.textContent === 'Other') option.textContent = 'Autre';
-                  if (option.textContent === 'High School') option.textContent = 'École secondaire';
-                  if (option.textContent === 'Bachelor\\'s Degree') option.textContent = 'Baccalauréat';
-                  if (option.textContent === 'Master\\'s Degree') option.textContent = 'Maîtrise';
-                  if (option.textContent === 'PhD') option.textContent = 'Doctorat';
-                  if (option.textContent === '0-1 years') option.textContent = '0-1 ans';
-                  if (option.textContent === '2-5 years') option.textContent = '2-5 ans';
-                  if (option.textContent === '6-10 years') option.textContent = '6-10 ans';
-                  if (option.textContent === '11-15 years') option.textContent = '11-15 ans';
-                  if (option.textContent === '16+ years') option.textContent = '16+ ans';
-                });
-                
-                // Show completion message in console instead of alert to avoid interruption
-                console.log('✅ Page entièrement traduite en français! 🇨🇦 (100% complet)');
+                console.log('✅ Safe French translation completed');
               } else if (lang === 'en') {
-                // Reload page to return to English
                 console.log('Switching back to English - reloading page');
                 location.reload();
               }
             } catch (error) {
-              alert('Error in translatePage: ' + error.message);
               console.error('Translation error:', error);
+              // Don't show alert, just log the error
             }
           }
         </script>
