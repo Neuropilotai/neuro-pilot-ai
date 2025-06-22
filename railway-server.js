@@ -878,10 +878,19 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 8000;
-server.listen(PORT, () => {
+
+console.log('🔍 RAILWAY DEBUG INFO:');
+console.log(`- NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`- PORT: ${PORT}`);
+console.log(`- STRIPE_SECRET_KEY exists: ${!!process.env.STRIPE_SECRET_KEY}`);
+console.log(`- EMAIL_USER: ${process.env.EMAIL_USER || 'NOT SET'}`);
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Neuro.Pilot.AI Railway Server (Bilingual 🇺🇸🇨🇦) running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`💳 Payment processing ready`);
   console.log(`📝 Resume orders ready`);
   console.log(`🌐 Homepage: http://localhost:${PORT}/`);
+  console.log(`🔗 Order page: http://localhost:${PORT}/order`);
+  console.log('✅ Server started successfully on Railway');
 });
