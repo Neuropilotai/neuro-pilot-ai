@@ -794,8 +794,8 @@
             
             console.log("updatePriceDisplay function defined!");
             
-            // Package selection - attach event listeners
-            document.querySelectorAll(".package").forEach(pkg => {
+            // Package selection - attach event listeners (MOVED TO DOMContentLoaded)
+            // document.querySelectorAll(".package").forEach(pkg => {
                 pkg.addEventListener("click", function() {
                     console.log("Package clicked:", this.dataset.package, "Price:", this.dataset.price);
                     document.querySelectorAll(".package").forEach(p => p.classList.remove("selected"));
@@ -1198,6 +1198,9 @@
         
         // Set up language switcher
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 DOM loaded - Setting up all event listeners...');
+            
+            // 1. Language switcher setup
             console.log('Setting up language switcher...');
             const languageSelect = document.getElementById('languageSelect2');
             console.log('Language select element:', languageSelect);
@@ -1210,6 +1213,81 @@
                 });
             } else {
                 console.error('Language selector not found in DOM!');
+            }
+            
+            // 2. Package selection setup  
+            console.log('Setting up package selection...');
+            const packages = document.querySelectorAll(".package");
+            console.log('Package elements found:', packages.length);
+            
+            packages.forEach(pkg => {
+                pkg.addEventListener("click", function() {
+                    console.log("Package clicked:", this.dataset.package, "Price:", this.dataset.price);
+                    document.querySelectorAll(".package").forEach(p => p.classList.remove("selected"));
+                    this.classList.add("selected");
+                    document.querySelector("input[name='packageType']").value = this.dataset.package;
+                    
+                    // Update current price
+                    currentPrice = parseInt(this.dataset.price);
+                    console.log("Current price updated to:", currentPrice);
+                    
+                    // Recalculate discount if promo code is applied
+                    if (promoCodeApplied) {
+                        const promoCode = document.getElementById("promoCode").value.toUpperCase();
+                        const promo = promoCodes[promoCode];
+                        if (promo) {
+                            appliedDiscount = promo.type === "percentage" ? 
+                                Math.round(currentPrice * promo.discount / 100) : 
+                                Math.min(promo.discount, currentPrice);
+                            console.log("Discount recalculated:", appliedDiscount);
+                        }
+                    }
+                    
+                    console.log("Calling updatePriceDisplay...");
+                    updatePriceDisplay();
+                });
+            });
+            
+            // 3. Promo code setup
+            console.log('Setting up promo code...');
+            const applyPromoBtn = document.getElementById("applyPromo");
+            
+            if (applyPromoBtn) {
+                console.log('Promo button found! Adding event listener...');
+                applyPromoBtn.addEventListener("click", function() {
+                    const promoCode = document.getElementById("promoCode").value.toUpperCase();
+                    const messageEl = document.getElementById("promoMessage");
+                    
+                    console.log("Promo code apply clicked:", promoCode);
+                    
+                    if (!promoCode) {
+                        messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
+                        return;
+                    }
+                    
+                    const promo = promoCodes[promoCode];
+                    console.log("Found promo:", promo);
+                    
+                    if (promo) {
+                        appliedDiscount = promo.type === "percentage" ? 
+                            Math.round(currentPrice * promo.discount / 100) : 
+                            Math.min(promo.discount, currentPrice);
+                        
+                        console.log("Discount calculated:", appliedDiscount, "for current price:", currentPrice);
+                        
+                        promoCodeApplied = true;
+                        messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + promo.description + ' applied!</span>';
+                        
+                        updatePriceDisplay();
+                    } else {
+                        messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
+                        promoCodeApplied = false;
+                        appliedDiscount = 0;
+                        updatePriceDisplay();
+                    }
+                });
+            } else {
+                console.error('Promo button not found!');
             }
             
             // Form submission handler - moved inside DOMContentLoaded
