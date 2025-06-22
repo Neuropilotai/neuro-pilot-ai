@@ -484,11 +484,13 @@ app.get('/order', (req, res) => {
             
             // We'll call switchLanguage once it's available
             if (typeof window.switchLanguage === 'function') {
+              console.log('Calling switchLanguage...');
               window.switchLanguage(lang);
             } else {
               // Store the selection for later
               window.pendingLanguageChange = lang;
               console.log('switchLanguage not ready yet, stored selection:', lang);
+              alert('Translation system not ready. Will try when page loads.');
             }
           }
         </script>
@@ -1503,27 +1505,52 @@ app.get('/order', (req, res) => {
           // Global language switching function - replace the placeholder
           window.switchLanguage = function(lang) {
             try {
-              console.log('Switching language to:', lang);
+              console.log('=== STARTING TRANSLATION TO:', lang);
+              
+              // Check if translations exist
+              if (typeof translations === 'undefined') {
+                alert('ERROR: Translations object not found!');
+                console.error('translations is undefined');
+                return;
+              }
               
               const langData = translations[lang];
               if (!langData) {
+                alert('ERROR: No translation data for ' + lang);
                 console.error('No translation data for language:', lang);
                 return;
               }
               
+              console.log('Found translation data with', Object.keys(langData).length, 'keys');
+              
               // Translate all elements with data-translate attribute
-              document.querySelectorAll('[data-translate]').forEach(element => {
+              const elementsToTranslate = document.querySelectorAll('[data-translate]');
+              console.log('Found', elementsToTranslate.length, 'elements to translate');
+              
+              let translatedCount = 0;
+              elementsToTranslate.forEach(element => {
                 const key = element.getAttribute('data-translate');
                 if (langData[key]) {
+                  const oldText = element.textContent;
                   element.textContent = langData[key];
+                  console.log('Translated:', key, ':', oldText, '->', langData[key]);
+                  translatedCount++;
+                } else {
+                  console.warn('No translation for key:', key);
                 }
               });
               
+              console.log('Translated', translatedCount, 'elements');
+              
               // Translate placeholders
-              document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+              const placeholderElements = document.querySelectorAll('[data-translate-placeholder]');
+              console.log('Found', placeholderElements.length, 'placeholders to translate');
+              
+              placeholderElements.forEach(element => {
                 const key = element.getAttribute('data-translate-placeholder');
                 if (langData[key]) {
                   element.placeholder = langData[key];
+                  console.log('Translated placeholder:', key);
                 }
               });
               
@@ -1540,11 +1567,11 @@ app.get('/order', (req, res) => {
                 }
               });
               
-              alert(lang === 'fr' ? 'Page traduite en français! 🇨🇦' : 'Page switched to English! 🇺🇸');
-              console.log('Language switch completed');
+              alert(lang === 'fr' ? 'Page traduite en français! 🇨🇦 (' + translatedCount + ' elements)' : 'Page switched to English! 🇺🇸');
+              console.log('=== LANGUAGE SWITCH COMPLETED ===');
             } catch(error) {
               alert('Error in switchLanguage: ' + error.message);
-              console.log('Error:', error);
+              console.error('Error in switchLanguage:', error);
             }
           }
           
