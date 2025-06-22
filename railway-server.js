@@ -1226,9 +1226,6 @@ app.get('/order', (req, res) => {
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
-            <br>
-            <button onclick="alert('Button clicked!')" style="margin-top: 5px; background: #ff0000; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Test Click</button>
-            <button onclick="translatePage('fr')" style="margin-top: 5px; background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Test FR</button>
           </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
@@ -1636,103 +1633,7 @@ app.get('/order', (req, res) => {
             }
           };
           
-          // Global language switching function - replace the placeholder
-          window.switchLanguage = function(lang) {
-            try {
-              console.log('=== STARTING TRANSLATION TO:', lang);
-              
-              // Check if translations exist
-              if (typeof translations === 'undefined') {
-                alert('ERROR: Translations object not found!');
-                console.error('translations is undefined');
-                return;
-              }
-              
-              const langData = translations[lang];
-              if (!langData) {
-                alert('ERROR: No translation data for ' + lang);
-                console.error('No translation data for language:', lang);
-                return;
-              }
-              
-              console.log('Found translation data with', Object.keys(langData).length, 'keys');
-              
-              // Translate all elements with data-translate attribute
-              const elementsToTranslate = document.querySelectorAll('[data-translate]');
-              console.log('Found', elementsToTranslate.length, 'elements to translate');
-              
-              let translatedCount = 0;
-              elementsToTranslate.forEach(element => {
-                const key = element.getAttribute('data-translate');
-                if (langData[key]) {
-                  const oldText = element.textContent;
-                  element.textContent = langData[key];
-                  console.log('Translated:', key, ':', oldText, '->', langData[key]);
-                  translatedCount++;
-                } else {
-                  console.warn('No translation for key:', key);
-                }
-              });
-              
-              console.log('Translated', translatedCount, 'elements');
-              
-              // Translate placeholders
-              const placeholderElements = document.querySelectorAll('[data-translate-placeholder]');
-              console.log('Found', placeholderElements.length, 'placeholders to translate');
-              
-              placeholderElements.forEach(element => {
-                const key = element.getAttribute('data-translate-placeholder');
-                if (langData[key]) {
-                  element.placeholder = langData[key];
-                  console.log('Translated placeholder:', key);
-                }
-              });
-              
-              // Update dropdown options if they exist
-              const selects = document.querySelectorAll('select');
-              selects.forEach(select => {
-                if (select.id !== 'languageSelect') {
-                  select.querySelectorAll('option').forEach(option => {
-                    const key = option.getAttribute('data-translate');
-                    if (key && langData[key]) {
-                      option.textContent = langData[key];
-                    }
-                  });
-                }
-              });
-              
-              alert(lang === 'fr' ? 'Page traduite en français! 🇨🇦 (' + translatedCount + ' elements)' : 'Page switched to English! 🇺🇸');
-              console.log('=== LANGUAGE SWITCH COMPLETED ===');
-            } catch(error) {
-              alert('Error in switchLanguage: ' + error.message);
-              console.error('Error in switchLanguage:', error);
-            }
-          }
-          
-          
-          // Check if there's a pending language change
-          (function() {
-            console.log('Checking for pending language change...');
-            if (window.pendingLanguageChange) {
-              console.log('Found pending language change:', window.pendingLanguageChange);
-              window.switchLanguage(window.pendingLanguageChange);
-              window.pendingLanguageChange = null;
-            }
-            
-            // Verify everything is working
-            const selector = document.getElementById('languageSelect');
-            console.log('Language selector found:', !!selector);
-            console.log('switchLanguage available:', typeof window.switchLanguage);
-            console.log('translations available:', typeof translations);
-            console.log('Translation system ready - Version 3.4');
-            
-            // Update the global handleLanguageChange to use the now-available switchLanguage
-            window.handleLanguageChange = function(lang) {
-              console.log('handleLanguageChange called with:', lang);
-              window.switchLanguage(lang);
-            };
-            console.log('handleLanguageChange updated to use switchLanguage directly');
-          })();
+          // Note: Using translatePage function instead of duplicate switchLanguage
         </script>
       </body>
     </html>
