@@ -1529,24 +1529,46 @@ app.get('/order', (req, res) => {
             }
           }
           
-          // Create and insert language selector
-          const languageSelectorHTML = '<select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;"><option value="en">🇺🇸 English</option><option value="fr">🇨🇦 Français</option></select>';
-          document.getElementById('languageSelectorContainer').innerHTML = languageSelectorHTML;
-          console.log('Language selector created and switchLanguage function ready');
-          console.log('Translation system initialized. Version: 2.0');
+          // Create and insert language selector when DOM is ready
+          document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, creating language selector...');
+            const container = document.getElementById('languageSelectorContainer');
+            if (container) {
+              const languageSelectorHTML = '<select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;"><option value="en">🇺🇸 English</option><option value="fr">🇨🇦 Français</option></select>';
+              container.innerHTML = languageSelectorHTML;
+              console.log('Language selector created successfully');
+            } else {
+              console.error('Language selector container not found!');
+            }
+            
+            // Debug info
+            console.log('switchLanguage type:', typeof window.switchLanguage);
+            console.log('translations type:', typeof translations);
+            console.log('Available languages:', Object.keys(translations));
+            console.log('Translation system initialized. Version: 2.1');
+          });
           
-          // Debug info
-          console.log('switchLanguage type:', typeof window.switchLanguage);
-          console.log('translations type:', typeof translations);
-          console.log('Available languages:', Object.keys(translations));
-          
-          // Test the function immediately
-          console.log('Testing switchLanguage with English...');
-          try {
-            window.switchLanguage('en');
-          } catch (e) {
-            console.error('Error testing switchLanguage:', e);
+          // Also try immediate insertion in case DOM is already ready
+          if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            const container = document.getElementById('languageSelectorContainer');
+            if (container && !container.innerHTML.trim()) {
+              const languageSelectorHTML = '<select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;"><option value="en">🇺🇸 English</option><option value="fr">🇨🇦 Français</option></select>';
+              container.innerHTML = languageSelectorHTML;
+              console.log('Language selector created immediately (DOM was ready)');
+            }
           }
+          
+          // Force immediate execution
+          (function() {
+            const container = document.getElementById('languageSelectorContainer');
+            if (container) {
+              const languageSelectorHTML = '<select id="languageSelect" onchange="switchLanguage(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;"><option value="en">🇺🇸 English</option><option value="fr">🇨🇦 Français</option></select>';
+              container.innerHTML = languageSelectorHTML;
+              console.log('Language selector FORCED - Version 2.3');
+            } else {
+              console.error('CRITICAL ERROR: Cannot find languageSelectorContainer');
+            }
+          })();
         </script>
       </body>
     </html>
