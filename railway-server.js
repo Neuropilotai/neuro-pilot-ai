@@ -476,6 +476,22 @@ app.get('/order', (req, res) => {
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
+        <script>
+          // Global function to handle language change
+          function handleLanguageChange(lang) {
+            console.log('handleLanguageChange called with:', lang);
+            alert('Language change to: ' + lang);
+            
+            // We'll call switchLanguage once it's available
+            if (typeof window.switchLanguage === 'function') {
+              window.switchLanguage(lang);
+            } else {
+              // Store the selection for later
+              window.pendingLanguageChange = lang;
+              console.log('switchLanguage not ready yet, stored selection:', lang);
+            }
+          }
+        </script>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
           * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -944,7 +960,7 @@ app.get('/order', (req, res) => {
       <body>
         <div class="header">
           <div style="position: absolute; top: 20px; right: 30px; z-index: 1000;">
-            <select id="languageSelect" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
+            <select id="languageSelect" onchange="handleLanguageChange(this.value)" style="background: rgba(255,255,255,0.9); border: 2px solid rgba(102,126,234,0.2); border-radius: 20px; padding: 8px 16px; font-weight: 600; cursor: pointer;">
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
@@ -1533,37 +1549,21 @@ app.get('/order', (req, res) => {
           }
           
           
-          // Add event listener to the existing language selector
+          // Check if there's a pending language change
           (function() {
-            const selector = document.getElementById('languageSelect');
-            if (selector) {
-              selector.addEventListener('change', function(e) {
-                console.log('Language changed to:', this.value);
-                console.log('Calling switchLanguage...');
-                
-                // Debug checks
-                console.log('window.switchLanguage exists?', typeof window.switchLanguage);
-                console.log('translations exists?', typeof translations);
-                
-                if (typeof window.switchLanguage === 'function') {
-                  window.switchLanguage(this.value);
-                } else {
-                  alert('Error: switchLanguage function not found!');
-                  console.error('switchLanguage is not a function:', window.switchLanguage);
-                }
-              });
-              console.log('Language selector event listener added - Version 3.1');
-              console.log('Language selector is visible and ready!');
-              
-              // Also test if we can access translations
-              if (typeof translations !== 'undefined') {
-                console.log('Translations available:', Object.keys(translations));
-              } else {
-                console.error('Translations object not found!');
-              }
-            } else {
-              console.error('CRITICAL ERROR: Cannot find languageSelect element');
+            console.log('Checking for pending language change...');
+            if (window.pendingLanguageChange) {
+              console.log('Found pending language change:', window.pendingLanguageChange);
+              window.switchLanguage(window.pendingLanguageChange);
+              window.pendingLanguageChange = null;
             }
+            
+            // Verify everything is working
+            const selector = document.getElementById('languageSelect');
+            console.log('Language selector found:', !!selector);
+            console.log('switchLanguage available:', typeof window.switchLanguage);
+            console.log('translations available:', typeof translations);
+            console.log('Translation system ready - Version 3.2');
           })();
         </script>
       </body>
