@@ -467,10 +467,15 @@ app.get('/test-translation', (req, res) => {
 });
 
 app.get('/order', (req, res) => {
+  res.set({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
   res.send(`
     <html>
       <head>
-        <title>Order Professional AI Resume - Neuro.Pilot.AI</title>
+        <title>Order Professional AI Resume - Neuro.Pilot.AI [UPDATED-v2.5]</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -486,6 +491,58 @@ app.get('/order', (req, res) => {
             console.log('Apply promo button:', !!document.getElementById('applyPromo'));
             console.log('Final price element:', !!document.getElementById('finalPrice'));
             console.log('Promo message element:', !!document.getElementById('promoMessage'));
+            
+            // Global variables - accessible from everywhere (using var for maximum compatibility)
+            var currentPrice = 45;
+            var appliedDiscount = 0;
+            var promoCodeApplied = false;
+            
+            console.log('Global variables set - currentPrice:', currentPrice, 'promoCodeApplied:', promoCodeApplied);
+            
+            // Define updatePriceDisplay function FIRST - before any other code
+            function updatePriceDisplay() {
+              const finalPrice = Math.max(0, currentPrice - appliedDiscount);
+              console.log('updatePriceDisplay called - currentPrice:', currentPrice, 'appliedDiscount:', appliedDiscount, 'finalPrice:', finalPrice);
+              
+              const finalPriceEl = document.getElementById('finalPrice');
+              if (finalPriceEl) {
+                finalPriceEl.textContent = '$' + finalPrice;
+                console.log('Final price updated to:', '$' + finalPrice);
+              } else {
+                console.error('finalPrice element not found!');
+              }
+              
+              if (appliedDiscount > 0) {
+                const originalPriceEl = document.getElementById('originalPrice');
+                const discountEl = document.getElementById('discount');
+                
+                if (originalPriceEl) {
+                  originalPriceEl.style.display = 'block';
+                  originalPriceEl.textContent = '$' + currentPrice;
+                }
+                if (discountEl) {
+                  discountEl.style.display = 'block';
+                  discountEl.textContent = appliedDiscount >= currentPrice ? 'FREE!' : '-$' + appliedDiscount;
+                }
+              } else {
+                const originalPriceEl = document.getElementById('originalPrice');
+                const discountEl = document.getElementById('discount');
+                
+                if (originalPriceEl) originalPriceEl.style.display = 'none';
+                if (discountEl) discountEl.style.display = 'none';
+              }
+              
+              // Update hidden price field
+              const priceInput = document.querySelector('input[name="price"]');
+              if (priceInput) {
+                priceInput.value = finalPrice;
+                console.log('Hidden price input updated to:', finalPrice);
+              } else {
+                console.error('Price input field not found!');
+              }
+            }
+            
+            console.log('updatePriceDisplay function defined!');
             
             // Package selection - attach event listeners
             document.querySelectorAll('.package').forEach(pkg => {
@@ -1341,14 +1398,9 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
-          console.log('=== SCRIPT STARTING v2.3 ===');
+          console.log('=== SCRIPT STARTING v2.5 - FIXED VARIABLES AND FUNCTION ORDER - ' + new Date().toISOString() + ' ===');
           
-          // Global variables - accessible from everywhere (using var for maximum compatibility)
-          var currentPrice = 45;
-          var appliedDiscount = 0;
-          var promoCodeApplied = false;
-          
-          console.log('Global variables set - currentPrice:', currentPrice, 'promoCodeApplied:', promoCodeApplied);
+          // Note: Global variables moved to DOMContentLoaded block above
           
           // Define promo codes object
           var promoCodes = {
@@ -1359,50 +1411,6 @@ app.get('/order', (req, res) => {
           
           console.log('Promo codes defined:', Object.keys(promoCodes));
           
-          // Define updatePriceDisplay function FIRST - before any other code
-          function updatePriceDisplay() {
-            const finalPrice = Math.max(0, currentPrice - appliedDiscount);
-            console.log('updatePriceDisplay called - currentPrice:', currentPrice, 'appliedDiscount:', appliedDiscount, 'finalPrice:', finalPrice);
-            
-            const finalPriceEl = document.getElementById('finalPrice');
-            if (finalPriceEl) {
-              finalPriceEl.textContent = '$' + finalPrice;
-              console.log('Final price updated to:', '$' + finalPrice);
-            } else {
-              console.error('finalPrice element not found!');
-            }
-            
-            if (appliedDiscount > 0) {
-              const originalPriceEl = document.getElementById('originalPrice');
-              const discountEl = document.getElementById('discount');
-              
-              if (originalPriceEl) {
-                originalPriceEl.style.display = 'block';
-                originalPriceEl.textContent = '$' + currentPrice;
-              }
-              if (discountEl) {
-                discountEl.style.display = 'block';
-                discountEl.textContent = appliedDiscount >= currentPrice ? 'FREE!' : '-$' + appliedDiscount;
-              }
-            } else {
-              const originalPriceEl = document.getElementById('originalPrice');
-              const discountEl = document.getElementById('discount');
-              
-              if (originalPriceEl) originalPriceEl.style.display = 'none';
-              if (discountEl) discountEl.style.display = 'none';
-            }
-            
-            // Update hidden price field
-            const priceInput = document.querySelector('input[name="price"]');
-            if (priceInput) {
-              priceInput.value = finalPrice;
-              console.log('Hidden price input updated to:', finalPrice);
-            } else {
-              console.error('Price input field not found!');
-            }
-          }
-          
-          console.log('updatePriceDisplay function defined!');
           
           
           // Note: All event listeners have been moved to DOMContentLoaded block above
