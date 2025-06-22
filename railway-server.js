@@ -515,12 +515,12 @@ app.get('/order', (req, res) => {
                 if (label.textContent === 'Phone') label.textContent = 'Téléphone';
                 if (label.textContent.includes('Job Title')) label.textContent = 'Titre du poste recherché *';
                 if (label.textContent.includes('Job Description')) label.textContent = 'Description du poste *';
-                if (label.textContent.includes('Company Name')) label.textContent = 'Nom de l\'entreprise';
+                if (label.textContent.includes('Company Name')) label.textContent = 'Nom de l\\'entreprise';
                 if (label.textContent.includes('Industry')) label.textContent = 'Industrie';
                 if (label.textContent.includes('Work Experience')) label.textContent = 'Expérience de travail *';
                 if (label.textContent.includes('Key Skills')) label.textContent = 'Compétences clés *';
-                if (label.textContent.includes('Education Level')) label.textContent = 'Niveau d\'éducation';
-                if (label.textContent.includes('Years of Experience')) label.textContent = 'Années d\'expérience';
+                if (label.textContent.includes('Education Level')) label.textContent = 'Niveau d\\'éducation';
+                if (label.textContent.includes('Years of Experience')) label.textContent = 'Années d\\'expérience';
                 if (label.textContent.includes('Current Resume')) label.textContent = 'CV actuel (Optionnel)';
                 if (label.textContent.includes('Promo Code')) label.textContent = 'Code promo (Optionnel)';
               });
@@ -547,7 +547,7 @@ app.get('/order', (req, res) => {
               document.querySelectorAll('p, span, div, li').forEach(element => {
                 // Subtitle
                 if (element.textContent === 'Professional AI-powered resume optimization service') {
-                  element.textContent = 'Service professionnel d\'optimisation de CV assisté par IA';
+                  element.textContent = 'Service professionnel d\\'optimisation de CV assisté par IA';
                 }
                 if (element.textContent === 'Professional Resume Service') {
                   element.textContent = 'Service de CV Professionnel';
@@ -558,7 +558,7 @@ app.get('/order', (req, res) => {
                 if (element.textContent === 'ATS optimization') element.textContent = 'Optimisation ATS';
                 if (element.textContent === 'Everything in Basic') element.textContent = 'Tout dans Basique';
                 if (element.textContent === 'Cover letter included') element.textContent = 'Lettre de motivation incluse';
-                if (element.textContent === 'LinkedIn optimization tips') element.textContent = 'Conseils d\'optimisation LinkedIn';
+                if (element.textContent === 'LinkedIn optimization tips') element.textContent = 'Conseils d\\'optimisation LinkedIn';
                 if (element.textContent === 'Everything in Professional') element.textContent = 'Tout dans Professionnel';
                 if (element.textContent === 'Executive summary') element.textContent = 'Résumé exécutif';
                 
@@ -575,7 +575,7 @@ app.get('/order', (req, res) => {
                   element.textContent = '📋 Politique de révision:';
                 }
                 if (element.textContent.includes('All revisions must be used within 1 year')) {
-                  element.textContent = '• Toutes les révisions doivent être utilisées dans l\'année';
+                  element.textContent = '• Toutes les révisions doivent être utilisées dans l\\'année';
                 }
                 if (element.textContent.includes('Your resume will be saved')) {
                   element.textContent = '• Votre CV sera sauvegardé dans notre système';
