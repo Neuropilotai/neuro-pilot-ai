@@ -480,9 +480,10 @@ app.get('/order', (req, res) => {
           // Simple immediate translation function - NEW NAME
           function translatePage(lang) {
             console.log('translatePage called with:', lang);
-            alert('New translation function called with: ' + lang);
+            alert('Translation starting for: ' + lang);
             
             if (lang === 'fr') {
+              console.log('Starting French translation...');
               // Direct French translations
               document.querySelectorAll('h1').forEach(h1 => {
                 if (h1.textContent.includes('Get Your Dream Job')) {
@@ -1071,6 +1072,8 @@ app.get('/order', (req, res) => {
               <option value="en">🇺🇸 English</option>
               <option value="fr">🇨🇦 Français</option>
             </select>
+            <br>
+            <button onclick="translatePage('fr')" style="margin-top: 5px; background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Test FR</button>
           </div>
           <a href="/" class="logo">
             <div class="logo-icon">N.P</div>
