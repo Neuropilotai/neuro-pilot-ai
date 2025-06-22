@@ -1341,7 +1341,7 @@ app.get('/order', (req, res) => {
         </div>
         
         <script>
-          console.log('=== SCRIPT STARTING v2.2 ===');
+          console.log('=== SCRIPT STARTING v2.3 ===');
           
           // Global variables - accessible from everywhere (using var for maximum compatibility)
           var currentPrice = 45;
