@@ -11,16 +11,6 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; position: relative; }
         .container { max-width: 800px; margin: 0 auto; position: relative; }
-        .language-selector { 
-            position: fixed; 
-            top: 20px; 
-            right: 20px; 
-            z-index: 1000; 
-            background: white; 
-            padding: 5px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
         h1 { color: #333; text-align: center; }
         .package { border: 2px solid #ddd; padding: 15px; margin: 10px 0; cursor: pointer; border-radius: 8px; }
         .package.selected { border-color: #4CAF50; background-color: #f0f8f0; }
@@ -43,12 +33,6 @@
     </style>
 </head>
 <body>
-    <div class="language-selector">
-        <select id="languageSelect" style="background: white; border: 2px solid #ddd; border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer;">
-            <option value="en">🇺🇸 English</option>
-            <option value="fr">🇨🇦 Français</option>
-        </select>
-    </div>
     <div class="container">
         <div style="text-align: right; margin-bottom: 20px;">
             <strong>Language / Langue:</strong>
@@ -140,7 +124,7 @@
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v2.7 - WITH BILINGUAL SUPPORT - " + new Date().toISOString() + " ===");
+        console.log("=== SCRIPT STARTING v2.8 - SINGLE LANGUAGE SELECTOR - " + new Date().toISOString() + " ===");
         
         // Define promo codes object
         var promoCodes = {
@@ -367,33 +351,17 @@
         // Set up language switcher
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Setting up language switcher...');
-            const languageSelect = document.getElementById('languageSelect');
-            const languageSelect2 = document.getElementById('languageSelect2');
+            const languageSelect = document.getElementById('languageSelect2');
             console.log('Language select element:', languageSelect);
-            console.log('Language select2 element:', languageSelect2);
             
             if (languageSelect) {
-                console.log('Language selector 1 found! Adding event listener...');
+                console.log('Language selector found! Adding event listener...');
                 languageSelect.addEventListener('change', function() {
                     console.log('Language changed to:', this.value);
                     switchLanguage(this.value);
-                    // Sync the other selector
-                    if (languageSelect2) languageSelect2.value = this.value;
                 });
-            }
-            
-            if (languageSelect2) {
-                console.log('Language selector 2 found! Adding event listener...');
-                languageSelect2.addEventListener('change', function() {
-                    console.log('Language changed to:', this.value);
-                    switchLanguage(this.value);
-                    // Sync the other selector
-                    if (languageSelect) languageSelect.value = this.value;
-                });
-            }
-            
-            if (!languageSelect && !languageSelect2) {
-                console.error('No language selectors found in DOM!');
+            } else {
+                console.error('Language selector not found in DOM!');
             }
         });
     </script>
