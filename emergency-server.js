@@ -79,6 +79,64 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Order page
+  if (pathname === '/order') {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Order - Neuro.Pilot.AI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #667eea;
+      color: white;
+      text-align: center;
+      padding: 50px;
+      margin: 0;
+    }
+    .container {
+      background: rgba(255,255,255,0.1);
+      padding: 40px;
+      border-radius: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .info {
+      background: #ed8936;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    a {
+      color: white;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📝 Order System</h1>
+    <div class="info">
+      <h2>Temporary Order Processing</h2>
+      <p>Our full order system is being upgraded.</p>
+      <p>Your order <strong>order_1750603803709</strong> has been received.</p>
+      <p>Package: <strong>Executive</strong></p>
+      <p>Promo: <strong>FAMILY2025 (100% OFF)</strong></p>
+      <p>Status: <strong>Queued for AI processing</strong></p>
+    </div>
+    <p>We'll process your order within 24 hours.</p>
+    <p>Email confirmation will be sent to: <strong>davidmikulis66@gmail.com</strong></p>
+    <br>
+    <a href="/">← Back to Home</a>
+  </div>
+</body>
+</html>
+    `);
+    return;
+  }
+
   // 404 for other routes
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
