@@ -1,1 +1,1 @@
-web: node railway-server-minimal.js
+web: node emergency-server.js

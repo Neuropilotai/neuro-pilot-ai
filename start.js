@@ -5,8 +5,8 @@ console.log('Environment:', process.env.NODE_ENV);
 console.log('PORT:', process.env.PORT);
 
 try {
-  console.log('Starting railway-server.js...');
-  require('./railway-server.js');
+  console.log('Starting emergency-server.js...');
+  require('./emergency-server.js');
 } catch (error) {
   console.error('❌ RAILWAY STARTUP ERROR:', error);
   console.error('Stack:', error.stack);

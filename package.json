@@ -12,8 +12,8 @@
     "setup": "./scripts/setup.sh",
     "start-agents": "pm2 start ecosystem.config.js",
     "dashboard": "cd frontend && npm start",
-    "start": "node railway-server-minimal.js",
-    "start:railway": "node railway-server-minimal.js"
+    "start": "node emergency-server.js",
+    "start:railway": "node emergency-server.js"
   },
   "keywords": [
     "ai",
