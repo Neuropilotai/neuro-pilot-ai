@@ -310,6 +310,8 @@ app.post('/api/send-email', async (req, res) => {
             });
         }
 
+        const currentTime = new Date().toLocaleString();
+
         // Railway-optimized email template
         const mailOptions = {
             from: {
@@ -366,7 +368,7 @@ app.post('/api/send-email', async (req, res) => {
                     <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.3);">
                         <p style="margin: 10px 0;">✨ AI-Powered • 🚀 Railway Deployed • 📧 Instant Delivery</p>
                         <p style="margin: 10px 0;"><small>Powered by 7 Specialized AI Agents | Database Persistent | Quality Guaranteed</small></p>
-                        <p style="margin: 10px 0; opacity: 0.8;"><small>Deployed on Railway • Version 2.0.0 • ${new Date().toLocaleString()}</small></p>
+                        <p style="margin: 10px 0; opacity: 0.8;"><small>Deployed on Railway • Version 2.0.0 • ${currentTime}</small></p>
                     </div>
                 </div>
             `
@@ -450,6 +452,7 @@ app.post('/api/test-email', async (req, res) => {
 // Homepage
 app.get('/', (req, res) => {
     const systemStatus = agentSystem ? 'FULLY OPERATIONAL' : 'STARTING UP';
+    const currentTime = new Date().toLocaleString();
     
     res.send(`
 <!DOCTYPE html>
@@ -647,7 +650,7 @@ app.get('/', (req, res) => {
         <a href="/api/agents/status" class="btn">🤖 Agent Status</a>
         
         <p style="margin-top: 30px; opacity: 0.7;">
-            Railway Deployment • Version 2.0.0 • ${new Date().toLocaleString()}
+            Railway Deployment • Version 2.0.0 • ${currentTime}
         </p>
     </div>
 </body>
@@ -659,6 +662,7 @@ app.get('/', (req, res) => {
 app.get('/order-confirmation', async (req, res) => {
     const { package: packageType, price, promo, order_id } = req.query;
     const isPromo = promo === 'true';
+    const currentTime = new Date().toLocaleString();
     
     let orderDetails = {
         package: packageType || 'professional',
@@ -850,7 +854,7 @@ app.get('/order-confirmation', async (req, res) => {
         </p>
         
         <p style="opacity: 0.8; font-size: 14px;">
-            Order confirmed: ${new Date().toLocaleString()}<br>
+            Order confirmed: ${currentTime}<br>
             Railway Deployment • Database Persistent • Version 2.0.0<br>
             System Status: ✅ Fully Operational
         </p>
