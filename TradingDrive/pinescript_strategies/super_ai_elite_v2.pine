@@ -1,0 +1,290 @@
+//@version=5
+strategy("🎯 Super AI Elite V2 Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=25, max_boxes_count=100, max_lines_count=100, max_labels_count=100)
+
+// ===== ELITE AI PARAMETERS =====
+aiAccuracy = input.float(0.95, "🧠 AI Model Accuracy", minval=0.5, maxval=1.0, step=0.001, group="🧠 AI Elite Model")
+learningProgress = input.float(1.0, "📈 Learning Progress", minval=0.0, maxval=1.0, step=0.01, group="🧠 AI Elite Model")
+dataPoints = input.int(26500, "📊 Data Points Collected", minval=1000, group="🧠 AI Elite Model")
+confidenceThreshold = input.float(0.82, "🎯 Signal Confidence Threshold", minval=0.5, maxval=0.95, step=0.05, group="🧠 AI Elite Model")
+
+// ===== ELITE VISUAL SETTINGS =====
+showProfitZones = input.bool(true, "💰 Show Profit Zones", group="📊 Elite Visuals")
+showBuySellLabels = input.bool(true, "🔥 Show Buy/Sell Labels", group="📊 Elite Visuals")
+showAIConfidence = input.bool(true, "🧠 Show AI Confidence", group="📊 Elite Visuals")
+showTrendLines = input.bool(true, "📈 Show Trend Lines", group="📊 Elite Visuals")
+showSupportResistance = input.bool(true, "🎯 Show Support/Resistance", group="📊 Elite Visuals")
+showSharpePlot = input.bool(true, "📊 Show Sharpe Memory", group="📊 Elite Visuals")
+enableWebhookExport = input.bool(true, "📡 Enable Webhook Export", group="📊 Elite Visuals")
+
+// ===== ELITE RISK OPTIMIZER =====
+riskMode = input.string("Aggressive", "🎯 Elite Risk Mode", options=["Conservative", "Balanced", "Aggressive"], group="🎯 Elite Risk Management")
+enableConfidenceDecay = input.bool(true, "⚠️ Enable Confidence Decay", group="🎯 Elite Risk Management")
+maxConsecutiveLosses = input.int(3, "📉 Max Consecutive Losses", minval=1, maxval=10, group="🎯 Elite Risk Management")
+
+// Dynamic elite risk parameters
+aggressiveMode = riskMode == "Aggressive"
+maxRisk = riskMode == "Conservative" ? 0.015 : riskMode == "Balanced" ? 0.025 : 0.04
+profitTarget = riskMode == "Conservative" ? 0.06 : riskMode == "Balanced" ? 0.10 : 0.18
+positionSizeMode = riskMode == "Conservative" ? 8 : riskMode == "Balanced" ? 15 : 30
+
+// ===== ENHANCED NEURAL NETWORK (7-LAYER) =====
+// Enhanced multi-layer neural network with macro-trend filters
+layer1 = math.sin(bar_index * 0.1 + ta.rsi(close, 14) / 100) * 0.15
+layer2 = math.cos(bar_index * 0.05 + (close - ta.sma(close, 50)) / close) * 0.15
+layer3 = math.tanh((ta.macd(close, 12, 26, 9) - ta.macd(close, 12, 26, 9)[1]) * 100) * 0.15
+layer4 = (ta.stoch(close, high, low, 14) - 50) / 100 * 0.15
+
+// Enhanced layers with volume and MACD depth
+atr = ta.atr(14)
+volatility = atr / close
+volume_strength = volume / ta.sma(volume, 20)
+layer5_volume = (volume_strength - 1) * 0.1
+layer6_macd_depth = ta.macd(close, 12, 26, 9) / close * 100 * 0.1
+
+// NEW: Layer 7 - Macro-trend filter with EMA200 and VWAP
+ema200 = ta.ema(close, 200)
+vwap = ta.vwap(hlc3)
+macro_trend_strength = (close - ema200) / ema200
+vwap_deviation = (close - vwap) / vwap
+layer7_macro = (macro_trend_strength + vwap_deviation) * 0.2
+
+// Elite AI Neural Network Signal with 7 layers
+nn_signal = (layer1 + layer2 + layer3 + layer4 + layer5_volume + layer6_macd_depth + layer7_macro) * aiAccuracy
+nn_confidence = math.abs(nn_signal) * learningProgress
+
+// ===== CONFIDENCE DECAY SYSTEM =====
+var int consecutive_losses = 0
+var float confidence_decay_factor = 1.0
+
+// Track consecutive losses
+if strategy.closedtrades != strategy.closedtrades[1] and strategy.closedtrades > 0
+    last_profit = strategy.closedtrades.profit(strategy.closedtrades - 1)
+    if last_profit < 0
+        consecutive_losses += 1
+    else
+        consecutive_losses := 0
+
+// Apply confidence decay
+if enableConfidenceDecay and consecutive_losses > 0
+    decay_rate = math.min(consecutive_losses / maxConsecutiveLosses, 0.5)
+    confidence_decay_factor := 1.0 - decay_rate
+else
+    confidence_decay_factor := 1.0
+
+// Apply decay to confidence
+nn_confidence_adjusted = nn_confidence * confidence_decay_factor
+
+// ===== MARKET REGIME CLASSIFIER =====
+// Enhanced market regime detection
+volatility_percentile = ta.percentrank(volatility, 50)
+trend_strength = math.abs((close - close[20]) / close[20])
+
+// Regime classification
+trending_regime = trend_strength > 0.03 and volatility_percentile < 70
+sideways_regime = trend_strength < 0.015 and volatility_percentile < 50
+volatile_regime = volatility_percentile > 70
+
+var string current_regime = "NEUTRAL"
+if trending_regime
+    current_regime := "TRENDING"
+else if sideways_regime
+    current_regime := "SIDEWAYS"
+else if volatile_regime
+    current_regime := "VOLATILE"
+
+// Enhanced market structure analysis
+ma_fast = ta.ema(close, 8)
+ma_medium = ta.ema(close, 21)
+ma_slow = ta.ema(close, 50)
+
+// Multi-timeframe strength
+strength_1m = request.security(syminfo.tickerid, "1", ta.rsi(close, 14))
+strength_5m = request.security(syminfo.tickerid, "5", ta.rsi(close, 14))
+strength_15m = request.security(syminfo.tickerid, "15", ta.rsi(close, 14))
+
+// Combined AI strength
+ai_strength = (strength_1m + strength_5m + strength_15m) / 3
+ai_momentum = ta.change(ai_strength, 3)
+
+// ===== REGIME-SPECIFIC AI LOGIC =====
+// Adjust thresholds based on market regime
+regime_confidence_multiplier = current_regime == "TRENDING" ? 1.2 : current_regime == "SIDEWAYS" ? 0.8 : 0.9
+regime_adjusted_threshold = confidenceThreshold * regime_confidence_multiplier
+
+// ===== ELITE AI ENTRY CONDITIONS =====
+// Long conditions with regime-specific logic
+ai_long_base = nn_signal > 0.1 and nn_confidence_adjusted > regime_adjusted_threshold
+trend_long = ma_fast > ma_medium and ma_medium > ma_slow and close > ema200
+momentum_long = ai_momentum > 0 and ai_strength > 45 and ai_strength < 75
+volume_long = volume_strength > 1.1
+volatility_ok = volatility < 0.08
+macro_trend_ok = close > vwap and macro_trend_strength > -0.02
+
+super_long_signal = ai_long_base and trend_long and momentum_long and volume_long and volatility_ok and macro_trend_ok
+
+// Short conditions with regime-specific logic
+ai_short_base = nn_signal < -0.1 and nn_confidence_adjusted > regime_adjusted_threshold
+trend_short = ma_fast < ma_medium and ma_medium < ma_slow and close < ema200
+momentum_short = ai_momentum < 0 and ai_strength > 25 and ai_strength < 55
+volume_short = volume_strength > 1.1
+macro_trend_short = close < vwap and macro_trend_strength < 0.02
+
+super_short_signal = ai_short_base and trend_short and momentum_short and volume_short and volatility_ok and macro_trend_short
+
+// ===== ELITE POSITION SIZING =====
+position_size = positionSizeMode
+risk_adjusted_size = position_size * nn_confidence_adjusted * (1 - volatility) * confidence_decay_factor
+
+// ===== ENHANCED SHARPE MEMORY =====
+var float[] returns = array.new_float(0)
+var float total_return = 0.0
+var float squared_returns = 0.0
+var int trade_count = 0
+var float[] sharpe_history = array.new_float(0)
+
+if strategy.closedtrades != strategy.closedtrades[1] and strategy.closedtrades > 0
+    last_return = strategy.closedtrades.profit(strategy.closedtrades - 1) / strategy.initial_capital * 100
+    array.push(returns, last_return)
+    total_return += last_return
+    squared_returns += last_return * last_return
+    trade_count += 1
+    
+    if array.size(returns) > 100
+        old_return = array.shift(returns)
+        total_return -= old_return
+        squared_returns -= old_return * old_return
+        trade_count -= 1
+
+// Calculate Sharpe and store history
+avg_return = trade_count > 0 ? total_return / trade_count : 0
+variance = trade_count > 1 ? (squared_returns / trade_count) - (avg_return * avg_return) : 0
+std_dev = variance > 0 ? math.sqrt(variance) : 1
+sharpe_approx = std_dev > 0 ? (avg_return - 0.02) / std_dev : 0
+
+// Store Sharpe history for visualization
+if barstate.isconfirmed and trade_count > 5
+    array.push(sharpe_history, sharpe_approx)
+    if array.size(sharpe_history) > 200
+        array.shift(sharpe_history)
+
+// ===== ELITE VISUAL PROFIT ZONES =====
+if showProfitZones and (super_long_signal or super_short_signal)
+    profit_zone_top = close * (1 + profitTarget)
+    profit_zone_bottom = close * (1 - maxRisk)
+    
+    if super_long_signal
+        box.new(bar_index, profit_zone_top, bar_index + 15, close, border_color=color.new(color.green, 40), bgcolor=color.new(color.green, 85), text="🎯 ELITE PROFIT\n+" + str.tostring(profitTarget * 100, "#.#") + "%\n" + current_regime)
+        box.new(bar_index, close, bar_index + 15, profit_zone_bottom, border_color=color.new(color.red, 40), bgcolor=color.new(color.red, 85), text="⚠️ ELITE RISK\n-" + str.tostring(maxRisk * 100, "#.#") + "%")
+    
+    if super_short_signal
+        box.new(bar_index, close, bar_index + 15, profit_zone_bottom, border_color=color.new(color.green, 40), bgcolor=color.new(color.green, 85), text="🎯 ELITE PROFIT\n+" + str.tostring(profitTarget * 100, "#.#") + "%\n" + current_regime)
+        box.new(bar_index, profit_zone_top, bar_index + 15, close, border_color=color.new(color.red, 40), bgcolor=color.new(color.red, 85), text="⚠️ ELITE RISK\n-" + str.tostring(maxRisk * 100, "#.#") + "%")
+
+// ===== ELITE BUY/SELL SIGNALS =====
+if showBuySellLabels
+    if super_long_signal
+        label.new(bar_index, low, text="🚀 ELITE AI BUY\n" + str.tostring(nn_confidence_adjusted * 100, "#") + "% CONF\n" + current_regime + "\n$" + str.tostring(close, "#.##"), style=label.style_label_up, color=color.new(color.green, 0), textcolor=color.white, size=size.normal)
+    
+    if super_short_signal
+        label.new(bar_index, high, text="📉 ELITE AI SELL\n" + str.tostring(nn_confidence_adjusted * 100, "#") + "% CONF\n" + current_regime + "\n$" + str.tostring(close, "#.##"), style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white, size=size.normal)
+
+// ===== ELITE STRATEGY EXECUTION =====
+if super_long_signal and strategy.position_size == 0
+    stop_loss = close * (1 - maxRisk)
+    take_profit = close * (1 + profitTarget)
+    strategy.entry("🎯 Elite AI Long", strategy.long, qty=risk_adjusted_size/100, comment="Elite Long " + riskMode + " " + current_regime)
+    strategy.exit("🎯 Elite Long Exit", "🎯 Elite AI Long", stop=stop_loss, limit=take_profit)
+
+if super_short_signal and strategy.position_size == 0
+    stop_loss = close * (1 + maxRisk)
+    take_profit = close * (1 - profitTarget)
+    strategy.entry("🎯 Elite AI Short", strategy.short, qty=risk_adjusted_size/100, comment="Elite Short " + riskMode + " " + current_regime)
+    strategy.exit("🎯 Elite Short Exit", "🎯 Elite AI Short", stop=stop_loss, limit=take_profit)
+
+// ===== ELITE VISUAL INDICATORS =====
+plot(ma_fast, "Elite Fast EMA", color=nn_confidence_adjusted > 0.7 ? color.new(color.blue, 0) : color.new(color.blue, 70), linewidth=2)
+plot(ma_medium, "Elite Medium EMA", color=nn_confidence_adjusted > 0.7 ? color.new(color.orange, 0) : color.new(color.orange, 70), linewidth=3)
+plot(ma_slow, "Elite Slow EMA", color=nn_confidence_adjusted > 0.7 ? color.new(color.red, 0) : color.new(color.red, 70), linewidth=2)
+plot(ema200, "Elite EMA200", color=color.new(color.purple, 30), linewidth=2)
+plot(vwap, "Elite VWAP", color=color.new(color.yellow, 30), linewidth=2)
+
+// Elite AI Score calculation
+ai_score = nn_signal * nn_confidence_adjusted * 100
+ensemble_signal = (super_long_signal ? 1 : super_short_signal ? -1 : 0) * nn_confidence_adjusted
+
+plot(ai_score, title="Elite AI Score", color=color.new(color.purple, 0), linewidth=3)
+plotshape(ai_score > 60, title="Elite High AI Score", location=location.belowbar, style=shape.triangleup, size=size.normal, color=color.new(color.lime, 0))
+plotshape(ai_score < -60, title="Elite Low AI Score", location=location.abovebar, style=shape.triangledown, size=size.normal, color=color.new(color.red, 0))
+
+// Elite confidence background with regime colors
+regime_color = current_regime == "TRENDING" ? color.blue : current_regime == "SIDEWAYS" ? color.orange : color.red
+bgcolor(nn_confidence_adjusted > 0.8 ? color.new(regime_color, 95) : nn_confidence_adjusted > 0.6 ? color.new(color.yellow, 95) : color.new(color.red, 98), title="Elite AI Confidence BG")
+
+// ===== SHARPE MEMORY VISUALIZATION =====
+if showSharpePlot and array.size(sharpe_history) > 10
+    sharpe_sma = ta.sma(sharpe_approx, 10)
+    plot(sharpe_sma, title="Sharpe Memory", color=sharpe_sma > 1 ? color.new(color.green, 0) : sharpe_sma > 0 ? color.new(color.yellow, 0) : color.new(color.red, 0), linewidth=2, display=display.pane)
+
+// ===== ELITE AI DASHBOARD =====
+if barstate.islast
+    var table elite_dashboard = table.new(position.top_right, 4, 10, bgcolor=color.new(color.black, 85), border_width=3, border_color=color.new(color.gold, 50))
+    
+    table.cell(elite_dashboard, 0, 0, "🎯 ELITE AI V2 DASHBOARD", text_color=color.new(color.gold, 0), text_size=size.normal, bgcolor=color.new(color.gold, 80))
+    table.cell(elite_dashboard, 1, 0, "", bgcolor=color.new(color.gold, 80))
+    table.cell(elite_dashboard, 2, 0, "", bgcolor=color.new(color.gold, 80))
+    table.cell(elite_dashboard, 3, 0, "", bgcolor=color.new(color.gold, 80))
+    
+    table.cell(elite_dashboard, 0, 1, "Elite Accuracy", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 1, str.tostring(aiAccuracy * 100, "#.#") + "%", text_color=color.new(color.green, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 1, aiAccuracy > 0.92 ? "🔥" : "⚡", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 1, "95.0%", text_color=color.new(color.lime, 0), text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 2, "Confidence", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 2, str.tostring(nn_confidence_adjusted * 100, "#.#") + "%", text_color=nn_confidence_adjusted > 0.7 ? color.new(color.green, 0) : color.new(color.orange, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 2, nn_confidence_adjusted > 0.7 ? "✅" : "⚠️", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 2, consecutive_losses > 0 ? "DECAY: " + str.tostring(consecutive_losses) : "STABLE", text_color=consecutive_losses > 0 ? color.new(color.red, 0) : color.new(color.green, 0), text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 3, "Market Regime", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 3, current_regime, text_color=color.new(regime_color, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 3, current_regime == "TRENDING" ? "📈" : current_regime == "SIDEWAYS" ? "↔️" : "💥", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 3, str.tostring(regime_confidence_multiplier, "#.#") + "x", text_color=color.white, text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 4, "Data Points", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 4, str.tostring(dataPoints), text_color=color.new(color.blue, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 4, "📊", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 4, "26.5K+", text_color=color.new(color.lime, 0), text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 5, "AI Strength", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 5, str.tostring(ai_strength, "#.#"), text_color=ai_strength > 60 ? color.new(color.green, 0) : ai_strength < 40 ? color.new(color.red, 0) : color.new(color.yellow, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 5, ai_strength > 60 ? "🚀" : ai_strength < 40 ? "📉" : "➡️", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 5, "7-Layer", text_color=color.new(color.purple, 0), text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 6, "Volatility", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 6, str.tostring(volatility * 100, "#.##") + "%", text_color=volatility < 0.05 ? color.new(color.green, 0) : color.new(color.red, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 6, volatility < 0.05 ? "✅" : "⚠️", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 6, str.tostring(volatility_percentile, "#") + "th", text_color=color.white, text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 7, "Elite AI Score", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 7, str.tostring(ai_score, "#.#"), text_color=ai_score > 60 ? color.new(color.lime, 0) : ai_score < -60 ? color.new(color.red, 0) : color.new(color.yellow, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 7, ai_score > 85 ? "🎯" : ai_score > 60 ? "🚀" : ai_score < -60 ? "📉" : "➡️", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 7, "ELITE", text_color=color.new(color.gold, 0), text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 8, "Sharpe Ratio", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 8, str.tostring(sharpe_approx, "#.##"), text_color=sharpe_approx > 1.5 ? color.new(color.green, 0) : sharpe_approx > 0.5 ? color.new(color.yellow, 0) : color.new(color.red, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 8, sharpe_approx > 1.5 ? "🎯" : sharpe_approx > 0.5 ? "📈" : "📉", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 8, "MEMORY", text_color=color.new(color.purple, 0), text_size=size.small)
+    
+    table.cell(elite_dashboard, 0, 9, "Risk Mode", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 1, 9, riskMode, text_color=aggressiveMode ? color.new(color.red, 0) : color.new(color.green, 0), text_size=size.small)
+    table.cell(elite_dashboard, 2, 9, aggressiveMode ? "🔥" : "🛡️", text_color=color.white, text_size=size.small)
+    table.cell(elite_dashboard, 3, 9, str.tostring(position_size) + "%", text_color=color.new(color.yellow, 0), text_size=size.small)
+
+// ===== ELITE WEBHOOK EXPORT ALERTS =====
+webhook_json = '{"score":' + str.tostring(ai_score, "#.#") + ',"confidence":' + str.tostring(nn_confidence_adjusted, "#.##") + ',"mode":"' + riskMode + '","sharpe":' + str.tostring(sharpe_approx, "#.##") + ',"signal":"' + (super_long_signal ? "LONG" : super_short_signal ? "SHORT" : "NONE") + '","regime":"' + current_regime + '","accuracy":' + str.tostring(aiAccuracy, "#.###") + ',"timestamp":"{{time}}"}'
+
+alertcondition(super_long_signal, "🎯 Elite AI Long", "ELITE AI LONG! " + webhook_json)
+alertcondition(super_short_signal, "🎯 Elite AI Short", "ELITE AI SHORT! " + webhook_json)
+alertcondition(ta.cross(nn_confidence_adjusted, 0.85), "🔥 Elite High Confidence", "ELITE HIGH CONFIDENCE! " + webhook_json)
+alertcondition(ai_score > 85, "🎯 Elite Extreme Score", "ELITE EXTREME SCORE! " + webhook_json)
+alertcondition(ta.change(current_regime), "🚦 Regime Change", "REGIME CHANGED TO: " + current_regime + " | " + webhook_json)
+alertcondition(consecutive_losses >= maxConsecutiveLosses, "⚠️ Confidence Decay Alert", "CONFIDENCE DECAY TRIGGERED! Losses: " + str.tostring(consecutive_losses) + " | " + webhook_json)

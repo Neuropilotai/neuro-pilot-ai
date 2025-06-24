@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Before/After Comparison</title>
+    <style>
+        body { margin: 0; font-family: 'Arial', sans-serif; }
+        .comparison {
+            width: 1200px;
+            height: 675px;
+            display: flex;
+            background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
+        }
+        .side {
+            width: 50%;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .before {
+            background: linear-gradient(135deg, #ff6b6b, #ff5252);
+            color: white;
+        }
+        .after {
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            color: white;
+        }
+        .label {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .resume-preview {
+            width: 300px;
+            height: 400px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            color: #333;
+            font-size: 0.9em;
+            overflow: hidden;
+        }
+        .generic {
+            line-height: 1.2;
+        }
+        .ai-optimized {
+            line-height: 1.4;
+            font-weight: 500;
+        }
+        .divider {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 50%;
+            font-size: 2em;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="comparison">
+        <div class="side before">
+            <div class="label">❌ BEFORE</div>
+            <div class="resume-preview generic">
+                <h3>John Smith</h3>
+                <p>Email: john@email.com</p>
+                <br>
+                <h4>Experience:</h4>
+                <p>Worked at various places doing different things. Good with people and computers.</p>
+                <br>
+                <h4>Skills:</h4>
+                <p>Communication, teamwork, Microsoft Office</p>
+                <br>
+                <p style="color: #ff5252; font-weight: bold;">Generic • Not ATS-optimized • Low interview rate</p>
+            </div>
+        </div>
+        <div class="side after">
+            <div class="label">✅ AFTER AI</div>
+            <div class="resume-preview ai-optimized">
+                <h3>John Smith</h3>
+                <p>📧 john.smith@email.com | 📱 (555) 123-4567</p>
+                <br>
+                <h4>Professional Summary:</h4>
+                <p>Results-driven professional with proven track record in customer relationship management and cross-functional team leadership...</p>
+                <br>
+                <h4>Core Competencies:</h4>
+                <p>• Strategic Communication • Team Leadership • Advanced Microsoft Office Suite • Customer Relationship Management</p>
+                <br>
+                <p style="color: #4caf50; font-weight: bold;">Job-Specific • ATS-Optimized • 95% Success Rate</p>
+            </div>
+        </div>
+        <div class="divider">🤖→</div>
+    </div>
+</body>
+</html>

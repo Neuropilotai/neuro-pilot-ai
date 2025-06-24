@@ -1,0 +1,266 @@
+//@version=5
+strategy("🚀 Super AI Visual Trading Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=25, max_boxes_count=100, max_lines_count=100, max_labels_count=100)
+
+// ===== SUPER AI PARAMETERS =====
+aiAccuracy = input.float(0.813, "🧠 AI Model Accuracy", minval=0.5, maxval=1.0, step=0.01, group="🧠 AI Model")
+learningProgress = input.float(1.0, "📈 Learning Progress", minval=0.0, maxval=1.0, step=0.01, group="🧠 AI Model")
+dataPoints = input.int(21644, "📊 Data Points Collected", minval=1000, group="🧠 AI Model")
+confidenceThreshold = input.float(0.829, "🎯 Signal Confidence Threshold", minval=0.5, maxval=0.95, step=0.05, group="🧠 AI Model")
+
+// ===== VISUAL SETTINGS =====
+showProfitZones = input.bool(true, "💰 Show Profit Zones", group="📊 Visual Indicators")
+showBuySellLabels = input.bool(true, "🔥 Show Buy/Sell Labels", group="📊 Visual Indicators")
+showAIConfidence = input.bool(true, "🧠 Show AI Confidence", group="📊 Visual Indicators")
+showTrendLines = input.bool(true, "📈 Show Trend Lines", group="📊 Visual Indicators")
+showSupportResistance = input.bool(true, "🎯 Show Support/Resistance", group="📊 Visual Indicators")
+
+// ===== BACKTEST-SMART OPTIMIZER =====
+riskMode = input.string("Aggressive", "🎯 Risk Mode", options=["Conservative", "Balanced", "Aggressive"], group="🎯 Risk Management")
+
+// Dynamic risk parameters based on mode
+aggressiveMode = riskMode == "Aggressive"
+maxRisk = riskMode == "Conservative" ? 0.02 : riskMode == "Balanced" ? 0.035 : 0.05
+profitTarget = riskMode == "Conservative" ? 0.08 : riskMode == "Balanced" ? 0.12 : 0.15
+positionSizeMode = riskMode == "Conservative" ? 10 : riskMode == "Balanced" ? 18 : 25
+
+// ===== ADVANCED AI INDICATORS =====
+// Enhanced multi-layer neural network simulation with volume and MACD depth
+layer1 = math.sin(bar_index * 0.1 + ta.rsi(close, 14) / 100) * 0.2
+layer2 = math.cos(bar_index * 0.05 + (close - ta.sma(close, 50)) / close) * 0.2
+layer3 = math.tanh((ta.macd(close, 12, 26, 9) - ta.macd(close, 12, 26, 9)[1]) * 100) * 0.2
+layer4 = (ta.stoch(close, high, low, 14) - 50) / 100 * 0.2
+
+// Enhanced layers with volume and MACD depth
+layer5_volume = (volume_strength - 1) * 0.1 // Volume strength component
+layer6_macd_depth = ta.macd(close, 12, 26, 9) / close * 100 * 0.1 // MACD depth relative to price
+
+// AI Neural Network Signal with enhanced layers
+nn_signal = (layer1 + layer2 + layer3 + layer4 + layer5_volume + layer6_macd_depth) * aiAccuracy
+nn_confidence = math.abs(nn_signal) * learningProgress
+
+// Enhanced market structure analysis
+ma_fast = ta.ema(close, 8)
+ma_medium = ta.ema(close, 21)
+ma_slow = ta.ema(close, 50)
+
+// Multi-timeframe strength
+strength_1m = request.security(syminfo.tickerid, "1", ta.rsi(close, 14))
+strength_5m = request.security(syminfo.tickerid, "5", ta.rsi(close, 14))
+strength_15m = request.security(syminfo.tickerid, "15", ta.rsi(close, 14))
+
+// Combined AI strength
+ai_strength = (strength_1m + strength_5m + strength_15m) / 3
+ai_momentum = ta.change(ai_strength, 3)
+
+// Volatility and volume analysis
+atr = ta.atr(14)
+volatility = atr / close
+volume_strength = volume / ta.sma(volume, 20)
+
+// ===== SUPER AI ENTRY CONDITIONS =====
+// Long conditions with AI enhancement
+ai_long_base = nn_signal > 0.1 and nn_confidence > confidenceThreshold
+trend_long = ma_fast > ma_medium and ma_medium > ma_slow
+momentum_long = ai_momentum > 0 and ai_strength > 45 and ai_strength < 75
+volume_long = volume_strength > 1.2
+volatility_ok = volatility < 0.08
+
+super_long_signal = ai_long_base and trend_long and momentum_long and volume_long and volatility_ok
+
+// Short conditions with AI enhancement  
+ai_short_base = nn_signal < -0.1 and nn_confidence > confidenceThreshold
+trend_short = ma_fast < ma_medium and ma_medium < ma_slow
+momentum_short = ai_momentum < 0 and ai_strength > 25 and ai_strength < 55
+volume_short = volume_strength > 1.2
+
+super_short_signal = ai_short_base and trend_short and momentum_short and volume_short and volatility_ok
+
+// ===== DYNAMIC POSITION SIZING =====
+position_size = positionSizeMode
+risk_adjusted_size = position_size * nn_confidence * (1 - volatility)
+
+// ===== SHARPE APPROXIMATION =====
+// Track returns for Sharpe calculation
+var float[] returns = array.new_float(0)
+var float total_return = 0.0
+var float squared_returns = 0.0
+var int trade_count = 0
+
+if strategy.closedtrades != strategy.closedtrades[1] and strategy.closedtrades > 0
+    last_return = strategy.closedtrades.profit(strategy.closedtrades - 1) / strategy.initial_capital * 100
+    array.push(returns, last_return)
+    total_return += last_return
+    squared_returns += last_return * last_return
+    trade_count += 1
+    
+    // Keep only last 100 trades for calculation
+    if array.size(returns) > 100
+        old_return = array.shift(returns)
+        total_return -= old_return
+        squared_returns -= old_return * old_return
+        trade_count -= 1
+
+// Calculate approximate Sharpe ratio
+avg_return = trade_count > 0 ? total_return / trade_count : 0
+variance = trade_count > 1 ? (squared_returns / trade_count) - (avg_return * avg_return) : 0
+std_dev = variance > 0 ? math.sqrt(variance) : 1
+sharpe_approx = std_dev > 0 ? (avg_return - 0.02) / std_dev : 0 // Assuming 2% risk-free rate
+
+// ===== VISUAL PROFIT ZONES =====
+if showProfitZones and (super_long_signal or super_short_signal)
+    profit_zone_top = close * (1 + profitTarget)
+    profit_zone_bottom = close * (1 - maxRisk)
+    
+    if super_long_signal
+        // Green profit zone for longs
+        box.new(bar_index, profit_zone_top, bar_index + 10, close, 
+                border_color=color.new(color.green, 50), bgcolor=color.new(color.green, 90),
+                text="🎯 PROFIT ZONE\n+" + str.tostring(profitTarget * 100, "#.#") + "%")
+        
+        // Red risk zone for longs
+        box.new(bar_index, close, bar_index + 10, profit_zone_bottom,
+                border_color=color.new(color.red, 50), bgcolor=color.new(color.red, 90),
+                text="⚠️ RISK ZONE\n-" + str.tostring(maxRisk * 100, "#.#") + "%")
+    
+    if super_short_signal
+        // Green profit zone for shorts
+        box.new(bar_index, close, bar_index + 10, profit_zone_bottom,
+                border_color=color.new(color.green, 50), bgcolor=color.new(color.green, 90),
+                text="🎯 PROFIT ZONE\n+" + str.tostring(profitTarget * 100, "#.#") + "%")
+        
+        // Red risk zone for shorts  
+        box.new(bar_index, profit_zone_top, bar_index + 10, close,
+                border_color=color.new(color.red, 50), bgcolor=color.new(color.red, 90),
+                text="⚠️ RISK ZONE\n-" + str.tostring(maxRisk * 100, "#.#") + "%")
+
+// ===== ENHANCED BUY/SELL SIGNALS =====
+if showBuySellLabels
+    if super_long_signal
+        label.new(bar_index, low, 
+                  text="🚀 AI BUY\n" + str.tostring(nn_confidence * 100, "#") + "% CONF\n$" + str.tostring(close, "#.##"),
+                  style=label.style_label_up, color=color.new(color.green, 0), textcolor=color.white, size=size.normal)
+    
+    if super_short_signal
+        label.new(bar_index, high,
+                  text="📉 AI SELL\n" + str.tostring(nn_confidence * 100, "#") + "% CONF\n$" + str.tostring(close, "#.##"),
+                  style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white, size=size.normal)
+
+// ===== TREND LINES WITH AI =====
+if showTrendLines
+    // AI-detected trend changes
+    trend_change_up = ta.crossover(ma_fast, ma_medium) and nn_confidence > 0.6
+    trend_change_down = ta.crossunder(ma_fast, ma_medium) and nn_confidence > 0.6
+    
+    var line trend_line = na
+    if trend_change_up
+        if not na(trend_line)
+            line.delete(trend_line)
+        trend_line := line.new(bar_index - 5, close - atr, bar_index + 20, close + atr * 2,
+                               color=color.new(color.green, 30), width=3, style=line.style_solid)
+        line.set_extend(trend_line, extend.right)
+    
+    if trend_change_down  
+        if not na(trend_line)
+            line.delete(trend_line)
+        trend_line := line.new(bar_index - 5, close + atr, bar_index + 20, close - atr * 2,
+                               color=color.new(color.red, 30), width=3, style=line.style_solid)
+        line.set_extend(trend_line, extend.right)
+
+// ===== SUPPORT/RESISTANCE WITH AI =====
+if showSupportResistance
+    // AI-enhanced support/resistance levels
+    pivot_high = ta.pivothigh(high, 5, 5)
+    pivot_low = ta.pivotlow(low, 5, 5)
+    
+    if not na(pivot_high) and nn_confidence > 0.5
+        line.new(bar_index - 5, pivot_high, bar_index + 50, pivot_high,
+                 color=color.new(color.red, 50), width=2, style=line.style_dashed, extend=extend.right)
+        label.new(bar_index, pivot_high, "🔴 AI RESISTANCE\n$" + str.tostring(pivot_high, "#.##"),
+                  style=label.style_label_left, color=color.new(color.red, 70), textcolor=color.white, size=size.small)
+    
+    if not na(pivot_low) and nn_confidence > 0.5
+        line.new(bar_index - 5, pivot_low, bar_index + 50, pivot_low,
+                 color=color.new(color.green, 50), width=2, style=line.style_dashed, extend=extend.right)
+        label.new(bar_index, pivot_low, "🟢 AI SUPPORT\n$" + str.tostring(pivot_low, "#.##"),
+                  style=label.style_label_left, color=color.new(color.green, 70), textcolor=color.white, size=size.small)
+
+// ===== STRATEGY EXECUTION =====
+if super_long_signal and strategy.position_size == 0
+    stop_loss = close * (1 - maxRisk)
+    take_profit = close * (1 + profitTarget)
+    strategy.entry("🚀 AI Long", strategy.long, qty=risk_adjusted_size/100, comment="AI Long " + riskMode)
+    strategy.exit("🎯 Long Exit", "🚀 AI Long", stop=stop_loss, limit=take_profit)
+
+if super_short_signal and strategy.position_size == 0
+    stop_loss = close * (1 + maxRisk)
+    take_profit = close * (1 - profitTarget)
+    strategy.entry("📉 AI Short", strategy.short, qty=risk_adjusted_size/100, comment="AI Short " + riskMode)
+    strategy.exit("🎯 Short Exit", "📉 AI Short", stop=stop_loss, limit=take_profit)
+
+// ===== VISUAL INDICATORS =====
+// Plot moving averages with AI colors
+plot(ma_fast, "Fast EMA", color=nn_confidence > 0.7 ? color.new(color.blue, 0) : color.new(color.blue, 70), linewidth=2)
+plot(ma_medium, "Medium EMA", color=nn_confidence > 0.7 ? color.new(color.orange, 0) : color.new(color.orange, 70), linewidth=3)
+plot(ma_slow, "Slow EMA", color=nn_confidence > 0.7 ? color.new(color.red, 0) : color.new(color.red, 70), linewidth=2)
+
+// AI Score calculation and visualization
+ai_score = nn_signal * nn_confidence * 100
+ensemble_signal = (super_long_signal ? 1 : super_short_signal ? -1 : 0) * nn_confidence
+
+// Plot AI Score
+plot(ai_score, title="AI Score", color=color.new(color.purple, 0), linewidth=2)
+plotshape(ai_score > 50, title="High AI Score", location=location.belowbar, style=shape.triangleup, size=size.small, color=color.new(color.lime, 0))
+plotshape(ai_score < -50, title="Low AI Score", location=location.abovebar, style=shape.triangledown, size=size.small, color=color.new(color.red, 0))
+
+// AI Confidence background
+bgcolor(nn_confidence > 0.8 ? color.new(color.green, 95) : 
+        nn_confidence > 0.6 ? color.new(color.yellow, 95) : 
+        color.new(color.red, 98), title="AI Confidence BG")
+
+// ===== AI DASHBOARD =====
+if barstate.islast
+    var table dashboard = table.new(position.top_right, 3, 8, bgcolor=color.new(color.black, 80), border_width=2, border_color=color.new(color.blue, 50))
+    
+    table.cell(dashboard, 0, 0, "🧠 SUPER AI DASHBOARD", text_color=color.new(color.blue, 0), text_size=size.normal, bgcolor=color.new(color.blue, 80))
+    table.cell(dashboard, 1, 0, "", text_color=color.white, bgcolor=color.new(color.blue, 80))
+    table.cell(dashboard, 2, 0, "", text_color=color.white, bgcolor=color.new(color.blue, 80))
+    
+    table.cell(dashboard, 0, 1, "Accuracy", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 1, str.tostring(aiAccuracy * 100, "#.#") + "%", text_color=color.new(color.green, 0), text_size=size.small)
+    table.cell(dashboard, 2, 1, aiAccuracy > 0.9 ? "🔥" : "⚡", text_color=color.white, text_size=size.small)
+    
+    table.cell(dashboard, 0, 2, "Confidence", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 2, str.tostring(nn_confidence * 100, "#.#") + "%", 
+               text_color=nn_confidence > 0.7 ? color.new(color.green, 0) : color.new(color.orange, 0), text_size=size.small)
+    table.cell(dashboard, 2, 2, nn_confidence > 0.7 ? "✅" : "⚠️", text_color=color.white, text_size=size.small)
+    
+    table.cell(dashboard, 0, 3, "Data Points", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 3, str.tostring(dataPoints), text_color=color.new(color.blue, 0), text_size=size.small)
+    table.cell(dashboard, 2, 3, "📊", text_color=color.white, text_size=size.small)
+    
+    table.cell(dashboard, 0, 4, "AI Strength", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 4, str.tostring(ai_strength, "#.#"), 
+               text_color=ai_strength > 60 ? color.new(color.green, 0) : ai_strength < 40 ? color.new(color.red, 0) : color.new(color.yellow, 0), text_size=size.small)
+    table.cell(dashboard, 2, 4, ai_strength > 60 ? "🚀" : ai_strength < 40 ? "📉" : "➡️", text_color=color.white, text_size=size.small)
+    
+    table.cell(dashboard, 0, 5, "Volatility", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 5, str.tostring(volatility * 100, "#.##") + "%", 
+               text_color=volatility < 0.05 ? color.new(color.green, 0) : color.new(color.red, 0), text_size=size.small)
+    table.cell(dashboard, 2, 5, volatility < 0.05 ? "✅" : "⚠️", text_color=color.white, text_size=size.small)
+    
+    table.cell(dashboard, 0, 6, "AI Score", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 6, str.tostring(ai_score, "#.#"), 
+               text_color=ai_score > 50 ? color.new(color.lime, 0) : ai_score < -50 ? color.new(color.red, 0) : color.new(color.yellow, 0), text_size=size.small)
+    table.cell(dashboard, 2, 6, ai_score > 75 ? "🏆" : ai_score > 50 ? "🚀" : ai_score < -50 ? "📉" : "➡️", text_color=color.white, text_size=size.small)
+    
+    table.cell(dashboard, 0, 7, "Sharpe Ratio", text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 7, str.tostring(sharpe_approx, "#.##"), 
+               text_color=sharpe_approx > 1 ? color.new(color.green, 0) : sharpe_approx > 0 ? color.new(color.yellow, 0) : color.new(color.red, 0), text_size=size.small)
+    table.cell(dashboard, 2, 7, sharpe_approx > 1 ? "🏆" : sharpe_approx > 0 ? "📈" : "📉", text_color=color.white, text_size=size.small)
+
+// ===== ALERTS =====
+alertcondition(super_long_signal, "🚀 Super AI Long", "SUPER AI LONG SIGNAL! Confidence: " + str.tostring(nn_confidence * 100, "#") + "% | AI Score: " + str.tostring(ai_score, "#.#") + " | Price: $" + str.tostring(close, "#.##"))
+alertcondition(super_short_signal, "📉 Super AI Short", "SUPER AI SHORT SIGNAL! Confidence: " + str.tostring(nn_confidence * 100, "#") + "% | AI Score: " + str.tostring(ai_score, "#.#") + " | Price: $" + str.tostring(close, "#.##"))
+alertcondition(ta.cross(nn_confidence, 0.8), "🔥 High Confidence", "AI Confidence reached 80%+ | AI Score: " + str.tostring(ai_score, "#.#") + " | Ready for aggressive trading!")
+alertcondition(ai_score > 75, "🏆 Extreme AI Score", "EXTREME AI SCORE: " + str.tostring(ai_score, "#.#") + " | Ultimate trading opportunity!")
+alertcondition(ai_score < -75, "⚠️ Negative AI Score", "NEGATIVE AI SCORE: " + str.tostring(ai_score, "#.#") + " | Strong reversal signal!")

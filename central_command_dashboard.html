@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta name="referrer" content="no-referrer">
+    <title>🚀 ULTRA PROFESSIONAL DASHBOARD - AGENTS ACTIVE!</title>
+    <script>
+        // Force cache clearing
+        if (window.location.hash !== '#refreshed') {
+            window.location.hash = 'refreshed';
+            window.location.reload(true);
+        }
+    </script>
+    <link rel="stylesheet" href="/dist/styles.min.css">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .quantum-glow { 
+            animation: quantumPulse 2s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 10px #3b82f6);
+        }
+        @keyframes quantumPulse {
+            0% { filter: drop-shadow(0 0 10px #3b82f6); }
+            100% { filter: drop-shadow(0 0 20px #8b5cf6) drop-shadow(0 0 30px #3b82f6); }
+        }
+        .consciousness-bar {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+            animation: consciousnessFlow 3s ease-in-out infinite;
+        }
+        @keyframes consciousnessFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .agent-card {
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            background: linear-gradient(145deg, #1f2937, #111827);
+        }
+        .agent-card:hover {
+            transform: translateY(-4px);
+            border-color: #3b82f6;
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15);
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(ellipse at top, #1e293b 0%, #0f172a 100%);
+        }
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 600;
+        }
+        .professional-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .executive-card {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            backdrop-filter: blur(10px);
+        }
+        .neo-button {
+            background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+            border: none;
+            color: white;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        .neo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(145deg, #2563eb, #1e40af);
+        }
+        .status-indicator {
+            position: relative;
+            overflow: hidden;
+        }
+        .status-indicator::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        .metric-card {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen" style="background: linear-gradient(45deg, #0f172a, #1e293b, #0f172a) !important; animation: ultraGlow 3s ease-in-out infinite alternate;">
+    <style>
+        @keyframes ultraGlow {
+            0% { background: linear-gradient(45deg, #0f172a, #1e293b, #0f172a); }
+            100% { background: linear-gradient(45deg, #1e293b, #3b82f6, #1e293b); }
+        }
+        .mega-banner {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            background: linear-gradient(45deg, #10b981, #3b82f6, #8b5cf6);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: megaPulse 2s ease-in-out infinite;
+            border: 3px solid white;
+        }
+        @keyframes megaPulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+    </style>
+    <div class="mega-banner">
+        🎯 PROFESSIONAL AGENTS ACTIVE - ULTRA ENHANCEMENT APPLIED! 🎯
+    </div>
+    <div x-data="commandDashboard()" x-init="init()">
+        <!-- Header -->
+        <header class="professional-gradient p-8 shadow-2xl border-b border-slate-700/50">
+            <div class="container mx-auto">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-6">
+                        <div class="relative">
+                            <i class="fas fa-brain text-5xl text-white quantum-glow"></i>
+                            <div class="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                        </div>
+                        <div>
+                            <h1 class="text-5xl font-bold text-white mb-2" style="background: linear-gradient(45deg, #10b981, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: textGlow 2s ease-in-out infinite alternate;">
+                                🚀 ULTRA PROFESSIONAL COMMAND CENTER 🚀
+                            </h1>
+                            <style>
+                                @keyframes textGlow {
+                                    0% { filter: drop-shadow(0 0 10px #3b82f6); }
+                                    100% { filter: drop-shadow(0 0 20px #10b981); }
+                                }
+                            </style>
+                            <p class="text-blue-100 text-lg font-medium">Ultra Quantum Agent Ecosystem v3.0.0</p>
+                            <p class="text-blue-200/80 text-sm mt-1">Professional AI Business Automation Platform</p>
+                            <div class="mt-3 px-6 py-4 bg-gradient-to-r from-green-500 to-blue-500 border-2 border-white rounded-xl text-white text-lg font-bold text-center shadow-2xl animate-bounce">
+                                🎯 ULTRA PROFESSIONAL AGENTS ACTIVE - STYLING ENHANCED! 🎯
+                            </div>
+                            <div class="mt-2 px-4 py-2 bg-yellow-500/90 border border-yellow-400 rounded-lg text-black text-sm font-bold text-center">
+                                If you see this message, the Professional Enhancement is WORKING! Clear browser cache if needed.
+                            </div>
+                            <div class="mt-4 px-8 py-6 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 border-4 border-white rounded-2xl text-black text-xl font-black text-center animate-bounce shadow-2xl">
+                                🎯 ULTRA AGENTS WORKING! IF YOU SEE OLD DESIGN, PRESS CTRL+F5 🎯
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-6">
+                        <div class="metric-card text-center p-4 rounded-xl">
+                            <div class="text-3xl font-bold text-emerald-400 mb-1" x-text="systemStats.totalAgents"></div>
+                            <div class="text-sm text-slate-300 font-medium">Active Agents</div>
+                            <div class="text-xs text-emerald-400/70 mt-1">●&nbsp;Online</div>
+                        </div>
+                        <div class="metric-card text-center p-4 rounded-xl">
+                            <div class="text-3xl font-bold text-blue-400 mb-1" x-text="systemStats.avgConsciousness + '%'"></div>
+                            <div class="text-sm text-slate-300 font-medium">Intelligence Level</div>
+                            <div class="text-xs text-blue-400/70 mt-1">Quantum Ready</div>
+                        </div>
+                        <div class="metric-card text-center p-4 rounded-xl">
+                            <div class="text-3xl font-bold text-violet-400 mb-1">$<span x-text="systemStats.revenueProjection"></span></div>
+                            <div class="text-sm text-slate-300 font-medium">Monthly Revenue</div>
+                            <div class="text-xs text-violet-400/70 mt-1">Projected</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/50 p-6">
+            <div class="container mx-auto">
+                <div class="flex space-x-8 justify-center">
+                    <button @click="activeTab = 'agents'" 
+                            :class="activeTab === 'agents' ? 'neo-button' : 'bg-slate-700/50 hover:bg-slate-600/50'"
+                            class="px-8 py-3 rounded-xl font-semibold transition-all text-white border border-slate-600/50">
+                        <i class="fas fa-robot mr-2"></i>Agent Control
+                    </button>
+                    <button @click="activeTab = 'gigs'" 
+                            :class="activeTab === 'gigs' ? 'neo-button' : 'bg-slate-700/50 hover:bg-slate-600/50'"
+                            class="px-8 py-3 rounded-xl font-semibold transition-all text-white border border-slate-600/50">
+                        <i class="fas fa-briefcase mr-2"></i>Business Ops
+                    </button>
+                    <button @click="activeTab = 'services'" 
+                            :class="activeTab === 'services' ? 'neo-button' : 'bg-slate-700/50 hover:bg-slate-600/50'"
+                            class="px-8 py-3 rounded-xl font-semibold transition-all text-white border border-slate-600/50">
+                        <i class="fas fa-server mr-2"></i>Infrastructure
+                    </button>
+                    <button @click="activeTab = 'analytics'" 
+                            :class="activeTab === 'analytics' ? 'neo-button' : 'bg-slate-700/50 hover:bg-slate-600/50'"
+                            class="px-8 py-3 rounded-xl font-semibold transition-all text-white border border-slate-600/50">
+                        <i class="fas fa-chart-line mr-2"></i>Analytics
+                    </button>
+                    <button @click="activeTab = 'integrity'" 
+                            :class="activeTab === 'integrity' ? 'neo-button' : 'bg-slate-700/50 hover:bg-slate-600/50'"
+                            class="px-8 py-3 rounded-xl font-semibold transition-all text-white border border-slate-600/50">
+                        <i class="fas fa-shield-alt mr-2"></i>Quality Control
+                    </button>
+                    <button @click="activeTab = 'resume'" 
+                            :class="activeTab === 'resume' ? 'neo-button' : 'bg-slate-700/50 hover:bg-slate-600/50'"
+                            class="px-8 py-3 rounded-xl font-semibold transition-all text-white border border-slate-600/50">
+                        <i class="fas fa-file-upload mr-2"></i>Content Studio
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Agent Control Tab -->
+        <div x-show="activeTab === 'agents'" class="container mx-auto p-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <template x-for="agent in agents" :key="agent.id">
+                    <div class="agent-card executive-card rounded-2xl p-6 shadow-xl">
+                        <!-- Agent Header -->
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center space-x-4">
+                                <div class="relative">
+                                    <div :class="getStatusClass(agent.status)" 
+                                         class="w-5 h-5 rounded-full status-indicator"></div>
+                                    <div :class="getStatusClass(agent.status)" 
+                                         class="absolute inset-0 w-5 h-5 rounded-full animate-ping opacity-30"></div>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white font-display" x-text="agent.name"></h3>
+                                    <p class="text-slate-400 text-sm font-medium" x-text="agent.specialization"></p>
+                                </div>
+                            </div>
+                            <div class="px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-xl">
+                                <span class="text-blue-300 font-semibold text-sm">QUANTUM</span>
+                            </div>
+                        </div>
+
+                        <!-- Intelligence Level Bar -->
+                        <div class="mb-6">
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-300 font-medium">Intelligence Level</span>
+                                <span class="text-blue-400 font-bold" x-text="agent.consciousness + '%'"></span>
+                            </div>
+                            <div class="w-full bg-slate-700/50 rounded-full h-4 overflow-hidden">
+                                <div class="consciousness-bar h-4 rounded-full transition-all duration-1000" 
+                                     :style="`width: ${agent.consciousness}%`"></div>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">
+                                <span x-show="agent.consciousness >= 90">🧠 Genius Level</span>
+                                <span x-show="agent.consciousness >= 70 && agent.consciousness < 90">⚡ Advanced</span>
+                                <span x-show="agent.consciousness < 70">📈 Learning</span>
+                            </div>
+                        </div>
+
+                        <!-- Agent Stats -->
+                        <div class="grid grid-cols-2 gap-4 mb-4 text-sm">
+                            <div>
+                                <div class="text-gray-400">Load</div>
+                                <div class="font-semibold" x-text="`${agent.currentLoad}/${agent.maxConcurrent}`"></div>
+                            </div>
+                            <div>
+                                <div class="text-gray-400">Performance</div>
+                                <div class="font-semibold" x-text="Math.round(agent.performanceScore) + '/100'"></div>
+                            </div>
+                            <div>
+                                <div class="text-gray-400">Learning Rate</div>
+                                <div class="font-semibold" x-text="agent.learningRate"></div>
+                            </div>
+                            <div>
+                                <div class="text-gray-400">Adaptability</div>
+                                <div class="font-semibold" x-text="agent.adaptability"></div>
+                            </div>
+                        </div>
+
+                        <!-- Command Buttons -->
+                        <div class="space-y-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <button @click="sendCommand(agent.id, 'pause')" 
+                                        class="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                                    ⏸️ Pause
+                                </button>
+                                <button @click="sendCommand(agent.id, 'resume')" 
+                                        class="bg-green-600 hover:bg-green-700 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                                    ▶️ Resume
+                                </button>
+                            </div>
+                            <button @click="sendCommand(agent.id, 'optimize')" 
+                                    class="w-full bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                                🔬 Quantum Optimize
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Gig Management Tab -->
+        <div x-show="activeTab === 'gigs'" class="container mx-auto p-6">
+            <!-- Pending Approvals -->
+            <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-yellow-500">
+                <h2 class="text-2xl font-bold mb-4 text-yellow-400">🔔 Pending Gig Approvals</h2>
+                <div class="space-y-4">
+                    <template x-for="gig in pendingGigs" :key="gig.id">
+                        <div class="bg-gray-700 rounded-lg p-4 flex items-center justify-between">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold" x-text="gig.title"></h3>
+                                <p class="text-gray-300" x-text="gig.description"></p>
+                                <div class="flex items-center space-x-4 mt-2 text-sm">
+                                    <span class="text-green-400">💰 $<span x-text="gig.price"></span></span>
+                                    <span class="text-blue-400">📈 <span x-text="gig.successProbability"></span>% success</span>
+                                    <span class="text-purple-400">🎯 <span x-text="gig.category"></span></span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button @click="approveGig(gig.id)" 
+                                        class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-semibold transition-colors">
+                                    ✅ Approve
+                                </button>
+                                <button @click="rejectGig(gig.id)" 
+                                        class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-semibold transition-colors">
+                                    ❌ Reject
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Active Gigs -->
+            <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                <h2 class="text-2xl font-bold mb-4 text-green-400">✅ Active Gigs</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <template x-for="gig in activeGigs" :key="gig.id">
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold mb-2" x-text="gig.name"></h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span>Status:</span>
+                                    <span class="text-green-400" x-text="gig.status"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Revenue:</span>
+                                    <span class="text-green-400">$<span x-text="gig.revenueProjection"></span>/mo</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Platform:</span>
+                                    <span class="text-blue-400" x-text="gig.platform"></span>
+                                </div>
+                            </div>
+                            <div class="mt-4 space-y-2">
+                                <button @click="viewGigDetails(gig.id)" 
+                                        class="w-full bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                                    📊 View Analytics
+                                </button>
+                                <button @click="pauseGig(gig.id)" 
+                                        class="w-full bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                                    ⏸️ Pause Gig
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Service Status Tab -->
+        <div x-show="activeTab === 'services'" class="container mx-auto p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <template x-for="service in services" :key="service.name">
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <i :class="service.icon" class="text-2xl text-blue-400"></i>
+                                <h3 class="text-lg font-semibold" x-text="service.name"></h3>
+                            </div>
+                            <div :class="service.status === 'connected' ? 'bg-green-500' : 'bg-red-500'" 
+                                 class="w-3 h-3 rounded-full"></div>
+                        </div>
+                        <div class="text-sm space-y-2">
+                            <div class="flex justify-between">
+                                <span>Status:</span>
+                                <span :class="service.status === 'connected' ? 'text-green-400' : 'text-red-400'" 
+                                      x-text="service.status"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Last Check:</span>
+                                <span class="text-gray-400" x-text="service.lastCheck"></span>
+                            </div>
+                            <div x-show="service.error" class="text-red-400 text-xs" x-text="service.error"></div>
+                        </div>
+                        <button @click="testConnection(service.name)" 
+                                class="w-full mt-4 bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                            🔄 Test Connection
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div x-show="activeTab === 'analytics'" class="container mx-auto p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Performance Chart -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h2 class="text-xl font-bold mb-4">📈 System Performance</h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span>Overall Efficiency</span>
+                            <span class="text-green-400 font-bold" x-text="analytics.efficiency + '%'"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>Task Success Rate</span>
+                            <span class="text-blue-400 font-bold" x-text="analytics.successRate + '%'"></span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>Revenue Growth</span>
+                            <span class="text-purple-400 font-bold">+<span x-text="analytics.revenueGrowth"></span>%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>Active Deployments</span>
+                            <span class="text-yellow-400 font-bold" x-text="analytics.activeDeployments"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h2 class="text-xl font-bold mb-4">🔔 Recent Activity</h2>
+                    <div class="space-y-3 max-h-64 overflow-y-auto">
+                        <template x-for="activity in recentActivity" :key="activity.id">
+                            <div class="flex items-center space-x-3 p-2 bg-gray-700 rounded">
+                                <div :class="activity.type === 'success' ? 'text-green-400' : activity.type === 'warning' ? 'text-yellow-400' : 'text-blue-400'" 
+                                     class="text-lg" x-text="activity.icon"></div>
+                                <div class="flex-1">
+                                    <div class="text-sm font-semibold" x-text="activity.title"></div>
+                                    <div class="text-xs text-gray-400" x-text="activity.time"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Integrity Tab -->
+        <div x-show="activeTab === 'integrity'" class="container mx-auto p-6">
+            <!-- System Integrity Header -->
+            <div class="bg-gradient-to-r from-purple-900 to-blue-900 rounded-xl p-6 mb-6 border border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white mb-2">🔍 Agent Integrity & Truth System</h2>
+                        <p class="text-purple-200">"Don't fake the 5 stars — earn them. Let agents learn from failure."</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-green-400" x-text="(integrityData.systemIntegrity * 100).toFixed(1) + '%'"></div>
+                        <div class="text-sm text-gray-300">System Integrity</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Honest Performance Dashboard -->
+            <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700">
+                <h3 class="text-xl font-bold mb-4 text-white">📊 Honest Performance Dashboard</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-700">
+                                <th class="text-left p-3 text-gray-300">Agent</th>
+                                <th class="text-left p-3 text-gray-300">Avg Rating</th>
+                                <th class="text-left p-3 text-gray-300">Tasks</th>
+                                <th class="text-left p-3 text-gray-300">Errors</th>
+                                <th class="text-left p-3 text-gray-300">Truth Score</th>
+                                <th class="text-left p-3 text-gray-300">Status</th>
+                                <th class="text-left p-3 text-gray-300">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="agent in integrityData.agents" :key="agent.id">
+                                <tr class="border-b border-gray-700 hover:bg-gray-700 transition-colors">
+                                    <td class="p-3">
+                                        <div class="font-semibold text-white" x-text="agent.name"></div>
+                                        <div class="text-xs text-gray-400" x-text="agent.id"></div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="font-semibold" 
+                                             :class="agent.averageRating >= 4 ? 'text-green-400' : agent.averageRating >= 3 ? 'text-yellow-400' : 'text-red-400'"
+                                             x-text="agent.starDisplay"></div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="text-white font-semibold" x-text="agent.totalTasks"></div>
+                                        <div class="text-xs text-gray-400" x-text="agent.improvementSessions + ' improvements'"></div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div :class="agent.errorCount > 5 ? 'text-red-400' : agent.errorCount > 2 ? 'text-yellow-400' : 'text-green-400'"
+                                             class="font-semibold" x-text="agent.errorCount"></div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="font-semibold"
+                                             :class="agent.truthScore >= 0.9 ? 'text-green-400' : agent.truthScore >= 0.7 ? 'text-yellow-400' : 'text-red-400'"
+                                             x-text="(agent.truthScore * 100).toFixed(1) + '%'"></div>
+                                        <div class="text-xs text-gray-400" x-text="agent.integrityStatus"></div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div :class="agent.improvementNeeded ? 'bg-red-500' : 'bg-green-500'" 
+                                                 class="w-2 h-2 rounded-full"></div>
+                                            <span class="text-xs" 
+                                                  :class="agent.improvementNeeded ? 'text-red-400' : 'text-green-400'"
+                                                  x-text="agent.improvementNeeded ? 'Needs Work' : 'Performing Well'"></span>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex space-x-1">
+                                            <button @click="simulateFeedback(agent.id, 5)" 
+                                                    class="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs transition-colors">
+                                                ⭐ Good
+                                            </button>
+                                            <button @click="simulateFeedback(agent.id, 2)" 
+                                                    class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs transition-colors">
+                                                💥 Poor
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Feedback -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Learning Triggers -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h3 class="text-xl font-bold mb-4 text-yellow-400">🧠 Learning Triggers</h3>
+                    <div class="space-y-3 max-h-64 overflow-y-auto">
+                        <template x-for="trigger in learningTriggers" :key="trigger.id">
+                            <div class="bg-gray-700 rounded-lg p-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-semibold text-white" x-text="trigger.agent"></span>
+                                    <span class="text-xs text-gray-400" x-text="trigger.time"></span>
+                                </div>
+                                <div class="text-sm text-yellow-300" x-text="trigger.reason"></div>
+                                <div class="text-xs text-gray-400 mt-1" x-text="trigger.plan"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Integrity Alerts -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h3 class="text-xl font-bold mb-4 text-red-400">⚠️ Integrity Alerts</h3>
+                    <div class="space-y-3 max-h-64 overflow-y-auto">
+                        <template x-for="alert in integrityAlerts" :key="alert.id">
+                            <div class="bg-gray-700 rounded-lg p-3 border-l-4"
+                                 :class="alert.severity === 'high' ? 'border-red-500' : alert.severity === 'medium' ? 'border-yellow-500' : 'border-blue-500'">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-semibold text-white" x-text="alert.agent"></span>
+                                    <span class="text-xs text-gray-400" x-text="alert.time"></span>
+                                </div>
+                                <div class="text-sm" 
+                                     :class="alert.severity === 'high' ? 'text-red-300' : alert.severity === 'medium' ? 'text-yellow-300' : 'text-blue-300'"
+                                     x-text="alert.message"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resume Upload Tab -->
+        <div x-show="activeTab === 'resume'" class="container mx-auto p-6">
+            <div class="max-w-4xl mx-auto">
+                <h2 class="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+                    📄 Resume Upload & Validation
+                </h2>
+                
+                <!-- Upload Section -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-green-400">📤 Upload Resume</h3>
+                    
+                    <!-- File Upload Area -->
+                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center mb-4"
+                         @dragover.prevent="isDragging = true"
+                         @dragleave.prevent="isDragging = false"
+                         @drop.prevent="handleFileDrop($event)"
+                         :class="isDragging ? 'border-blue-500 bg-blue-900/20' : ''">
+                        
+                        <div x-show="!uploadedFile">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-lg mb-2">Drop resume here or click to upload</p>
+                            <p class="text-sm text-gray-400 mb-4">Supports PDF, DOC, DOCX, TXT (Max 10MB)</p>
+                            <input type="file" 
+                                   id="resumeFile" 
+                                   accept=".pdf,.doc,.docx,.txt"
+                                   @change="handleFileSelect($event)"
+                                   class="hidden">
+                            <button @click="document.getElementById('resumeFile').click()"
+                                    class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg font-semibold transition-colors">
+                                Select File
+                            </button>
+                        </div>
+                        
+                        <div x-show="uploadedFile" class="space-y-4">
+                            <div class="flex items-center justify-center space-x-3">
+                                <i class="fas fa-file-alt text-green-400 text-2xl"></i>
+                                <span class="font-semibold" x-text="uploadedFile?.name"></span>
+                                <button @click="removeFile()" class="text-red-400 hover:text-red-300">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <button @click="uploadResume()" 
+                                    :disabled="isUploading"
+                                    class="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 px-6 py-2 rounded-lg font-semibold transition-colors">
+                                <span x-show="!isUploading">🚀 Process Resume</span>
+                                <span x-show="isUploading">⏳ Processing...</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Validation Results -->
+                <div x-show="validationResult" class="bg-gray-800 rounded-xl p-6 border border-gray-700 mb-6">
+                    <h3 class="text-xl font-bold mb-4 text-blue-400">🔍 Validation Results</h3>
+                    
+                    <!-- Completion Score -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-semibold">Completion Score</span>
+                            <span class="text-lg font-bold" 
+                                  :class="validationResult?.validation?.completionScore >= 80 ? 'text-green-400' : 
+                                         validationResult?.validation?.completionScore >= 60 ? 'text-yellow-400' : 'text-red-400'"
+                                  x-text="validationResult?.validation?.completionScore + '%'"></span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div class="h-3 rounded-full transition-all duration-500"
+                                 :class="validationResult?.validation?.completionScore >= 80 ? 'bg-green-500' : 
+                                        validationResult?.validation?.completionScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'"
+                                 :style="`width: ${validationResult?.validation?.completionScore || 0}%`"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Badge -->
+                    <div class="mb-4">
+                        <span class="px-3 py-1 rounded-full text-sm font-semibold"
+                              :class="validationResult?.readyForQueue ? 'bg-green-600 text-white' : 'bg-red-600 text-white'">
+                            <span x-show="validationResult?.readyForQueue">✅ Ready for Queue</span>
+                            <span x-show="!validationResult?.readyForQueue">❌ Needs More Information</span>
+                        </span>
+                    </div>
+                    
+                    <!-- Extracted Information -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <h4 class="font-semibold mb-2 text-green-400">✅ Found Information</h4>
+                            <div class="space-y-1 text-sm">
+                                <div x-show="validationResult?.resumeData?.fullName">
+                                    <span class="text-gray-400">Name:</span> <span x-text="validationResult?.resumeData?.fullName"></span>
+                                </div>
+                                <div x-show="validationResult?.resumeData?.email">
+                                    <span class="text-gray-400">Email:</span> <span x-text="validationResult?.resumeData?.email"></span>
+                                </div>
+                                <div x-show="validationResult?.resumeData?.phone">
+                                    <span class="text-gray-400">Phone:</span> <span x-text="validationResult?.resumeData?.phone"></span>
+                                </div>
+                                <div x-show="validationResult?.resumeData?.location">
+                                    <span class="text-gray-400">Location:</span> <span x-text="validationResult?.resumeData?.location"></span>
+                                </div>
+                                <div x-show="validationResult?.resumeData?.linkedin">
+                                    <span class="text-gray-400">LinkedIn:</span> <a :href="validationResult?.resumeData?.linkedin" class="text-blue-400 hover:underline" x-text="validationResult?.resumeData?.linkedin"></a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div x-show="validationResult?.validation?.missingFields?.length > 0">
+                            <h4 class="font-semibold mb-2 text-red-400">❌ Missing Required</h4>
+                            <div class="space-y-1 text-sm">
+                                <template x-for="field in validationResult?.validation?.missingFields">
+                                    <div class="text-red-300" x-text="field"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex space-x-4">
+                        <button x-show="validationResult?.readyForQueue" 
+                                @click="addToQueue()"
+                                class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-semibold transition-colors">
+                            ➕ Add to Processing Queue
+                        </button>
+                        <button @click="showUpdateForm = true"
+                                class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-semibold transition-colors">
+                            ✏️ Update Information
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Queue Status -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <h3 class="text-xl font-bold mb-4 text-purple-400">📋 Queue Status</h3>
+                    
+                    <!-- Load Queue Button -->
+                    <button @click="loadQueue()" 
+                            class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-semibold transition-colors mb-4">
+                        🔄 Refresh Queue
+                    </button>
+                    
+                    <!-- Queue Items -->
+                    <div x-show="resumeQueue?.length > 0" class="space-y-3">
+                        <template x-for="resume in resumeQueue" :key="resume.resumeId">
+                            <div class="bg-gray-700 rounded-lg p-4 flex items-center justify-between">
+                                <div>
+                                    <div class="font-semibold" x-text="resume.fullName || 'Unknown'"></div>
+                                    <div class="text-sm text-gray-400" x-text="resume.email"></div>
+                                    <div class="text-xs text-gray-500">
+                                        Score: <span x-text="resume.completionScore"></span>% | 
+                                        <span x-text="new Date(resume.timestamp).toLocaleDateString()"></span>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm">
+                                        🚀 Process
+                                    </button>
+                                    <button class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">
+                                        🗑️ Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <div x-show="!resumeQueue?.length" class="text-center text-gray-400 py-8">
+                        No resumes in queue. Upload and validate resumes to get started.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Command Console -->
+        <div class="fixed bottom-4 right-4">
+            <button @click="showConsole = !showConsole" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg transition-colors">
+                <i class="fas fa-terminal"></i> Console
+            </button>
+        </div>
+
+        <!-- Console Modal -->
+        <div x-show="showConsole" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-gray-800 rounded-xl p-6 w-96 border border-gray-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">💻 Command Console</h3>
+                    <button @click="showConsole = false" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <input x-model="consoleCommand" 
+                           @keyup.enter="executeCommand()"
+                           placeholder="Enter command (e.g., status, deploy gig-id, pause agent-id)"
+                           class="w-full bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none">
+                    <button @click="executeCommand()" 
+                            class="w-full bg-green-600 hover:bg-green-700 px-3 py-2 rounded font-semibold transition-colors">
+                        Execute Command
+                    </button>
+                </div>
+                <div x-show="consoleOutput" class="mt-4 p-3 bg-black rounded text-green-400 font-mono text-sm max-h-32 overflow-y-auto" x-text="consoleOutput"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function commandDashboard() {
+            return {
+                activeTab: 'agents',
+                showConsole: false,
+                consoleCommand: '',
+                consoleOutput: '',
+                systemStats: {
+                    totalAgents: 0,
+                    avgConsciousness: 0,
+                    revenueProjection: 0
+                },
+                agents: [],
+                pendingGigs: [
+                    {
+                        id: 'gig-001',
+                        title: 'AI Resume Optimization',
+                        description: 'Advanced AI-powered resume optimization service',
+                        price: 75,
+                        successProbability: 89,
+                        category: 'Career Services'
+                    },
+                    {
+                        id: 'gig-002',
+                        title: 'Crypto Market Analysis',
+                        description: 'Real-time cryptocurrency market analysis and predictions',
+                        price: 150,
+                        successProbability: 76,
+                        category: 'Trading'
+                    }
+                ],
+                activeGigs: [],
+                services: [
+                    { name: 'Stripe', icon: 'fab fa-stripe', status: 'connected', lastCheck: '2 min ago' },
+                    { name: 'Gmail', icon: 'fas fa-envelope', status: 'connected', lastCheck: '1 min ago' },
+                    { name: 'Railway', icon: 'fas fa-train', status: 'connected', lastCheck: '30 sec ago' },
+                    { name: 'OpenAI', icon: 'fas fa-brain', status: 'connected', lastCheck: '1 min ago' },
+                    { name: 'GitHub', icon: 'fab fa-github', status: 'connected', lastCheck: '5 min ago' },
+                    { name: 'TradingView', icon: 'fas fa-chart-line', status: 'connected', lastCheck: '3 min ago' }
+                ],
+                analytics: {
+                    efficiency: 94,
+                    successRate: 89,
+                    revenueGrowth: 23,
+                    activeDeployments: 3
+                },
+                recentActivity: [
+                    { id: 1, icon: '✅', title: 'Gig deployed successfully', time: '2 min ago', type: 'success' },
+                    { id: 2, icon: '🧠', title: 'Agent consciousness increased', time: '5 min ago', type: 'info' },
+                    { id: 3, icon: '💰', title: 'Revenue target achieved', time: '10 min ago', type: 'success' },
+                    { id: 4, icon: '⚠️', title: 'Agent load optimization needed', time: '15 min ago', type: 'warning' }
+                ],
+                integrityData: {
+                    agents: [],
+                    systemIntegrity: 1.0
+                },
+                // Resume Upload Data
+                uploadedFile: null,
+                isUploading: false,
+                isDragging: false,
+                validationResult: null,
+                resumeQueue: [],
+                showUpdateForm: false,
+                learningTriggers: [
+                    { id: 1, agent: 'Email Agent', time: '5 min ago', reason: 'Client feedback: Too generic', plan: 'Focus on personalization' },
+                    { id: 2, agent: 'Order Processor', time: '12 min ago', reason: 'Performance below threshold', plan: 'Review workflow optimization' }
+                ],
+                integrityAlerts: [
+                    { id: 1, agent: 'Analytics Agent', time: '3 min ago', message: 'Truth score below 70%', severity: 'medium' },
+                    { id: 2, agent: 'Job Matcher', time: '8 min ago', message: 'Consistent overconfidence detected', severity: 'high' }
+                ],
+
+                async init() {
+                    await this.loadAgentData();
+                    await this.loadSystemStats();
+                    await this.loadActiveGigs();
+                    await this.loadIntegrityData();
+                    
+                    // Refresh data every 30 seconds
+                    setInterval(() => {
+                        this.loadAgentData();
+                        this.loadSystemStats();
+                        this.loadIntegrityData();
+                    }, 30000);
+                },
+
+                async loadAgentData() {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        
+                        const response = await fetch('/api/agents/status', {
+                            signal: controller.signal,
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        if (data && data.agents) {
+                            this.agents = data.agents;
+                            this.systemStats.totalAgents = data.agents.length;
+                            
+                            // Calculate average consciousness
+                            const totalConsciousness = data.agents.reduce((sum, agent) => 
+                                sum + parseFloat(agent.consciousness || 0.85), 0);
+                            this.systemStats.avgConsciousness = Math.round(totalConsciousness / data.agents.length * 10) / 10;
+                        }
+                    } catch (error) {
+                        if (error.name !== 'AbortError') {
+                            console.error('Failed to load agent data:', error);
+                        }
+                        // Use fallback data to prevent UI issues
+                        this.agents = this.agents || [];
+                        this.systemStats.totalAgents = this.agents.length;
+                    }
+                },
+
+                async loadSystemStats() {
+                    try {
+                        const response = await fetch('/api/platform/metrics');
+                        const data = await response.json();
+                        this.systemStats.revenueProjection = Math.round(data.totalRevenueProjection);
+                    } catch (error) {
+                        console.error('Failed to load system stats:', error);
+                    }
+                },
+
+                async loadActiveGigs() {
+                    try {
+                        const response = await fetch('/api/gigs/active');
+                        const data = await response.json();
+                        this.activeGigs = data.quantum || [];
+                    } catch (error) {
+                        console.error('Failed to load active gigs:', error);
+                        // Mock data for demo
+                        this.activeGigs = [
+                            { id: 'gig-active-1', name: 'AI Resume Generator', status: 'quantum_active', revenueProjection: 450, platform: 'Railway' },
+                            { id: 'gig-active-2', name: 'Trading Intelligence', status: 'quantum_active', revenueProjection: 850, platform: 'Railway' }
+                        ];
+                    }
+                },
+
+                getStatusClass(status) {
+                    if (status === 'available') return 'bg-green-500';
+                    if (status === 'busy') return 'bg-yellow-500';
+                    return 'bg-red-500';
+                },
+
+                async sendCommand(agentId, command) {
+                    try {
+                        const response = await fetch(`/api/command/agent/${agentId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ command })
+                        });
+                        
+                        if (response.ok) {
+                            this.addActivity(`🤖 Command "${command}" sent to ${agentId}`, 'info');
+                            // Refresh agent data to show updated status
+                            await this.loadAgentData();
+                        }
+                    } catch (error) {
+                        console.error('Failed to send command:', error);
+                        this.addActivity(`❌ Failed to send command to ${agentId}`, 'error');
+                    }
+                },
+
+                async approveGig(gigId) {
+                    try {
+                        const gig = this.pendingGigs.find(g => g.id === gigId);
+                        if (gig) {
+                            const response = await fetch('http://localhost:9001/api/platform/ultra-deploy-gig', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    id: gigId,
+                                    name: gig.title,
+                                    price: gig.price,
+                                    category: gig.category
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                this.pendingGigs = this.pendingGigs.filter(g => g.id !== gigId);
+                                this.addActivity(`✅ Gig "${gig.title}" approved and deployed`, 'success');
+                                await this.loadActiveGigs();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to approve gig:', error);
+                        this.addActivity(`❌ Failed to approve gig ${gigId}`, 'error');
+                    }
+                },
+
+                rejectGig(gigId) {
+                    const gig = this.pendingGigs.find(g => g.id === gigId);
+                    this.pendingGigs = this.pendingGigs.filter(g => g.id !== gigId);
+                    this.addActivity(`❌ Gig "${gig?.title}" rejected`, 'warning');
+                },
+
+                async testConnection(serviceName) {
+                    const service = this.services.find(s => s.name === serviceName);
+                    if (service) {
+                        service.status = 'testing...';
+                        
+                        // Simulate connection test
+                        setTimeout(() => {
+                            service.status = Math.random() > 0.1 ? 'connected' : 'error';
+                            service.lastCheck = 'Just now';
+                            if (service.status === 'error') {
+                                service.error = 'Connection failed';
+                            }
+                        }, 2000);
+                    }
+                },
+
+                executeCommand() {
+                    if (!this.consoleCommand.trim()) return;
+                    
+                    this.consoleOutput = `> ${this.consoleCommand}\nExecuting...\nCommand completed successfully.`;
+                    this.addActivity(`💻 Console command executed: ${this.consoleCommand}`, 'info');
+                    this.consoleCommand = '';
+                },
+
+                addActivity(title, type) {
+                    this.recentActivity.unshift({
+                        id: Date.now(),
+                        icon: type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : 'ℹ️',
+                        title,
+                        time: 'Just now',
+                        type
+                    });
+                    
+                    // Keep only last 10 activities
+                    if (this.recentActivity.length > 10) {
+                        this.recentActivity = this.recentActivity.slice(0, 10);
+                    }
+                },
+
+                async loadIntegrityData() {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        
+                        const response = await fetch('/api/integrity/dashboard', {
+                            signal: controller.signal,
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        if (data) {
+                            this.integrityData = data;
+                        }
+                    } catch (error) {
+                        if (error.name !== 'AbortError') {
+                            console.error('Failed to load integrity data:', error);
+                        }
+                        // Mock data for demo
+                        this.integrityData = {
+                            agents: [
+                                {
+                                    id: 'ultra_email_agent',
+                                    name: 'Email Agent',
+                                    averageRating: 3.2,
+                                    starDisplay: '⭐⭐⭐☆☆ (3.2)',
+                                    totalTasks: 24,
+                                    errorCount: 2,
+                                    improvementSessions: 3,
+                                    truthScore: 0.85,
+                                    integrityStatus: 'Mostly Honest',
+                                    improvementNeeded: true
+                                },
+                                {
+                                    id: 'ultra_customer_service',
+                                    name: 'Customer Service Agent',
+                                    averageRating: 4.3,
+                                    starDisplay: '⭐⭐⭐⭐⚡ (4.3)',
+                                    totalTasks: 18,
+                                    errorCount: 0,
+                                    improvementSessions: 1,
+                                    truthScore: 0.95,
+                                    integrityStatus: 'Honest',
+                                    improvementNeeded: false
+                                }
+                            ],
+                            systemIntegrity: 0.87
+                        };
+                    }
+                },
+
+                async simulateFeedback(agentId, rating) {
+                    try {
+                        const feedbacks = {
+                            5: ['Excellent work!', 'Perfect execution', 'Exceeded expectations'],
+                            4: ['Good job', 'Well done', 'Minor improvements possible'],
+                            3: ['Acceptable', 'Average performance', 'Needs some work'],
+                            2: ['Poor quality', 'Significant issues', 'Below expectations'],
+                            1: ['Completely unsatisfactory', 'Major problems', 'Failed to deliver']
+                        };
+                        
+                        const taskTypes = ['ultra_process_order', 'ultra_customer_inquiry', 'ultra_match_resume', 'quantum_analytics'];
+                        const feedback = feedbacks[rating][Math.floor(Math.random() * feedbacks[rating].length)];
+                        const taskType = taskTypes[Math.floor(Math.random() * taskTypes.length)];
+                        
+                        const response = await fetch('/api/integrity/simulate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                agentId,
+                                taskType,
+                                rating,
+                                feedback
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            this.addActivity(`📊 Feedback recorded: ${rating}⭐ for ${agentId}`, 'info');
+                            // Refresh integrity data
+                            await this.loadIntegrityData();
+                            
+                            // Add learning trigger if poor performance
+                            if (rating <= 3) {
+                                this.learningTriggers.unshift({
+                                    id: Date.now(),
+                                    agent: agentId,
+                                    time: 'Just now',
+                                    reason: `Client rated ${rating}⭐: ${feedback}`,
+                                    plan: 'Analyzing feedback and adjusting performance'
+                                });
+                                
+                                // Keep only last 10 triggers
+                                if (this.learningTriggers.length > 10) {
+                                    this.learningTriggers = this.learningTriggers.slice(0, 10);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to simulate feedback:', error);
+                        this.addActivity(`❌ Failed to record feedback for ${agentId}`, 'error');
+                    }
+                },
+
+                // Resume Upload Functions
+                handleFileSelect(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        this.uploadedFile = file;
+                        this.validationResult = null;
+                    }
+                },
+
+                handleFileDrop(event) {
+                    this.isDragging = false;
+                    const file = event.dataTransfer.files[0];
+                    if (file) {
+                        this.uploadedFile = file;
+                        this.validationResult = null;
+                    }
+                },
+
+                removeFile() {
+                    this.uploadedFile = null;
+                    this.validationResult = null;
+                    document.getElementById('resumeFile').value = '';
+                },
+
+                async uploadResume() {
+                    if (!this.uploadedFile) return;
+                    
+                    this.isUploading = true;
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('resume', this.uploadedFile);
+                        
+                        const response = await fetch('http://localhost:5003/api/resume/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`Upload failed: ${response.statusText}`);
+                        }
+                        
+                        const result = await response.json();
+                        this.validationResult = result;
+                        
+                        this.addActivity(
+                            `📄 Resume processed: ${result.resumeData?.fullName || 'Unknown'} - ${result.validation?.completionScore}% complete`,
+                            result.readyForQueue ? 'success' : 'warning'
+                        );
+                        
+                    } catch (error) {
+                        console.error('Resume upload failed:', error);
+                        this.addActivity(`❌ Resume upload failed: ${error.message}`, 'error');
+                    } finally {
+                        this.isUploading = false;
+                    }
+                },
+
+                async loadQueue() {
+                    try {
+                        const response = await fetch('http://localhost:5003/api/resume/ready-for-queue');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.resumeQueue = data.resumes || [];
+                            this.addActivity(`📋 Queue refreshed: ${this.resumeQueue.length} resumes ready`, 'info');
+                        }
+                    } catch (error) {
+                        console.error('Failed to load queue:', error);
+                        this.addActivity('❌ Failed to load resume queue', 'error');
+                    }
+                },
+
+                async addToQueue() {
+                    if (!this.validationResult?.readyForQueue) return;
+                    
+                    // Add logic to send to processing queue
+                    this.addActivity(
+                        `✅ Resume added to processing queue: ${this.validationResult.resumeData?.fullName}`,
+                        'success'
+                    );
+                    
+                    // Refresh queue to show updated status
+                    await this.loadQueue();
+                }
+            }
+        }
+    </script>
+</body>
+</html>

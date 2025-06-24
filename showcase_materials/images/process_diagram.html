@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AI Process Diagram</title>
+    <style>
+        body { margin: 0; font-family: 'Arial', sans-serif; }
+        .process {
+            width: 1200px;
+            height: 675px;
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            color: white;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+        .step {
+            text-align: center;
+            flex: 1;
+            margin: 20px;
+        }
+        .step-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        .step-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .step-desc {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+        .arrow {
+            font-size: 3em;
+            color: #FFD700;
+            margin: 0 10px;
+        }
+        .title {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="process">
+        <div class="title">🤖 AI Resume Process</div>
+        
+        <div class="step">
+            <div class="step-icon">📄</div>
+            <div class="step-title">1. Upload Job</div>
+            <div class="step-desc">Send us the job description you're targeting</div>
+        </div>
+        
+        <div class="arrow">→</div>
+        
+        <div class="step">
+            <div class="step-icon">🧠</div>
+            <div class="step-title">2. AI Analysis</div>
+            <div class="step-desc">Our 4 AI agents analyze requirements and industry</div>
+        </div>
+        
+        <div class="arrow">→</div>
+        
+        <div class="step">
+            <div class="step-icon">✨</div>
+            <div class="step-title">3. Custom Creation</div>
+            <div class="step-desc">AI generates job-specific content and design</div>
+        </div>
+        
+        <div class="arrow">→</div>
+        
+        <div class="step">
+            <div class="step-icon">🎯</div>
+            <div class="step-title">4. Interview Success</div>
+            <div class="step-desc">Receive your ATS-optimized resume in 24-48h</div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+//@version=5
+strategy("Neuro.Pilot.AI Adaptive Multi-Timeframe Strategy", overlay=true)
+
+// AI Learning Parameters
+learningProgress = input.float(0.59, "Learning Progress %")
+adaptiveThreshold = input.float(0.8, "Adaptive Threshold")
+multiTimeframe = input.bool(true, "Enable Multi-Timeframe")
+
+// Multi-timeframe analysis
+htf_trend = request.security(syminfo.tickerid, "1H", ta.ema(close, 21))
+mtf_momentum = request.security(syminfo.tickerid, "15m", ta.rsi(close, 14))
+
+// Adaptive algorithm that changes based on market conditions
+volatility = ta.atr(14) / close
+market_regime = volatility > 0.03 ? "volatile" : volatility < 0.01 ? "stable" : "normal"
+
+// Strategy adapts based on regime
+strategy_weight = market_regime == "volatile" ? 0.5 : market_regime == "stable" ? 1.5 : 1.0
+
+// AI-driven adaptive signals
+adaptive_signal = 0.0
+if multiTimeframe
+    adaptive_signal := (close > htf_trend ? 0.3 : -0.3) + (mtf_momentum - 50) / 100
+adaptive_signal := adaptive_signal * strategy_weight * learningProgress
+
+long_adaptive = adaptive_signal > adaptiveThreshold and close > ta.sma(close, 20)
+short_adaptive = adaptive_signal < -adaptiveThreshold and close < ta.sma(close, 20)
+
+if long_adaptive and strategy.position_size == 0
+    strategy.entry("Adaptive Long", strategy.long, qty=strategy_weight)
+
+if short_adaptive and strategy.position_size == 0  
+    strategy.entry("Adaptive Short", strategy.short, qty=strategy_weight)
+
+// Dynamic exits based on learning progress
+exit_threshold = 0.02 * learningProgress
+if math.abs(adaptive_signal) < exit_threshold
+    strategy.close_all("Adaptive Exit")
+
+plot(ta.sma(close, 20), "SMA 20", color.white)
+bgcolor(market_regime == "volatile" ? color.new(color.red, 90) : 
+        market_regime == "stable" ? color.new(color.green, 90) : color.new(color.blue, 90))

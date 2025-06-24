@@ -1,0 +1,536 @@
+#!/usr/bin/env node
+
+/**
+ * NEURO-PILOT-AI GIG CONTROL CLI
+ * Terminal-based gig deployment and management tool
+ */
+
+const { Command } = require('commander');
+const inquirer = require('inquirer');
+const fs = require('fs').promises;
+const path = require('path');
+const fetch = require('node-fetch');
+
+const program = new Command();
+
+// Configuration
+const CONFIG = {
+    API_BASE: 'http://localhost:3008/api',
+    VERSION: '1.0.0',
+    CONFIG_FILE: path.join(__dirname, '.gig-control-config.json')
+};
+
+// Color codes for terminal output
+const colors = {
+    reset: '\x1b[0m',
+    bright: '\x1b[1m',
+    red: '\x1b[31m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    blue: '\x1b[34m',
+    magenta: '\x1b[35m',
+    cyan: '\x1b[36m'
+};
+
+class GigControlCLI {
+    constructor() {
+        this.config = {};
+        this.loadConfig();
+    }
+
+    async loadConfig() {
+        try {
+            const configData = await fs.readFile(CONFIG.CONFIG_FILE, 'utf8');
+            this.config = JSON.parse(configData);
+        } catch (error) {
+            this.config = {
+                api_base: CONFIG.API_BASE,
+                user: 'David Mikulis',
+                auto_approve_low_risk: false,
+                notification_channels: []
+            };
+            await this.saveConfig();
+        }
+    }
+
+    async saveConfig() {
+        try {
+            await fs.writeFile(CONFIG.CONFIG_FILE, JSON.stringify(this.config, null, 2));
+        } catch (error) {
+            this.error('Failed to save configuration');
+        }
+    }
+
+    // Utility methods for colored output
+    log(message, color = 'reset') {
+        console.log(`${colors[color]}${message}${colors.reset}`);
+    }
+
+    success(message) {
+        this.log(`✅ ${message}`, 'green');
+    }
+
+    error(message) {
+        this.log(`❌ ${message}`, 'red');
+    }
+
+    warning(message) {
+        this.log(`⚠️  ${message}`, 'yellow');
+    }
+
+    info(message) {
+        this.log(`ℹ️  ${message}`, 'blue');
+    }
+
+    // API helper methods
+    async apiCall(endpoint, options = {}) {
+        try {
+            const url = `${this.config.api_base}${endpoint}`;
+            const response = await fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            });
+
+            if (!response.ok) {
+                throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            if (error.code === 'ECONNREFUSED') {
+                this.error('Deployment Control System is not running. Start it with: npm run start:deployment');
+                process.exit(1);
+            }
+            throw error;
+        }
+    }
+
+    // Command implementations
+    async listPendingGigs() {
+        try {
+            this.info('Fetching pending gigs...');
+            const gigs = await this.apiCall('/gigs/pending');
+
+            if (gigs.length === 0) {
+                this.log('📭 No pending gigs found', 'yellow');
+                return;
+            }
+
+            this.log(`\n📋 ${colors.bright}PENDING GIGS (${gigs.length})${colors.reset}`, 'cyan');
+            this.log('═'.repeat(60), 'cyan');
+
+            gigs.forEach((gig, index) => {
+                const riskColor = gig.risk_score === 'LOW' ? 'green' : 
+                                 gig.risk_score === 'MEDIUM' ? 'yellow' : 'red';
+                
+                this.log(`\n${index + 1}. ${colors.bright}${gig.title}${colors.reset}`);
+                this.log(`   💰 ${gig.price} | 🤖 ${gig.agent}`);
+                this.log(`   🛡️  Risk: ${colors[riskColor]}${gig.risk_score}${colors.reset}`);
+                this.log(`   📝 ${gig.description}`);
+                this.log(`   🆔 ID: ${gig.id}`);
+            });
+
+            this.log('\n' + '═'.repeat(60), 'cyan');
+            
+        } catch (error) {
+            this.error(`Failed to fetch pending gigs: ${error.message}`);
+        }
+    }
+
+    async approveGig(gigId, options = {}) {
+        try {
+            if (!gigId) {
+                // Interactive mode - let user select from pending gigs
+                const gigs = await this.apiCall('/gigs/pending');
+                
+                if (gigs.length === 0) {
+                    this.warning('No pending gigs to approve');
+                    return;
+                }
+
+                const choices = gigs.map(gig => ({
+                    name: `${gig.title} - ${gig.price} (${gig.risk_score} risk)`,
+                    value: gig.id
+                }));
+
+                const { selectedGig } = await inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'selectedGig',
+                        message: 'Select gig to approve:',
+                        choices: choices
+                    }
+                ]);
+
+                gigId = selectedGig;
+            }
+
+            // Get approval details
+            let approvalData = {};
+            
+            if (!options.notes && !options.auto) {
+                const answers = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'notes',
+                        message: 'Approval notes (optional):',
+                        default: 'Approved for deployment'
+                    },
+                    {
+                        type: 'list',
+                        name: 'environment',
+                        message: 'Deployment environment:',
+                        choices: ['production', 'staging', 'development'],
+                        default: 'production'
+                    }
+                ]);
+                approvalData = answers;
+            } else {
+                approvalData = {
+                    notes: options.notes || 'Auto-approved via CLI',
+                    environment: options.environment || 'production'
+                };
+            }
+
+            this.info(`Approving gig: ${gigId}...`);
+            
+            const result = await this.apiCall(`/gigs/${gigId}/approve`, {
+                method: 'POST',
+                body: JSON.stringify(approvalData)
+            });
+
+            if (result.success) {
+                this.success(`Gig approved and deployed to ${approvalData.environment}`);
+                this.log(`📝 Notes: ${approvalData.notes}`);
+            } else {
+                this.error(`Approval failed: ${result.message}`);
+            }
+
+        } catch (error) {
+            this.error(`Failed to approve gig: ${error.message}`);
+        }
+    }
+
+    async rejectGig(gigId, options = {}) {
+        try {
+            if (!gigId) {
+                // Interactive mode
+                const gigs = await this.apiCall('/gigs/pending');
+                
+                if (gigs.length === 0) {
+                    this.warning('No pending gigs to reject');
+                    return;
+                }
+
+                const choices = gigs.map(gig => ({
+                    name: `${gig.title} - ${gig.price} (${gig.risk_score} risk)`,
+                    value: gig.id
+                }));
+
+                const { selectedGig } = await inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'selectedGig',
+                        message: 'Select gig to reject:',
+                        choices: choices
+                    }
+                ]);
+
+                gigId = selectedGig;
+            }
+
+            // Get rejection details
+            let rejectionData = {};
+            
+            if (!options.reason) {
+                const answers = await inquirer.prompt([
+                    {
+                        type: 'input',
+                        name: 'reason',
+                        message: 'Rejection reason:',
+                        validate: (input) => input.length > 0 || 'Reason is required'
+                    },
+                    {
+                        type: 'input',
+                        name: 'feedback',
+                        message: 'Feedback for improvement (optional):'
+                    }
+                ]);
+                rejectionData = answers;
+            } else {
+                rejectionData = {
+                    reason: options.reason,
+                    feedback: options.feedback || ''
+                };
+            }
+
+            this.info(`Rejecting gig: ${gigId}...`);
+            
+            const result = await this.apiCall(`/gigs/${gigId}/reject`, {
+                method: 'POST',
+                body: JSON.stringify(rejectionData)
+            });
+
+            if (result.success) {
+                this.success('Gig rejected');
+                this.log(`📝 Reason: ${rejectionData.reason}`);
+                if (rejectionData.feedback) {
+                    this.log(`💬 Feedback: ${rejectionData.feedback}`);
+                }
+            } else {
+                this.error(`Rejection failed: ${result.message}`);
+            }
+
+        } catch (error) {
+            this.error(`Failed to reject gig: ${error.message}`);
+        }
+    }
+
+    async showSystemStatus() {
+        try {
+            this.info('Fetching system status...');
+            const status = await this.apiCall('/status');
+
+            this.log(`\n🖥️  ${colors.bright}SYSTEM STATUS${colors.reset}`, 'cyan');
+            this.log('═'.repeat(50), 'cyan');
+
+            // Deployment Control System
+            const deployStatus = status.deployment_control?.status === 'running' ? 
+                `${colors.green}✅ RUNNING${colors.reset}` : 
+                `${colors.red}❌ STOPPED${colors.reset}`;
+            
+            this.log(`🚀 Deployment Control: ${deployStatus}`);
+            if (status.deployment_control?.port) {
+                this.log(`   📡 Port: ${status.deployment_control.port}`);
+            }
+
+            // Master Orchestrator
+            const orchStatus = status.orchestrator?.status === 'running' ? 
+                `${colors.green}✅ RUNNING${colors.reset}` : 
+                `${colors.red}❌ STOPPED${colors.reset}`;
+            
+            this.log(`🧠 Master Orchestrator: ${orchStatus}`);
+            if (status.orchestrator?.workflows_available) {
+                this.log(`   🔄 Workflows: ${status.orchestrator.workflows_available.join(', ')}`);
+            }
+
+            // Agent Integrity System
+            const integrityStatus = status.integrity?.status === 'running' ? 
+                `${colors.green}✅ MONITORING${colors.reset}` : 
+                `${colors.red}❌ STOPPED${colors.reset}`;
+            
+            this.log(`🛡️ Agent Integrity: ${integrityStatus}`);
+
+            // Other systems
+            Object.keys(status).forEach(system => {
+                if (!['deployment_control', 'orchestrator', 'integrity'].includes(system)) {
+                    const sysStatus = status[system]?.status === 'running' ? 
+                        `${colors.green}✅ RUNNING${colors.reset}` : 
+                        `${colors.red}❌ STOPPED${colors.reset}`;
+                    
+                    this.log(`📊 ${system}: ${sysStatus}`);
+                }
+            });
+
+            this.log('═'.repeat(50), 'cyan');
+
+        } catch (error) {
+            this.error(`Failed to fetch system status: ${error.message}`);
+        }
+    }
+
+    async showAgentStatus() {
+        try {
+            this.info('Fetching agent performance...');
+            const agentData = await this.apiCall('/agents/status');
+
+            this.log(`\n🤖 ${colors.bright}AGENT PERFORMANCE${colors.reset}`, 'cyan');
+            this.log('═'.repeat(60), 'cyan');
+
+            if (agentData.agents) {
+                agentData.agents.forEach(agent => {
+                    const rating = '⭐'.repeat(Math.floor(agent.rating || 4));
+                    const statusColor = agent.status === 'active' ? 'green' : 'red';
+                    
+                    this.log(`\n${colors.bright}${agent.name}${colors.reset}`);
+                    this.log(`   ${colors[statusColor]}● ${agent.status.toUpperCase()}${colors.reset} | ${rating} (${agent.rating}/5.0)`);
+                    this.log(`   📊 Tasks: ${agent.tasks_completed || 0} | Success: ${agent.success_rate || 95}%`);
+                    if (agent.last_activity) {
+                        this.log(`   🕒 Last Active: ${agent.last_activity}`);
+                    }
+                });
+            } else {
+                this.log('📊 Agent performance data available via dashboard', 'yellow');
+            }
+
+            this.log('\n═'.repeat(60), 'cyan');
+
+        } catch (error) {
+            this.error(`Failed to fetch agent status: ${error.message}`);
+        }
+    }
+
+    async deployGig(options = {}) {
+        try {
+            const deploymentData = {
+                workflow: options.workflow || 'opportunity_development',
+                environment: options.environment || 'production',
+                gig_data: options.gigData || {},
+                force: options.force || false
+            };
+
+            this.info('Initiating gig deployment...');
+            
+            const result = await this.apiCall('/deploy', {
+                method: 'POST',
+                body: JSON.stringify(deploymentData)
+            });
+
+            if (result.success) {
+                this.success('Deployment initiated successfully');
+                this.log(`🔄 Workflow: ${deploymentData.workflow}`);
+                this.log(`🌍 Environment: ${deploymentData.environment}`);
+            } else {
+                this.error(`Deployment failed: ${result.message}`);
+            }
+
+        } catch (error) {
+            this.error(`Failed to deploy: ${error.message}`);
+        }
+    }
+
+    async configureCLI() {
+        this.log(`\n⚙️  ${colors.bright}CONFIGURE GIG CONTROL CLI${colors.reset}`, 'cyan');
+        this.log('═'.repeat(40), 'cyan');
+
+        const answers = await inquirer.prompt([
+            {
+                type: 'input',
+                name: 'api_base',
+                message: 'API Base URL:',
+                default: this.config.api_base
+            },
+            {
+                type: 'input',
+                name: 'user',
+                message: 'Your name:',
+                default: this.config.user
+            },
+            {
+                type: 'confirm',
+                name: 'auto_approve_low_risk',
+                message: 'Auto-approve low-risk gigs?',
+                default: this.config.auto_approve_low_risk
+            }
+        ]);
+
+        this.config = { ...this.config, ...answers };
+        await this.saveConfig();
+
+        this.success('Configuration saved!');
+        this.log(`📁 Config file: ${CONFIG.CONFIG_FILE}`);
+    }
+
+    displayWelcome() {
+        this.log(`\n🚀 ${colors.bright}NEURO-PILOT-AI GIG CONTROL CLI${colors.reset}`, 'cyan');
+        this.log(`   Version ${CONFIG.VERSION} | Autonomous AI Business Management`, 'cyan');
+        this.log('═'.repeat(60), 'cyan');
+    }
+
+    displayHelp() {
+        this.displayWelcome();
+        this.log('\n📋 AVAILABLE COMMANDS:', 'yellow');
+        this.log('   list, ls          - List pending gigs');
+        this.log('   approve [gig-id]  - Approve a gig for deployment');
+        this.log('   reject [gig-id]   - Reject a gig');
+        this.log('   status, st        - Show system status');
+        this.log('   agents, ag        - Show agent performance');
+        this.log('   deploy            - Deploy a gig manually');
+        this.log('   config            - Configure CLI settings');
+        this.log('   dashboard         - Open web dashboard');
+        this.log('   help, -h          - Show this help');
+        this.log('\n💡 Use --help with any command for more options');
+        this.log('🌐 Web Dashboard: http://localhost:3008/dashboard');
+    }
+}
+
+// Initialize CLI
+const cli = new GigControlCLI();
+
+// Setup commands
+program
+    .name('gig-control')
+    .description('Neuro-Pilot-AI Gig Deployment Control CLI')
+    .version(CONFIG.VERSION);
+
+program
+    .command('list')
+    .alias('ls')
+    .description('List pending gigs awaiting approval')
+    .action(() => cli.listPendingGigs());
+
+program
+    .command('approve [gig-id]')
+    .description('Approve a gig for deployment')
+    .option('-n, --notes <notes>', 'Approval notes')
+    .option('-e, --environment <env>', 'Deployment environment', 'production')
+    .option('-a, --auto', 'Auto-approve without prompts')
+    .action((gigId, options) => cli.approveGig(gigId, options));
+
+program
+    .command('reject [gig-id]')
+    .description('Reject a gig')
+    .option('-r, --reason <reason>', 'Rejection reason')
+    .option('-f, --feedback <feedback>', 'Feedback for improvement')
+    .action((gigId, options) => cli.rejectGig(gigId, options));
+
+program
+    .command('status')
+    .alias('st')
+    .description('Show system status')
+    .action(() => cli.showSystemStatus());
+
+program
+    .command('agents')
+    .alias('ag')
+    .description('Show agent performance')
+    .action(() => cli.showAgentStatus());
+
+program
+    .command('deploy')
+    .description('Deploy a gig manually')
+    .option('-w, --workflow <workflow>', 'Workflow type', 'opportunity_development')
+    .option('-e, --environment <env>', 'Environment', 'production')
+    .option('-f, --force', 'Force deployment')
+    .action((options) => cli.deployGig(options));
+
+program
+    .command('config')
+    .description('Configure CLI settings')
+    .action(() => cli.configureCLI());
+
+program
+    .command('dashboard')
+    .description('Open web dashboard in browser')
+    .action(() => {
+        const { exec } = require('child_process');
+        exec('open http://localhost:3008/dashboard');
+        cli.info('Opening web dashboard...');
+    });
+
+program
+    .command('help')
+    .description('Show help information')
+    .action(() => cli.displayHelp());
+
+// Default action for no commands
+if (process.argv.length === 2) {
+    cli.displayHelp();
+} else {
+    program.parse(process.argv);
+}
+
+module.exports = GigControlCLI;

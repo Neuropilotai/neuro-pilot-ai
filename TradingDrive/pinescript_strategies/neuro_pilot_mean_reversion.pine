@@ -1,0 +1,32 @@
+//@version=5
+strategy("Neuro.Pilot.AI Mean Reversion Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// AI Parameters
+aiAccuracy = input.float(0.95, "AI Model Accuracy")
+reversionWeight = input.float(0.2, "Mean Reversion Weight")
+
+// Mean Reversion Indicators
+[bb_upper, bb_middle, bb_lower] = ta.bb(close, 20, 2)
+rsi = ta.rsi(close, 14)
+distance_from_mean = (close - bb_middle) / (bb_upper - bb_lower)
+
+// AI Mean Reversion Signal
+ai_reversion_signal = -distance_from_mean * aiAccuracy * reversionWeight
+
+// Oversold/Overbought conditions
+oversold = close < bb_lower and rsi < 30 and ai_reversion_signal > 0.1
+overbought = close > bb_upper and rsi > 70 and ai_reversion_signal < -0.1
+
+if oversold and strategy.position_size == 0
+    strategy.entry("Reversion Long", strategy.long)
+    strategy.exit("RL Exit", limit=bb_middle, stop=close * 0.97)
+
+if overbought and strategy.position_size == 0
+    strategy.entry("Reversion Short", strategy.short)
+    strategy.exit("RS Exit", limit=bb_middle, stop=close * 1.03)
+
+plot(bb_upper, "BB Upper", color.gray)
+plot(bb_middle, "BB Middle", color.yellow)
+plot(bb_lower, "BB Lower", color.gray)
+plotshape(oversold, style=shape.circle, location=location.belowbar, color=color.green)
+plotshape(overbought, style=shape.circle, location=location.abovebar, color=color.red)

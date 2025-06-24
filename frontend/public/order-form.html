@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order AI Resume - Neuro.Pilot.AI</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f7f8fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            color: #666;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .package-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .package-option {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .package-option:hover {
+            border-color: #4CAF50;
+            transform: translateY(-2px);
+        }
+
+        .package-option.selected {
+            border-color: #4CAF50;
+            background-color: #f1f8f4;
+        }
+
+        .package-option h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .package-option .price {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .package-option .description {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .form-section h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #1a1a1a;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #444;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .submit-button:hover {
+            background-color: #45a049;
+        }
+
+        .submit-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .success-message {
+            color: #4CAF50;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading:after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Order Your AI-Powered Resume</h1>
+            <p>Professional resumes created by 4 specialized AI agents in 24-48 hours</p>
+        </div>
+
+        <form id="orderForm" class="form-card">
+            <div class="form-section">
+                <h2>Choose Your Package</h2>
+                <div class="package-selection">
+                    <div class="package-option" data-package="basic">
+                        <h3>Basic</h3>
+                        <div class="price">$29</div>
+                        <div class="description">AI-generated resume with ATS optimization</div>
+                    </div>
+                    <div class="package-option" data-package="professional">
+                        <h3>Professional</h3>
+                        <div class="price">$59</div>
+                        <div class="description">Resume + Cover Letter + LinkedIn optimization</div>
+                    </div>
+                    <div class="package-option" data-package="executive">
+                        <h3>Executive</h3>
+                        <div class="price">$99</div>
+                        <div class="description">Premium package with 30-day revision guarantee</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Your Information</h2>
+                <div class="form-group">
+                    <label for="fullName">Full Name *</label>
+                    <input type="text" id="fullName" name="fullName" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone">
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Job Details</h2>
+                <div class="form-group">
+                    <label for="targetRole">Target Job Title *</label>
+                    <input type="text" id="targetRole" name="targetRole" placeholder="e.g., Senior Software Engineer" required>
+                </div>
+                <div class="form-group">
+                    <label for="industry">Industry *</label>
+                    <select id="industry" name="industry" required>
+                        <option value="">Select Industry</option>
+                        <option value="technology">Technology</option>
+                        <option value="finance">Finance</option>
+                        <option value="healthcare">Healthcare</option>
+                        <option value="education">Education</option>
+                        <option value="retail">Retail</option>
+                        <option value="manufacturing">Manufacturing</option>
+                        <option value="consulting">Consulting</option>
+                        <option value="marketing">Marketing</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="experience">Years of Experience *</label>
+                    <select id="experience" name="experience" required>
+                        <option value="">Select Experience</option>
+                        <option value="0-2">0-2 years</option>
+                        <option value="3-5">3-5 years</option>
+                        <option value="6-10">6-10 years</option>
+                        <option value="11-15">11-15 years</option>
+                        <option value="16+">16+ years</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="keywords">Key Skills/Keywords (comma-separated)</label>
+                    <textarea id="keywords" name="keywords" placeholder="e.g., JavaScript, Project Management, Data Analysis"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="jobDescription">Job Description (paste the job posting if you have one)</label>
+                    <textarea id="jobDescription" name="jobDescription" placeholder="Paste the job description here to optimize your resume for this specific role"></textarea>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Current Resume (Optional)</h2>
+                <div class="form-group">
+                    <label for="currentResume">Upload Current Resume</label>
+                    <input type="file" id="currentResume" name="currentResume" accept=".pdf,.doc,.docx">
+                    <small style="color: #666;">Upload your current resume for AI enhancement (PDF, DOC, DOCX)</small>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="terms" name="terms" required>
+                <label for="terms">I agree to the terms of service and understand delivery takes 24-48 hours</label>
+            </div>
+
+            <button type="submit" class="submit-button" id="submitButton">Proceed to Payment</button>
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            <div class="loading" id="loading">Processing your order</div>
+        </form>
+    </div>
+
+    <script>
+        // Package selection
+        const packageOptions = document.querySelectorAll('.package-option');
+        let selectedPackage = '';
+
+        packageOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                packageOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedPackage = option.dataset.package;
+            });
+        });
+
+        // Form submission
+        const form = document.getElementById('orderForm');
+        const submitButton = document.getElementById('submitButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const loading = document.getElementById('loading');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validate package selection
+            if (!selectedPackage) {
+                showError('Please select a package');
+                return;
+            }
+
+            // Collect form data
+            const formData = new FormData(form);
+            const orderData = {
+                package: selectedPackage,
+                fullName: formData.get('fullName'),
+                email: formData.get('email'),
+                phone: formData.get('phone'),
+                targetRole: formData.get('targetRole'),
+                industry: formData.get('industry'),
+                experience: formData.get('experience'),
+                keywords: formData.get('keywords'),
+                jobDescription: formData.get('jobDescription'),
+                timestamp: new Date().toISOString()
+            };
+
+            // Show loading state
+            submitButton.disabled = true;
+            loading.style.display = 'block';
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+
+            try {
+                // Send order data to backend
+                const response = await fetch('/api/orders/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to create order');
+                }
+
+                const result = await response.json();
+
+                // Redirect to Stripe checkout
+                if (result.checkoutUrl) {
+                    window.location.href = result.checkoutUrl;
+                } else {
+                    throw new Error('No checkout URL received');
+                }
+
+            } catch (error) {
+                console.error('Order error:', error);
+                showError('An error occurred. Please try again.');
+                submitButton.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

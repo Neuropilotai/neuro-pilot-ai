@@ -1,0 +1,24 @@
+{
+  "type": "deployment_failure",
+  "severity": "critical",
+  "message": "Railway production deployment failed",
+  "details": {
+    "timestamp": "2025-06-22T16:00:02.682Z",
+    "status": "FAILED",
+    "platform": "Railway",
+    "service": "neuro-pilot-ai-production",
+    "errors": [
+      "Cannot find module nodemailer",
+      "AutomatedOrderProcessor integration issues",
+      "Server crashed on startup",
+      "AI agents not starting properly"
+    ],
+    "impact": "HIGH - Customer orders not being processed",
+    "ordersAffected": [
+      "order_1750603803709"
+    ],
+    "currentWorkaround": "Standalone order processor running locally"
+  },
+  "timestamp": "2025-06-22T16:00:02.682Z",
+  "action_required": true
+}

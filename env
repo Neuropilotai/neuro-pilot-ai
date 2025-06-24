@@ -1,0 +1,40 @@
+# Neuro-Pilot-AI Environment Variables
+# Copy this file to .env and fill in your actual API keys
+
+# Application Configuration
+PORT=3001
+NODE_ENV=development
+WEBHOOK_PORT=3000
+
+# Notion Integration (Required)
+NOTION_TOKEN=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
+NOTION_PARENT_PAGE_ID=https://www.notion.so/21c47b6c313480679c4af620ff9d4c85?v=21c47b6c313480d79729000c4deb6700&source=copy_link
+NOTION_RESUME_DATABASE_ID=https://www.notion.so/1fd47b6c313480b39f7ed6ea1d732ec7?v=1fd47b6c313480a681f5000cd8de318b
+NOTION_TEMPLATE_DATABASE_ID=https://www.notion.so/1fe47b6c31348075b2ccd72a7f4786bd?v=1fe47b6c3134806f85dc000c6e9a8d5c
+
+# OpenAI Configuration (Required)
+OPENAI_API_KEY=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
+
+# Stripe Payment Processing (Required)
+STRIPE_SECRET_KEY=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
+STRIPE_PUBLISHABLE_KEY=pk_live_51RbQCOKjYpIntZr4nKiZ8WVerlxuMnTuVMTgnv5SGW8ycqXJdLtLs2tvmrHs5U31VyHcUAVo8bYDes0beJoOWVZ000zvtHKMEH
+STRIPE_WEBHOOK_SECRET=
+
+# Email Configuration (Required for notifications)
+EMAIL_USER=Neuro.Pilot>AI@gmail.com
+EMAIL_PASS=fzgu iisa dqsl nyda
+EMAIL_FROM=noreply@yourdomain.com
+
+# Ngrok Configuration (for local development)
+NGROK_AUTH_TOKEN=2xhLhORbOewaR2VonJsMmnNoGjJ_3yZXCb62MWyJbFBHMWkN7
+
+# Security
+JWT_SECRET=6244a9f16ae2f3101dfdb34c6beefb847955a59e446574cb34a52dfe8675b81a
+ENCRYPTION_KEY=fb5e960ae27a8a7bae88af234704b298
+
+# Frontend URL
+FRONTEND_URL=http://localhost:3001
+
+# Monitoring (Optional)
+LOG_LEVEL=info
+ENABLE_ANALYTICS=true

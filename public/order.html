@@ -532,21 +532,21 @@
                 <div class="logo">N.P</div>
                 <div class="company-info">
                     <h2 class="company-name">NEURO.PILOT.AI</h2>
-                    <p class="company-tagline" data-translate="header-tagline">AI-Powered Resume Excellence</p>
+                    <p class="company-tagline" data-translate="header-tagline">AI Resume Writing Service</p>
                 </div>
             </div>
             <div class="trust-badges">
                 <div class="badge">
-                    <span>⭐⭐⭐⭐⭐</span>
-                    <span data-translate="badge-rating">5.0 Rating</span>
+                    <span>🤖</span>
+                    <span data-translate="badge-ai">AI-Powered</span>
                 </div>
                 <div class="badge">
-                    <span>✓</span>
-                    <span data-translate="badge-guarantee">100% Satisfaction</span>
+                    <span>📝</span>
+                    <span data-translate="badge-professional">Professional Service</span>
                 </div>
                 <div class="badge">
-                    <span>🚀</span>
-                    <span data-translate="badge-delivery">Fast Delivery</span>
+                    <span>⏱️</span>
+                    <span data-translate="badge-delivery">24-48 Hour Delivery</span>
                 </div>
             </div>
         </div>
@@ -573,12 +573,12 @@
                         <li data-translate="pkg-basic-1">Professional formatting</li>
                         <li data-translate="pkg-basic-2">ATS optimization</li>
                         <li data-translate="pkg-basic-3">1 revision</li>
-                        <li data-translate="pkg-basic-4">24-hour delivery</li>
+                        <li data-translate="pkg-basic-4">48-hour delivery</li>
                     </ul>
                 </div>
                 
                 <div class="package selected" data-package="professional" data-price="45">
-                    <span class="popular-badge" data-translate="badge-popular">MOST POPULAR</span>
+                    <span class="popular-badge" data-translate="badge-popular">RECOMMENDED</span>
                     <h3 data-translate="pkg-pro-title">Professional Package</h3>
                     <div class="price">$45</div>
                     <ul>
@@ -586,7 +586,7 @@
                         <li data-translate="pkg-pro-2">Cover letter included</li>
                         <li data-translate="pkg-pro-3">LinkedIn optimization tips</li>
                         <li data-translate="pkg-pro-4">3 revisions</li>
-                        <li data-translate="pkg-pro-5">12-hour delivery</li>
+                        <li data-translate="pkg-pro-5">24-hour delivery</li>
                     </ul>
                 </div>
                 
@@ -598,7 +598,7 @@
                         <li data-translate="pkg-exec-2">Executive summary</li>
                         <li data-translate="pkg-exec-3">Industry-specific keywords</li>
                         <li data-translate="pkg-exec-4">5 revisions</li>
-                        <li data-translate="pkg-exec-5">6-hour delivery</li>
+                        <li data-translate="pkg-exec-5">12-hour delivery</li>
                     </ul>
                 </div>
             </div>
@@ -907,27 +907,27 @@
                             
                             const result = await response.json();
                             
-                            if (result.status === 'success' && result.data) {
-                                console.log('Resume data extracted:', result.data);
+                            if (result.status === 'success' && result.extractedData) {
+                                console.log('Resume data extracted:', result.extractedData);
                                 
                                 // Fill the form fields with extracted data
-                                if (result.data.workExperience) {
-                                    document.getElementById('workExperience').value = result.data.workExperience;
+                                if (result.extractedData.workExperience) {
+                                    document.getElementById('workExperience').value = result.extractedData.workExperience;
                                 }
-                                if (result.data.skills) {
-                                    document.getElementById('skills').value = result.data.skills;
+                                if (result.extractedData.skills) {
+                                    document.getElementById('skills').value = result.extractedData.skills;
                                 }
-                                if (result.data.education) {
-                                    document.getElementById('education').value = result.data.education;
+                                if (result.extractedData.education) {
+                                    document.getElementById('education').value = result.extractedData.education;
                                 }
-                                if (result.data.achievements) {
-                                    document.getElementById('achievements').value = result.data.achievements;
+                                if (result.extractedData.achievements) {
+                                    document.getElementById('achievements').value = result.extractedData.achievements;
                                 }
-                                if (result.data.targetIndustry) {
-                                    document.getElementById('targetIndustry').value = result.data.targetIndustry;
+                                if (result.extractedData.targetIndustry) {
+                                    document.getElementById('targetIndustry').value = result.extractedData.targetIndustry;
                                 }
-                                if (result.data.careerLevel) {
-                                    document.getElementById('careerLevel').value = result.data.careerLevel;
+                                if (result.extractedData.careerLevel) {
+                                    document.getElementById('careerLevel').value = result.extractedData.careerLevel;
                                 }
                                 
                                 // Update success message

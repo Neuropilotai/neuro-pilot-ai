@@ -1,0 +1,83 @@
+{
+  "marketData": {
+    "symbol": "JPM",
+    "price": 130.41115509121414,
+    "sources": [
+      "Yahoo Finance",
+      "TradingView Premium (Simulated)",
+      "Alpha Vantage"
+    ],
+    "consolidated": true,
+    "timestamp": "2025-06-20T17:49:36.887Z"
+  },
+  "indicators": {
+    "rsi_14": 65.05945468255229,
+    "rsi_21": 36.49943999417658,
+    "stochastic": 91.94617432521788,
+    "williams_r": -82.68492302549048,
+    "macd": {
+      "macd": 0.13880650050773213,
+      "signal": 0.025795300066930926,
+      "histogram": 0.0840658393370195
+    },
+    "ema_12": 131.63261209821295,
+    "ema_26": 128.69615643727462,
+    "sma_20": 134.32330173130237,
+    "sma_50": 132.85792013011547,
+    "bollinger_bands": {
+      "upper": 133.01937819303842,
+      "middle": 130.41115509121414,
+      "lower": 127.80293198938986,
+      "bandwidth": 0.04
+    },
+    "atr": 2.322040115866837,
+    "volatility": 0.46880142481180037,
+    "volume_sma": 1077312.7321553754,
+    "money_flow_index": 41.85775009760163,
+    "ichimoku": {
+      "tenkan": 50,
+      "kijun": 50,
+      "senkou_a": 50,
+      "senkou_b": 50
+    },
+    "fibonacci_levels": {
+      "level_618": 100,
+      "level_382": 95,
+      "level_236": 90
+    },
+    "pivot_points": {
+      "pivot": 100,
+      "r1": 105,
+      "r2": 110,
+      "s1": 95,
+      "s2": 90
+    },
+    "ai_momentum": {
+      "short_term": 52.55114903072639,
+      "medium_term": 18.416747568313664,
+      "long_term": 54.975964367471065,
+      "confidence": 0.970628058351444
+    },
+    "pattern_recognition": "triangle",
+    "market_regime": "volatile"
+  },
+  "sentiment": {
+    "score": -0.6760074175080788,
+    "confidence": 0.8953767637924694,
+    "source": "simulated",
+    "reasoning": "Simulated market sentiment based on price action"
+  },
+  "prediction": {
+    "signal": "HOLD",
+    "confidence": 0.8762188532170245,
+    "score": null,
+    "targetPrice": null,
+    "stopLoss": null,
+    "timeHorizon": "1H",
+    "sentiment": -0.6760074175080788,
+    "premiumAnalysis": true,
+    "dataQuality": "PREMIUM"
+  },
+  "timestamp": "2025-06-20T17:49:36.962Z",
+  "coreProcessed": 0
+}

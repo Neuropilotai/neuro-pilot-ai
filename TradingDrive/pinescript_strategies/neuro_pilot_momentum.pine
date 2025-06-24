@@ -1,0 +1,31 @@
+//@version=5
+strategy("Neuro.Pilot.AI Momentum Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// AI Model Parameters
+aiAccuracy = input.float(0.95, "AI Model Accuracy", minval=0.1, maxval=1.0)
+momentumWeight = input.float(0.3, "Momentum Weight", minval=0.1, maxval=1.0)
+
+// Momentum Indicators
+rsi = ta.rsi(close, 14)
+macd = ta.macd(close, 12, 26, 9)
+momentum = ta.mom(close, 10)
+
+// Enhanced momentum calculation
+momentum_score = (rsi - 50) / 50 + macd / close + momentum / close
+ai_momentum = momentum_score * aiAccuracy
+
+// Entry conditions
+long_momentum = ai_momentum > 0.1 and rsi > 50
+short_momentum = ai_momentum < -0.1 and rsi < 50
+
+if long_momentum and strategy.position_size == 0
+    strategy.entry("Momentum Long", strategy.long)
+    strategy.exit("ML Exit", stop=close * 0.95, limit=close * 1.1)
+
+if short_momentum and strategy.position_size == 0
+    strategy.entry("Momentum Short", strategy.short)
+    strategy.exit("MS Exit", stop=close * 1.05, limit=close * 0.9)
+
+plot(ta.ema(close, 21), "EMA 21", color.blue)
+plotshape(long_momentum, style=shape.triangleup, location=location.belowbar, color=color.green)
+plotshape(short_momentum, style=shape.triangledown, location=location.abovebar, color=color.red)

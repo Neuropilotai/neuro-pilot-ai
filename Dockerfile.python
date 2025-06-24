@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python requirements
+COPY requirements.txt .
+COPY requirements-website.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-website.txt
+
+# Copy trading scripts
+COPY backend/agents/trading/ ./trading/
+COPY data/ ./data/
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONBUFFERED=1
+
+# Expose port for Python services
+EXPOSE 5000
+
+# Default command
+CMD ["python", "trading/tradingview_pro_agent.py"]

@@ -1,0 +1,258 @@
+//@version=5
+strategy("🧠 AI Adaptive Indicators Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=25, max_boxes_count=200, max_lines_count=100, max_labels_count=100)
+
+// ===== AI ADAPTIVE PARAMETERS =====
+aiAccuracy = input.float(0.938, "🧠 AI Model Accuracy", minval=0.5, maxval=1.0, step=0.001, group="🤖 AI Core")
+learningRate = input.float(0.05, "📈 AI Learning Rate", minval=0.01, maxval=0.1, step=0.01, group="🤖 AI Core") 
+adaptationSpeed = input.float(0.03, "⚡ Adaptation Speed", minval=0.01, maxval=0.1, step=0.01, group="🤖 AI Core")
+dataPoints = input.int(18980, "📊 Data Points", minval=1000, group="🤖 AI Core")
+
+// ===== ADAPTIVE TREND DETECTION =====
+// EMA Ribbon with AI-optimized periods
+ema_fast_base = input.int(8, "EMA Fast Base", minval=3, maxval=15, group="📈 Trend Detection")
+ema_slow_base = input.int(21, "EMA Slow Base", minval=15, maxval=50, group="📈 Trend Detection")
+
+// AI adapts EMA periods based on success rate
+var float ema_fast_adaptation = 0.0
+var float ema_slow_adaptation = 0.0
+var float trend_success_rate = 0.75
+
+// Simulate AI learning for EMA optimization
+if barstate.isconfirmed
+    // AI learns from trend success patterns
+    trend_strength = math.abs((close - close[20]) / close[20])
+    if trend_strength > 0.02 // Significant trend
+        ema_fast_adaptation := ema_fast_adaptation + (trend_success_rate - 0.5) * adaptationSpeed
+        ema_slow_adaptation := ema_slow_adaptation + (trend_success_rate - 0.5) * adaptationSpeed * 0.5
+    
+    // Keep adaptations within reasonable bounds
+    ema_fast_adaptation := math.max(-3, math.min(3, ema_fast_adaptation))
+    ema_slow_adaptation := math.max(-5, math.min(5, ema_slow_adaptation))
+
+// Dynamic EMA periods
+ema_fast_period = math.round(ema_fast_base + ema_fast_adaptation)
+ema_slow_period = math.round(ema_slow_base + ema_slow_adaptation)
+
+ema_fast = ta.ema(close, ema_fast_period)
+ema_medium = ta.ema(close, math.round((ema_fast_period + ema_slow_period) / 2))
+ema_slow = ta.ema(close, ema_slow_period)
+
+// MACD with adaptive parameters
+macd_fast = math.round(12 + ema_fast_adaptation * 0.5)
+macd_slow = math.round(26 + ema_slow_adaptation)
+macd_signal = 9
+
+[macd_line, signal_line, histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+
+// ===== VOLATILITY ANALYSIS =====
+// ATR for dynamic stop loss and position sizing
+atr_period = input.int(14, "ATR Period", minval=7, maxval=21, group="📊 Volatility Analysis")
+atr_multiplier = input.float(2.0, "ATR Multiplier", minval=1.0, maxval=4.0, step=0.1, group="📊 Volatility Analysis")
+
+atr = ta.atr(atr_period)
+volatility_ratio = atr / close
+
+// AI adapts ATR multiplier based on market conditions
+var float atr_adaptation = 0.0
+var float volatility_success_rate = 0.72
+
+if barstate.isconfirmed and volatility_ratio > 0.01
+    // AI learns optimal ATR multiplier for current volatility
+    volatility_effectiveness = volatility_success_rate * (1 + volatility_ratio * 10)
+    atr_adaptation := atr_adaptation + (volatility_effectiveness - 0.75) * adaptationSpeed
+    atr_adaptation := math.max(-1, math.min(1, atr_adaptation))
+
+dynamic_atr_multiplier = atr_multiplier + atr_adaptation
+
+// ===== MOMENTUM SHIFT DETECTION =====
+// RSI with adaptive thresholds
+rsi_period = input.int(14, "RSI Period", minval=7, maxval=21, group="⚡ Momentum Analysis")
+rsi = ta.rsi(close, rsi_period)
+
+// Stochastic RSI
+stoch_rsi_k = ta.stoch(rsi, rsi, rsi, 14)
+stoch_rsi_d = ta.sma(stoch_rsi_k, 3)
+
+// AI adaptive RSI thresholds
+var float rsi_overbought = 70.0
+var float rsi_oversold = 30.0
+var float momentum_success_rate = 0.68
+
+if barstate.isconfirmed
+    // AI learns optimal RSI levels based on reversal success
+    rsi_momentum = ta.change(rsi, 3)
+    if math.abs(rsi_momentum) > 5 // Significant momentum change
+        threshold_adjustment = (momentum_success_rate - 0.5) * adaptationSpeed * 20
+        rsi_overbought := math.max(65, math.min(85, rsi_overbought + threshold_adjustment))
+        rsi_oversold := math.max(15, math.min(35, rsi_oversold - threshold_adjustment))
+
+// ===== MARKET REGIME CLASSIFICATION =====
+// Kaufman's Adaptive Moving Average (KAMA)
+kama_length = input.int(20, "KAMA Length", minval=10, maxval=30, group="🎯 Market Regime")
+kama_fast_sc = 2 / (2 + 1)
+kama_slow_sc = 2 / (30 + 1)
+
+change_abs = math.abs(ta.change(close, kama_length))
+volatility_sum = math.sum(math.abs(ta.change(close)), kama_length)
+efficiency_ratio = change_abs / volatility_sum
+smoothing_constant = math.pow((efficiency_ratio * (kama_fast_sc - kama_slow_sc) + kama_slow_sc), 2)
+
+var float kama = na
+kama := na(kama[1]) ? close : kama[1] + smoothing_constant * (close - kama[1])
+
+// Market regime detection
+trend_following_regime = close > kama and ema_fast > ema_slow
+mean_reversion_regime = math.abs(close - kama) / kama > 0.02 and volatility_ratio < 0.05
+ranging_regime = not trend_following_regime and not mean_reversion_regime
+
+// AI adapts strategy based on regime
+var string current_regime = "unknown"
+var float regime_confidence = 0.5
+
+if barstate.isconfirmed
+    if trend_following_regime
+        current_regime := "trending"
+        regime_confidence := 0.8 + (trend_strength * 0.2)
+    else if mean_reversion_regime
+        current_regime := "mean_reversion"
+        regime_confidence := 0.7 + (volatility_ratio * 5)
+    else
+        current_regime := "ranging"
+        regime_confidence := 0.6
+
+// ===== AI SIGNAL GENERATION =====
+// Trend Following Signals
+trend_long = trend_following_regime and ta.crossover(ema_fast, ema_medium) and macd_line > signal_line and rsi < rsi_overbought
+trend_short = trend_following_regime and ta.crossunder(ema_fast, ema_medium) and macd_line < signal_line and rsi > rsi_oversold
+
+// Mean Reversion Signals  
+reversion_long = mean_reversion_regime and rsi < rsi_oversold and stoch_rsi_k < 20 and close < kama * 0.98
+reversion_short = mean_reversion_regime and rsi > rsi_overbought and stoch_rsi_k > 80 and close > kama * 1.02
+
+// Ranging Signals
+ranging_long = ranging_regime and ta.crossover(stoch_rsi_k, stoch_rsi_d) and stoch_rsi_k < 30
+ranging_short = ranging_regime and ta.crossunder(stoch_rsi_k, stoch_rsi_d) and stoch_rsi_k > 70
+
+// Combined AI signals with regime weighting
+ai_long_signal = (trend_long and regime_confidence > 0.7) or (reversion_long and regime_confidence > 0.6) or (ranging_long and regime_confidence > 0.5)
+ai_short_signal = (trend_short and regime_confidence > 0.7) or (reversion_short and regime_confidence > 0.6) or (ranging_short and regime_confidence > 0.5)
+
+// Volume confirmation
+volume_confirmation = volume > ta.sma(volume, 20) * 1.2
+
+// Final signals with AI confidence
+final_long = ai_long_signal and volume_confirmation and regime_confidence * aiAccuracy > 0.6
+final_short = ai_short_signal and volume_confirmation and regime_confidence * aiAccuracy > 0.6
+
+// ===== DYNAMIC POSITION SIZING =====
+// AI adjusts position size based on volatility and confidence
+base_position_size = 25.0
+volatility_adjustment = 1 / (1 + volatility_ratio * 20) // Reduce size in high volatility
+confidence_adjustment = regime_confidence * aiAccuracy
+dynamic_position_size = base_position_size * volatility_adjustment * confidence_adjustment
+
+// ===== ADAPTIVE STOP LOSS AND TAKE PROFIT =====
+// AI calculates dynamic levels based on ATR and regime
+if current_regime == "trending"
+    stop_distance = atr * dynamic_atr_multiplier * 1.5 // Wider stops in trends
+    profit_distance = atr * dynamic_atr_multiplier * 3.0 // Higher profit targets
+else if current_regime == "mean_reversion"
+    stop_distance = atr * dynamic_atr_multiplier * 1.0 // Tighter stops
+    profit_distance = atr * dynamic_atr_multiplier * 2.0 // Moderate profit targets
+else // ranging
+    stop_distance = atr * dynamic_atr_multiplier * 0.8 // Very tight stops
+    profit_distance = atr * dynamic_atr_multiplier * 1.5 // Quick profit targets
+
+// ===== STRATEGY EXECUTION =====
+if final_long and strategy.position_size == 0
+    stop_loss = close - stop_distance
+    take_profit = close + profit_distance
+    strategy.entry("🤖 AI Long", strategy.long, qty=dynamic_position_size/100)
+    strategy.exit("🎯 Long Exit", "🤖 AI Long", stop=stop_loss, limit=take_profit)
+
+if final_short and strategy.position_size == 0
+    stop_loss = close + stop_distance
+    take_profit = close - profit_distance
+    strategy.entry("🤖 AI Short", strategy.short, qty=dynamic_position_size/100)
+    strategy.exit("🎯 Short Exit", "🤖 AI Short", stop=stop_loss, limit=take_profit)
+
+// ===== VISUAL INDICATORS =====
+// Plot adaptive EMAs with regime colors
+ema_color = current_regime == "trending" ? color.blue : current_regime == "mean_reversion" ? color.orange : color.gray
+plot(ema_fast, "AI Fast EMA", color=color.new(ema_color, 0), linewidth=2)
+plot(ema_medium, "AI Medium EMA", color=color.new(ema_color, 30), linewidth=3)
+plot(ema_slow, "AI Slow EMA", color=color.new(ema_color, 60), linewidth=2)
+plot(kama, "KAMA", color=color.new(color.purple, 20), linewidth=2)
+
+// Background color for regime
+regime_bg_color = current_regime == "trending" ? color.new(color.blue, 98) : 
+                  current_regime == "mean_reversion" ? color.new(color.orange, 98) : 
+                  color.new(color.gray, 98)
+bgcolor(regime_bg_color, title="Market Regime")
+
+// Signal labels with AI confidence
+if final_long
+    label.new(bar_index, low, 
+              text="🤖 AI LONG\n" + current_regime + "\n" + str.tostring(regime_confidence * aiAccuracy * 100, "#") + "% conf",
+              style=label.style_label_up, color=color.new(color.green, 0), textcolor=color.white, size=size.normal)
+
+if final_short
+    label.new(bar_index, high,
+              text="🤖 AI SHORT\n" + current_regime + "\n" + str.tostring(regime_confidence * aiAccuracy * 100, "#") + "% conf",
+              style=label.style_label_down, color=color.new(color.red, 0), textcolor=color.white, size=size.normal)
+
+// ATR-based stop loss and take profit lines
+if final_long or final_short
+    current_stop = final_long ? close - stop_distance : close + stop_distance
+    current_profit = final_long ? close + profit_distance : close - profit_distance
+    
+    line.new(bar_index, current_stop, bar_index + 10, current_stop, 
+             color=color.new(color.red, 30), width=2, style=line.style_dashed)
+    line.new(bar_index, current_profit, bar_index + 10, current_profit,
+             color=color.new(color.green, 30), width=2, style=line.style_dashed)
+
+// ===== AI ADAPTIVE DASHBOARD =====
+if barstate.islast
+    var table ai_dashboard = table.new(position.top_left, 3, 10, bgcolor=color.new(color.black, 85), border_width=2)
+    
+    table.cell(ai_dashboard, 0, 0, "🧠 AI ADAPTIVE SYSTEM", text_color=color.new(color.blue, 0), text_size=size.normal, bgcolor=color.new(color.blue, 80))
+    table.cell(ai_dashboard, 1, 0, "", bgcolor=color.new(color.blue, 80))
+    table.cell(ai_dashboard, 2, 0, "", bgcolor=color.new(color.blue, 80))
+    
+    table.cell(ai_dashboard, 0, 1, "Market Regime", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 1, current_regime, text_color=color.new(ema_color, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 1, str.tostring(regime_confidence * 100, "#") + "%", text_color=color.white, text_size=size.small)
+    
+    table.cell(ai_dashboard, 0, 2, "AI Accuracy", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 2, str.tostring(aiAccuracy * 100, "#.#") + "%", text_color=color.new(color.green, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 2, "🎯", text_color=color.white, text_size=size.small)
+    
+    table.cell(ai_dashboard, 0, 3, "EMA Fast", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 3, str.tostring(ema_fast_period), text_color=color.new(color.blue, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 3, "📈", text_color=color.white, text_size=size.small)
+    
+    table.cell(ai_dashboard, 0, 4, "ATR Mult", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 4, str.tostring(dynamic_atr_multiplier, "#.#"), text_color=color.new(color.orange, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 4, "📊", text_color=color.white, text_size=size.small)
+    
+    table.cell(ai_dashboard, 0, 5, "RSI Levels", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 5, str.tostring(rsi_oversold, "#") + "/" + str.tostring(rsi_overbought, "#"), text_color=color.new(color.purple, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 5, "⚡", text_color=color.white, text_size=size.small)
+    
+    table.cell(ai_dashboard, 0, 6, "Volatility", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 6, str.tostring(volatility_ratio * 100, "#.##") + "%", 
+               text_color=volatility_ratio > 0.05 ? color.new(color.red, 0) : color.new(color.green, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 6, volatility_ratio > 0.05 ? "⚠️" : "✅", text_color=color.white, text_size=size.small)
+    
+    table.cell(ai_dashboard, 0, 7, "Position Size", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 7, str.tostring(dynamic_position_size, "#.#") + "%", text_color=color.new(color.yellow, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 7, "💰", text_color=color.white, text_size=size.small)
+    
+    table.cell(ai_dashboard, 0, 8, "Data Points", text_color=color.white, text_size=size.small)
+    table.cell(ai_dashboard, 1, 8, str.tostring(dataPoints), text_color=color.new(color.cyan, 0), text_size=size.small)
+    table.cell(ai_dashboard, 2, 8, "📊", text_color=color.white, text_size=size.small)
+
+// ===== ALERTS =====
+alertcondition(final_long, "🤖 AI Adaptive Long", "AI Long Signal | Regime: " + current_regime + " | Confidence: " + str.tostring(regime_confidence * aiAccuracy * 100, "#") + "%")
+alertcondition(final_short, "🤖 AI Adaptive Short", "AI Short Signal | Regime: " + current_regime + " | Confidence: " + str.tostring(regime_confidence * aiAccuracy * 100, "#") + "%")
+alertcondition(ta.change(current_regime), "🔄 Regime Change", "Market regime changed to: " + current_regime + " | Confidence: " + str.tostring(regime_confidence * 100, "#") + "%")

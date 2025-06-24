@@ -1,0 +1,61 @@
+{
+  "timestamp": "2025-06-23T20:37:45.669Z",
+  "system": "Neuro-Pilot-AI Deployment Control System",
+  "version": "1.0.0",
+  "startup_results": [
+    {
+      "service": "Deployment Control System",
+      "status": "unhealthy",
+      "port": 3008
+    },
+    {
+      "service": "Webhook Integration Server",
+      "status": "unhealthy",
+      "port": 3009
+    }
+  ],
+  "integration_tests": [
+    {
+      "name": "Deployment Control API",
+      "success": false,
+      "error": "fetch is not a function"
+    },
+    {
+      "name": "Webhook Integration",
+      "success": false,
+      "error": "fetch is not a function"
+    },
+    {
+      "name": "Gig Approval Workflow",
+      "success": false,
+      "error": "fetch is not a function"
+    },
+    {
+      "name": "Notification System",
+      "success": false,
+      "error": "fetch is not a function"
+    },
+    {
+      "name": "CLI Integration",
+      "success": true,
+      "message": "CLI tool available and executable"
+    }
+  ],
+  "summary": {
+    "services_started": 0,
+    "total_services": 2,
+    "tests_passed": 1,
+    "total_tests": 5,
+    "overall_status": "CRITICAL_ISSUES"
+  },
+  "endpoints": {
+    "deployment_dashboard": "http://localhost:3008/dashboard",
+    "deployment_api": "http://localhost:3008/api/status",
+    "webhook_integration": "http://localhost:3009/webhook/list",
+    "cli_tool": "./gig-control --help"
+  },
+  "next_steps": [
+    "Fix 2 failed service(s): Deployment Control System, Webhook Integration Server",
+    "Address 4 failed test(s): Deployment Control API, Webhook Integration, Gig Approval Workflow, Notification System"
+  ]
+}
