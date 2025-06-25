@@ -658,6 +658,354 @@ app.get('/', (req, res) => {
     `);
 });
 
+// Order page (Railway-optimized)
+app.get('/order', (req, res) => {
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Order Professional AI Resume - Neuro.Pilot.AI</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .header h1 { font-size: 42px; font-weight: 800; margin-bottom: 15px; }
+        .header p { font-size: 18px; opacity: 0.9; }
+        
+        .form-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        
+        .package-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .package-option {
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .package-option:hover {
+            border-color: rgba(255,255,255,0.8);
+            transform: translateY(-3px);
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .package-option.selected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.2);
+        }
+        
+        .package-option h3 { font-size: 24px; margin-bottom: 10px; }
+        .package-option .price { font-size: 32px; font-weight: 800; color: #10b981; margin: 15px 0; }
+        .package-option .description { font-size: 14px; opacity: 0.8; }
+        
+        .form-section { margin-bottom: 30px; }
+        .form-section h2 { font-size: 28px; margin-bottom: 20px; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 8px; }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+        
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .promo-section {
+            background: rgba(16, 185, 129, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .promo-input { display: flex; gap: 10px; margin-top: 15px; }
+        .promo-input input { flex: 1; }
+        .promo-input button {
+            padding: 15px 20px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .price-display {
+            background: rgba(16, 185, 129, 0.2);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 20px 0;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        
+        .price-display .final-price { font-size: 36px; font-weight: 800; color: #10b981; }
+        .price-display .original-price { text-decoration: line-through; opacity: 0.6; margin-right: 10px; }
+        .price-display .discount { color: #fbbf24; font-weight: 800; }
+        
+        .submit-button {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(45deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] { width: auto; }
+        
+        #promoMessage { margin-top: 10px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Order Professional AI Resume</h1>
+            <p>7 AI agents create your perfect resume in 24-48 hours • Railway-powered • Database persistent</p>
+        </div>
+
+        <form id="orderForm" class="form-card">
+            <div class="form-section">
+                <h2>📦 Choose Your Package</h2>
+                <div class="package-selection">
+                    <div class="package-option" data-package="basic" data-price="25">
+                        <h3>Basic</h3>
+                        <div class="price">$25</div>
+                        <div class="description">Professional formatting • ATS optimization • 1 revision • 24-hour delivery</div>
+                    </div>
+                    <div class="package-option selected" data-package="professional" data-price="45">
+                        <h3>Professional</h3>
+                        <div class="price">$45</div>
+                        <div class="description">Everything in Basic • Cover letter • LinkedIn tips • 3 revisions • 12-hour delivery</div>
+                    </div>
+                    <div class="package-option" data-package="executive" data-price="85">
+                        <h3>Executive</h3>
+                        <div class="price">$85</div>
+                        <div class="description">Everything in Professional • Executive summary • Industry keywords • 5 revisions • 6-hour delivery</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>👤 Your Information</h2>
+                <div class="form-group">
+                    <label>First Name *</label>
+                    <input type="text" name="firstName" required>
+                </div>
+                <div class="form-group">
+                    <label>Last Name *</label>
+                    <input type="text" name="lastName" required>
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Job Title You're Applying For *</label>
+                    <input type="text" name="jobTitle" placeholder="e.g., Senior Software Engineer" required>
+                </div>
+            </div>
+
+            <div class="promo-section">
+                <h3>🎟️ Promo Code (Optional)</h3>
+                <div class="promo-input">
+                    <input type="text" id="promoCode" placeholder="Enter promo code (try FAMILY2025 for FREE!)">
+                    <button type="button" id="applyPromo">Apply</button>
+                </div>
+                <div id="promoMessage"></div>
+            </div>
+
+            <div class="price-display">
+                <div class="final-price">Total: <span id="finalPrice">$45</span></div>
+                <div style="margin-top: 10px;">
+                    <span id="originalPrice" style="display: none;">$45</span>
+                    <span id="discount" style="display: none;">-$0</span>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="terms" name="terms" required>
+                <label for="terms">I agree to the terms and understand delivery takes 24-48 hours</label>
+            </div>
+
+            <button type="submit" class="submit-button">💳 Proceed to Secure Payment</button>
+            
+            <input type="hidden" name="packageType" value="professional">
+            <input type="hidden" name="price" value="45">
+        </form>
+    </div>
+
+    <script>
+        const promoCodes = {
+            "FAMILY2025": { discount: 100, type: "percentage", description: "Family Test - 100% OFF" },
+            "TEST50": { discount: 50, type: "percentage", description: "50% OFF Test Code" },
+            "FIRST10": { discount: 10, type: "fixed", description: "$10 OFF Your First Order" }
+        };
+        
+        let currentPrice = 45;
+        let appliedDiscount = 0;
+        let promoCodeApplied = false;
+        
+        function updatePriceDisplay() {
+            const finalPrice = Math.max(0, currentPrice - appliedDiscount);
+            document.getElementById("finalPrice").textContent = "$" + finalPrice;
+            document.querySelector("input[name='price']").value = finalPrice;
+            
+            if (appliedDiscount > 0) {
+                document.getElementById("originalPrice").style.display = "inline";
+                document.getElementById("originalPrice").textContent = "$" + currentPrice;
+                document.getElementById("discount").style.display = "inline";
+                document.getElementById("discount").textContent = appliedDiscount >= currentPrice ? "FREE!" : "-$" + appliedDiscount;
+            } else {
+                document.getElementById("originalPrice").style.display = "none";
+                document.getElementById("discount").style.display = "none";
+            }
+        }
+        
+        // Package selection
+        document.querySelectorAll(".package-option").forEach(pkg => {
+            pkg.addEventListener("click", function() {
+                document.querySelectorAll(".package-option").forEach(p => p.classList.remove("selected"));
+                this.classList.add("selected");
+                document.querySelector("input[name='packageType']").value = this.dataset.package;
+                currentPrice = parseInt(this.dataset.price);
+                
+                if (promoCodeApplied) {
+                    const promoCode = document.getElementById("promoCode").value.toUpperCase();
+                    const promo = promoCodes[promoCode];
+                    if (promo) {
+                        appliedDiscount = promo.type === "percentage" ? 
+                            Math.round(currentPrice * promo.discount / 100) : 
+                            Math.min(promo.discount, currentPrice);
+                    }
+                }
+                updatePriceDisplay();
+            });
+        });
+        
+        // Promo code
+        document.getElementById("applyPromo").addEventListener("click", function() {
+            const promoCode = document.getElementById("promoCode").value.toUpperCase();
+            const messageEl = document.getElementById("promoMessage");
+            
+            if (!promoCode) {
+                messageEl.innerHTML = '<span style="color: #ef4444;">Please enter a promo code</span>';
+                return;
+            }
+            
+            const promo = promoCodes[promoCode];
+            if (promo) {
+                appliedDiscount = promo.type === "percentage" ? 
+                    Math.round(currentPrice * promo.discount / 100) : 
+                    Math.min(promo.discount, currentPrice);
+                
+                promoCodeApplied = true;
+                messageEl.innerHTML = '<span style="color: #10b981;">✅ ' + promo.description + ' applied!</span>';
+                updatePriceDisplay();
+            } else {
+                messageEl.innerHTML = '<span style="color: #ef4444;">❌ Invalid promo code</span>';
+            }
+        });
+        
+        // Form submission
+        document.getElementById("orderForm").addEventListener("submit", function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const finalPrice = Math.max(0, currentPrice - appliedDiscount);
+            
+            // For free orders, show confirmation
+            if (finalPrice === 0) {
+                const orderData = {
+                    package: formData.get('packageType'),
+                    firstName: formData.get('firstName'),
+                    lastName: formData.get('lastName'),
+                    email: formData.get('email'),
+                    jobTitle: formData.get('jobTitle'),
+                    price: finalPrice,
+                    promo: promoCodeApplied,
+                    order_id: 'FREE-' + Date.now()
+                };
+                
+                // Redirect to confirmation with order data
+                const params = new URLSearchParams(orderData);
+                window.location.href = '/order-confirmation?' + params.toString();
+            } else {
+                alert('Payment integration coming soon! For now, use promo code FAMILY2025 for free testing.');
+            }
+        });
+    </script>
+</body>
+</html>
+    `);
+});
+
 // Order confirmation page (Railway-optimized)
 app.get('/order-confirmation', async (req, res) => {
     const { package: packageType, price, promo, order_id } = req.query;
