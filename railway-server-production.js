@@ -82,7 +82,7 @@ app.get('/api/health', async (req, res) => {
             status: 'operational',
             timestamp: new Date().toISOString(),
             service: 'neuro-pilot-ai-production',
-            version: '2.0.0',
+            version: '2.1.0',
             railway: {
                 deployment: 'production',
                 database: dbHealth.database,
