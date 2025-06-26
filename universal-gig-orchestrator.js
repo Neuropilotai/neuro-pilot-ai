@@ -3,14 +3,17 @@
 
 const RailwayDatabase = require('./railway-database');
 const UniversalNotionIntegration = require('./universal-notion-integration');
+const SystemDiscoveryAgent = require('./system-discovery-agent');
 
 class UniversalGigOrchestrator {
     constructor() {
         this.database = new RailwayDatabase();
         this.notion = new UniversalNotionIntegration();
+        this.systemDiscovery = new SystemDiscoveryAgent();
         this.services = new Map();
         this.activeGigs = new Map();
         this.isRunning = false;
+        this.systemMap = null;
         
         // Initialize all service types
         this.initializeServices();
@@ -543,13 +546,61 @@ class UniversalGigOrchestrator {
 
         this.isRunning = true;
         
+        // Discover and map the complete system
+        console.log('🔍 Discovering system architecture...');
+        this.systemMap = await this.systemDiscovery.discoverFullSystem();
+        
+        if (this.systemMap) {
+            const summary = this.systemDiscovery.getSystemSummary();
+            console.log(`✅ System mapped: ${summary.fileCounts.totalFiles} files, ${summary.systemHealth.agentCompleteness}% agent completeness`);
+            
+            // Update service statuses based on discovery
+            await this.updateServiceStatusFromDiscovery(summary);
+        }
+        
         await this.database.logSystemEvent('universal_orchestrator_startup', {
             services: this.services.size,
-            version: '1.0.0'
+            version: '1.0.0',
+            systemHealth: this.systemMap ? this.systemDiscovery.getSystemSummary().systemHealth : null
         });
 
         console.log('🌐 Universal Gig Orchestrator started');
         console.log('🎯 Ready to manage all AI services and gigs');
+    }
+
+    async updateServiceStatusFromDiscovery(summary) {
+        // Update Resume Services based on actual agent files
+        if (this.services.has('resume_services')) {
+            const resumeService = this.services.get('resume_services');
+            resumeService.deployment.agentCompleteness = summary.systemHealth.agentCompleteness;
+            resumeService.systemFiles = {
+                agentFiles: summary.fileCounts.agents,
+                serviceFiles: summary.fileCounts.services,
+                dashboardFiles: summary.fileCounts.dashboards
+            };
+        }
+
+        // Update Trading Services
+        if (this.services.has('trading_services')) {
+            const tradingService = this.services.get('trading_services');
+            tradingService.status = summary.capabilities.hasTradingSystem ? 'active' : 'development';
+            tradingService.deployment.status = summary.capabilities.hasTradingSystem ? 'ready_to_deploy' : 'not_deployed';
+        }
+
+        // Update LinkedIn Services
+        if (this.services.has('linkedin_services')) {
+            const linkedinService = this.services.get('linkedin_services');
+            linkedinService.status = summary.capabilities.hasLinkedInIntegration ? 'active' : 'development';
+            linkedinService.deployment.status = summary.capabilities.hasLinkedInIntegration ? 'ready_to_deploy' : 'not_deployed';
+        }
+
+        // Update Universal Platform status
+        if (this.services.has('notion_services')) {
+            const notionService = this.services.get('notion_services');
+            notionService.status = summary.capabilities.hasUniversalPlatform ? 'active' : 'configured';
+        }
+
+        console.log('📊 Service statuses updated from system discovery');
     }
 
     async stopSystem() {

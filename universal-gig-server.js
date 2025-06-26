@@ -36,12 +36,46 @@ app.get('/api/universal/status', async (req, res) => {
     try {
         const status = await orchestrator.getSystemStatus();
         const notionStats = await orchestrator.notion.getNotionStats();
+        const systemSummary = orchestrator.systemMap ? orchestrator.systemDiscovery.getSystemSummary() : null;
         
         res.json({
             status: 'operational',
             ...status,
             universal_platform: true,
-            notion_integration: notionStats
+            notion_integration: notionStats,
+            system_discovery: systemSummary
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            error: error.message
+        });
+    }
+});
+
+// System discovery and file mapping
+app.get('/api/universal/system-map', async (req, res) => {
+    try {
+        if (!orchestrator.systemMap) {
+            return res.json({
+                status: 'not_discovered',
+                message: 'System discovery not yet completed'
+            });
+        }
+
+        const systemSummary = orchestrator.systemDiscovery.getSystemSummary();
+        const detailedMap = Object.fromEntries(orchestrator.systemMap);
+        
+        res.json({
+            status: 'mapped',
+            summary: systemSummary,
+            detailed_map: detailedMap,
+            file_monitoring: {
+                agent_files: detailedMap.agents?.files || [],
+                service_files: detailedMap.services?.files || [],
+                dashboard_files: detailedMap.dashboards?.files || [],
+                deployment_files: detailedMap.deployments?.files || []
+            }
         });
     } catch (error) {
         res.status(500).json({

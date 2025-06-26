@@ -27,6 +27,23 @@ class CommandServer {
             res.sendFile(path.join(__dirname, 'central_command_dashboard.html'));
         });
 
+        // Serve the order page
+        this.app.get('/order', (req, res) => {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.sendFile(path.join(__dirname, 'backend/public/order.html'));
+        });
+
+        // Alternative order page routes
+        this.app.get('/order-form', (req, res) => {
+            res.sendFile(path.join(__dirname, 'frontend/order-form.html'));
+        });
+
+        this.app.get('/simple-order', (req, res) => {
+            res.sendFile(path.join(__dirname, 'frontend/public/simple-order.html'));
+        });
+
         // Dashboard API endpoints
         this.app.get('/api/dashboard/status', (req, res) => {
             res.json({
