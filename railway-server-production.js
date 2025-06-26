@@ -157,6 +157,97 @@ app.get('/api/system/stats', async (req, res) => {
 // ORDER PROCESSING ENDPOINTS
 // =============================================================================
 
+// Extract resume data endpoint
+app.post('/api/resume/extract', async (req, res) => {
+    try {
+        console.log(`📄 Resume extraction request received`);
+        
+        const { resumeText } = req.body;
+        
+        if (!resumeText || resumeText.trim() === '') {
+            return res.status(400).json({
+                status: 'error',
+                error: 'No resume text provided'
+            });
+        }
+        
+        // Basic extraction logic - extract sections
+        const extracted = {
+            contact: {
+                email: extractEmail(resumeText) || '',
+                phone: extractPhone(resumeText) || '',
+                location: extractLocation(resumeText) || ''
+            },
+            experience: extractExperience(resumeText),
+            education: extractEducation(resumeText),
+            skills: extractSkills(resumeText),
+            summary: extractSummary(resumeText),
+            fullText: resumeText
+        };
+        
+        console.log(`✅ Resume data extracted successfully`);
+        
+        res.json({
+            status: 'success',
+            data: extracted,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Resume extraction error:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to extract resume data',
+            details: error.message
+        });
+    }
+});
+
+// Helper functions for extraction
+function extractEmail(text) {
+    const emailMatch = text.match(/[\w.-]+@[\w.-]+\.\w+/);
+    return emailMatch ? emailMatch[0] : null;
+}
+
+function extractPhone(text) {
+    const phoneMatch = text.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+    return phoneMatch ? phoneMatch[0] : null;
+}
+
+function extractLocation(text) {
+    // Simple pattern for city, state format
+    const locationMatch = text.match(/[A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2}/);
+    return locationMatch ? locationMatch[0] : null;
+}
+
+function extractExperience(text) {
+    // Extract work experience section
+    const expPattern = /(?:experience|employment|work history)[\s\S]*?(?=education|skills|projects|$)/i;
+    const expMatch = text.match(expPattern);
+    return expMatch ? expMatch[0].trim() : '';
+}
+
+function extractEducation(text) {
+    // Extract education section
+    const eduPattern = /(?:education|academic)[\s\S]*?(?=skills|experience|projects|$)/i;
+    const eduMatch = text.match(eduPattern);
+    return eduMatch ? eduMatch[0].trim() : '';
+}
+
+function extractSkills(text) {
+    // Extract skills section
+    const skillsPattern = /(?:skills|technical skills|competencies)[\s\S]*?(?=experience|education|projects|$)/i;
+    const skillsMatch = text.match(skillsPattern);
+    return skillsMatch ? skillsMatch[0].trim() : '';
+}
+
+function extractSummary(text) {
+    // Extract summary/objective section
+    const summaryPattern = /(?:summary|objective|profile|about)[\s\S]*?(?=experience|education|skills|$)/i;
+    const summaryMatch = text.match(summaryPattern);
+    return summaryMatch ? summaryMatch[0].trim() : '';
+}
+
 // Submit new order
 app.post('/api/resume/generate', async (req, res) => {
     try {
