@@ -894,40 +894,48 @@
                             }
                         }
                         
-                        // Create FormData for file upload
-                        const formData = new FormData();
-                        formData.append('resume', file);
-                        
-                        try {
-                            // Call API to extract data
-                            const response = await fetch('/api/resume/extract', {
-                                method: 'POST',
-                                body: formData
-                            });
+                        // Read file content as text
+                        const reader = new FileReader();
+                        reader.onload = async function(e) {
+                            const fileContent = e.target.result;
+                            
+                            try {
+                                // Call API to extract data
+                                const response = await fetch('/api/resume/extract', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ resumeText: fileContent })
+                                });
                             
                             const result = await response.json();
                             
-                            if (result.status === 'success' && result.extractedData) {
-                                console.log('Resume data extracted:', result.extractedData);
+                            if (result.status === 'success' && result.data) {
+                                console.log('Resume data extracted:', result.data);
                                 
                                 // Fill the form fields with extracted data
-                                if (result.extractedData.workExperience) {
-                                    document.getElementById('workExperience').value = result.extractedData.workExperience;
+                                if (result.data.experience) {
+                                    document.getElementById('workExperience').value = result.data.experience;
                                 }
-                                if (result.extractedData.skills) {
-                                    document.getElementById('skills').value = result.extractedData.skills;
+                                if (result.data.skills) {
+                                    document.getElementById('skills').value = result.data.skills;
                                 }
-                                if (result.extractedData.education) {
-                                    document.getElementById('education').value = result.extractedData.education;
+                                if (result.data.education) {
+                                    document.getElementById('education').value = result.data.education;
                                 }
-                                if (result.extractedData.achievements) {
-                                    document.getElementById('achievements').value = result.extractedData.achievements;
+                                if (result.data.summary) {
+                                    document.getElementById('achievements').value = result.data.summary;
                                 }
-                                if (result.extractedData.targetIndustry) {
-                                    document.getElementById('targetIndustry').value = result.extractedData.targetIndustry;
-                                }
-                                if (result.extractedData.careerLevel) {
-                                    document.getElementById('careerLevel').value = result.extractedData.careerLevel;
+                                
+                                // Fill contact info if available
+                                if (result.data.contact) {
+                                    if (result.data.contact.email && !document.getElementById('email').value) {
+                                        document.getElementById('email').value = result.data.contact.email;
+                                    }
+                                    if (result.data.contact.phone && !document.getElementById('phone').value) {
+                                        document.getElementById('phone').value = result.data.contact.phone;
+                                    }
                                 }
                                 
                                 // Update success message
@@ -969,6 +977,10 @@
                                 }
                             }
                         }
+                        };
+                        
+                        // Read the file as text
+                        reader.readAsText(file);
                     }
                 });
             }

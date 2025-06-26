@@ -162,7 +162,14 @@ app.post('/api/resume/extract', async (req, res) => {
     try {
         console.log(`📄 Resume extraction request received`);
         
-        const { resumeText } = req.body;
+        // Handle both text and file upload
+        let resumeText = req.body.resumeText;
+        
+        // If no direct text, check if it's a file upload
+        if (!resumeText && req.body.resume) {
+            // Handle base64 or raw text from frontend
+            resumeText = req.body.resume;
+        }
         
         if (!resumeText || resumeText.trim() === '') {
             return res.status(400).json({
