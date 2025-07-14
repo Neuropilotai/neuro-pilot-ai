@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuro.Pilot.AI - International Resume Services</title>
+    <meta name="description" content="AI-Powered Resume Generation for International Professionals - 24-Hour Delivery Worldwide">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .logo {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #fff, #e0e7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+        }
+        
+        .international-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+        
+        .service-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        
+        .service-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .price {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4ade80;
+            margin: 1rem 0;
+        }
+        
+        .features {
+            list-style: none;
+            text-align: left;
+            margin: 1rem 0;
+        }
+        
+        .features li {
+            padding: 0.3rem 0;
+            position: relative;
+            padding-left: 1.5rem;
+        }
+        
+        .features li:before {
+            content: "✅";
+            position: absolute;
+            left: 0;
+        }
+        
+        .order-btn {
+            background: linear-gradient(45deg, #4ade80, #22c55e);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+        
+        .order-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .global-reach {
+            text-align: center;
+            margin: 3rem 0;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+        }
+        
+        .countries {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .country {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .testimonials {
+            margin: 3rem 0;
+        }
+        
+        .testimonial {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            border-left: 4px solid #4ade80;
+        }
+        
+        .guarantee {
+            text-align: center;
+            background: rgba(34, 197, 94, 0.2);
+            padding: 2rem;
+            border-radius: 15px;
+            margin: 2rem 0;
+            border: 2px solid #22c55e;
+        }
+        
+        .contact-section {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🧠 Neuro.Pilot.AI</div>
+            <div class="subtitle">International Resume Services</div>
+            <div class="international-badge">🌍 Serving 200+ Countries Worldwide</div>
+        </div>
+
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon">⚡</div>
+                <h3>Express Resume</h3>
+                <div class="price">$39 USD</div>
+                <ul class="features">
+                    <li>AI-optimized resume</li>
+                    <li>ATS-friendly format</li>
+                    <li>24-hour delivery</li>
+                    <li>Job-specific keywords</li>
+                    <li>Professional formatting</li>
+                </ul>
+                <a href="/api/resume/order?package=express" class="order-btn">Order Now</a>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">👔</div>
+                <h3>Professional Package</h3>
+                <div class="price">$79 USD</div>
+                <ul class="features">
+                    <li>Premium AI optimization</li>
+                    <li>Cover letter included</li>
+                    <li>LinkedIn profile optimization</li>
+                    <li>12-hour express delivery</li>
+                    <li>2 revisions included</li>
+                    <li>Industry-specific templates</li>
+                </ul>
+                <a href="/api/resume/order?package=professional" class="order-btn">Order Now</a>
+            </div>
+
+            <div class="service-card">
+                <div class="service-icon">🏆</div>
+                <h3>Executive Suite</h3>
+                <div class="price">$149 USD</div>
+                <ul class="features">
+                    <li>4 AI agents collaboration</li>
+                    <li>Executive-level optimization</li>
+                    <li>Complete career package</li>
+                    <li>6-hour rush delivery</li>
+                    <li>Unlimited revisions</li>
+                    <li>Interview preparation guide</li>
+                    <li>Salary negotiation tips</li>
+                </ul>
+                <a href="/api/resume/order?package=executive" class="order-btn">Order Now</a>
+            </div>
+        </div>
+
+        <div class="global-reach">
+            <h2>🌍 Global Reach</h2>
+            <p>Professional resume services delivered to customers worldwide</p>
+            <div class="countries">
+                <div class="country">🇺🇸 United States</div>
+                <div class="country">🇨🇦 Canada</div>
+                <div class="country">🇬🇧 United Kingdom</div>
+                <div class="country">🇦🇺 Australia</div>
+                <div class="country">🇩🇪 Germany</div>
+                <div class="country">🇫🇷 France</div>
+                <div class="country">🇳🇱 Netherlands</div>
+                <div class="country">🇸🇪 Sweden</div>
+                <div class="country">🇯🇵 Japan</div>
+                <div class="country">🇸🇬 Singapore</div>
+                <div class="country">🌍 +190 More</div>
+            </div>
+        </div>
+
+        <div class="testimonials">
+            <h2 style="text-align: center; margin-bottom: 2rem;">✨ International Success Stories</h2>
+            
+            <div class="testimonial">
+                <p><strong>Sarah M. - Toronto, Canada</strong></p>
+                <p>"Got my dream job at a tech startup! The AI-optimized resume was exactly what I needed. Fast delivery and perfect formatting."</p>
+            </div>
+            
+            <div class="testimonial">
+                <p><strong>James R. - London, UK</strong></p>
+                <p>"Outstanding service! The executive package helped me land a senior management role. Worth every penny."</p>
+            </div>
+            
+            <div class="testimonial">
+                <p><strong>Maria L. - Sydney, Australia</strong></p>
+                <p>"Professional and efficient. The 24-hour delivery was exactly as promised. Highly recommend!"</p>
+            </div>
+        </div>
+
+        <div class="guarantee">
+            <h2>💯 International Guarantee</h2>
+            <p><strong>✅ 98% Success Rate</strong> - Our clients get interviews</p>
+            <p><strong>⚡ Fast Delivery</strong> - 6-24 hours worldwide</p>
+            <p><strong>🔄 Revision Guarantee</strong> - We perfect your resume</p>
+            <p><strong>💳 Secure Payments</strong> - Stripe & PayPal accepted</p>
+        </div>
+
+        <div class="contact-section">
+            <h2>🚀 Ready to Transform Your Career?</h2>
+            <p>Join thousands of international professionals who've upgraded their careers with our AI-powered resume services.</p>
+            
+            <div style="margin: 2rem 0;">
+                <a href="/api/resume/order?package=professional" class="order-btn" style="margin: 0.5rem;">Start Your Order</a>
+                <a href="/api/contact" class="order-btn" style="background: rgba(255,255,255,0.2); margin: 0.5rem;">Contact Us</a>
+            </div>
+            
+            <p style="margin-top: 2rem; opacity: 0.8;">
+                📧 Email: support@neuropilot.ai<br>
+                🌐 Available 24/7 for international customers<br>
+                💬 Multiple language support available
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Track international visitors
+        fetch('/api/analytics/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                page: 'international',
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                language: navigator.language
+            })
+        }).catch(() => {}); // Silent fail for analytics
+    </script>
+</body>
+</html>

@@ -111,6 +111,55 @@ app.get('/api/trading/status', (req, res) => {
     });
 });
 
+// International buyer page
+app.get('/international', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'international.html'));
+});
+
+// Order page redirect to international
+app.get('/order', (req, res) => {
+    res.redirect('/international');
+});
+
+// Resume order processing
+app.get('/api/resume/order', (req, res) => {
+    const { package: packageType } = req.query;
+    const packages = {
+        express: { price: 39, name: 'Express Resume', delivery: '24 hours' },
+        professional: { price: 79, name: 'Professional Package', delivery: '12 hours' },
+        executive: { price: 149, name: 'Executive Suite', delivery: '6 hours' }
+    };
+    
+    const selectedPackage = packages[packageType] || packages.professional;
+    
+    res.json({
+        success: true,
+        package: selectedPackage,
+        order_id: `order_${Date.now()}`,
+        payment_link: `https://buy.stripe.com/your-payment-link-${packageType}`,
+        message: 'Redirect to payment processor',
+        international: true
+    });
+});
+
+// Analytics tracking
+app.post('/api/analytics/track', (req, res) => {
+    // Log international visitor data
+    console.log('International visitor:', req.body);
+    res.json({ success: true });
+});
+
+// Contact endpoint
+app.get('/api/contact', (req, res) => {
+    res.json({
+        email: 'support@neuropilot.ai',
+        response_time: '2-4 hours',
+        languages: ['English', 'French'],
+        timezone: 'UTC-5 (EST)',
+        international_support: true
+    });
+});
+
 // Catch-all route for SPA
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));

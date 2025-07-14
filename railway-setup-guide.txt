@@ -1,0 +1,40 @@
+RAILWAY ENVIRONMENT VARIABLES TO SET:
+=======================================
+
+Go to Railway Dashboard → Your Project → Settings → Environment → Variables
+
+Add these key-value pairs:
+
+CORE SETTINGS:
+NODE_ENV=production
+AI_AGENTS_ENABLED=true
+RESUME_ENABLED=true
+TRADING_ENABLED=false
+RAILWAY_DEPLOYMENT=true
+
+API KEYS (from your .env.deployment):
+OPENAI_API_KEY=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
+OPENAI_ORG_ID=org-2xaWbVn0ommRnPQMDgUHf6NM
+OPENAI_PROJECT_ID=proj_mUvJrP9STnrsY064v39yoq9p
+STRIPE_SECRET_KEY=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
+
+SECURITY:
+API_SECRET_KEY=neuro-pilot-secure-api-key-2025-production
+
+NOTIFICATIONS (Optional):
+EMAIL_NOTIFICATIONS=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=Neuro.Pilot.AI@gmail.com
+SMTP_PASS=ifag bekf qkgz jrki
+EMAIL_FROM=noreply@neuropilot.ai
+NOTIFICATION_EMAIL=david@neuropilot.ai
+
+NOTION (Optional):
+NOTION_TOKEN=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
+
+PROMO CODES:
+PROMO_CODES={"FAMILY2025":{"discount":100,"type":"percentage","description":"Family Test - 100% OFF"},"TEST50":{"discount":50,"type":"percentage","description":"50% OFF Test Code"},"FIRST10":{"discount":10,"type":"fixed","description":"$10 OFF Your First Order"},"WELCOME20":{"discount":20,"type":"percentage","description":"20% OFF Welcome Discount"}}
+
+DATABASE:
+DATABASE_URL=sqlite:./data/production.db
