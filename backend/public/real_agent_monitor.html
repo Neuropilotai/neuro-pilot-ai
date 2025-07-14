@@ -1,0 +1,537 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Agent Monitor - Neuro.Pilot.AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f36 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #b8c5d6;
+            font-size: 1.1rem;
+        }
+        
+        .timestamp {
+            background: rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .card h3 {
+            color: #64b5f6;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .agent-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 15px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .agent-item:hover {
+            transform: translateX(5px);
+            background: rgba(255,255,255,0.06);
+        }
+        
+        .agent-exists { border-left-color: #10b981; }
+        .agent-recent { border-left-color: #3b82f6; }
+        .agent-missing { border-left-color: #ef4444; }
+        
+        .agent-name {
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .agent-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            font-size: 0.9rem;
+            color: #a0aec0;
+        }
+        
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .detail-label {
+            color: #64748b;
+        }
+        
+        .detail-value {
+            color: #e2e8f0;
+            font-weight: 500;
+        }
+        
+        .file-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .file-name {
+            font-weight: 600;
+            color: #93c5fd;
+            margin-bottom: 8px;
+        }
+        
+        .file-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        .badge-exists { background: #065f46; color: #6ee7b7; }
+        .badge-recent { background: #1e3a8a; color: #93c5fd; }
+        .badge-missing { background: #7f1d1d; color: #fca5a5; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.03);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #64b5f6;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .agent-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 Real Agent Monitor</h1>
+        <p>Actual status and metrics from your Neuro.Pilot.AI system</p>
+        <div class="timestamp">
+            📅 Generated: 7/8/2025, 10:56:50 AM
+        </div>
+    </div>
+    
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">9</div>
+            <div class="stat-label">Agent Files Found</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">0</div>
+            <div class="stat-label">Recently Modified</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">1</div>
+            <div class="stat-label">Files Changed (1h)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">3</div>
+            <div class="stat-label">Active Log Files</div>
+        </div>
+    </div>
+    
+    <div class="grid">
+        <!-- Agent Files Status -->
+        <div class="card">
+            <h3>🤖 Agent Files</h3>
+            
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Super Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">20 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">602</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/20/2025, 11:13:27 AM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Enhanced Super Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">19 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">547</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/20/2025, 1:27:19 PM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Customer Service Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">14 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">425</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/20/2025, 2:50:20 AM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Email Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">8 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">220</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/20/2025, 10:30:15 AM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Real Trading Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">2 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">64</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/18/2025, 1:34:16 PM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Super Trading Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">75 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">2,236</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/20/2025, 9:13:28 PM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Inventory Super Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">13 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">469</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/28/2025, 8:10:26 AM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Platform Integration Super Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">19 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">572</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/23/2025, 1:33:30 AM
+                        </div>
+                    </div>
+                
+                    <div class="agent-item agent-exists">
+                        <div class="agent-name">
+                            Super Learning Ai Agent
+                            <span class="status-badge badge-exists">Exists</span>
+                        </div>
+                        <div class="agent-details">
+                            <div class="detail-item">
+                                <span class="detail-label">File Size:</span>
+                                <span class="detail-value">21 KB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Lines of Code:</span>
+                                <span class="detail-value">574</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Functions:</span>
+                                <span class="detail-value">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Classes:</span>
+                                <span class="detail-value">1</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #64748b;">
+                            📅 Last Modified: 6/20/2025, 2:57:26 PM
+                        </div>
+                    </div>
+                
+        </div>
+        
+        <!-- Log Files Status -->
+        <div class="card">
+            <h3>📝 Log Files Status</h3>
+            
+                        <div class="file-item" style="border-left: 4px solid #10b981;">
+                            <div class="file-name">email_agent.log</div>
+                            <div class="file-meta">
+                                <span>118 KB • 2,815 lines</span>
+                                <span>6/21/2025, 9:35:13 AM</span>
+                            </div>
+                        </div>
+                    
+                        <div class="file-item" style="border-left: 4px solid #10b981;">
+                            <div class="file-name">server_8080.log</div>
+                            <div class="file-meta">
+                                <span>1 KB • 23 lines</span>
+                                <span>6/20/2025, 8:11:43 PM</span>
+                            </div>
+                        </div>
+                    
+                        <div class="file-item" style="border-left: 4px solid #10b981;">
+                            <div class="file-name">processed_orders_log.json</div>
+                            <div class="file-meta">
+                                <span>0 KB • 11 lines</span>
+                                <span>6/20/2025, 10:31:24 AM</span>
+                            </div>
+                        </div>
+                    
+        </div>
+        
+        <!-- Recent File Changes -->
+        <div class="card">
+            <h3>📁 Recent Changes (1 hour)</h3>
+            
+                    <div class="file-item">
+                        <div class="file-name">generate_real_monitor.js</div>
+                        <div class="file-meta">
+                            <span>15 KB</span>
+                            <span>7/8/2025, 10:56:41 AM</span>
+                        </div>
+                    </div>
+                
+        </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 40px; color: #64748b;">
+        <p>📊 This monitor shows real data from your Neuro.Pilot.AI backend system</p>
+        <p style="margin-top: 10px;">🔄 Refresh this page or regenerate to see updated information</p>
+    </div>
+</body>
+</html>
+    

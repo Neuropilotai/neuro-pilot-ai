@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for inventory system */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@media print {
+    .no-print { 
+        display: none !important; 
+    }
+    .print-only { 
+        display: block !important; 
+    }
+}
+
+.print-only { 
+    display: none; 
+}
+
+/* Custom components */
+.btn-primary {
+    @apply bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors;
+}
+
+.btn-secondary {
+    @apply bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors;
+}
+
+.btn-success {
+    @apply bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors;
+}
+
+.btn-danger {
+    @apply bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors;
+}
+
+.form-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.form-select {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.card {
+    @apply bg-white rounded-lg shadow-md p-6;
+}
+
+.status-ok {
+    @apply bg-green-100 text-green-800 px-2 py-1 rounded text-xs;
+}
+
+.status-warning {
+    @apply bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs;
+}
+
+.status-danger {
+    @apply bg-red-100 text-red-800 px-2 py-1 rounded text-xs;
+}
+
+.status-info {
+    @apply bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs;
+}

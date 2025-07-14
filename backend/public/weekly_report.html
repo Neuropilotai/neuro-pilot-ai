@@ -1,0 +1,253 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Trading Challenge - $500 to ? in 7 Days</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 40px;
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00ff00, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 1.2rem;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #ffaa00);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00ff00;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .milestones {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .milestone-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .milestone-achieved {
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 4px solid #00ff00;
+        }
+        
+        .milestone-pending {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid #666;
+        }
+        
+        .daily-chart {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            height: 300px;
+            display: flex;
+            align-items: end;
+            justify-content: space-around;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+        }
+        
+        .chart-bar {
+            width: 40px;
+            background: linear-gradient(to top, #00ff00, #ffaa00);
+            border-radius: 4px 4px 0 0;
+            margin: 0 5px;
+            position: relative;
+        }
+        
+        .chart-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        .projection {
+            background: rgba(255, 170, 0, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        .projection-value {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #ffaa00;
+            margin: 20px 0;
+        }
+        
+        .update-time {
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Weekly Trading Challenge</h1>
+        <p class="subtitle">$500 Starting Balance • AI Autonomous Trading • 7 Day Challenge</p>
+        
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        <p style="text-align: center; margin-bottom: 30px;">
+            Day 0/7 • 7 days remaining
+        </p>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">$500.00</div>
+                <div class="stat-label">Current Balance</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">+0.00%</div>
+                <div class="stat-label">Total Return</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">+$0.00</div>
+                <div class="stat-label">Total Gain/Loss</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">0.00%</div>
+                <div class="stat-label">Avg Daily Return</div>
+            </div>
+        </div>
+        
+        <div class="milestones">
+            <h2>🎯 Milestones (0/5 achieved)</h2>
+            
+                    <div class="milestone-item milestone-pending">
+                        <span>🎯 First milestone: +$100 (20% gain)</span>
+                        <span>$600</span>
+                    </div>
+                
+                    <div class="milestone-item milestone-pending">
+                        <span>🚀 Second milestone: +$250 (50% gain)</span>
+                        <span>$750</span>
+                    </div>
+                
+                    <div class="milestone-item milestone-pending">
+                        <span>💰 Third milestone: +$500 (100% gain - doubled!)</span>
+                        <span>$1000</span>
+                    </div>
+                
+                    <div class="milestone-item milestone-pending">
+                        <span>🌟 Fourth milestone: +$1000 (200% gain - tripled!)</span>
+                        <span>$1500</span>
+                    </div>
+                
+                    <div class="milestone-item milestone-pending">
+                        <span>🏆 Fifth milestone: +$1500 (300% gain - quadrupled!)</span>
+                        <span>$2000</span>
+                    </div>
+                
+        </div>
+        
+        <div class="daily-chart">
+            <h2>📊 Daily Progress</h2>
+            <div class="chart-container">
+                
+                        <div class="chart-bar" style="height: 250px;">
+                            <div class="chart-label">Day 1</div>
+                        </div>
+                    
+            </div>
+        </div>
+        
+        
+        
+        <div class="update-time">
+            Last updated: 7/8/2025, 1:17:21 PM
+        </div>
+    </div>
+    
+    <script>
+        // Auto-refresh every 60 seconds
+        setTimeout(() => {
+            location.reload();
+        }, 60000);
+    </script>
+</body>
+</html>
+        

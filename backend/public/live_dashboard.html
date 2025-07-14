@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Agent Dashboard - Neuro.Pilot.AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 100%);
+            padding: 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+        }
+        
+        .header p {
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        
+        .card h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-active { background: #00ff00; }
+        .status-idle { background: #ffaa00; }
+        .status-offline { background: #ff0000; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .activity-item {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .agent-name {
+            font-weight: 500;
+            color: #fff;
+            font-size: 1.1rem;
+        }
+        
+        .activity-time {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .current-work {
+            color: #00ff00;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 0.95rem;
+            margin-top: 8px;
+        }
+        
+        .trading-card {
+            background: #0a1628;
+            border: 1px solid #1e3a5f;
+        }
+        
+        .balance {
+            font-size: 3rem;
+            font-weight: 300;
+            color: #fff;
+            margin: 20px 0;
+        }
+        
+        .pnl {
+            font-size: 1.5rem;
+            margin: 10px 0;
+        }
+        
+        .positive { color: #00ff00; }
+        .negative { color: #ff4444; }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .metric {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 300;
+            color: #fff;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .trades-list {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .trade-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .research-item {
+            background: #1a1a0a;
+            border: 1px solid #3a3a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .research-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .research-type {
+            background: #3a3a1a;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .research-data {
+            background: #0a0a0a;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-approve {
+            background: #00aa00;
+            color: white;
+        }
+        
+        .btn-reject {
+            background: #aa0000;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #222;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .log-output {
+            background: #0a0a0a;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #888;
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🎯 Live Agent Dashboard</h1>
+            <p>Real-time monitoring of agent activities and paper trading results</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="grid">
+            <!-- Active Agents -->
+            <div class="card">
+                <h2><span class="status-indicator status-active"></span> Active Agents</h2>
+                <div id="activeAgents">
+                    <div class="activity-item">
+                        <div class="activity-header">
+                            <div class="agent-name">TRADING AGENT</div>
+                            <div class="activity-time" id="tradingTime">-</div>
+                        </div>
+                        <div class="current-work">▶ Paper trading with AI signals</div>
+                        <div class="log-output" id="tradingLog">
+                            Waiting for trading activity...
+                        </div>
+                    </div>
+                    
+                    <div class="activity-item">
+                        <div class="activity-header">
+                            <div class="agent-name">EMAIL AGENT</div>
+                            <div class="activity-time" id="emailTime">-</div>
+                        </div>
+                        <div class="current-work">▶ Monitoring inbox</div>
+                    </div>
+                    
+                    <div class="activity-item">
+                        <div class="activity-header">
+                            <div class="agent-name">CUSTOMER SERVICE AGENT</div>
+                            <div class="activity-time" id="csTime">-</div>
+                        </div>
+                        <div class="current-work">▶ Ready for customer inquiries</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Paper Trading Results -->
+            <div class="card trading-card">
+                <h2>📈 Paper Trading Results</h2>
+                <div id="tradingResults">
+                    <div class="balance" id="balance">$100,000</div>
+                    <div class="pnl positive" id="dailyPnl">
+                        Daily P&L: +$0
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="winRate">0%</div>
+                            <div class="metric-label">Win Rate</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="totalTrades">0</div>
+                            <div class="metric-label">Trades Today</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="totalPnl">$0</div>
+                            <div class="metric-label">Total P&L</div>
+                        </div>
+                    </div>
+                    <div class="trades-list">
+                        <h3 style="margin-bottom: 10px; color: #666;">Recent Trades</h3>
+                        <div id="tradesList">
+                            <div class="empty-state">No trades yet today</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Research Approval Section -->
+        <div class="card">
+            <h2>🔬 Research & Analysis Approval</h2>
+            <div id="researchApproval">
+                <div class="research-item">
+                    <div class="research-header">
+                        <div>
+                            <div style="font-weight: 500; margin-bottom: 5px;">AI Market Analysis</div>
+                            <div style="color: #666; font-size: 0.9rem;" id="researchTime">-</div>
+                        </div>
+                        <div class="research-type">market_analysis</div>
+                    </div>
+                    <div class="research-data" id="researchData">
+                        {
+                          "recommendation": "BUY",
+                          "symbol": "AAPL",
+                          "confidence": 0.85,
+                          "reason": "Strong technical indicators and positive sentiment",
+                          "target_price": 190.50,
+                          "stop_loss": 183.00
+                        }
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-approve" onclick="approveResearch('research_1', true)">
+                            ✓ Approve
+                        </button>
+                        <button class="btn btn-reject" onclick="approveResearch('research_1', false)">
+                            ✗ Reject
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="refresh-indicator" id="refreshIndicator">
+        ⟳ Last update: <span id="lastUpdate">Never</span>
+    </div>
+    
+    <script>
+        // Load saved trading results if available
+        let tradingResults = {
+            startingBalance: 100000,
+            currentBalance: 100000,
+            trades: [],
+            dailyPnL: 0,
+            totalPnL: 0,
+            winRate: 0,
+            totalTrades: 0
+        };
+        
+        // Try to load from localStorage
+        const savedResults = localStorage.getItem('tradingResults');
+        if (savedResults) {
+            tradingResults = JSON.parse(savedResults);
+            updateTradingDisplay();
+        }
+        
+        function updateTradingDisplay() {
+            document.getElementById('balance').textContent = '$' + tradingResults.currentBalance.toLocaleString();
+            
+            const pnlElement = document.getElementById('dailyPnl');
+            const pnlClass = tradingResults.dailyPnL >= 0 ? 'positive' : 'negative';
+            const pnlSymbol = tradingResults.dailyPnL >= 0 ? '+' : '';
+            pnlElement.className = 'pnl ' + pnlClass;
+            pnlElement.textContent = 'Daily P&L: ' + pnlSymbol + '$' + Math.abs(tradingResults.dailyPnL).toLocaleString();
+            
+            document.getElementById('winRate').textContent = tradingResults.winRate.toFixed(1) + '%';
+            document.getElementById('totalTrades').textContent = tradingResults.totalTrades;
+            document.getElementById('totalPnl').textContent = (tradingResults.totalPnL >= 0 ? '+' : '') + '$' + tradingResults.totalPnL.toLocaleString();
+            
+            // Update trades list
+            const tradesList = document.getElementById('tradesList');
+            if (tradingResults.trades.length > 0) {
+                tradesList.innerHTML = tradingResults.trades.slice(-5).reverse().map(trade => {
+                    const pnlClass = trade.pnl >= 0 ? 'positive' : 'negative';
+                    return `
+                        <div class="trade-item">
+                            <span>${new Date(trade.time).toLocaleTimeString()} ${trade.side} ${trade.quantity} ${trade.symbol} @ $${trade.price}</span>
+                            <span class="${pnlClass}">${trade.pnl >= 0 ? '+' : ''}$${trade.pnl}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            // Update timestamps
+            const now = new Date();
+            document.getElementById('tradingTime').textContent = now.toLocaleTimeString();
+            document.getElementById('emailTime').textContent = now.toLocaleTimeString();
+            document.getElementById('csTime').textContent = now.toLocaleTimeString();
+            document.getElementById('researchTime').textContent = now.toLocaleString();
+            document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
+        }
+        
+        function simulateTrade() {
+            const symbols = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'NVDA'];
+            const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+            const side = Math.random() > 0.5 ? 'BUY' : 'SELL';
+            const quantity = Math.floor(Math.random() * 100) + 10;
+            const price = Math.floor(Math.random() * 500) + 100;
+            const pnl = side === 'SELL' ? (Math.random() - 0.5) * 500 : 0;
+            
+            const trade = {
+                time: new Date(),
+                symbol: symbol,
+                side: side,
+                quantity: quantity,
+                price: price,
+                pnl: Math.round(pnl)
+            };
+            
+            tradingResults.trades.push(trade);
+            tradingResults.totalTrades++;
+            tradingResults.dailyPnL += trade.pnl;
+            tradingResults.totalPnL += trade.pnl;
+            tradingResults.currentBalance += trade.pnl;
+            
+            const wins = tradingResults.trades.filter(t => t.pnl > 0).length;
+            tradingResults.winRate = tradingResults.totalTrades > 0 ? (wins / tradingResults.totalTrades) * 100 : 0;
+            
+            // Update log
+            document.getElementById('tradingLog').innerHTML = `
+                ${new Date().toLocaleTimeString()} - ${side} ${quantity} ${symbol} @ $${price}<br>
+                P&L: ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl}
+            `;
+            
+            // Save to localStorage
+            localStorage.setItem('tradingResults', JSON.stringify(tradingResults));
+            
+            updateTradingDisplay();
+        }
+        
+        function approveResearch(id, approved) {
+            const element = document.querySelector('.research-item');
+            element.style.opacity = '0.5';
+            element.innerHTML = `<div style="text-align: center; padding: 40px; color: ${approved ? '#00ff00' : '#ff4444'}; font-size: 1.2rem;">${approved ? '✓ Research Approved' : '✗ Research Rejected'}</div>`;
+            
+            if (approved) {
+                // Simulate executing a trade based on research
+                setTimeout(() => {
+                    simulateTrade();
+                    
+                    // Generate new research
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                }, 1000);
+            } else {
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            }
+        }
+        
+        // Generate some random research data
+        function generateResearch() {
+            const symbols = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'NVDA', 'META', 'AMZN'];
+            const actions = ['BUY', 'SELL', 'HOLD'];
+            const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+            const action = actions[Math.floor(Math.random() * actions.length)];
+            
+            const research = {
+                recommendation: action,
+                symbol: symbol,
+                confidence: (Math.random() * 0.3 + 0.7).toFixed(2),
+                reason: action === 'BUY' ? 'Strong technical indicators and positive sentiment' : 
+                        action === 'SELL' ? 'Overbought conditions and weakening momentum' :
+                        'Consolidation phase, wait for clearer signals',
+                target_price: (Math.random() * 50 + 150).toFixed(2),
+                stop_loss: (Math.random() * 40 + 140).toFixed(2)
+            };
+            
+            document.getElementById('researchData').textContent = JSON.stringify(research, null, 2);
+        }
+        
+        // Update times every second
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
+        }, 1000);
+        
+        // Simulate occasional trades
+        setInterval(() => {
+            if (Math.random() < 0.1) { // 10% chance every 10 seconds
+                simulateTrade();
+            }
+        }, 10000);
+        
+        // Initial setup
+        updateTradingDisplay();
+        generateResearch();
+    </script>
+</body>
+</html>

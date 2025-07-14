@@ -1,0 +1,2739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sodexo / Tata Inventory Systems</title>
+    <link rel="stylesheet" href="/css/inventory.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="app" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-blue-600 text-white p-4 no-print">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Sodexo / Tata Inventory Systems</h1>
+                <div class="text-sm">
+                    <span class="mr-4" id="occupancy-display">Loading...</span>
+                    <span>11 Storage Locations</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="bg-white shadow-md no-print">
+            <div class="container mx-auto px-4">
+                <div class="flex space-x-8">
+                    <button onclick="showTab('count')" id="tab-count" class="py-4 px-6 border-b-4 border-blue-500 font-medium text-blue-600">
+                        Count Sheets
+                    </button>
+                    <button onclick="showTab('usage')" id="tab-usage" class="py-4 px-6 border-b-4 border-transparent font-medium text-gray-600 hover:text-blue-600">
+                        Usage Tracker
+                    </button>
+                    <button onclick="showTab('report')" id="tab-report" class="py-4 px-6 border-b-4 border-transparent font-medium text-gray-600 hover:text-blue-600">
+                        Min/Max Report
+                    </button>
+                    <button onclick="showTab('orders')" id="tab-orders" class="py-4 px-6 border-b-4 border-transparent font-medium text-gray-600 hover:text-blue-600">
+                        Order Review
+                    </button>
+                    <button onclick="showTab('setup')" id="tab-setup" class="py-4 px-6 border-b-4 border-transparent font-medium text-gray-600 hover:text-blue-600">
+                        Setup
+                    </button>
+                    <button onclick="showTab('settings')" id="tab-settings" class="py-4 px-6 border-b-4 border-transparent font-medium text-gray-600 hover:text-blue-600">
+                        Camp Settings
+                    </button>
+                    <button onclick="showTab('import')" id="tab-import" class="py-4 px-6 border-b-4 border-transparent font-medium text-gray-600 hover:text-blue-600">
+                        Order Import
+                    </button>
+                    <button onclick="showTab('historical')" id="tab-historical" class="py-4 px-6 border-b-4 border-transparent font-medium text-gray-600 hover:text-blue-600">
+                        Historical Orders
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-8">
+            <!-- Count Sheet Tab -->
+            <div id="count-content" class="tab-content">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Inventory Count Sheet</h2>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6 no-print">
+                        <div>
+                            <label for="location-select" class="block text-sm font-medium mb-2">Select Location:</label>
+                            <select id="location-select" onchange="loadLocationItems()" class="w-full px-3 py-2 border rounded-md">
+                                <option value="">-- Select Location --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="counted-by" class="block text-sm font-medium mb-2">Counted By:</label>
+                            <input type="text" id="counted-by" placeholder="Enter your name" class="w-full px-3 py-2 border rounded-md">
+                        </div>
+                    </div>
+
+                    <div id="count-sheet-area" style="display:none;">
+                        <div class="print-only text-center mb-4">
+                            <h1 class="text-2xl font-bold">Sodexo / Tata Inventory Count Sheet</h1>
+                            <p class="text-lg mt-2">Location: <span id="print-location"></span></p>
+                            <p>Date: <span id="print-date"></span></p>
+                            <p>Counted By: <span id="print-counted-by">_________________</span></p>
+                        </div>
+
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="border p-2 text-left">Item Name</th>
+                                    <th class="border p-2 text-left">Category</th>
+                                    <th class="border p-2 text-center">Unit</th>
+                                    <th class="border p-2 text-center">System Qty</th>
+                                    <th class="border p-2 text-center">Counted Qty</th>
+                                    <th class="border p-2 text-center">Variance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="count-items"></tbody>
+                        </table>
+
+                        <div class="mt-6 flex gap-4 no-print">
+                            <button onclick="printCountSheet()" class="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700">
+                                Print Sheet
+                            </button>
+                            <button onclick="submitCount()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                                Submit Count
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usage Tracker Tab -->
+            <div id="usage-content" class="tab-content" style="display:none;">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Record Item Usage</h2>
+                    
+                    <form onsubmit="recordUsage(event)" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="usage-item" class="block text-sm font-medium mb-2">Item:</label>
+                                <select id="usage-item" required class="w-full px-3 py-2 border rounded-md">
+                                    <option value="">-- Select Item --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="usage-location" class="block text-sm font-medium mb-2">Location:</label>
+                                <select id="usage-location" required class="w-full px-3 py-2 border rounded-md">
+                                    <option value="">-- Select Location --</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="usage-quantity" class="block text-sm font-medium mb-2">Quantity:</label>
+                                <input type="number" id="usage-quantity" min="1" required class="w-full px-3 py-2 border rounded-md">
+                            </div>
+                            <div>
+                                <label for="usage-taken-by" class="block text-sm font-medium mb-2">Taken By:</label>
+                                <input type="text" id="usage-taken-by" required placeholder="Employee name" class="w-full px-3 py-2 border rounded-md">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="usage-reason" class="block text-sm font-medium mb-2">Reason/Notes:</label>
+                            <textarea id="usage-reason" rows="3" placeholder="Optional: Reason for usage" class="w-full px-3 py-2 border rounded-md"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+                            Record Usage
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Min/Max Report Tab -->
+            <div id="report-content" class="tab-content" style="display:none;">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Min/Max Inventory Report</h2>
+                    
+                    <div class="mb-4 flex justify-between items-center no-print">
+                        <div>
+                            <label for="report-filter" class="block text-sm font-medium mb-1">Filter Report:</label>
+                            <select id="report-filter" onchange="filterReport()" class="px-3 py-2 border rounded-md">
+                            <option value="all">All Items</option>
+                            <option value="below-min">Below Minimum</option>
+                            <option value="above-max">Above Maximum</option>
+                            <option value="needs-order">Needs Ordering</option>
+                        </select>
+                        </div>
+                        
+                        <div class="space-x-2">
+                            <button onclick="generateOrder()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                Generate Order
+                            </button>
+                            <button onclick="exportReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                Export CSV
+                            </button>
+                            <button onclick="window.print()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Print Report
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="report-summary" class="grid grid-cols-4 gap-4 mb-6">
+                        <!-- Summary cards will be inserted here -->
+                    </div>
+                    
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="border p-2 text-left">Item Name</th>
+                                <th class="border p-2 text-left">Category</th>
+                                <th class="border p-2 text-center">Current Qty</th>
+                                <th class="border p-2 text-center">Min Qty</th>
+                                <th class="border p-2 text-center">Max Qty</th>
+                                <th class="border p-2 text-center">Status</th>
+                                <th class="border p-2 text-center">Order Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-items"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Order Review Tab -->
+            <div id="orders-content" class="tab-content" style="display:none;">
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="col-span-1 bg-white rounded-lg shadow-md p-4">
+                        <h3 class="font-bold mb-4">Orders</h3>
+                        <div id="order-list" class="space-y-2">
+                            <!-- Order cards will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div class="col-span-2 bg-white rounded-lg shadow-md p-6">
+                        <div id="order-details">
+                            <p class="text-gray-500 text-center py-8">Select an order to view details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Setup Tab -->
+            <div id="setup-content" class="tab-content" style="display:none;">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">System Setup</h2>
+                    
+                    <div class="grid grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="font-bold mb-3">Add Location</h3>
+                            <form onsubmit="addLocation(event)" class="space-y-3">
+                                <div>
+                                    <label for="location-name" class="block text-sm font-medium mb-1">Location Name:</label>
+                                    <input type="text" id="location-name" placeholder="Location Name" required class="w-full px-3 py-2 border rounded-md">
+                                </div>
+                                <div>
+                                    <label for="location-code" class="block text-sm font-medium mb-1">Location Code:</label>
+                                    <input type="text" id="location-code" placeholder="Code (e.g., FRZ01)" required class="w-full px-3 py-2 border rounded-md">
+                                </div>
+                                <div>
+                                    <label for="location-type" class="block text-sm font-medium mb-1">Location Type:</label>
+                                    <select id="location-type" required class="w-full px-3 py-2 border rounded-md">
+                                    <option value="">-- Select Type --</option>
+                                    <option value="Freezer">Freezer</option>
+                                    <option value="Cooler">Cooler</option>
+                                    <option value="Dry Storage">Dry Storage</option>
+                                    <option value="Kitchen">Kitchen</option>
+                                    <option value="Pantry">Pantry</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                </div>
+                                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Add Location
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <div>
+                            <h3 class="font-bold mb-3">Add Inventory Item</h3>
+                            <form onsubmit="addItem(event)" class="space-y-3">
+                                <div>
+                                    <label for="item-name" class="block text-sm font-medium mb-1">Item Name:</label>
+                                    <input type="text" id="item-name" placeholder="Item Name" required class="w-full px-3 py-2 border rounded-md">
+                                </div>
+                                <div>
+                                    <label for="item-category" class="block text-sm font-medium mb-1">Category:</label>
+                                    <select id="item-category" required class="w-full px-3 py-2 border rounded-md">
+                                    <option value="">-- Select Category --</option>
+                                    <option value="Food">Food</option>
+                                    <option value="Beverage">Beverage</option>
+                                    <option value="Supplies">Supplies</option>
+                                    <option value="Cleaning">Cleaning</option>
+                                    <option value="Equipment">Equipment</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                </div>
+                                <div>
+                                    <label for="item-unit" class="block text-sm font-medium mb-1">Unit of Measurement:</label>
+                                    <select id="item-unit" required class="w-full px-3 py-2 border rounded-md">
+                                    <option value="">-- Select Unit --</option>
+                                    <option value="Each">Each</option>
+                                    <option value="Box">Box</option>
+                                    <option value="Case">Case</option>
+                                    <option value="Pound">Pound</option>
+                                    <option value="Kilogram">Kilogram</option>
+                                    <option value="Liter">Liter</option>
+                                    <option value="Gallon">Gallon</option>
+                                </select>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label for="item-min" class="block text-xs font-medium mb-1">Min Quantity:</label>
+                                        <input type="number" id="item-min" placeholder="Min Qty" required class="px-3 py-2 border rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="item-max" class="block text-xs font-medium mb-1">Max Quantity:</label>
+                                        <input type="number" id="item-max" placeholder="Max Qty" required class="px-3 py-2 border rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="item-reorder" class="block text-xs font-medium mb-1">Reorder Point:</label>
+                                        <input type="number" id="item-reorder" placeholder="Reorder Pt" required class="px-3 py-2 border rounded-md">
+                                    </div>
+                                </div>
+                                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Add Item
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camp Settings Tab -->
+            <div id="settings-content" class="tab-content" style="display:none;">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Camp Settings & Occupancy</h2>
+                    
+                    <form onsubmit="updateCampSettings(event)" class="space-y-6">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h3 class="font-bold mb-3 text-blue-800">Current Occupancy</h3>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label for="current-occupancy" class="block text-sm font-medium mb-1">People Currently On Site:</label>
+                                        <input type="number" id="current-occupancy" min="0" max="500" required 
+                                               class="w-full px-3 py-2 border rounded-md text-lg font-bold">
+                                    </div>
+                                    <div>
+                                        <label for="max-capacity" class="block text-sm font-medium mb-1">Maximum Capacity:</label>
+                                        <input type="number" id="max-capacity" min="0" max="500" required 
+                                               class="w-full px-3 py-2 border rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="rotation-schedule" class="block text-sm font-medium mb-1">Rotation Schedule:</label>
+                                        <select id="rotation-schedule" class="w-full px-3 py-2 border rounded-md">
+                                            <option value="2 on 2 off">2 weeks on, 2 weeks off</option>
+                                            <option value="3 on 1 off">3 weeks on, 1 week off</option>
+                                            <option value="4 on 2 off">4 weeks on, 2 weeks off</option>
+                                            <option value="Permanent">Permanent staff</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h3 class="font-bold mb-3 text-green-800">Consumption Planning</h3>
+                                <div id="consumption-overview" class="space-y-2">
+                                    <p class="text-sm text-gray-600">Based on current occupancy:</p>
+                                    <div class="grid grid-cols-2 gap-2 text-sm">
+                                        <div class="bg-white p-2 rounded">
+                                            <span class="font-medium">Daily Beef:</span>
+                                            <span id="daily-beef">-</span>
+                                        </div>
+                                        <div class="bg-white p-2 rounded">
+                                            <span class="font-medium">Daily Milk:</span>
+                                            <span id="daily-milk">-</span>
+                                        </div>
+                                        <div class="bg-white p-2 rounded">
+                                            <span class="font-medium">Daily Bread:</span>
+                                            <span id="daily-bread">-</span>
+                                        </div>
+                                        <div class="bg-white p-2 rounded">
+                                            <span class="font-medium">Weekly Total:</span>
+                                            <span id="weekly-total">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <h3 class="font-bold mb-3 text-yellow-800">Quick Consumption Calculator</h3>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label for="calc-item" class="block text-sm font-medium mb-1">Item:</label>
+                                    <select id="calc-item" class="w-full px-3 py-2 border rounded-md">
+                                        <option value="">Select item...</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="calc-days" class="block text-sm font-medium mb-1">Days to Plan:</label>
+                                    <input type="number" id="calc-days" value="7" min="1" max="30" class="w-full px-3 py-2 border rounded-md">
+                                    <p class="text-xs text-gray-500 mt-1">Standard: 7 days (1 week cycle)</p>
+                                </div>
+                                <div class="flex items-end">
+                                    <button type="button" onclick="calculateConsumption()" class="w-full bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
+                                        Calculate
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="consumption-result" class="mt-3 p-3 bg-white rounded border" style="display:none;">
+                                <!-- Results will be inserted here -->
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center pt-4 border-t">
+                            <div class="text-sm text-gray-600">
+                                Last updated: <span id="last-updated">-</span> by <span id="updated-by">-</span>
+                            </div>
+                            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                                Update Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Order Import Tab -->
+            <div id="import-content" class="tab-content" style="display:none;">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Order Import & Review</h2>
+                    
+                    <div class="grid grid-cols-2 gap-6">
+                        <!-- Left Column: Import Methods -->
+                        <div class="space-y-6">
+                            <!-- Paste Order Text -->
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h3 class="font-bold mb-3 text-blue-800">📋 Paste Order Text</h3>
+                                <p class="text-sm text-gray-600 mb-3">Copy and paste your order from email, document, or supplier portal:</p>
+                                <label for="order-text" class="block text-sm font-medium mb-2">Order Text:</label>
+                                <textarea id="order-text" rows="8" placeholder="Paste your order here...
+Examples that work:
+• Ground Beef - 100 lbs
+• Milk 50 gallons  
+• Bread: 30 loaves
+• Chicken 75 lbs
+• 100 pounds Ground Beef
+• Rice 200 kg
+
+You can also copy text directly from PDF files!" 
+                                          class="w-full px-3 py-2 border rounded-md text-sm font-mono"></textarea>
+                                <button onclick="parseOrderText()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Parse Order
+                                </button>
+                            </div>
+                            
+                            <!-- Upload PDF -->
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h3 class="font-bold mb-3 text-green-800">📄 Upload PDF Order</h3>
+                                <p class="text-sm text-gray-600 mb-3">Upload a PDF order from your supplier:</p>
+                                <label for="pdf-upload" class="block text-sm font-medium mb-2">PDF File:</label>
+                                <input type="file" id="pdf-upload" accept=".pdf" class="w-full px-3 py-2 border rounded-md mb-3">
+                                <button onclick="uploadPDF()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                    Extract from PDF
+                                </button>
+                                <p class="text-xs text-gray-500 mt-2">Supported: PDF files up to 10MB</p>
+                            </div>
+                            
+                            <!-- Manual Entry -->
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h3 class="font-bold mb-3 text-yellow-800">✏️ Manual Entry</h3>
+                                <div class="grid grid-cols-3 gap-2 mb-2">
+                                    <div>
+                                        <label for="manual-item" class="block text-xs font-medium mb-1">Item Name:</label>
+                                        <input type="text" id="manual-item" placeholder="Item name" class="px-2 py-1 border rounded text-sm">
+                                    </div>
+                                    <div>
+                                        <label for="manual-qty" class="block text-xs font-medium mb-1">Quantity:</label>
+                                        <input type="number" id="manual-qty" placeholder="Quantity" class="px-2 py-1 border rounded text-sm">
+                                    </div>
+                                    <button onclick="addManualItem()" class="bg-yellow-600 text-white px-2 py-1 rounded text-sm hover:bg-yellow-700">
+                                        Add
+                                    </button>
+                                </div>
+                                <div id="manual-items" class="space-y-1">
+                                    <!-- Manual items will appear here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column: Order Review -->
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-bold mb-3 text-gray-800">📦 Order vs Current Stock</h3>
+                            <div id="order-comparison" class="space-y-3">
+                                <p class="text-gray-500 text-center py-8">Import an order to see comparison with current inventory</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Analysis Results -->
+                    <div id="order-analysis" style="display:none;" class="mt-6 bg-white border rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-lg">Order Analysis</h3>
+                            <div class="space-x-2">
+                                <button onclick="printOrderComparison()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                    Print Comparison
+                                </button>
+                                <button onclick="saveImportedOrder()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Save as Order
+                                </button>
+                                <button onclick="exportOrderComparison()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                    Export CSV
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-4 gap-4 mb-4">
+                            <div class="bg-blue-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-blue-600" id="total-items">0</div>
+                                <div class="text-sm text-blue-600">Total Items</div>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-green-600" id="matched-items">0</div>
+                                <div class="text-sm text-green-600">Matched Items</div>
+                            </div>
+                            <div class="bg-yellow-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-yellow-600" id="overstocked-items">0</div>
+                                <div class="text-sm text-yellow-600">Already Have Enough</div>
+                            </div>
+                            <div class="bg-red-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-red-600" id="new-items">0</div>
+                                <div class="text-sm text-red-600">Not in Inventory</div>
+                            </div>
+                        </div>
+                        
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="border p-2 text-left">Item Name</th>
+                                    <th class="border p-2 text-center">Order Qty</th>
+                                    <th class="border p-2 text-center">Current Stock</th>
+                                    <th class="border p-2 text-center">After Order</th>
+                                    <th class="border p-2 text-center">Status</th>
+                                    <th class="border p-2 text-center">Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody id="order-analysis-table">
+                                <!-- Analysis results will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historical Orders Tab -->
+            <div id="historical-content" class="tab-content" style="display:none;">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-4">Sodexo / Tata Historical Orders (Since March 2024)</h2>
+                    <p class="text-gray-600 mb-6">Input your past orders to help the system learn consumption patterns and optimize min/max recommendations.</p>
+                    
+                    <div class="mb-6">
+                        <!-- File Import Section -->
+                        <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
+                            <h3 class="font-bold mb-3 text-yellow-800">📁 Import Historical Orders from Files</h3>
+                            <p class="text-sm text-yellow-700 mb-3">Upload CSV, Excel files, or PDF documents containing your historical order data.</p>
+                            
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="text-center">
+                                    <label class="block">
+                                        <input type="file" id="csv-upload" accept=".csv" onchange="handleFileImport(event, 'csv')" class="hidden">
+                                        <div class="border-2 border-dashed border-yellow-300 p-4 rounded-lg cursor-pointer hover:bg-yellow-100">
+                                            <div class="text-2xl mb-2">📊</div>
+                                            <div class="text-sm font-medium">Upload CSV</div>
+                                            <div class="text-xs text-gray-600">Comma-separated values</div>
+                                        </div>
+                                    </label>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <label class="block">
+                                        <input type="file" id="excel-upload" accept=".xlsx,.xls" onchange="handleFileImport(event, 'excel')" class="hidden">
+                                        <div class="border-2 border-dashed border-yellow-300 p-4 rounded-lg cursor-pointer hover:bg-yellow-100">
+                                            <div class="text-2xl mb-2">📈</div>
+                                            <div class="text-sm font-medium">Upload Excel</div>
+                                            <div class="text-xs text-gray-600">.xlsx or .xls files</div>
+                                        </div>
+                                    </label>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <label class="block">
+                                        <input type="file" id="pdf-import-upload" accept=".pdf" onchange="handleFileImport(event, 'pdf')" class="hidden">
+                                        <div class="border-2 border-dashed border-yellow-300 p-4 rounded-lg cursor-pointer hover:bg-yellow-100">
+                                            <div class="text-2xl mb-2">📄</div>
+                                            <div class="text-sm font-medium">Upload PDF</div>
+                                            <div class="text-xs text-gray-600">Order documents</div>
+                                        </div>
+                                    </label>
+                                    <div class="mt-2 text-xs text-gray-500">
+                                        <strong>PDF Issues?</strong> Open your PDF, copy the text, and paste it in the "Order Import" tab instead!
+                                        <br><button onclick="testPDFFeature()" class="mt-1 text-blue-600 underline hover:text-blue-800">Test PDF Feature</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="file-import-status" class="mt-3 text-sm text-center" style="display:none;"></div>
+                            
+                            <div class="mt-3 text-xs text-gray-600">
+                                <strong>CSV/Excel Format:</strong> Date, Supplier, People, Duration (days), Item1, Qty1, Item2, Qty2, ...
+                                <br><strong>PDF Requirements:</strong> Must contain text (not scanned images). Best formats include:
+                                <br>• "Item Name - Quantity" or "Item Name Quantity"
+                                <br>• Order lists with clear item names and numbers
+                                <br>• Supplier invoices with itemized lists
+                                <br><button onclick="downloadCSVTemplate()" class="mt-2 text-blue-600 underline hover:text-blue-800">Download CSV Template</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-6">
+                        <!-- Left Column: Add Historical Order -->
+                        <div class="col-span-1 bg-blue-50 p-4 rounded-lg">
+                            <h3 class="font-bold mb-3 text-blue-800">📅 Add Historical Order Manually</h3>
+                            
+                            <form onsubmit="addHistoricalOrder(event)" class="space-y-4">
+                                <div>
+                                    <label for="hist-date" class="block text-sm font-medium mb-1">Order Date:</label>
+                                    <input type="date" id="hist-date" required class="w-full px-3 py-2 border rounded-md" 
+                                           min="2024-03-01" max="">
+                                </div>
+                                
+                                <div>
+                                    <label for="hist-supplier" class="block text-sm font-medium mb-1">Supplier:</label>
+                                    <input type="text" id="hist-supplier" placeholder="e.g., Food Services Co." 
+                                           class="w-full px-3 py-2 border rounded-md">
+                                </div>
+                                
+                                <div>
+                                    <label for="hist-people" class="block text-sm font-medium mb-1">People on Site:</label>
+                                    <input type="number" id="hist-people" min="1" max="500" placeholder="250" 
+                                           class="w-full px-3 py-2 border rounded-md">
+                                </div>
+                                
+                                <div>
+                                    <label for="hist-duration" class="block text-sm font-medium mb-1">Order Duration (days):</label>
+                                    <select id="hist-duration" class="w-full px-3 py-2 border rounded-md">
+                                        <option value="7" selected>1 week</option>
+                                        <option value="14">2 weeks</option>
+                                        <option value="21">3 weeks</option>
+                                        <option value="30">1 month</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="border-t pt-3">
+                                    <h4 class="font-medium mb-2">Order Items:</h4>
+                                    <div class="space-y-2">
+                                        <div class="grid grid-cols-3 gap-1">
+                                            <div>
+                                                <label for="hist-item-name" class="block text-xs font-medium mb-1">Item Name:</label>
+                                                <input type="text" id="hist-item-name" placeholder="Item" class="px-2 py-1 border rounded text-sm">
+                                            </div>
+                                            <div>
+                                                <label for="hist-item-qty" class="block text-xs font-medium mb-1">Quantity:</label>
+                                                <input type="number" id="hist-item-qty" placeholder="Qty" class="px-2 py-1 border rounded text-sm">
+                                            </div>
+                                            <button type="button" onclick="addHistoricalItem()" class="bg-blue-600 text-white px-2 py-1 rounded text-sm hover:bg-blue-700">
+                                                Add
+                                            </button>
+                                        </div>
+                                        <div id="hist-items-list" class="space-y-1 max-h-32 overflow-y-auto">
+                                            <!-- Historical items will appear here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Save Historical Order
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Middle Column: Historical Orders List -->
+                        <div class="col-span-1 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-bold mb-3 text-gray-800">📋 Historical Orders</h3>
+                            <div id="historical-orders-list" class="space-y-2 max-h-96 overflow-y-auto">
+                                <p class="text-gray-500 text-center py-4">No historical orders yet</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column: AI Analysis -->
+                        <div class="col-span-1 bg-green-50 p-4 rounded-lg">
+                            <h3 class="font-bold mb-3 text-green-800">🧠 AI Consumption Analysis</h3>
+                            <div id="consumption-analysis">
+                                <p class="text-gray-500 text-center py-4">Add historical orders to see AI analysis</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Min/Max Recommendations Section -->
+                    <div id="minmax-recommendations" style="display:none;" class="mt-6 bg-white border rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-lg">🎯 AI-Generated Min/Max Recommendations</h3>
+                            <div class="space-x-2">
+                                <button onclick="applyAllRecommendations()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                    Apply All Recommendations
+                                </button>
+                                <button onclick="exportRecommendations()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                    Export Recommendations
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-4 gap-4 mb-4">
+                            <div class="bg-blue-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-blue-600" id="analyzed-items">0</div>
+                                <div class="text-sm text-blue-600">Items Analyzed</div>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-green-600" id="confidence-score">0%</div>
+                                <div class="text-sm text-green-600">Confidence Score</div>
+                            </div>
+                            <div class="bg-yellow-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-yellow-600" id="orders-analyzed">0</div>
+                                <div class="text-sm text-yellow-600">Orders Analyzed</div>
+                            </div>
+                            <div class="bg-purple-100 p-3 rounded text-center">
+                                <div class="text-2xl font-bold text-purple-600" id="data-period">0</div>
+                                <div class="text-sm text-purple-600">Months of Data</div>
+                            </div>
+                        </div>
+                        
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="border p-2 text-left">Item</th>
+                                    <th class="border p-2 text-center">Current Min/Max</th>
+                                    <th class="border p-2 text-center">AI Recommended</th>
+                                    <th class="border p-2 text-center">Avg Usage/Week</th>
+                                    <th class="border p-2 text-center">Confidence</th>
+                                    <th class="border p-2 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recommendations-table">
+                                <!-- Recommendations will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // API base URL
+        const API_URL = window.location.origin + '/api/inventory';
+        
+        // Current state
+        let currentTab = 'count';
+        let locations = [];
+        let items = [];
+        let currentOrder = null;
+        let campSettings = {};
+        let importedOrder = [];
+        let manualOrderItems = [];
+        let historicalOrders = [];
+        let currentHistoricalItems = [];
+        let aiRecommendations = [];
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLocations();
+            loadItems();
+            loadCampSettings();
+            loadHistoricalOrders();
+            // Set max date to today
+            document.getElementById('hist-date').max = new Date().toISOString().split('T')[0];
+            showTab('count');
+        });
+        
+        // Tab navigation
+        function showTab(tab) {
+            currentTab = tab;
+            
+            // Hide all content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('[id^="tab-"]').forEach(tabBtn => {
+                tabBtn.classList.remove('border-blue-500', 'text-blue-600');
+                tabBtn.classList.add('border-transparent', 'text-gray-600');
+            });
+            
+            // Show selected content
+            document.getElementById(`${tab}-content`).style.display = 'block';
+            
+            // Add active class to selected tab
+            const activeTab = document.getElementById(`tab-${tab}`);
+            activeTab.classList.remove('border-transparent', 'text-gray-600');
+            activeTab.classList.add('border-blue-500', 'text-blue-600');
+            
+            // Load tab-specific data
+            if (tab === 'report') {
+                loadMinMaxReport();
+            } else if (tab === 'orders') {
+                loadOrders();
+            } else if (tab === 'settings') {
+                loadCampSettings();
+                updateConsumptionOverview();
+            }
+        }
+        
+        // Load locations
+        async function loadLocations() {
+            try {
+                const response = await axios.get(`${API_URL}/locations`);
+                locations = response.data;
+                
+                // Update location selects
+                updateLocationSelects();
+            } catch (error) {
+                console.error('Error loading locations:', error);
+            }
+        }
+        
+        // Load items
+        async function loadItems() {
+            try {
+                const response = await axios.get(`${API_URL}/items`);
+                items = response.data;
+                
+                // Update item select
+                const itemSelect = document.getElementById('usage-item');
+                itemSelect.innerHTML = '<option value="">-- Select Item --</option>';
+                items.forEach(item => {
+                    itemSelect.innerHTML += `<option value="${item._id}">${item.name} (${item.currentQuantity} ${item.unit})</option>`;
+                });
+            } catch (error) {
+                console.error('Error loading items:', error);
+            }
+        }
+        
+        // Update location select elements
+        function updateLocationSelects() {
+            const selects = ['location-select', 'usage-location'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">-- Select Location --</option>';
+                locations.forEach(location => {
+                    select.innerHTML += `<option value="${location._id}">${location.name} (${location.type})</option>`;
+                });
+            });
+        }
+        
+        // Load items for selected location
+        async function loadLocationItems() {
+            const locationId = document.getElementById('location-select').value;
+            if (!locationId) {
+                document.getElementById('count-sheet-area').style.display = 'none';
+                return;
+            }
+            
+            const selectedLocation = locations.find(l => l._id === locationId);
+            document.getElementById('print-location').textContent = selectedLocation.name;
+            document.getElementById('print-date').textContent = new Date().toLocaleDateString();
+            
+            // Filter items for this location
+            const locationItems = items.filter(item => 
+                item.locations && item.locations.some(loc => loc.locationId === locationId)
+            );
+            
+            // Build count sheet table
+            const tbody = document.getElementById('count-items');
+            tbody.innerHTML = '';
+            
+            locationItems.forEach(item => {
+                const locationData = item.locations.find(loc => loc.locationId === locationId);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="border p-2">${item.name}</td>
+                    <td class="border p-2">${item.category}</td>
+                    <td class="border p-2 text-center">${item.unit}</td>
+                    <td class="border p-2 text-center">${locationData?.quantity || 0}</td>
+                    <td class="border p-2 text-center">
+                        <input type="number" class="count-input w-20 px-2 py-1 border rounded" 
+                               data-item-id="${item._id}" 
+                               data-system-qty="${locationData?.quantity || 0}">
+                    </td>
+                    <td class="border p-2 text-center variance">-</td>
+                `;
+                tbody.appendChild(row);
+                
+                // Add change event to calculate variance
+                const input = row.querySelector('.count-input');
+                input.addEventListener('input', (e) => {
+                    const counted = parseInt(e.target.value) || 0;
+                    const system = parseInt(e.target.dataset.systemQty);
+                    const variance = counted - system;
+                    row.querySelector('.variance').textContent = variance;
+                    row.querySelector('.variance').style.color = variance !== 0 ? 'red' : 'black';
+                });
+            });
+            
+            document.getElementById('count-sheet-area').style.display = 'block';
+        }
+        
+        // Print count sheet
+        function printCountSheet() {
+            const countedBy = document.getElementById('counted-by').value;
+            document.getElementById('print-counted-by').textContent = countedBy || '_________________';
+            window.print();
+        }
+        
+        // Submit count
+        async function submitCount() {
+            const locationId = document.getElementById('location-select').value;
+            const countedBy = document.getElementById('counted-by').value;
+            
+            if (!countedBy) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            const items = [];
+            document.querySelectorAll('.count-input').forEach(input => {
+                if (input.value) {
+                    items.push({
+                        inventoryItem: input.dataset.itemId,
+                        systemQuantity: parseInt(input.dataset.systemQty),
+                        countedQuantity: parseInt(input.value) || 0
+                    });
+                }
+            });
+            
+            try {
+                await axios.post(`${API_URL}/count-sheets`, {
+                    location: locationId,
+                    countedBy,
+                    status: 'Completed',
+                    items
+                });
+                
+                alert('Count sheet submitted successfully!');
+                document.getElementById('counted-by').value = '';
+                document.getElementById('location-select').value = '';
+                document.getElementById('count-sheet-area').style.display = 'none';
+                loadItems(); // Refresh items
+            } catch (error) {
+                console.error('Error submitting count:', error);
+                alert('Error submitting count sheet');
+            }
+        }
+        
+        // Record usage
+        async function recordUsage(event) {
+            event.preventDefault();
+            
+            const data = {
+                inventoryItem: document.getElementById('usage-item').value,
+                location: document.getElementById('usage-location').value,
+                quantity: parseInt(document.getElementById('usage-quantity').value),
+                type: 'Usage',
+                takenBy: document.getElementById('usage-taken-by').value,
+                reason: document.getElementById('usage-reason').value
+            };
+            
+            try {
+                await axios.post(`${API_URL}/usage`, data);
+                alert('Usage recorded successfully!');
+                
+                // Reset form
+                event.target.reset();
+                loadItems(); // Refresh items
+            } catch (error) {
+                console.error('Error recording usage:', error);
+                alert('Error recording usage');
+            }
+        }
+        
+        // Load min/max report
+        async function loadMinMaxReport() {
+            try {
+                const response = await axios.get(`${API_URL}/reports/min-max`);
+                const report = response.data;
+                
+                // Update summary
+                const summary = document.getElementById('report-summary');
+                const belowMin = report.filter(i => i.status === 'Below Min').length;
+                const aboveMax = report.filter(i => i.status === 'Above Max').length;
+                const needsOrder = report.filter(i => i.orderQuantity > 0).length;
+                
+                summary.innerHTML = `
+                    <div class="bg-gray-100 p-4 rounded text-center">
+                        <h3 class="font-bold text-lg">${report.length}</h3>
+                        <p class="text-sm text-gray-600">Total Items</p>
+                    </div>
+                    <div class="bg-red-100 p-4 rounded text-center">
+                        <h3 class="font-bold text-lg text-red-600">${belowMin}</h3>
+                        <p class="text-sm text-red-600">Below Minimum</p>
+                    </div>
+                    <div class="bg-yellow-100 p-4 rounded text-center">
+                        <h3 class="font-bold text-lg text-yellow-600">${aboveMax}</h3>
+                        <p class="text-sm text-yellow-600">Above Maximum</p>
+                    </div>
+                    <div class="bg-blue-100 p-4 rounded text-center">
+                        <h3 class="font-bold text-lg text-blue-600">${needsOrder}</h3>
+                        <p class="text-sm text-blue-600">Need Ordering</p>
+                    </div>
+                `;
+                
+                // Store report data
+                window.reportData = report;
+                filterReport();
+            } catch (error) {
+                console.error('Error loading report:', error);
+            }
+        }
+        
+        // Filter report
+        function filterReport() {
+            const filter = document.getElementById('report-filter').value;
+            let filtered = window.reportData || [];
+            
+            if (filter === 'below-min') {
+                filtered = filtered.filter(i => i.status === 'Below Min');
+            } else if (filter === 'above-max') {
+                filtered = filtered.filter(i => i.status === 'Above Max');
+            } else if (filter === 'needs-order') {
+                filtered = filtered.filter(i => i.orderQuantity > 0);
+            }
+            
+            const tbody = document.getElementById('report-items');
+            tbody.innerHTML = '';
+            
+            filtered.forEach(item => {
+                const row = document.createElement('tr');
+                const statusClass = item.status === 'Below Min' ? 'bg-red-50' : 
+                                   item.status === 'Above Max' ? 'bg-yellow-50' : '';
+                row.className = statusClass;
+                
+                row.innerHTML = `
+                    <td class="border p-2">${item.name}</td>
+                    <td class="border p-2">${item.category}</td>
+                    <td class="border p-2 text-center">${item.currentQuantity}</td>
+                    <td class="border p-2 text-center">${item.minQuantity}</td>
+                    <td class="border p-2 text-center">${item.maxQuantity}</td>
+                    <td class="border p-2 text-center">
+                        <span class="px-2 py-1 rounded text-xs ${
+                            item.status === 'Below Min' ? 'bg-red-200 text-red-800' :
+                            item.status === 'Above Max' ? 'bg-yellow-200 text-yellow-800' :
+                            'bg-green-200 text-green-800'
+                        }">${item.status}</span>
+                    </td>
+                    <td class="border p-2 text-center">${item.orderQuantity > 0 ? item.orderQuantity : '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Generate order
+        async function generateOrder() {
+            const createdBy = prompt('Enter your name:');
+            if (!createdBy) return;
+            
+            try {
+                const response = await axios.post(`${API_URL}/orders/generate`, { createdBy });
+                if (response.data.message) {
+                    alert(response.data.message);
+                } else {
+                    alert(`Order ${response.data.orderNumber} created successfully!`);
+                    loadOrders();
+                }
+            } catch (error) {
+                console.error('Error generating order:', error);
+                alert('Error generating order');
+            }
+        }
+        
+        // Export report to CSV
+        function exportReport() {
+            const data = window.reportData || [];
+            const csv = [
+                ['Item Name', 'Category', 'Current Qty', 'Min Qty', 'Max Qty', 'Status', 'Order Qty'],
+                ...data.map(item => [
+                    item.name,
+                    item.category,
+                    item.currentQuantity,
+                    item.minQuantity,
+                    item.maxQuantity,
+                    item.status,
+                    item.orderQuantity
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inventory-report-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+        
+        // Load orders
+        async function loadOrders() {
+            try {
+                const response = await axios.get(`${API_URL}/orders`);
+                const orders = response.data;
+                
+                const orderList = document.getElementById('order-list');
+                orderList.innerHTML = '';
+                
+                orders.forEach(order => {
+                    const card = document.createElement('div');
+                    card.className = 'p-3 border rounded cursor-pointer hover:bg-gray-50';
+                    card.onclick = () => showOrderDetails(order);
+                    
+                    const statusColors = {
+                        'Draft': 'bg-gray-200 text-gray-800',
+                        'Pending': 'bg-yellow-200 text-yellow-800',
+                        'Submitted': 'bg-blue-200 text-blue-800',
+                        'Delivered': 'bg-green-200 text-green-800'
+                    };
+                    
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-sm">${order.orderNumber}</span>
+                            <span class="text-xs px-2 py-1 rounded ${statusColors[order.status] || ''}">${order.status}</span>
+                        </div>
+                        <p class="text-xs text-gray-600">Supplier: ${order.supplier}</p>
+                        <p class="text-xs text-gray-600">Date: ${new Date(order.orderDate).toLocaleDateString()}</p>
+                        <p class="text-xs text-gray-600">Items: ${order.items.length}</p>
+                        <p class="text-sm font-bold mt-1">$${order.totalAmount.toFixed(2)}</p>
+                    `;
+                    orderList.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+        
+        // Show order details
+        function showOrderDetails(order) {
+            currentOrder = order;
+            const details = document.getElementById('order-details');
+            
+            details.innerHTML = `
+                <div class="mb-4 flex justify-between items-start">
+                    <h2 class="text-xl font-bold">Order ${order.orderNumber}</h2>
+                    <button onclick="window.print()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 no-print">
+                        Print Order
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded">
+                    <div>
+                        <p class="text-sm text-gray-600">Supplier:</p>
+                        <p class="font-bold">${order.supplier}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Order Date:</p>
+                        <p class="font-bold">${new Date(order.orderDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Status:</p>
+                        <p class="font-bold">${order.status}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Created By:</p>
+                        <p class="font-bold">${order.createdBy}</p>
+                    </div>
+                </div>
+                
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border p-2 text-left">Item Name</th>
+                            <th class="border p-2 text-center">Current Stock</th>
+                            <th class="border p-2 text-center">Order Quantity</th>
+                            <th class="border p-2 text-center">Unit Price</th>
+                            <th class="border p-2 text-center">Total Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${order.items.map(item => `
+                            <tr>
+                                <td class="border p-2">${item.inventoryItem?.name || 'Unknown'}</td>
+                                <td class="border p-2 text-center">${item.currentQuantity}</td>
+                                <td class="border p-2 text-center font-bold">${item.orderQuantity}</td>
+                                <td class="border p-2 text-center">$${item.unitPrice.toFixed(2)}</td>
+                                <td class="border p-2 text-center">$${item.totalPrice.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="border p-2 text-right font-bold">Total Amount:</td>
+                            <td class="border p-2 text-center font-bold text-lg">$${order.totalAmount.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+        }
+        
+        // Add location
+        async function addLocation(event) {
+            event.preventDefault();
+            
+            const data = {
+                name: document.getElementById('location-name').value,
+                code: document.getElementById('location-code').value.toUpperCase(),
+                type: document.getElementById('location-type').value
+            };
+            
+            try {
+                await axios.post(`${API_URL}/locations`, data);
+                alert('Location added successfully!');
+                event.target.reset();
+                loadLocations();
+            } catch (error) {
+                console.error('Error adding location:', error);
+                alert('Error adding location');
+            }
+        }
+        
+        // Add item
+        async function addItem(event) {
+            event.preventDefault();
+            
+            const data = {
+                name: document.getElementById('item-name').value,
+                category: document.getElementById('item-category').value,
+                unit: document.getElementById('item-unit').value,
+                minQuantity: parseInt(document.getElementById('item-min').value),
+                maxQuantity: parseInt(document.getElementById('item-max').value),
+                reorderPoint: parseInt(document.getElementById('item-reorder').value),
+                currentQuantity: 0
+            };
+            
+            try {
+                await axios.post(`${API_URL}/items`, data);
+                alert('Item added successfully!');
+                event.target.reset();
+                loadItems();
+            } catch (error) {
+                console.error('Error adding item:', error);
+                alert('Error adding item');
+            }
+        }
+        
+        // Load camp settings
+        async function loadCampSettings() {
+            try {
+                const response = await axios.get(`${API_URL}/settings`);
+                campSettings = response.data;
+                
+                // Update form fields
+                document.getElementById('current-occupancy').value = campSettings.currentOccupancy || 250;
+                document.getElementById('max-capacity').value = campSettings.maxCapacity || 400;
+                document.getElementById('rotation-schedule').value = campSettings.rotationSchedule || '2 on 2 off';
+                document.getElementById('last-updated').textContent = new Date(campSettings.lastUpdated).toLocaleString();
+                document.getElementById('updated-by').textContent = campSettings.updatedBy || 'System';
+                
+                // Update header display
+                document.getElementById('occupancy-display').textContent = 
+                    `${campSettings.currentOccupancy || 250} people on site`;
+                
+                // Update calc item dropdown
+                const calcSelect = document.getElementById('calc-item');
+                calcSelect.innerHTML = '<option value="">Select item...</option>';
+                items.forEach(item => {
+                    calcSelect.innerHTML += `<option value="${item._id}">${item.name}</option>`;
+                });
+                
+            } catch (error) {
+                console.error('Error loading camp settings:', error);
+            }
+        }
+        
+        // Update camp settings
+        async function updateCampSettings(event) {
+            event.preventDefault();
+            
+            const updatedBy = prompt('Enter your name:') || 'Camp Manager';
+            
+            const data = {
+                currentOccupancy: parseInt(document.getElementById('current-occupancy').value),
+                maxCapacity: parseInt(document.getElementById('max-capacity').value),
+                rotationSchedule: document.getElementById('rotation-schedule').value,
+                updatedBy: updatedBy
+            };
+            
+            try {
+                const response = await axios.put(`${API_URL}/settings`, data);
+                campSettings = response.data;
+                
+                alert('Camp settings updated successfully!');
+                
+                // Update header display
+                document.getElementById('occupancy-display').textContent = 
+                    `${campSettings.currentOccupancy} people on site`;
+                
+                // Update last updated info
+                document.getElementById('last-updated').textContent = new Date(campSettings.lastUpdated).toLocaleString();
+                document.getElementById('updated-by').textContent = campSettings.updatedBy;
+                
+                updateConsumptionOverview();
+                
+            } catch (error) {
+                console.error('Error updating settings:', error);
+                alert('Error updating camp settings');
+            }
+        }
+        
+        // Update consumption overview
+        function updateConsumptionOverview() {
+            const people = campSettings.currentOccupancy || 250;
+            
+            // Calculate daily consumption estimates
+            const dailyBeef = Math.round(people * 0.25 * 10) / 10; // 1/4 lb per person
+            const dailyMilk = Math.round(people * 0.02 * 10) / 10; // ~1/50 gallon per person
+            const dailyBread = Math.round(people * 0.5 * 10) / 10; // 1/2 loaf per person
+            const weeklyTotal = Math.round((dailyBeef + dailyMilk + dailyBread) * 7 * 10) / 10;
+            
+            document.getElementById('daily-beef').textContent = `${dailyBeef} lbs`;
+            document.getElementById('daily-milk').textContent = `${dailyMilk} gal`;
+            document.getElementById('daily-bread').textContent = `${dailyBread} loaves`;
+            document.getElementById('weekly-total').textContent = `${weeklyTotal} units`;
+        }
+        
+        // Calculate consumption for specific item
+        async function calculateConsumption() {
+            const itemId = document.getElementById('calc-item').value;
+            const days = document.getElementById('calc-days').value;
+            
+            if (!itemId || !days) {
+                alert('Please select an item and enter number of days');
+                return;
+            }
+            
+            try {
+                const response = await axios.get(`${API_URL}/consumption-calc/${itemId}?days=${days}`);
+                const calc = response.data;
+                
+                const resultDiv = document.getElementById('consumption-result');
+                resultDiv.innerHTML = `
+                    <h4 class="font-bold mb-2">${calc.itemName} - ${days} Day Planning</h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p><strong>Current People:</strong> ${calc.currentOccupancy}</p>
+                            <p><strong>Daily Usage:</strong> ${calc.estimatedDailyUsage} ${items.find(i => i._id === itemId)?.unit || 'units'}</p>
+                            <p><strong>Total Needed:</strong> ${calc.totalNeededForPeriod} ${items.find(i => i._id === itemId)?.unit || 'units'}</p>
+                        </div>
+                        <div>
+                            <p><strong>Current Stock:</strong> ${calc.currentStock}</p>
+                            <p><strong>Days Remaining:</strong> ${calc.daysRemaining} days</p>
+                            <p class="${calc.status === 'NEEDS_ORDER' ? 'text-red-600 font-bold' : 'text-green-600'}">
+                                <strong>Status:</strong> ${calc.status === 'NEEDS_ORDER' ? 'NEEDS ORDER' : 'SUFFICIENT'}
+                            </p>
+                        </div>
+                    </div>
+                    ${calc.shortfall > 0 ? `<p class="mt-2 p-2 bg-red-100 text-red-800 rounded"><strong>Shortfall:</strong> Need ${calc.shortfall} more ${items.find(i => i._id === itemId)?.unit || 'units'}</p>` : ''}
+                `;
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error calculating consumption:', error);
+                alert('Error calculating consumption');
+            }
+        }
+        
+        // Parse order text
+        function parseOrderText() {
+            const orderText = document.getElementById('order-text').value.trim();
+            if (!orderText) {
+                alert('Please paste your order text first');
+                return;
+            }
+            
+            importedOrder = [];
+            const lines = orderText.split('\n');
+            
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                
+                // Try to parse different formats
+                let match;
+                
+                // Format: "Item Name - 123 units" or "Item Name: 123 units"
+                match = line.match(/^(.+?)[\-:]?\s*(\d+(?:\.\d+)?)\s*(.*)$/);
+                if (match) {
+                    const itemName = match[1].trim();
+                    const quantity = parseFloat(match[2]);
+                    const unit = match[3].trim() || 'units';
+                    
+                    if (itemName && quantity > 0) {
+                        importedOrder.push({
+                            name: itemName,
+                            quantity: quantity,
+                            unit: unit,
+                            source: 'pasted'
+                        });
+                    }
+                }
+            });
+            
+            if (importedOrder.length === 0) {
+                alert('Could not parse any items from the text. Try format:\nItem Name - 100 units');
+                return;
+            }
+            
+            analyzeImportedOrder();
+        }
+        
+        // Upload and extract PDF
+        async function uploadPDF() {
+            const fileInput = document.getElementById('pdf-upload');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a PDF file first');
+                return;
+            }
+            
+            if (file.type !== 'application/pdf') {
+                alert('Please select a PDF file');
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File too large. Please select a file under 10MB');
+                return;
+            }
+            
+            // For demo purposes, simulate PDF extraction
+            alert('PDF extraction is simulated for demo. In production, this would extract text from the PDF and parse order items.');
+            
+            // Simulate extracted items
+            importedOrder = [
+                { name: 'Ground Beef', quantity: 150, unit: 'lbs', source: 'pdf' },
+                { name: 'Chicken Breast', quantity: 80, unit: 'lbs', source: 'pdf' },
+                { name: 'Milk', quantity: 60, unit: 'gallons', source: 'pdf' },
+                { name: 'Bread', quantity: 40, unit: 'loaves', source: 'pdf' },
+                { name: 'Rice', quantity: 25, unit: 'lbs', source: 'pdf' }
+            ];
+            
+            analyzeImportedOrder();
+        }
+        
+        // Add manual item
+        function addManualItem() {
+            const itemName = document.getElementById('manual-item').value.trim();
+            const quantity = parseFloat(document.getElementById('manual-qty').value);
+            
+            if (!itemName || !quantity || quantity <= 0) {
+                alert('Please enter valid item name and quantity');
+                return;
+            }
+            
+            const item = {
+                name: itemName,
+                quantity: quantity,
+                unit: 'units',
+                source: 'manual'
+            };
+            
+            manualOrderItems.push(item);
+            
+            // Add to display
+            const manualDiv = document.getElementById('manual-items');
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'flex justify-between items-center bg-white p-2 rounded text-sm';
+            itemDiv.innerHTML = `
+                <span>${itemName} - ${quantity} units</span>
+                <button onclick="removeManualItem(${manualOrderItems.length - 1})" class="text-red-600 hover:text-red-800">×</button>
+            `;
+            manualDiv.appendChild(itemDiv);
+            
+            // Clear inputs
+            document.getElementById('manual-item').value = '';
+            document.getElementById('manual-qty').value = '';
+            
+            // Update imported order and analyze
+            importedOrder = [...importedOrder.filter(i => i.source !== 'manual'), ...manualOrderItems];
+            if (importedOrder.length > 0) {
+                analyzeImportedOrder();
+            }
+        }
+        
+        // Remove manual item
+        function removeManualItem(index) {
+            manualOrderItems.splice(index, 1);
+            
+            // Rebuild manual items display
+            const manualDiv = document.getElementById('manual-items');
+            manualDiv.innerHTML = '';
+            manualOrderItems.forEach((item, i) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex justify-between items-center bg-white p-2 rounded text-sm';
+                itemDiv.innerHTML = `
+                    <span>${item.name} - ${item.quantity} units</span>
+                    <button onclick="removeManualItem(${i})" class="text-red-600 hover:text-red-800">×</button>
+                `;
+                manualDiv.appendChild(itemDiv);
+            });
+            
+            // Update imported order and analyze
+            importedOrder = [...importedOrder.filter(i => i.source !== 'manual'), ...manualOrderItems];
+            if (importedOrder.length > 0) {
+                analyzeImportedOrder();
+            } else {
+                document.getElementById('order-analysis').style.display = 'none';
+                document.getElementById('order-comparison').innerHTML = '<p class="text-gray-500 text-center py-8">Import an order to see comparison with current inventory</p>';
+            }
+        }
+        
+        // Analyze imported order against current inventory
+        function analyzeImportedOrder() {
+            if (importedOrder.length === 0) return;
+            
+            let matched = 0;
+            let overstocked = 0;
+            let newItems = 0;
+            
+            const analysisData = importedOrder.map(orderItem => {
+                // Try to find matching inventory item (fuzzy matching)
+                const inventoryItem = items.find(item => 
+                    item.name.toLowerCase().includes(orderItem.name.toLowerCase()) ||
+                    orderItem.name.toLowerCase().includes(item.name.toLowerCase())
+                );
+                
+                let status, recommendation, afterOrder = 0;
+                
+                if (inventoryItem) {
+                    matched++;
+                    afterOrder = inventoryItem.currentQuantity + orderItem.quantity;
+                    
+                    if (inventoryItem.currentQuantity >= inventoryItem.maxQuantity) {
+                        status = 'OVERSTOCKED';
+                        recommendation = 'Already have enough - consider reducing order';
+                        overstocked++;
+                    } else if (inventoryItem.currentQuantity < inventoryItem.minQuantity) {
+                        status = 'NEEDED';
+                        recommendation = 'Good - item below minimum level';
+                    } else if (afterOrder > inventoryItem.maxQuantity) {
+                        status = 'WILL_OVERSTOCK';
+                        recommendation = `Reduce to ${inventoryItem.maxQuantity - inventoryItem.currentQuantity} to avoid overstocking`;
+                    } else {
+                        status = 'GOOD';
+                        recommendation = 'Order quantity looks good';
+                    }
+                } else {
+                    status = 'NEW_ITEM';
+                    recommendation = 'Not in current inventory - add to system first';
+                    newItems++;
+                }
+                
+                return {
+                    orderItem,
+                    inventoryItem,
+                    status,
+                    recommendation,
+                    afterOrder
+                };
+            });
+            
+            // Update summary stats
+            document.getElementById('total-items').textContent = importedOrder.length;
+            document.getElementById('matched-items').textContent = matched;
+            document.getElementById('overstocked-items').textContent = overstocked;
+            document.getElementById('new-items').textContent = newItems;
+            
+            // Build analysis table
+            const tbody = document.getElementById('order-analysis-table');
+            tbody.innerHTML = '';
+            
+            analysisData.forEach(data => {
+                const row = document.createElement('tr');
+                const statusColors = {
+                    'NEEDED': 'bg-green-100 text-green-800',
+                    'GOOD': 'bg-blue-100 text-blue-800',
+                    'OVERSTOCKED': 'bg-yellow-100 text-yellow-800',
+                    'WILL_OVERSTOCK': 'bg-orange-100 text-orange-800',
+                    'NEW_ITEM': 'bg-red-100 text-red-800'
+                };
+                
+                row.innerHTML = `
+                    <td class="border p-2">${data.orderItem.name}</td>
+                    <td class="border p-2 text-center">${data.orderItem.quantity} ${data.orderItem.unit}</td>
+                    <td class="border p-2 text-center">${data.inventoryItem ? data.inventoryItem.currentQuantity : 'N/A'}</td>
+                    <td class="border p-2 text-center">${data.inventoryItem ? data.afterOrder : 'N/A'}</td>
+                    <td class="border p-2 text-center">
+                        <span class="px-2 py-1 rounded text-xs ${statusColors[data.status] || 'bg-gray-100'}">${data.status.replace('_', ' ')}</span>
+                    </td>
+                    <td class="border p-2 text-sm">${data.recommendation}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // Update quick comparison view
+            const comparisonDiv = document.getElementById('order-comparison');
+            comparisonDiv.innerHTML = analysisData.slice(0, 5).map(data => `
+                <div class="flex justify-between items-center p-2 bg-white rounded border">
+                    <span class="font-medium">${data.orderItem.name}</span>
+                    <div class="text-sm">
+                        <span class="text-blue-600">Order: ${data.orderItem.quantity}</span>
+                        <span class="mx-2">|</span>
+                        <span class="text-gray-600">Stock: ${data.inventoryItem ? data.inventoryItem.currentQuantity : 'N/A'}</span>
+                    </div>
+                </div>
+            `).join('') + (analysisData.length > 5 ? `<p class="text-center text-gray-500 text-sm">+ ${analysisData.length - 5} more items</p>` : '');
+            
+            // Show analysis section
+            document.getElementById('order-analysis').style.display = 'block';
+        }
+        
+        // Print order comparison
+        function printOrderComparison() {
+            window.print();
+        }
+        
+        // Save imported order as system order
+        async function saveImportedOrder() {
+            if (importedOrder.length === 0) {
+                alert('No order to save');
+                return;
+            }
+            
+            const createdBy = prompt('Enter your name:') || 'Order Import';
+            const supplier = prompt('Enter supplier name:') || 'Imported Order';
+            
+            try {
+                const orderData = {
+                    supplier: supplier,
+                    createdBy: createdBy,
+                    items: importedOrder.map(orderItem => {
+                        const inventoryItem = items.find(item => 
+                            item.name.toLowerCase().includes(orderItem.name.toLowerCase()) ||
+                            orderItem.name.toLowerCase().includes(item.name.toLowerCase())
+                        );
+                        
+                        return {
+                            inventoryItem: inventoryItem?._id,
+                            currentQuantity: inventoryItem?.currentQuantity || 0,
+                            orderQuantity: orderItem.quantity,
+                            unitPrice: 0,
+                            totalPrice: 0
+                        };
+                    }).filter(item => item.inventoryItem) // Only save items that match inventory
+                };
+                
+                const response = await axios.post(`${API_URL}/orders/manual`, orderData);
+                alert(`Order saved successfully as ${response.data.orderNumber || 'new order'}!`);
+                
+                // Clear imported order
+                importedOrder = [];
+                manualOrderItems = [];
+                document.getElementById('order-text').value = '';
+                document.getElementById('manual-items').innerHTML = '';
+                document.getElementById('order-analysis').style.display = 'none';
+                document.getElementById('order-comparison').innerHTML = '<p class="text-gray-500 text-center py-8">Import an order to see comparison with current inventory</p>';
+                
+            } catch (error) {
+                console.error('Error saving order:', error);
+                alert('Error saving order');
+            }
+        }
+        
+        // Export order comparison to CSV
+        function exportOrderComparison() {
+            if (importedOrder.length === 0) {
+                alert('No order data to export');
+                return;
+            }
+            
+            const analysisData = importedOrder.map(orderItem => {
+                const inventoryItem = items.find(item => 
+                    item.name.toLowerCase().includes(orderItem.name.toLowerCase()) ||
+                    orderItem.name.toLowerCase().includes(item.name.toLowerCase())
+                );
+                
+                return [
+                    orderItem.name,
+                    orderItem.quantity,
+                    orderItem.unit,
+                    inventoryItem ? inventoryItem.currentQuantity : 'N/A',
+                    inventoryItem ? inventoryItem.currentQuantity + orderItem.quantity : 'N/A',
+                    inventoryItem ? 'MATCHED' : 'NEW_ITEM'
+                ];
+            });
+            
+            const csv = [
+                ['Item Name', 'Order Qty', 'Unit', 'Current Stock', 'After Order', 'Status'],
+                ...analysisData
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `order-comparison-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+        
+        // Load historical orders
+        function loadHistoricalOrders() {
+            // Load from localStorage for persistence
+            const saved = localStorage.getItem('historicalOrders');
+            if (saved) {
+                historicalOrders = JSON.parse(saved);
+                updateHistoricalOrdersList();
+                analyzeHistoricalData();
+            }
+        }
+        
+        // Save historical orders to localStorage
+        function saveHistoricalOrders() {
+            localStorage.setItem('historicalOrders', JSON.stringify(historicalOrders));
+        }
+        
+        // Add historical item to current order
+        function addHistoricalItem() {
+            const name = document.getElementById('hist-item-name').value.trim();
+            const qty = parseFloat(document.getElementById('hist-item-qty').value);
+            
+            if (!name || !qty || qty <= 0) {
+                alert('Please enter valid item name and quantity');
+                return;
+            }
+            
+            const item = { name, quantity: qty };
+            currentHistoricalItems.push(item);
+            
+            // Update display
+            const listDiv = document.getElementById('hist-items-list');
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'flex justify-between items-center bg-white p-1 rounded text-xs';
+            itemDiv.innerHTML = `
+                <span>${name}: ${qty}</span>
+                <button onclick="removeHistoricalItem(${currentHistoricalItems.length - 1})" class="text-red-600 hover:text-red-800">×</button>
+            `;
+            listDiv.appendChild(itemDiv);
+            
+            // Clear inputs
+            document.getElementById('hist-item-name').value = '';
+            document.getElementById('hist-item-qty').value = '';
+        }
+        
+        // Remove historical item
+        function removeHistoricalItem(index) {
+            currentHistoricalItems.splice(index, 1);
+            
+            // Rebuild list
+            const listDiv = document.getElementById('hist-items-list');
+            listDiv.innerHTML = '';
+            currentHistoricalItems.forEach((item, i) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex justify-between items-center bg-white p-1 rounded text-xs';
+                itemDiv.innerHTML = `
+                    <span>${item.name}: ${item.quantity}</span>
+                    <button onclick="removeHistoricalItem(${i})" class="text-red-600 hover:text-red-800">×</button>
+                `;
+                listDiv.appendChild(itemDiv);
+            });
+        }
+        
+        // Add historical order
+        function addHistoricalOrder(event) {
+            event.preventDefault();
+            
+            if (currentHistoricalItems.length === 0) {
+                alert('Please add at least one item to the order');
+                return;
+            }
+            
+            const order = {
+                id: Date.now(),
+                date: document.getElementById('hist-date').value,
+                supplier: document.getElementById('hist-supplier').value || 'Unknown Supplier',
+                people: parseInt(document.getElementById('hist-people').value) || 250,
+                duration: parseInt(document.getElementById('hist-duration').value),
+                items: [...currentHistoricalItems],
+                addedAt: new Date().toISOString()
+            };
+            
+            historicalOrders.push(order);
+            saveHistoricalOrders();
+            
+            // Reset form
+            event.target.reset();
+            currentHistoricalItems = [];
+            document.getElementById('hist-items-list').innerHTML = '';
+            
+            // Update displays
+            updateHistoricalOrdersList();
+            analyzeHistoricalData();
+            
+            alert('Historical order added successfully!');
+        }
+        
+        // Update historical orders list
+        function updateHistoricalOrdersList() {
+            const listDiv = document.getElementById('historical-orders-list');
+            
+            if (historicalOrders.length === 0) {
+                listDiv.innerHTML = '<p class="text-gray-500 text-center py-4">No historical orders yet</p>';
+                return;
+            }
+            
+            // Sort by date (newest first)
+            const sortedOrders = historicalOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            listDiv.innerHTML = sortedOrders.map(order => `
+                <div class="bg-white p-3 rounded border">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-medium text-sm">${new Date(order.date).toLocaleDateString()}</span>
+                        <button onclick="deleteHistoricalOrder('${order.id}')" class="text-red-600 hover:text-red-800 text-xs">Delete</button>
+                    </div>
+                    <p class="text-xs text-gray-600">${order.supplier}</p>
+                    <p class="text-xs text-gray-600">${order.people} people, ${order.duration} days</p>
+                    <p class="text-xs text-gray-600">${order.items.length} items</p>
+                </div>
+            `).join('');
+        }
+        
+        // Delete historical order
+        function deleteHistoricalOrder(orderId) {
+            if (confirm('Delete this historical order?')) {
+                historicalOrders = historicalOrders.filter(order => order.id != orderId);
+                saveHistoricalOrders();
+                updateHistoricalOrdersList();
+                analyzeHistoricalData();
+            }
+        }
+        
+        // Analyze historical data and generate recommendations
+        function analyzeHistoricalData() {
+            if (historicalOrders.length === 0) {
+                document.getElementById('consumption-analysis').innerHTML = 
+                    '<p class="text-gray-500 text-center py-4">Add historical orders to see AI analysis</p>';
+                document.getElementById('minmax-recommendations').style.display = 'none';
+                return;
+            }
+            
+            // Calculate consumption patterns
+            const itemConsumption = {};
+            let totalPeopleDays = 0;
+            
+            historicalOrders.forEach(order => {
+                const peopleDays = order.people * order.duration;
+                totalPeopleDays += peopleDays;
+                
+                order.items.forEach(item => {
+                    if (!itemConsumption[item.name]) {
+                        itemConsumption[item.name] = {
+                            totalQuantity: 0,
+                            totalPeopleDays: 0,
+                            orders: 0,
+                            unit: 'units'
+                        };
+                    }
+                    
+                    itemConsumption[item.name].totalQuantity += item.quantity;
+                    itemConsumption[item.name].totalPeopleDays += peopleDays;
+                    itemConsumption[item.name].orders++;
+                });
+            });
+            
+            // Calculate usage per person per day and generate recommendations
+            aiRecommendations = [];
+            Object.keys(itemConsumption).forEach(itemName => {
+                const consumption = itemConsumption[itemName];
+                const usagePerPersonPerDay = consumption.totalQuantity / consumption.totalPeopleDays;
+                const weeklyUsageFor250 = usagePerPersonPerDay * 250 * 7; // For 250 people for 1 week
+                
+                // Find matching inventory item
+                const inventoryItem = items.find(item => 
+                    item.name.toLowerCase().includes(itemName.toLowerCase()) ||
+                    itemName.toLowerCase().includes(item.name.toLowerCase())
+                );
+                
+                // Calculate recommended min/max for 1-week ordering cycle
+                const recommendedMin = Math.ceil(weeklyUsageFor250 * 0.5); // 3.5 days buffer
+                const recommendedMax = Math.ceil(weeklyUsageFor250 * 2); // 2 weeks supply (for 1-week orders)
+                const confidence = Math.min(95, 60 + (consumption.orders * 10)); // Higher confidence with more data
+                
+                aiRecommendations.push({
+                    itemName,
+                    inventoryItem,
+                    currentMin: inventoryItem?.minQuantity || 0,
+                    currentMax: inventoryItem?.maxQuantity || 0,
+                    recommendedMin,
+                    recommendedMax,
+                    weeklyUsage: Math.round(weeklyUsageFor250 * 10) / 10,
+                    confidence,
+                    ordersAnalyzed: consumption.orders,
+                    usagePerPersonPerDay: Math.round(usagePerPersonPerDay * 1000) / 1000
+                });
+            });
+            
+            // Update analysis display
+            const analysisDiv = document.getElementById('consumption-analysis');
+            const topItems = Object.keys(itemConsumption).slice(0, 5);
+            
+            analysisDiv.innerHTML = `
+                <div class="space-y-2">
+                    <h4 class="font-medium">Consumption Patterns:</h4>
+                    ${topItems.map(itemName => {
+                        const consumption = itemConsumption[itemName];
+                        const weeklyFor250 = (consumption.totalQuantity / consumption.totalPeopleDays) * 250 * 7;
+                        return `
+                            <div class="bg-white p-2 rounded text-sm">
+                                <div class="font-medium">${itemName}</div>
+                                <div class="text-gray-600">${Math.round(weeklyFor250 * 10) / 10} per week (250 people)</div>
+                                <div class="text-gray-500 text-xs">${consumption.orders} orders analyzed</div>
+                            </div>
+                        `;
+                    }).join('')}
+                    <div class="text-center mt-3">
+                        <button onclick="generateRecommendations()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">
+                            Generate AI Recommendations
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Generate and display recommendations
+        function generateRecommendations() {
+            if (aiRecommendations.length === 0) {
+                alert('No data to analyze. Add more historical orders.');
+                return;
+            }
+            
+            // Update summary stats
+            const avgConfidence = Math.round(aiRecommendations.reduce((sum, rec) => sum + rec.confidence, 0) / aiRecommendations.length);
+            const monthsOfData = Math.ceil((Date.now() - new Date(Math.min(...historicalOrders.map(o => new Date(o.date))))) / (1000 * 60 * 60 * 24 * 30));
+            
+            document.getElementById('analyzed-items').textContent = aiRecommendations.length;
+            document.getElementById('confidence-score').textContent = avgConfidence + '%';
+            document.getElementById('orders-analyzed').textContent = historicalOrders.length;
+            document.getElementById('data-period').textContent = monthsOfData;
+            
+            // Build recommendations table
+            const tbody = document.getElementById('recommendations-table');
+            tbody.innerHTML = aiRecommendations.map(rec => {
+                const needsUpdate = rec.inventoryItem && 
+                    (rec.currentMin !== rec.recommendedMin || rec.currentMax !== rec.recommendedMax);
+                
+                return `
+                    <tr class="${needsUpdate ? 'bg-yellow-50' : ''}">
+                        <td class="border p-2">${rec.itemName}</td>
+                        <td class="border p-2 text-center">${rec.currentMin} / ${rec.currentMax}</td>
+                        <td class="border p-2 text-center font-bold text-green-600">${rec.recommendedMin} / ${rec.recommendedMax}</td>
+                        <td class="border p-2 text-center">${rec.weeklyUsage}</td>
+                        <td class="border p-2 text-center">
+                            <span class="px-2 py-1 rounded text-xs ${rec.confidence >= 80 ? 'bg-green-100 text-green-800' : rec.confidence >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                                ${rec.confidence}%
+                            </span>
+                        </td>
+                        <td class="border p-2 text-center">
+                            ${rec.inventoryItem ? 
+                                (needsUpdate ? 
+                                    `<button onclick="applyRecommendation('${rec.itemName}')" class="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700">Apply</button>` :
+                                    '<span class="text-green-600 text-xs">✓ Current</span>'
+                                ) :
+                                '<span class="text-gray-500 text-xs">Not in inventory</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            document.getElementById('minmax-recommendations').style.display = 'block';
+        }
+        
+        // Apply single recommendation
+        async function applyRecommendation(itemName) {
+            const rec = aiRecommendations.find(r => r.itemName === itemName);
+            if (!rec || !rec.inventoryItem) return;
+            
+            try {
+                await axios.put(`${API_URL}/items/${rec.inventoryItem._id}`, {
+                    minQuantity: rec.recommendedMin,
+                    maxQuantity: rec.recommendedMax
+                });
+                
+                // Update local data
+                const itemIndex = items.findIndex(item => item._id === rec.inventoryItem._id);
+                if (itemIndex >= 0) {
+                    items[itemIndex].minQuantity = rec.recommendedMin;
+                    items[itemIndex].maxQuantity = rec.recommendedMax;
+                }
+                
+                alert(`Updated ${itemName} min/max to ${rec.recommendedMin}/${rec.recommendedMax}`);
+                generateRecommendations(); // Refresh display
+                
+            } catch (error) {
+                console.error('Error applying recommendation:', error);
+                alert('Error updating item');
+            }
+        }
+        
+        // Apply all recommendations
+        async function applyAllRecommendations() {
+            if (!confirm('Apply all AI recommendations to your inventory items?')) return;
+            
+            let applied = 0;
+            for (const rec of aiRecommendations) {
+                if (rec.inventoryItem && (rec.currentMin !== rec.recommendedMin || rec.currentMax !== rec.recommendedMax)) {
+                    try {
+                        await axios.put(`${API_URL}/items/${rec.inventoryItem._id}`, {
+                            minQuantity: rec.recommendedMin,
+                            maxQuantity: rec.recommendedMax
+                        });
+                        
+                        // Update local data
+                        const itemIndex = items.findIndex(item => item._id === rec.inventoryItem._id);
+                        if (itemIndex >= 0) {
+                            items[itemIndex].minQuantity = rec.recommendedMin;
+                            items[itemIndex].maxQuantity = rec.recommendedMax;
+                        }
+                        applied++;
+                    } catch (error) {
+                        console.error(`Error updating ${rec.itemName}:`, error);
+                    }
+                }
+            }
+            
+            alert(`Applied ${applied} recommendations successfully!`);
+            generateRecommendations(); // Refresh display
+        }
+        
+        // Export recommendations
+        function exportRecommendations() {
+            if (aiRecommendations.length === 0) {
+                alert('No recommendations to export');
+                return;
+            }
+            
+            const csv = [
+                ['Item Name', 'Current Min', 'Current Max', 'Recommended Min', 'Recommended Max', 'Weekly Usage', 'Confidence', 'Orders Analyzed'],
+                ...aiRecommendations.map(rec => [
+                    rec.itemName,
+                    rec.currentMin,
+                    rec.currentMax,
+                    rec.recommendedMin,
+                    rec.recommendedMax,
+                    rec.weeklyUsage,
+                    rec.confidence + '%',
+                    rec.ordersAnalyzed
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ai-minmax-recommendations-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+        
+        // File import functionality
+        async function handleFileImport(event, fileType) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const statusDiv = document.getElementById('file-import-status');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = `<div class="text-blue-600">Processing ${file.name}...</div>`;
+            
+            try {
+                let orders = [];
+                
+                if (fileType === 'csv') {
+                    orders = await parseCSVFile(file);
+                } else if (fileType === 'excel') {
+                    orders = await parseExcelFile(file);
+                } else if (fileType === 'pdf') {
+                    statusDiv.innerHTML = `<div class="text-blue-600">Extracting text from PDF ${file.name}...</div>`;
+                    orders = await parsePDFFile(file);
+                }
+                
+                if (orders.length > 0) {
+                    // Add orders to historical data
+                    let imported = 0;
+                    orders.forEach(order => {
+                        if (validateOrder(order)) {
+                            historicalOrders.push(order);
+                            imported++;
+                        }
+                    });
+                    
+                    // Save to localStorage
+                    localStorage.setItem('historicalOrders', JSON.stringify(historicalOrders));
+                    
+                    // Update display
+                    updateHistoricalOrdersList();
+                    analyzeHistoricalData();
+                    
+                    statusDiv.innerHTML = `<div class="text-green-600">✓ Successfully imported ${imported} orders from ${file.name}. Found ${orders[0]?.items?.length || 0} items.</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="text-yellow-600">⚠ No valid orders found in ${file.name}. Try using a different format or check the PDF content.</div>`;
+                }
+            } catch (error) {
+                console.error('File import error:', error);
+                let errorMessage = error.message;
+                
+                if (fileType === 'pdf') {
+                    errorMessage = `PDF parsing failed: ${error.message}. Please ensure the PDF contains text (not just images) and has a clear order format.`;
+                }
+                
+                statusDiv.innerHTML = `<div class="text-red-600">❌ Error processing ${file.name}: ${errorMessage}</div>`;
+            }
+            
+            // Clear file input
+            event.target.value = '';
+            
+            // Hide status after 10 seconds for better readability
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 10000);
+        }
+        
+        // Parse CSV file
+        async function parseCSVFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        console.log('Starting CSV parsing for:', file.name);
+                        const csv = e.target.result;
+                        console.log('CSV content length:', csv.length);
+                        console.log('CSV sample:', csv.substring(0, 300));
+                        
+                        const lines = csv.split(/\r?\n/).filter(line => line.trim());
+                        console.log('Found', lines.length, 'lines in CSV');
+                        
+                        const orders = [];
+                        
+                        // Try to detect CSV format
+                        let headerIndex = -1;
+                        let format = 'unknown';
+                        
+                        // Look for header row with known column names
+                        for (let i = 0; i < Math.min(3, lines.length); i++) {
+                            const line = lines[i].toLowerCase();
+                            if (line.includes('date') && (line.includes('supplier') || line.includes('vendor'))) {
+                                headerIndex = i;
+                                format = 'template';
+                                break;
+                            }
+                        }
+                        
+                        console.log('CSV format detected:', format, 'header at line:', headerIndex);
+                        
+                        // If no header found, try to parse as simple item list or invoice format
+                        if (headerIndex === -1 && lines.length > 0) {
+                            console.log('No header found, trying alternative formats');
+                            
+                            // Try multiple parsing strategies
+                            const items = [];
+                            
+                            for (let i = 0; i < lines.length; i++) {
+                                const line = lines[i].trim();
+                                if (!line) continue;
+                                
+                                // Split by common delimiters
+                                const parts = line.split(/[,\t|]/).map(p => p.trim().replace(/^["']|["']$/g, ''));
+                                
+                                // Try different column positions for item name and quantity
+                                let itemName = null;
+                                let quantity = null;
+                                
+                                // Strategy 1: Item name first, quantity second
+                                if (parts.length >= 2) {
+                                    const name1 = parts[0];
+                                    const qty1 = parseFloat(parts[1]);
+                                    
+                                    if (name1 && !isNaN(qty1) && qty1 > 0) {
+                                        itemName = name1;
+                                        quantity = qty1;
+                                    }
+                                }
+                                
+                                // Strategy 2: Look for quantity in any column
+                                if (!quantity && parts.length >= 2) {
+                                    for (let j = 0; j < parts.length; j++) {
+                                        const num = parseFloat(parts[j]);
+                                        if (!isNaN(num) && num > 0 && num < 10000) {
+                                            // Found a potential quantity
+                                            // Look for item name in other columns
+                                            for (let k = 0; k < parts.length; k++) {
+                                                if (k !== j && parts[k] && parts[k].length > 1 && /[a-zA-Z]/.test(parts[k])) {
+                                                    itemName = parts[k];
+                                                    quantity = num;
+                                                    break;
+                                                }
+                                            }
+                                            if (itemName) break;
+                                        }
+                                    }
+                                }
+                                
+                                // Strategy 3: Invoice format with description in middle columns
+                                if (!quantity && parts.length >= 3) {
+                                    // Common invoice formats: CODE, DESCRIPTION, QTY, UNIT, PRICE
+                                    for (let j = 1; j < parts.length - 1; j++) {
+                                        if (parts[j] && parts[j].length > 2 && /[a-zA-Z]/.test(parts[j])) {
+                                            // Check next columns for quantity
+                                            for (let k = j + 1; k < parts.length; k++) {
+                                                const num = parseFloat(parts[k]);
+                                                if (!isNaN(num) && num > 0 && num < 10000) {
+                                                    itemName = parts[j];
+                                                    quantity = num;
+                                                    break;
+                                                }
+                                            }
+                                            if (itemName) break;
+                                        }
+                                    }
+                                }
+                                
+                                // Validate and add item
+                                if (itemName && quantity) {
+                                    // Clean item name
+                                    itemName = itemName.replace(/[^\w\s&'.-]/g, '').replace(/\s+/g, ' ').trim();
+                                    
+                                    // Skip if it looks like a header or total
+                                    if (!/^(date|item|name|quantity|qty|supplier|vendor|total|subtotal|tax|price|cost|description|code|sku|invoice|order|page)$/i.test(itemName) &&
+                                        itemName.length > 1 && 
+                                        itemName.length < 50 &&
+                                        /[a-zA-Z]/.test(itemName)) {
+                                        
+                                        items.push({ name: itemName, quantity: Math.round(quantity) });
+                                        console.log(`CSV item found: "${itemName}" - ${quantity}`);
+                                    }
+                                }
+                            }
+                            
+                            // Deduplicate items by name
+                            const itemMap = new Map();
+                            items.forEach(item => {
+                                const key = item.name.toLowerCase();
+                                if (!itemMap.has(key) || itemMap.get(key).quantity < item.quantity) {
+                                    itemMap.set(key, item);
+                                }
+                            });
+                            
+                            const uniqueItems = Array.from(itemMap.values());
+                            
+                            if (uniqueItems.length > 0) {
+                                // Create a single order from all items
+                                const today = new Date();
+                                const order = {
+                                    id: 'csv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+                                    date: today.toISOString().split('T')[0],
+                                    supplier: file.name.includes('Invoice') ? 'Invoice Import' : 'CSV Import',
+                                    people: 250,
+                                    duration: 7, // 1 week default
+                                    items: uniqueItems.slice(0, 50) // Limit to 50 items
+                                };
+                                
+                                orders.push(order);
+                                console.log('Created order from CSV with', uniqueItems.length, 'items');
+                            } else {
+                                console.log('No valid items found with structured approach, trying fallback...');
+                                
+                                // Fallback: Try to extract ANY text-number pairs from the entire CSV
+                                const fallbackItems = [];
+                                const allText = csv.replace(/[,\t|]/g, ' ');
+                                
+                                // Look for patterns like "word number" or "word word number"
+                                const patterns = [
+                                    /([A-Za-z][A-Za-z\s&'-]{1,30})\s+(\d+(?:\.\d+)?)/g,
+                                    /(\d+(?:\.\d+)?)\s+([A-Za-z][A-Za-z\s&'-]{1,30})/g
+                                ];
+                                
+                                patterns.forEach(pattern => {
+                                    let match;
+                                    while ((match = pattern.exec(allText)) !== null) {
+                                        let name, qty;
+                                        if (isNaN(parseFloat(match[1]))) {
+                                            name = match[1].trim();
+                                            qty = parseFloat(match[2]);
+                                        } else {
+                                            name = match[2].trim();
+                                            qty = parseFloat(match[1]);
+                                        }
+                                        
+                                        if (name && qty > 0 && qty < 10000 && name.length > 1) {
+                                            fallbackItems.push({ name, quantity: Math.round(qty) });
+                                        }
+                                    }
+                                });
+                                
+                                if (fallbackItems.length > 0) {
+                                    const today = new Date();
+                                    const order = {
+                                        id: 'csv-fallback-' + Date.now(),
+                                        date: today.toISOString().split('T')[0],
+                                        supplier: 'CSV Fallback Import',
+                                        people: 250,
+                                        duration: 7,
+                                        items: fallbackItems.slice(0, 20)
+                                    };
+                                    orders.push(order);
+                                    console.log('Fallback found', fallbackItems.length, 'items');
+                                } else {
+                                    console.log('Even fallback found no items');
+                                }
+                            }
+                        } else if (headerIndex >= 0) {
+                            // Parse template format
+                            console.log('Parsing template format CSV');
+                            const startIndex = headerIndex + 1;
+                            
+                            for (let i = startIndex; i < lines.length; i++) {
+                                const parts = lines[i].split(',').map(p => p.trim().replace(/"/g, ''));
+                                if (parts.length >= 4) {
+                                    const order = parseOrderLine(parts);
+                                    if (order) {
+                                        orders.push(order);
+                                        console.log('Parsed CSV order:', order.date, order.supplier, order.items.length, 'items');
+                                    }
+                                }
+                            }
+                        }
+                        
+                        console.log('CSV parsing complete. Found', orders.length, 'orders');
+                        resolve(orders);
+                        
+                    } catch (error) {
+                        console.error('CSV parsing error:', error);
+                        reject(new Error(`CSV parsing failed: ${error.message}. Please ensure the CSV is properly formatted.`));
+                    }
+                };
+                reader.onerror = () => reject(new Error('Failed to read CSV file'));
+                reader.readAsText(file);
+            });
+        }
+        
+        // Parse Excel file (simplified - would need a library like xlsx.js for full support)
+        async function parseExcelFile(file) {
+            // For now, treat as CSV (basic implementation)
+            // In production, you'd use a library like SheetJS/xlsx
+            return parseCSVFile(file);
+        }
+        
+        // Parse PDF file using PDF.js with fallback
+        async function parsePDFFile(file) {
+            console.log('Starting PDF parsing for:', file.name);
+            
+            // Check if PDF.js is available
+            if (typeof pdfjsLib === 'undefined') {
+                console.error('PDF.js not loaded');
+                throw new Error('PDF parsing library not available. Please try a CSV file instead.');
+            }
+            
+            try {
+                console.log('Reading file as array buffer...');
+                const arrayBuffer = await file.arrayBuffer();
+                console.log('Array buffer size:', arrayBuffer.byteLength);
+                
+                console.log('Loading PDF document...');
+                const pdf = await pdfjsLib.getDocument({
+                    data: arrayBuffer,
+                    verbosity: 0 // Reduce console noise
+                }).promise;
+                
+                console.log('PDF loaded, pages:', pdf.numPages);
+                let fullText = '';
+                
+                // Extract text from all pages
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    console.log(`Processing page ${pageNum}...`);
+                    const page = await pdf.getPage(pageNum);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += pageText + '\n';
+                    console.log(`Page ${pageNum} text length:`, pageText.length);
+                }
+                
+                console.log('Full extracted text length:', fullText.length);
+                console.log('Sample text:', fullText.substring(0, 200));
+                
+                if (fullText.trim().length < 10) {
+                    throw new Error('No readable text found in PDF. The PDF might be an image or corrupted.');
+                }
+                
+                // Parse the extracted text
+                const orders = extractOrdersFromPDFText(fullText);
+                console.log('Extracted orders:', orders);
+                return orders;
+                
+            } catch (pdfError) {
+                console.error('PDF.js parsing failed:', pdfError);
+                
+                // Fallback: Try to create a sample order for testing
+                console.log('Attempting fallback parsing...');
+                const fallbackOrder = createFallbackOrder(file.name);
+                
+                if (fallbackOrder) {
+                    console.log('Created fallback order for testing');
+                    return [fallbackOrder];
+                }
+                
+                throw new Error(`PDF parsing failed: ${pdfError.message}. Please ensure the PDF contains readable text and try a different format.`);
+            }
+        }
+        
+        // Create a fallback order for testing when PDF parsing fails
+        function createFallbackOrder(fileName) {
+            // Don't create fallback - let user know it failed
+            return null;
+        }
+        
+        // Download CSV template for historical orders
+        function downloadCSVTemplate() {
+            const csvContent = [
+                ['Date', 'Supplier', 'People', 'Duration', 'Item1', 'Qty1', 'Item2', 'Qty2', 'Item3', 'Qty3', 'Item4', 'Qty4', 'Item5', 'Qty5'],
+                ['2024-03-15', 'Service Alimentaire Gordon', '280', '7', 'Ground Beef', '150', 'Milk', '80', 'Bread', '120', 'Chicken', '100', 'Eggs', '300'],
+                ['2024-04-01', 'Service Alimentaire Gordon', '320', '7', 'Rice', '200', 'Pasta', '150', 'Cheese', '50', 'Vegetables', '75', 'Fish', '80'],
+                ['2024-04-15', 'Service Alimentaire Gordon', '290', '7', 'Potatoes', '100', 'Onions', '60', 'Carrots', '40', 'Lettuce', '30', 'Tomatoes', '45']
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sodexo-tata-historical-orders-template.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Test PDF feature
+        function testPDFFeature() {
+            const statusDiv = document.getElementById('file-import-status');
+            statusDiv.style.display = 'block';
+            
+            // Check if PDF.js is loaded
+            if (typeof pdfjsLib !== 'undefined') {
+                statusDiv.innerHTML = `<div class="text-green-600">✓ PDF.js library is loaded correctly! Try uploading a text-based PDF.</div>`;
+            } else {
+                statusDiv.innerHTML = `<div class="text-red-600">❌ PDF.js library failed to load. Please use CSV or text paste instead.</div>`;
+            }
+            
+            // Show alternative solution
+            setTimeout(() => {
+                statusDiv.innerHTML += `<div class="text-blue-600 mt-2">💡 <strong>Alternative:</strong> Open your PDF, select and copy the text, then paste it in the "Order Import" tab!</div>`;
+            }, 2000);
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 8000);
+        }
+        
+        // Parse order line from CSV
+        function parseOrderLine(parts) {
+            try {
+                const date = new Date(parts[0]);
+                if (isNaN(date.getTime()) || date < new Date('2023-01-01')) return null;
+                
+                const supplier = parts[1] || 'Unknown Supplier';
+                const people = parseInt(parts[2]) || 250;
+                const duration = parseInt(parts[3]) || 14;
+                
+                const items = [];
+                // Parse items (Item1, Qty1, Item2, Qty2, ...)
+                for (let i = 4; i < parts.length; i += 2) {
+                    if (i + 1 < parts.length && parts[i] && parts[i + 1]) {
+                        const name = parts[i].trim();
+                        const quantity = parseInt(parts[i + 1]);
+                        if (name && quantity > 0) {
+                            items.push({ name, quantity });
+                        }
+                    }
+                }
+                
+                if (items.length === 0) return null;
+                
+                return {
+                    id: 'imported-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+                    date: date.toISOString().split('T')[0],
+                    supplier,
+                    people,
+                    duration,
+                    items
+                };
+            } catch (error) {
+                console.error('Error parsing order line:', error);
+                return null;
+            }
+        }
+        
+        // Extract orders from PDF text
+        function extractOrdersFromPDFText(text) {
+            console.log('Extracting from PDF text:', text.substring(0, 500)); // Debug log
+            
+            const orders = [];
+            
+            // Clean up the text
+            const cleanText = text.replace(/\s+/g, ' ').trim();
+            
+            // Look for date patterns (various formats)
+            const datePatterns = [
+                /(\d{1,2}\/\d{1,2}\/\d{4})/g,           // MM/DD/YYYY
+                /(\d{4}-\d{1,2}-\d{1,2})/g,             // YYYY-MM-DD
+                /(\d{1,2}-\d{1,2}-\d{4})/g,             // MM-DD-YYYY
+                /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}/gi // Month DD, YYYY
+            ];
+            
+            let foundDate = null;
+            for (const pattern of datePatterns) {
+                const matches = cleanText.match(pattern);
+                if (matches && matches.length > 0) {
+                    foundDate = matches[0];
+                    break;
+                }
+            }
+            
+            // Look for supplier/vendor information
+            const supplierPatterns = [
+                /(supplier|vendor|company|from)[:\s]+([^\n\r]{3,50})/gi,
+                /(bill\s+to|ship\s+to)[:\s]+([^\n\r]{3,50})/gi,
+                /([A-Z][a-z]+\s+(Supply|Services|Food|Co\.?|Inc\.?|LLC))/g
+            ];
+            
+            let foundSupplier = 'PDF Import';
+            for (const pattern of supplierPatterns) {
+                const match = pattern.exec(cleanText);
+                if (match) {
+                    foundSupplier = match[2] || match[1];
+                    break;
+                }
+            }
+            
+            // Enhanced item extraction with multiple flexible patterns
+            const items = [];
+            
+            // First, try to identify if this is a food service invoice by looking for common patterns
+            const isFoodServiceInvoice = /service alimentaire|gordon|food service|sysco|sodexo|aramark/i.test(text);
+            console.log('Is food service invoice:', isFoodServiceInvoice);
+            
+            // For food service invoices, we need better line splitting since PDF.js might not preserve line breaks
+            let lines;
+            if (isFoodServiceInvoice) {
+                // Split by multiple patterns that might indicate line breaks in invoices
+                lines = text.split(/(?:\r?\n)+|(?:\s{3,})|(?=\d{4,8}\s)|(?=\$\d)|(?<=\$[\d,]+\.?\d*\s)/);
+                lines = lines.filter(line => line.trim().length > 3);
+                
+                // Also try extracting lines that look like food items with specific patterns
+                const foodPatterns = [
+                    // Pattern: Product code followed by description and quantity
+                    /[A-Z0-9]{2,8}\s+[A-Z\s&\/-]+?\s+\d+(?:\.\d+)?\s+[A-Z]{2,4}\s+\$[\d,]+\.?\d*/g,
+                    // Pattern: Food name with quantity and unit
+                    /(BEEF|CHICKEN|PORK|FISH|MILK|BREAD|CHEESE|BUTTER|RICE|PASTA|POTATO|ONION|CARROT|LETTUCE|TOMATO|APPLE|BANANA|ORANGE|FLOUR|SUGAR|SALT|PEPPER|OIL|SAUCE|SOUP)[A-Z\s&\/-]*?\s+\d+(?:\.\d+)?\s*[A-Z]*\s*(?:\$[\d,]+\.?\d*)?/gi,
+                    // Pattern: Generic food items
+                    /[A-Z\s&\/-]{10,50}\s+\d+(?:\.\d+)?\s+(?:EA|LB|KG|CS|BX|GAL|LT|OZ|EACH|CASE|BOX|GALLON|LITER|OUNCE)\s+\$[\d,]+\.?\d*/gi
+                ];
+                
+                foodPatterns.forEach(pattern => {
+                    const matches = text.match(pattern) || [];
+                    lines = lines.concat(matches);
+                });
+            } else {
+                lines = text.split(/[\n\r]+/);
+            }
+            
+            console.log('Processing', lines.length, 'lines from PDF');
+            console.log('Sample lines:', lines.slice(0, 10));
+            
+            lines.forEach((line, index) => {
+                const cleanLine = line.trim();
+                if (cleanLine.length < 3) return;
+                
+                // Skip obvious headers, footers, and non-item lines
+                const skipPatterns = [
+                    /^(page|total|subtotal|tax|shipping|invoice|order|date|from|to|address|reprint|service|alimentaire|gordon|canada|division|quebec|tps|tvq|tel|fax|sfrais|www\.|purchase|marie|michele|lagace|gagne|tata|steel|timmins|camp|sodexo|inc|internet|napoleon|sept|iles)/i,
+                    /^[\d\-\/\s]+$/, // Just dates/numbers
+                    /^[A-Z\s]+$/, // All caps headers
+                    /^\$[\d,\.]+$/, // Just prices
+                    /^\d{8,}$/, // Long numbers (invoice numbers)
+                    /^[A-Z]{2}\s[A-Z0-9\s]+$/, // Province codes and postal codes
+                    /^\(\d{3}\)\s\d{3}-\d{4}$/, // Phone numbers
+                    /^TPS #|TVQ #/, // Tax numbers
+                    /^www\.|http|@/ // URLs and emails
+                ];
+                
+                if (skipPatterns.some(pattern => pattern.test(cleanLine))) {
+                    return;
+                }
+                
+                let matches = [];
+                
+                // Special patterns for food service invoices
+                if (isFoodServiceInvoice) {
+                    // Pattern F1: Food service line format "CODE DESCRIPTION QTY UNIT PRICE"
+                    let match = cleanLine.match(/^([A-Z0-9]{2,8})\s+([A-Z\s&\/-]+?)\s+(\d+(?:\.\d+)?)\s+(EA|LB|KG|CS|BX|GAL|LT|OZ|PCS?|EACH|CASE|BOX|GALLON|LITER|OUNCE|PIECES?)\s+\$?[\d,]+\.?\d*/i);
+                    if (match) matches.push({ name: match[2].trim(), quantity: match[3], pattern: 'food-service', unit: match[4] });
+                    
+                    // Pattern F2: "DESCRIPTION QTY x UNIT @ $PRICE"
+                    match = cleanLine.match(/([A-Z\s&\/-]+?)\s+(\d+(?:\.\d+)?)\s*[xX]\s*([A-Z]+)\s*@\s*\$[\d,]+\.?\d*/i);
+                    if (match) matches.push({ name: match[1].trim(), quantity: match[2], pattern: 'food-service-x', unit: match[3] });
+                    
+                    // Pattern F3: "QTY UNIT DESCRIPTION $PRICE"
+                    match = cleanLine.match(/^(\d+(?:\.\d+)?)\s+([A-Z]+)\s+([A-Z\s&\/-]+?)\s+\$[\d,]+\.?\d*/i);
+                    if (match) matches.push({ name: match[3].trim(), quantity: match[1], pattern: 'food-service-qty', unit: match[2] });
+                }
+                
+                // Pattern 1: "Item Name - Quantity" or "Item Name - Quantity Unit"
+                let match = cleanLine.match(/([A-Za-z][A-Za-z\s&'.,-]{2,50}?)\s*[-–—:]\s*(\d+(?:\.\d+)?)/);
+                if (match) matches.push({ name: match[1], quantity: match[2], pattern: 'dash' });
+                
+                // Pattern 2: "Item Name Quantity" (quantity at end)
+                match = cleanLine.match(/([A-Za-z][A-Za-z\s&'.,-]{2,50}?)\s+(\d+(?:\.\d+)?)(?:\s|$)/);
+                if (match) matches.push({ name: match[1], quantity: match[2], pattern: 'end' });
+                
+                // Pattern 3: "Quantity Item Name" (quantity first)
+                match = cleanLine.match(/^(\d+(?:\.\d+)?)\s+([A-Za-z][A-Za-z\s&'.,-]{2,50})/);
+                if (match) matches.push({ name: match[2], quantity: match[1], pattern: 'start' });
+                
+                // Pattern 4: "Item Name [anything] Quantity [anything]" (quantity anywhere)
+                match = cleanLine.match(/([A-Za-z][A-Za-z\s&'.,-]{2,50}?)\s.*?(\d+(?:\.\d+)?)/);
+                if (match) matches.push({ name: match[1], quantity: match[2], pattern: 'anywhere' });
+                
+                // Pattern 5: Table-like format "Item | Quantity" or "Item   Quantity"
+                match = cleanLine.match(/([A-Za-z][A-Za-z\s&'.,-]{2,50}?)\s*[\|\t]\s*(\d+(?:\.\d+)?)/);
+                if (match) matches.push({ name: match[1], quantity: match[2], pattern: 'table' });
+                
+                // Process all matches and pick the best one
+                matches.forEach(m => {
+                    const itemName = m.name.trim()
+                        .replace(/[^\w\s&'.-]/g, '') // Allow more characters
+                        .replace(/\s+/g, ' '); // Normalize spaces
+                    const quantity = parseFloat(m.quantity);
+                    
+                    // More lenient validation
+                    const isValidName = itemName.length >= 2 && 
+                                       itemName.length <= 50 &&
+                                       !/^(qty|quantity|price|cost|total|tax|shipping|discount)$/i.test(itemName) &&
+                                       !/^\d+$/.test(itemName) && // Not just numbers
+                                       /[a-zA-Z]/.test(itemName); // Contains at least one letter
+                    
+                    const isValidQuantity = quantity > 0 && quantity <= 50000;
+                    
+                    if (isValidName && isValidQuantity) {
+                        console.log(`Found item: "${itemName}" - ${quantity} (pattern: ${m.pattern})`);
+                        items.push({
+                            name: itemName,
+                            quantity: Math.round(quantity),
+                            source: `Line ${index + 1}: ${cleanLine.substring(0, 50)}...`,
+                            pattern: m.pattern
+                        });
+                    }
+                });
+            });
+            
+            console.log('Raw items found:', items.length);
+            
+            // Remove duplicates but keep the best match for each item
+            const itemMap = new Map();
+            
+            items.forEach(item => {
+                const normalizedName = item.name.toLowerCase().trim();
+                
+                if (!itemMap.has(normalizedName)) {
+                    itemMap.set(normalizedName, item);
+                } else {
+                    // Keep the item with the more specific pattern
+                    const existing = itemMap.get(normalizedName);
+                    const patternPriority = { 
+                        'food-service': 1, 
+                        'food-service-x': 2, 
+                        'food-service-qty': 3, 
+                        'dash': 4, 
+                        'table': 5, 
+                        'end': 6, 
+                        'start': 7, 
+                        'anywhere': 8 
+                    };
+                    
+                    if (patternPriority[item.pattern] < patternPriority[existing.pattern]) {
+                        itemMap.set(normalizedName, item);
+                    }
+                }
+            });
+            
+            const uniqueItems = Array.from(itemMap.values())
+                .slice(0, 30) // Increased limit to 30 items
+                .map(item => ({
+                    name: item.name,
+                    quantity: item.quantity
+                }));
+            
+            console.log('Extracted items:', uniqueItems); // Debug log
+            
+            // Create order if we have any items
+            if (uniqueItems.length > 0) {
+                const orderDate = foundDate ? new Date(foundDate) : new Date();
+                
+                // Ensure date is valid and not too old
+                if (isNaN(orderDate.getTime()) || orderDate < new Date('2024-01-01')) {
+                    orderDate.setTime(Date.now() - (30 * 24 * 60 * 60 * 1000)); // 30 days ago
+                }
+                
+                orders.push({
+                    id: 'pdf-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+                    date: orderDate.toISOString().split('T')[0],
+                    supplier: foundSupplier.substring(0, 50),
+                    people: 250, // Default
+                    duration: 7, // Default 1 week (camp standard)
+                    items: uniqueItems
+                });
+            }
+            
+            return orders;
+        }
+        
+        // Validate order data
+        function validateOrder(order) {
+            return order && 
+                   order.date && 
+                   new Date(order.date) >= new Date('2024-03-01') &&
+                   order.supplier &&
+                   order.people > 0 && 
+                   order.duration > 0 &&
+                   order.items && 
+                   order.items.length > 0 &&
+                   order.items.every(item => item.name && item.quantity > 0);
+        }
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize PDF.js
+            if (typeof pdfjsLib !== 'undefined') {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                console.log('PDF.js initialized successfully');
+            } else {
+                console.warn('PDF.js not loaded - PDF import will not work');
+            }
+            
+            showTab('count');
+            loadItems();
+            loadLocations();
+            loadOrders();
+            loadCampSettings();
+            loadHistoricalOrders();
+            
+            // Set max date for historical orders to today
+            const today = new Date().toISOString().split('T')[0];
+            const histDateInput = document.getElementById('hist-date');
+            if (histDateInput) {
+                histDateInput.max = today;
+            }
+        });
+    </script>
+</body>
+</html>

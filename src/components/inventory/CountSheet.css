@@ -1,0 +1,122 @@
+.count-sheet-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-group select,
+.form-group input {
+  width: 100%;
+  max-width: 300px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.count-header {
+  margin: 20px 0;
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.count-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+.count-table th,
+.count-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.count-table th {
+  background: #f0f0f0;
+  font-weight: bold;
+}
+
+.count-input {
+  width: 80px;
+  padding: 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.notes-input {
+  width: 100%;
+  padding: 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.variance {
+  color: #d32f2f;
+  font-weight: bold;
+}
+
+.actions {
+  margin-top: 30px;
+  display: flex;
+  gap: 15px;
+}
+
+.btn-print,
+.btn-submit {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.btn-print {
+  background: #757575;
+  color: white;
+}
+
+.btn-submit {
+  background: #4caf50;
+  color: white;
+}
+
+.btn-print:hover {
+  background: #616161;
+}
+
+.btn-submit:hover {
+  background: #45a049;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .count-sheet-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .count-table {
+    font-size: 12px;
+  }
+  
+  .count-input {
+    border: 1px solid #000;
+    background: white;
+  }
+}
