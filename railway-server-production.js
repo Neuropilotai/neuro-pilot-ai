@@ -17,15 +17,107 @@ const PORT = process.env.PORT || 8080;
 const database = new RailwayDatabase();
 const agentSystem = new RailwayAgentSystem();
 
-// Middleware
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
+// Security middleware
+const rateLimit = require('express-rate-limit');
+const validator = require('validator');
+const helmet = require('helmet');
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const strictLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit sensitive endpoints to 5 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.',
+});
+
+// API Key validation middleware
+function validateApiKey(req, res, next) {
+    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    const validApiKey = process.env.API_SECRET_KEY || 'neuro-pilot-secure-api-key-2025';
+    
+    // Skip for public endpoints
+    const publicEndpoints = ['/api/health', '/', '/order'];
+    if (publicEndpoints.includes(req.path)) {
+        return next();
+    }
+    
+    if (!apiKey) {
+        logSecurity('blocked', 'Missing API key', req, { reason: 'no_api_key' });
+        return res.status(401).json({ 
+            error: 'Unauthorized - Valid API key required',
+            code: 'MISSING_API_KEY'
+        });
+    }
+    
+    if (apiKey !== validApiKey) {
+        logSecurity('suspicious', 'Invalid API key attempt', req, { 
+            provided_key: apiKey.substring(0, 10) + '...',
+            reason: 'invalid_api_key'
+        });
+        return res.status(401).json({ 
+            error: 'Unauthorized - Invalid API key',
+            code: 'INVALID_API_KEY'
+        });
+    }
+    
+    logSecurity('authorized', 'Valid API key access', req);
+    next();
+}
+
+// Input sanitization middleware
+function sanitizeInput(req, res, next) {
+    if (req.body) {
+        for (const key in req.body) {
+            if (typeof req.body[key] === 'string') {
+                req.body[key] = validator.escape(req.body[key].trim());
+            }
+        }
+    }
+    next();
+}
+
+// Enhanced security headers with Helmet
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+        },
+    },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    }
 }));
+
+// Apply rate limiting
+app.use(limiter);
+
+// CORS with security
+app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://resourceful-achievement-production.up.railway.app'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+    credentials: false
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
+
+// Apply security middleware
+app.use(sanitizeInput);
 
 // Email system with Railway environment compatibility
 let emailSystem = null;
@@ -137,6 +229,34 @@ app.get('/api/agents/status', async (req, res) => {
 });
 
 // System statistics
+// Security monitoring endpoint (admin only)
+app.get('/api/security/logs', validateApiKey, (req, res) => {
+    try {
+        logSecurity('authorized', 'Security logs accessed', req);
+        
+        res.json({
+            status: 'success',
+            timestamp: new Date().toISOString(),
+            logs: {
+                suspicious: securityLog.suspicious.slice(-20), // Last 20 entries
+                blocked: securityLog.blocked.slice(-20),
+                authorized: securityLog.authorized.slice(-10) // Fewer for privacy
+            },
+            summary: {
+                suspicious_count: securityLog.suspicious.length,
+                blocked_count: securityLog.blocked.length,
+                authorized_count: securityLog.authorized.length
+            }
+        });
+    } catch (error) {
+        console.error('❌ Security logs error:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to retrieve security logs'
+        });
+    }
+});
+
 app.get('/api/system/stats', async (req, res) => {
     try {
         const stats = await agentSystem.getSystemStats();
@@ -157,8 +277,55 @@ app.get('/api/system/stats', async (req, res) => {
 // ORDER PROCESSING ENDPOINTS
 // =============================================================================
 
-// Extract resume data endpoint
-app.post('/api/resume/extract', async (req, res) => {
+// Advanced security logging
+const securityLog = {
+    suspicious: [],
+    blocked: [],
+    authorized: []
+};
+
+function logSecurity(level, event, req, details = {}) {
+    const logEntry = {
+        timestamp: new Date().toISOString(),
+        level,
+        event,
+        ip: req?.ip || 'unknown',
+        userAgent: req?.get('User-Agent')?.substring(0, 100) || 'unknown',
+        path: req?.path || 'unknown',
+        details
+    };
+    
+    console.log(`🛡️ [SECURITY-${level.toUpperCase()}] ${event}:`, logEntry);
+    
+    // Store in memory for monitoring (in production, you'd use a proper logging service)
+    if (securityLog[level]) {
+        securityLog[level].push(logEntry);
+        // Keep only last 100 entries per level
+        if (securityLog[level].length > 100) {
+            securityLog[level] = securityLog[level].slice(-100);
+        }
+    }
+}
+
+// Request logging middleware
+function logRequest(req, res, next) {
+    const timestamp = new Date().toISOString();
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent') || 'Unknown';
+    
+    // Log all requests if security logging is enabled
+    if (process.env.SECURITY_LOGGING === 'true') {
+        console.log(`📝 [${timestamp}] ${req.method} ${req.path} - IP: ${ip} - User-Agent: ${userAgent.substring(0, 100)}`);
+    }
+    
+    next();
+}
+
+// Apply logging to all requests
+app.use(logRequest);
+
+// Extract resume data endpoint (protected)
+app.post('/api/resume/extract', strictLimiter, validateApiKey, async (req, res) => {
     try {
         console.log(`📄 Resume extraction request received`);
         
@@ -255,8 +422,58 @@ function extractSummary(text) {
     return summaryMatch ? summaryMatch[0].trim() : '';
 }
 
-// Submit new order
-app.post('/api/resume/generate', async (req, res) => {
+// Promo code validation endpoint (protected)
+app.post('/api/promo/validate', strictLimiter, validateApiKey, async (req, res) => {
+    try {
+        const { code } = req.body;
+        
+        if (!code) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Promo code is required'
+            });
+        }
+        
+        // Server-side promo codes (secure from environment)
+        const promoCodes = JSON.parse(process.env.PROMO_CODES || JSON.stringify({
+            "FAMILY2025": { discount: 100, type: "percentage", description: "Family Test - 100% OFF" },
+            "TEST50": { discount: 50, type: "percentage", description: "50% OFF Test Code" },
+            "FIRST10": { discount: 10, type: "fixed", description: "$10 OFF Your First Order" },
+            "WELCOME20": { discount: 20, type: "percentage", description: "20% OFF Welcome Discount" }
+        }));
+        
+        const upperCode = code.toUpperCase();
+        
+        if (promoCodes[upperCode]) {
+            console.log(`✅ Valid promo code applied: ${upperCode}`);
+            res.json({
+                status: 'success',
+                valid: true,
+                code: upperCode,
+                discount: promoCodes[upperCode].discount,
+                type: promoCodes[upperCode].type,
+                description: promoCodes[upperCode].description
+            });
+        } else {
+            console.log(`❌ Invalid promo code attempted: ${upperCode}`);
+            res.json({
+                status: 'success',
+                valid: false,
+                message: 'Invalid promo code'
+            });
+        }
+        
+    } catch (error) {
+        console.error('❌ Promo validation error:', error);
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to validate promo code'
+        });
+    }
+});
+
+// Submit new order (protected)
+app.post('/api/resume/generate', strictLimiter, validateApiKey, async (req, res) => {
     try {
         console.log(`📝 New order received: ${req.body.packageType || 'professional'}`);
         

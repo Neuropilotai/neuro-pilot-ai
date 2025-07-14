@@ -522,6 +522,126 @@
             position: relative;
             overflow: visible;
         }
+        
+        /* Extraction Results Display */
+        .extraction-results {
+            background: #f0f9ff;
+            border: 2px solid #3182ce;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .extraction-results.show {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .extraction-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #2563eb;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        .extraction-content {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .extracted-field {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        
+        .extracted-field:hover {
+            border-color: #3182ce;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .extracted-field-label {
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 4px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .extracted-field-value {
+            color: #1f2937;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        
+        .extracted-field-value::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .extracted-field-value::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 2px;
+        }
+        
+        .extraction-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .extraction-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .extraction-btn.primary {
+            background: #3182ce;
+            color: white;
+        }
+        
+        .extraction-btn.primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(49, 130, 206, 0.3);
+        }
+        
+        .extraction-btn.secondary {
+            background: #e5e7eb;
+            color: #4b5563;
+        }
+        
+        .extraction-btn.secondary:hover {
+            background: #d1d5db;
+        }
     </style>
 </head>
 <body>
@@ -635,6 +755,27 @@
                     <div class="file-upload-text" data-translate="form-resume-help">Accepted formats: PDF, DOC, DOCX (Max 10MB). This helps us understand your experience better.</div>
                 </div>
             </div>
+            
+            <!-- Extraction Results Display -->
+            <div id="extractionResults" class="extraction-results">
+                <div class="extraction-header">
+                    <span>✅</span>
+                    <span data-translate="extraction-header">Resume Analysis Complete</span>
+                </div>
+                <div class="extraction-content" id="extractedContent">
+                    <!-- Extracted fields will be inserted here dynamically -->
+                </div>
+                <div class="extraction-actions">
+                    <button type="button" class="extraction-btn primary" onclick="applyExtractedData()">
+                        <span>📝</span>
+                        <span data-translate="extraction-apply">Apply to Form</span>
+                    </button>
+                    <button type="button" class="extraction-btn secondary" onclick="hideExtractionResults()">
+                        <span>❌</span>
+                        <span data-translate="extraction-dismiss">Dismiss</span>
+                    </button>
+                </div>
+            </div>
 
                 </div>
                 
@@ -721,35 +862,19 @@
     </div>
     
     <script>
-        console.log("=== SCRIPT STARTING v4.2 - IMPROVED CV UPLOAD UX - " + new Date().toISOString() + " ===");
-        
-        // Define promo codes object
-        var promoCodes = {
-            "FAMILY2025": { discount: 100, type: "percentage", description: "Family Test - 100% OFF" },
-            "TEST50": { discount: 50, type: "percentage", description: "50% OFF Test Code" },
-            "FIRST10": { discount: 10, type: "fixed", description: "$10 OFF Your First Order" }
-        };
-        
-        console.log("Promo codes defined:", Object.keys(promoCodes));
-        
         // Global variables - accessible from everywhere (using var for maximum compatibility)
         var currentPrice = 45;
         var appliedDiscount = 0;
         var promoCodeApplied = false;
-        
-        console.log("Global variables set - currentPrice:", currentPrice, "promoCodeApplied:", promoCodeApplied);
+        var extractedResumeData = null;
         
         // Define updatePriceDisplay function FIRST - before any other code
         function updatePriceDisplay() {
                 const finalPrice = Math.max(0, currentPrice - appliedDiscount);
-                console.log("updatePriceDisplay called - currentPrice:", currentPrice, "appliedDiscount:", appliedDiscount, "finalPrice:", finalPrice);
                 
                 const finalPriceEl = document.getElementById("finalPrice");
                 if (finalPriceEl) {
                     finalPriceEl.textContent = "$" + finalPrice;
-                    console.log("Final price updated to:", "$" + finalPrice);
-                } else {
-                    console.error("finalPrice element not found!");
                 }
                 
                 if (appliedDiscount > 0) {
@@ -776,30 +901,17 @@
                 const priceInput = document.querySelector("input[name='price']");
                 if (priceInput) {
                     priceInput.value = finalPrice;
-                    console.log("Hidden price input updated to:", finalPrice);
-                } else {
-                    console.error("Price input field not found!");
                 }
             }
-            
-        console.log("updatePriceDisplay function defined!");
         
         // Wait for DOM to be ready before attaching event listeners
         document.addEventListener("DOMContentLoaded", function() {
-            console.log("DOM is ready, attaching event listeners...");
-            
-            // Test basic DOM elements
-            console.log("Package elements found:", document.querySelectorAll(".package").length);
-            console.log("Apply promo button:", !!document.getElementById("applyPromo"));
-            console.log("Final price element:", !!document.getElementById("finalPrice"));
-            console.log("Promo message element:", !!document.getElementById("promoMessage"));
             
             // Handle file upload - extract data and fill fields
             const currentResumeInput = document.getElementById('currentResume');
             if (currentResumeInput) {
                 currentResumeInput.addEventListener('change', async function() {
                     const hasFile = this.files && this.files.length > 0;
-                    console.log('Resume file uploaded:', hasFile);
                     
                     // Get all required resume fields
                     const resumeFields = [
@@ -904,7 +1016,8 @@
                                 const response = await fetch('/api/resume/extract', {
                                     method: 'POST',
                                     headers: {
-                                        'Content-Type': 'application/json'
+                                        'Content-Type': 'application/json',
+                                        'X-API-Key': 'neuro-pilot-secure-api-key-2025'
                                     },
                                     body: JSON.stringify({ resumeText: fileContent })
                                 });
@@ -912,7 +1025,12 @@
                             const result = await response.json();
                             
                             if (result.status === 'success' && result.data) {
-                                console.log('Resume data extracted:', result.data);
+                                
+                                // Store extracted data globally
+                                extractedResumeData = result.data;
+                                
+                                // Display extraction results
+                                displayExtractionResults(result.data);
                                 
                                 // Fill the form fields with extracted data
                                 if (result.data.experience) {
@@ -966,7 +1084,6 @@
                             }
                             
                         } catch (error) {
-                            console.error('Error extracting resume data:', error);
                             
                             // Show error message but still make fields optional
                             if (uploadText) {
@@ -985,6 +1102,115 @@
                 });
             }
         });
+        
+        // Function to display extraction results
+        function displayExtractionResults(data) {
+            const contentDiv = document.getElementById('extractedContent');
+            const resultsDiv = document.getElementById('extractionResults');
+            
+            if (!contentDiv || !resultsDiv) {
+                return;
+            }
+            
+            contentDiv.innerHTML = '';
+            
+            // Define fields to display
+            const fields = [
+                { 
+                    label: currentLanguage === 'fr' ? 'Courriel' : 'Email', 
+                    value: data.contact?.email || null,
+                    key: 'email'
+                },
+                { 
+                    label: currentLanguage === 'fr' ? 'Téléphone' : 'Phone', 
+                    value: data.contact?.phone || null,
+                    key: 'phone'
+                },
+                { 
+                    label: currentLanguage === 'fr' ? 'Lieu' : 'Location', 
+                    value: data.contact?.location || null,
+                    key: 'location'
+                },
+                { 
+                    label: currentLanguage === 'fr' ? 'Expérience Professionnelle' : 'Work Experience', 
+                    value: data.experience || null,
+                    key: 'experience'
+                },
+                { 
+                    label: currentLanguage === 'fr' ? 'Éducation' : 'Education', 
+                    value: data.education || null,
+                    key: 'education'
+                },
+                { 
+                    label: currentLanguage === 'fr' ? 'Compétences' : 'Skills', 
+                    value: data.skills || null,
+                    key: 'skills'
+                },
+                { 
+                    label: currentLanguage === 'fr' ? 'Résumé' : 'Summary', 
+                    value: data.summary || null,
+                    key: 'summary'
+                }
+            ];
+            
+            let hasAnyData = false;
+            
+            fields.forEach(field => {
+                if (field.value && field.value.trim() !== '') {
+                    hasAnyData = true;
+                    const fieldDiv = document.createElement('div');
+                    fieldDiv.className = 'extracted-field';
+                    fieldDiv.innerHTML = `
+                        <div class="extracted-field-label">${field.label}</div>
+                        <div class="extracted-field-value">${field.value.substring(0, 200)}${field.value.length > 200 ? '...' : ''}</div>
+                    `;
+                    contentDiv.appendChild(fieldDiv);
+                }
+            });
+            
+            if (!hasAnyData) {
+                contentDiv.innerHTML = `<div style="text-align: center; color: #6b7280; padding: 20px;">
+                    ${currentLanguage === 'fr' ? 
+                        'Aucune information extractible trouvée. Veuillez remplir le formulaire manuellement.' : 
+                        'No extractable information found. Please fill the form manually.'}
+                </div>`;
+            }
+            
+            // Show results with animation
+            resultsDiv.classList.add('show');
+            
+            // Scroll to results
+            setTimeout(() => {
+                resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+        
+        // Function to apply extracted data to form
+        function applyExtractedData() {
+            if (!extractedResumeData) return;
+            
+            // The original code already fills the form, so we just need to hide the results
+            hideExtractionResults();
+            
+            // Show success message
+            const message = currentLanguage === 'fr' ? 
+                'Les informations extraites ont été appliquées au formulaire. Veuillez vérifier et compléter les champs manquants.' :
+                'Extracted information has been applied to the form. Please review and complete any missing fields.';
+            
+            // Update the file upload text to show success
+            const uploadText = document.querySelector('.file-upload-text');
+            if (uploadText) {
+                uploadText.innerHTML = `<strong style="color: #48bb78;">✅ ${message}</strong>`;
+            }
+        }
+        
+        // Function to hide extraction results
+        function hideExtractionResults() {
+            const resultsDiv = document.getElementById('extractionResults');
+            if (resultsDiv) {
+                resultsDiv.classList.remove('show');
+            }
+        }
         
         // Bilingual Translation System - English/French for North America (Order Page)
         const translations = {
@@ -1051,7 +1277,10 @@
                 'promo-placeholder': 'Enter promo code',
                 'promo-apply': 'Apply',
                 'price-total': 'Total:',
-                'btn-payment': '💳 Proceed to Secure Payment'
+                'btn-payment': '💳 Proceed to Secure Payment',
+                'extraction-header': 'Resume Analysis Complete',
+                'extraction-apply': 'Apply to Form',
+                'extraction-dismiss': 'Dismiss'
             },
             'fr': {
                 'header-tagline': 'Excellence CV assistée par IA',
@@ -1116,7 +1345,10 @@
                 'promo-placeholder': 'Entrez le code promo',
                 'promo-apply': 'Appliquer',
                 'price-total': 'Total:',
-                'btn-payment': '💳 Procéder au paiement sécurisé'
+                'btn-payment': '💳 Procéder au paiement sécurisé',
+                'extraction-header': 'Analyse du CV terminée',
+                'extraction-apply': 'Appliquer au formulaire',
+                'extraction-dismiss': 'Fermer'
             }
         };
         
@@ -1142,43 +1374,32 @@
                 }
             });
             
-            console.log('Language switched to:', lang);
         }
         
         // Set up language switcher
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 DOM loaded - Setting up all event listeners...');
             
             // 1. Language switcher setup
-            console.log('Setting up language switcher...');
             const languageSelect = document.getElementById('languageSelect2');
-            console.log('Language select element:', languageSelect);
             
             if (languageSelect) {
-                console.log('Language selector found! Adding event listener...');
                 languageSelect.addEventListener('change', function() {
-                    console.log('Language changed to:', this.value);
                     switchLanguage(this.value);
                 });
             } else {
-                console.error('Language selector not found in DOM!');
             }
             
             // 2. Package selection setup  
-            console.log('Setting up package selection...');
             const packages = document.querySelectorAll(".package");
-            console.log('Package elements found:', packages.length);
             
             packages.forEach(pkg => {
                 pkg.addEventListener("click", function() {
-                    console.log("Package clicked:", this.dataset.package, "Price:", this.dataset.price);
                     document.querySelectorAll(".package").forEach(p => p.classList.remove("selected"));
                     this.classList.add("selected");
                     document.querySelector("input[name='packageType']").value = this.dataset.package;
                     
                     // Update current price
                     currentPrice = parseInt(this.dataset.price);
-                    console.log("Current price updated to:", currentPrice);
                     
                     // Recalculate discount if promo code is applied
                     if (promoCodeApplied) {
@@ -1188,60 +1409,71 @@
                             appliedDiscount = promo.type === "percentage" ? 
                                 Math.round(currentPrice * promo.discount / 100) : 
                                 Math.min(promo.discount, currentPrice);
-                            console.log("Discount recalculated:", appliedDiscount);
                         }
                     }
                     
-                    console.log("Calling updatePriceDisplay...");
                     updatePriceDisplay();
                 });
             });
             
             // 3. Promo code setup
-            console.log('Setting up promo code...');
             const applyPromoBtn = document.getElementById("applyPromo");
             
             if (applyPromoBtn) {
-                console.log('Promo button found! Adding event listener...');
-                applyPromoBtn.addEventListener("click", function() {
-                    const promoCode = document.getElementById("promoCode").value.toUpperCase();
+                applyPromoBtn.addEventListener("click", async function() {
+                    const promoCode = document.getElementById("promoCode").value.trim();
                     const messageEl = document.getElementById("promoMessage");
                     
-                    console.log("Promo code apply clicked:", promoCode);
                     
                     if (!promoCode) {
                         messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
                         return;
                     }
                     
-                    const promo = promoCodes[promoCode];
-                    console.log("Found promo:", promo);
+                    // Show loading state
+                    messageEl.innerHTML = '<span style="color: #2563eb;">🔄 Validating...</span>';
                     
-                    if (promo) {
-                        appliedDiscount = promo.type === "percentage" ? 
-                            Math.round(currentPrice * promo.discount / 100) : 
-                            Math.min(promo.discount, currentPrice);
+                    try {
+                        // Validate promo code with server
+                        const response = await fetch('/api/promo/validate', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-API-Key': 'neuro-pilot-secure-api-key-2025'
+                            },
+                            body: JSON.stringify({ code: promoCode })
+                        });
                         
-                        console.log("Discount calculated:", appliedDiscount, "for current price:", currentPrice);
+                        const result = await response.json();
                         
-                        promoCodeApplied = true;
-                        messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + promo.description + ' applied!</span>';
-                        
-                        updatePriceDisplay();
-                    } else {
-                        messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
+                        if (result.status === 'success' && result.valid) {
+                            // Calculate discount
+                            appliedDiscount = result.type === "percentage" ? 
+                                Math.round(currentPrice * result.discount / 100) : 
+                                Math.min(result.discount, currentPrice);
+                            
+                            
+                            promoCodeApplied = true;
+                            messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + result.description + ' applied!</span>';
+                            updatePriceDisplay();
+                        } else {
+                            messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
+                            promoCodeApplied = false;
+                            appliedDiscount = 0;
+                            updatePriceDisplay();
+                        }
+                    } catch (error) {
+                        messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Error validating code. Please try again.</span>';
                         promoCodeApplied = false;
                         appliedDiscount = 0;
                         updatePriceDisplay();
                     }
                 });
             } else {
-                console.error('Promo button not found!');
             }
             
             // Process order function - defined first
             async function processOrder() {
-                console.log('🚀 Processing order...');
                 
                 const submitButton = document.querySelector('.submit-button');
                 const originalText = submitButton.textContent;
@@ -1271,7 +1503,6 @@
                         discount: appliedDiscount
                     };
                     
-                    console.log('Order data:', orderData);
                     
                     // Submit order to backend
                     const response = await fetch('/api/resume/generate', {
@@ -1283,7 +1514,6 @@
                     });
                     
                     const result = await response.json();
-                    console.log('Order response:', result);
                     
                     if (result.status === 'success' && result.checkoutUrl) {
                         // Redirect to Stripe checkout
@@ -1293,7 +1523,6 @@
                     }
                     
                 } catch (error) {
-                    console.error('Order submission error:', error);
                     alert('Error processing order: ' + error.message + '. Please try again.');
                     submitButton.disabled = false;
                     submitButton.textContent = originalText;
@@ -1302,28 +1531,22 @@
             
             // Form submission handler - moved after processOrder definition
             const orderForm = document.getElementById('orderForm');
-            console.log('🔍 Looking for orderForm element:', orderForm);
             
             if (orderForm) {
-                console.log('✅ Found orderForm, adding submit listener...');
                 orderForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
-                    console.log('Form submitted, processing order...');
                     await processOrder();
                 });
                 
                 // Also add click listener to submit button as backup
                 const submitButton = document.querySelector('.submit-button');
                 if (submitButton) {
-                    console.log('✅ Found submit button, adding click listener...');
                     submitButton.addEventListener('click', async function(e) {
                         e.preventDefault();
-                        console.log('Submit button clicked, processing order...');
                         await processOrder();
                     });
                 }
             } else {
-                console.error('❌ orderForm element not found!');
             }
         });
     </script>
