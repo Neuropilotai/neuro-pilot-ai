@@ -1,880 +1,157 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Order Professional AI Resume - Neuro.Pilot.AI [UPDATED-v2.7-BILINGUAL]</title>
+    <title>Order Professional AI Resume - Neuro.Pilot.AI [UPDATED-v2.6]</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body { 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-        }
-        
-        /* Header with company branding */
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px 0;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -10%;
-            width: 500px;
-            height: 500px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 50%;
-        }
-        
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .logo {
-            width: 70px;
-            height: 70px;
-            background: white;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            font-weight: bold;
-            color: #667eea;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        }
-        
-        .company-info {
-            color: white;
-        }
-        
-        .company-name {
-            font-size: 28px;
-            font-weight: 800;
-            margin-bottom: 5px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .company-tagline {
-            font-size: 16px;
-            opacity: 0.9;
-        }
-        
-        .trust-badges {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-        
-        .badge {
-            background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
-            padding: 10px 20px;
-            border-radius: 25px;
-            color: white;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .container { 
-            max-width: 1200px; 
-            margin: 40px auto; 
-            padding: 0 20px;
-        }
-        /* Main content area */
-        .main-content {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            padding: 40px;
-            margin-bottom: 40px;
-        }
-        
-        h1 { 
-            color: #2d3748; 
-            text-align: center; 
-            font-size: 36px;
-            font-weight: 800;
-            margin-bottom: 40px;
-            position: relative;
-        }
-        
-        h1::after {
-            content: '';
-            width: 80px;
-            height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            display: block;
-            margin: 20px auto 0;
-            border-radius: 2px;
-        }
-        
-        /* Package cards with premium design */
-        .packages-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 40px;
-        }
-        
-        .package { 
-            background: white;
-            border: 2px solid #e2e8f0;
-            padding: 30px;
-            margin: 0;
-            cursor: pointer;
-            border-radius: 16px;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: visible;
-        }
-        
-        .package::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-            z-index: 1;
-        }
-        
-        .package:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
-            border-color: #667eea;
-        }
-        
-        .package.selected {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #f0f4ff 0%, #e6ecff 100%);
-            transform: scale(1.05);
-            box-shadow: 0 20px 50px rgba(102, 126, 234, 0.2);
-        }
-        
-        .package.selected::before {
-            transform: scaleX(1);
-        }
-        
-        .package h3 { 
-            margin: 0 0 15px 0;
-            color: #2d3748;
-            font-size: 24px;
-            font-weight: 700;
-        }
-        .package .price { 
-            font-size: 36px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 20px 0;
-        }
-        
-        .package ul {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .package li {
-            padding: 10px 0;
-            padding-left: 30px;
-            position: relative;
-            color: #4a5568;
-        }
-        
-        .package li::before {
-            content: '✓';
-            position: absolute;
-            left: 0;
-            color: #48bb78;
-            font-weight: bold;
-            font-size: 18px;
-        }
-        
-        /* Form styling */
-        .form-section {
-            background: #f7fafc;
-            padding: 40px;
-            border-radius: 16px;
-            margin-top: 40px;
-        }
-        
-        .form-group { 
-            margin: 20px 0; 
-        }
-        
-        .form-group label { 
-            display: block;
-            margin-bottom: 10px;
-            font-weight: 600;
-            color: #2d3748;
-            font-size: 16px;
-        }
-        
-        .form-group input, 
-        .form-group textarea, 
-        .form-group select { 
-            width: 100%;
-            padding: 14px 20px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: white;
-        }
-        
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        .form-group textarea { 
-            height: 120px;
-            resize: vertical;
-            font-family: inherit;
-        }
-        
-        /* Promo section */
-        .promo-section { 
-            background: linear-gradient(135deg, #f0f4ff 0%, #e6ecff 100%);
-            padding: 25px;
-            border-radius: 16px;
-            margin: 30px 0;
-            border: 2px solid #e2e8f0;
-        }
-        
-        .promo-section h3 {
-            color: #2d3748;
-            margin-bottom: 15px;
-            font-size: 20px;
-        }
-        
-        .promo-input { 
-            display: flex;
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .promo-input input { 
-            flex: 1;
-        }
-        
-        .promo-input button { 
-            padding: 14px 30px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .promo-input button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
-        }
-        
-        /* Price display */
-        .price-display { 
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            padding: 30px;
-            border-radius: 16px;
-            text-align: center;
-            margin: 30px 0;
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .price-display::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -20%;
-            width: 300px;
-            height: 300px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 50%;
-        }
-        
-        .price-display .final-price { 
-            font-size: 42px;
-            font-weight: 800;
-            color: white;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .price-display .original-price { 
-            text-decoration: line-through;
-            color: rgba(255,255,255,0.7);
-            margin-right: 10px;
-            font-size: 20px;
-        }
-        
-        .price-display .discount { 
-            color: #ffd700;
-            font-weight: bold;
-            font-size: 20px;
-        }
-        
-        /* Submit button */
-        .submit-button { 
-            width: 100%;
-            padding: 20px;
-            background: linear-gradient(135deg, #48bb78, #38a169);
-            color: white;
-            border: none;
-            border-radius: 16px;
-            font-size: 20px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .submit-button::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-        
-        .submit-button:hover::before {
-            width: 600px;
-            height: 600px;
-        }
-        
-        .submit-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(72, 187, 120, 0.4);
-        }
-        /* File upload styling */
-        .file-upload { 
-            position: relative;
-            overflow: hidden;
-            display: block;
-            width: 100%;
-        }
-        
-        .file-upload input[type=file] { 
-            width: 100%;
-            padding: 20px;
-            border: 3px dashed #667eea;
-            border-radius: 12px;
-            background: #f0f4ff;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-        
-        .file-upload input[type=file]:hover { 
-            border-color: #764ba2;
-            background: #e6ecff;
-            transform: scale(1.02);
-        }
-        
-        .file-upload-text { 
-            margin-top: 10px;
-            font-size: 14px;
-            color: #718096;
-            text-align: center;
-        }
-        
-        /* Resume info section special styling */
-        .resume-info-section {
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            padding: 30px;
-            border-radius: 16px;
-            margin: 30px 0;
-            border: 2px solid #f59e0b;
-            position: relative;
-        }
-        
-        .resume-info-section h3 {
-            color: #92400e;
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        .resume-info-section p {
-            color: #b45309;
-            margin-bottom: 20px;
-        }
-        
-        /* Language selector styling */
-        .language-selector-container {
-            text-align: right;
-            margin-bottom: 20px;
-        }
-        
-        .language-selector-container strong {
-            color: #4a5568;
-            margin-right: 10px;
-        }
-        
-        /* Responsive design */
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-                gap: 20px;
-            }
-            
-            .trust-badges {
-                flex-direction: column;
-                width: 100%;
-            }
-            
-            .packages-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .main-content {
-                padding: 20px;
-            }
-            
-            .form-section {
-                padding: 20px;
-            }
-            
-            .company-name {
-                font-size: 24px;
-            }
-            
-            h1 {
-                font-size: 28px;
-            }
-        }
-        
-        /* Star rating display */
-        .star-rating {
-            color: #fbbf24;
-            font-size: 20px;
-            margin-left: 10px;
-        }
-        
-        /* Popular badge */
-        .popular-badge {
-            position: absolute;
-            top: -12px;
-            right: 15px;
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-            padding: 8px 24px;
-            border-radius: 25px;
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
-            z-index: 10;
-            letter-spacing: 0.5px;
-        }
-        
-        /* Ensure the professional package has proper positioning context */
-        .package[data-package="professional"] {
-            position: relative;
-            overflow: visible;
-        }
-        
-        /* Extraction Results Display */
-        .extraction-results {
-            background: #f0f9ff;
-            border: 2px solid #3182ce;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-            display: none;
-            animation: slideIn 0.3s ease-out;
-        }
-        
-        .extraction-results.show {
-            display: block;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .extraction-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-            color: #2563eb;
-            font-weight: 600;
-            font-size: 18px;
-        }
-        
-        .extraction-content {
-            display: grid;
-            gap: 12px;
-        }
-        
-        .extracted-field {
-            background: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            transition: all 0.2s;
-        }
-        
-        .extracted-field:hover {
-            border-color: #3182ce;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        
-        .extracted-field-label {
-            font-weight: 600;
-            color: #4b5563;
-            margin-bottom: 4px;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .extracted-field-value {
-            color: #1f2937;
-            font-size: 14px;
-            line-height: 1.5;
-            max-height: 80px;
-            overflow-y: auto;
-        }
-        
-        .extracted-field-value::-webkit-scrollbar {
-            width: 4px;
-        }
-        
-        .extracted-field-value::-webkit-scrollbar-thumb {
-            background: #cbd5e0;
-            border-radius: 2px;
-        }
-        
-        .extraction-actions {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .extraction-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .extraction-btn.primary {
-            background: #3182ce;
-            color: white;
-        }
-        
-        .extraction-btn.primary:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(49, 130, 206, 0.3);
-        }
-        
-        .extraction-btn.secondary {
-            background: #e5e7eb;
-            color: #4b5563;
-        }
-        
-        .extraction-btn.secondary:hover {
-            background: #d1d5db;
-        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; text-align: center; }
+        .package { border: 2px solid #ddd; padding: 15px; margin: 10px 0; cursor: pointer; border-radius: 8px; }
+        .package.selected { border-color: #4CAF50; background-color: #f0f8f0; }
+        .package h3 { margin: 0 0 10px 0; color: #333; }
+        .package .price { font-size: 24px; font-weight: bold; color: #4CAF50; margin: 10px 0; }
+        .form-group { margin: 15px 0; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .form-group textarea { height: 100px; resize: vertical; }
+        .promo-section { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .promo-input { display: flex; gap: 10px; margin-top: 10px; }
+        .promo-input input { flex: 1; }
+        .promo-input button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .price-display { background: #e8f5e8; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0; }
+        .price-display .final-price { font-size: 28px; font-weight: bold; color: #2d5a3d; }
+        .price-display .original-price { text-decoration: line-through; color: #666; margin-right: 10px; }
+        .price-display .discount { color: #e53e3e; font-weight: bold; }
+        .submit-button { width: 100%; padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; }
+        .submit-button:hover { background: #45a049; }
     </style>
 </head>
 <body>
-    <!-- Premium Header -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo-section">
-                <div class="logo">N.P</div>
-                <div class="company-info">
-                    <h2 class="company-name">NEURO.PILOT.AI</h2>
-                    <p class="company-tagline" data-translate="header-tagline">AI Resume Writing Service</p>
-                </div>
-            </div>
-            <div class="trust-badges">
-                <div class="badge">
-                    <span>🤖</span>
-                    <span data-translate="badge-ai">AI-Powered</span>
-                </div>
-                <div class="badge">
-                    <span>📝</span>
-                    <span data-translate="badge-professional">Professional Service</span>
-                </div>
-                <div class="badge">
-                    <span>⏱️</span>
-                    <span data-translate="badge-delivery">24-48 Hour Delivery</span>
-                </div>
-            </div>
-        </div>
-    </header>
-
     <div class="container">
-        <div class="main-content">
-            <div class="language-selector-container">
-                <strong>Language / Langue:</strong>
-                <select id="languageSelect2" style="margin-left: 10px; background: #f0f8ff; border: 2px solid #667eea; border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                    <option value="en">🇺🇸 English</option>
-                    <option value="fr">🇨🇦 Français</option>
-                </select>
-            </div>
-            
-            <h1 data-translate="order-title">Order Professional AI Resume</h1>
-            
-            <div class="packages-container">
+        <h1>Order Professional AI Resume</h1>
         
-                <div class="package" data-package="basic" data-price="25">
-                    <h3 data-translate="pkg-basic-title">Basic Package</h3>
-                    <div class="price">$25</div>
-                    <ul>
-                        <li data-translate="pkg-basic-1">Professional formatting</li>
-                        <li data-translate="pkg-basic-2">ATS optimization</li>
-                        <li data-translate="pkg-basic-3">1 revision</li>
-                        <li data-translate="pkg-basic-4">48-hour delivery</li>
-                    </ul>
-                </div>
-                
-                <div class="package selected" data-package="professional" data-price="45">
-                    <span class="popular-badge" data-translate="badge-popular">RECOMMENDED</span>
-                    <h3 data-translate="pkg-pro-title">Professional Package</h3>
-                    <div class="price">$45</div>
-                    <ul>
-                        <li data-translate="pkg-pro-1">Everything in Basic</li>
-                        <li data-translate="pkg-pro-2">Cover letter included</li>
-                        <li data-translate="pkg-pro-3">LinkedIn optimization tips</li>
-                        <li data-translate="pkg-pro-4">3 revisions</li>
-                        <li data-translate="pkg-pro-5">24-hour delivery</li>
-                    </ul>
-                </div>
-                
-                <div class="package" data-package="executive" data-price="85">
-                    <h3 data-translate="pkg-exec-title">Executive Package</h3>
-                    <div class="price">$85</div>
-                    <ul>
-                        <li data-translate="pkg-exec-1">Everything in Professional</li>
-                        <li data-translate="pkg-exec-2">Executive summary</li>
-                        <li data-translate="pkg-exec-3">Industry-specific keywords</li>
-                        <li data-translate="pkg-exec-4">5 revisions</li>
-                        <li data-translate="pkg-exec-5">12-hour delivery</li>
-                    </ul>
-                </div>
-            </div>
+        <div class="package" data-package="basic" data-price="25">
+            <h3>Basic Package</h3>
+            <div class="price">$25</div>
+            <ul>
+                <li>Professional formatting</li>
+                <li>ATS optimization</li>
+                <li>1 revision</li>
+                <li>24-hour delivery</li>
+            </ul>
+        </div>
         
-            <form id="orderForm" enctype="multipart/form-data" onsubmit="return false;">
-                <input type="hidden" name="packageType" value="professional">
-                <input type="hidden" name="price" value="45">
-                
-                <div class="form-section">
-                    <div class="form-group">
-                <label for="firstName" data-translate="form-firstname">First Name *</label>
-                <input type="text" id="firstName" name="firstName" autocomplete="given-name" required>
+        <div class="package selected" data-package="professional" data-price="45">
+            <h3>Professional Package</h3>
+            <div class="price">$45</div>
+            <ul>
+                <li>Everything in Basic</li>
+                <li>Cover letter included</li>
+                <li>LinkedIn optimization tips</li>
+                <li>3 revisions</li>
+                <li>12-hour delivery</li>
+            </ul>
+        </div>
+        
+        <div class="package" data-package="executive" data-price="85">
+            <h3>Executive Package</h3>
+            <div class="price">$85</div>
+            <ul>
+                <li>Everything in Professional</li>
+                <li>Executive summary</li>
+                <li>Industry-specific keywords</li>
+                <li>5 revisions</li>
+                <li>6-hour delivery</li>
+            </ul>
+        </div>
+        
+        <form id="orderForm">
+            <input type="hidden" name="packageType" value="professional">
+            <input type="hidden" name="price" value="45">
+            
+            <div class="form-group">
+                <label>First Name *</label>
+                <input type="text" name="firstName" required>
             </div>
             
             <div class="form-group">
-                <label for="lastName" data-translate="form-lastname">Last Name *</label>
-                <input type="text" id="lastName" name="lastName" autocomplete="family-name" required>
+                <label>Last Name *</label>
+                <input type="text" name="lastName" required>
             </div>
             
             <div class="form-group">
-                <label for="email" data-translate="form-email">Email *</label>
-                <input type="email" id="email" name="email" autocomplete="email" required>
+                <label>Email *</label>
+                <input type="email" name="email" required>
             </div>
             
             <div class="form-group">
-                <label for="jobTitle" data-translate="form-jobtitle">Job Title You're Applying For *</label>
-                <input type="text" id="jobTitle" name="jobTitle" autocomplete="organization-title" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="currentResume" data-translate="form-resume-upload">Upload Your Current Resume (Optional)</label>
-                <div class="file-upload">
-                    <input type="file" id="currentResume" name="currentResume" accept=".pdf,.doc,.docx">
-                    <div class="file-upload-text" data-translate="form-resume-help">Accepted formats: PDF, DOC, DOCX (Max 10MB). This helps us understand your experience better.</div>
-                </div>
-            </div>
-            
-            <!-- Extraction Results Display -->
-            <div id="extractionResults" class="extraction-results">
-                <div class="extraction-header">
-                    <span>✅</span>
-                    <span data-translate="extraction-header">Resume Analysis Complete</span>
-                </div>
-                <div class="extraction-content" id="extractedContent">
-                    <!-- Extracted fields will be inserted here dynamically -->
-                </div>
-                <div class="extraction-actions">
-                    <button type="button" class="extraction-btn primary" onclick="applyExtractedData()">
-                        <span>📝</span>
-                        <span data-translate="extraction-apply">Apply to Form</span>
-                    </button>
-                    <button type="button" class="extraction-btn secondary" onclick="hideExtractionResults()">
-                        <span>❌</span>
-                        <span data-translate="extraction-dismiss">Dismiss</span>
-                    </button>
-                </div>
-            </div>
-
-                </div>
-                
-                <!-- Resume Information Section -->
-                <div class="resume-info-section">
-                    <h3 data-translate="resume-info-title">📝 Resume Information (Required for Best Results)</h3>
-                    <p data-translate="resume-info-desc">Please provide the following information to create a personalized, high-quality resume.</p>
-                
-                <div class="form-group">
-                    <label for="workExperience" data-translate="form-experience">Work Experience (Last 3-5 positions) *</label>
-                    <textarea id="workExperience" name="workExperience" required placeholder="Job Title - Company Name (Year-Year)&#10;• Key achievement or responsibility&#10;• Another achievement with numbers/results&#10;&#10;Previous Job Title - Previous Company (Year-Year)&#10;• Achievement or responsibility&#10;• Another achievement"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="skills" data-translate="form-skills">Key Skills & Technologies *</label>
-                    <input type="text" id="skills" name="skills" required placeholder="e.g., Python, Project Management, Digital Marketing, Excel, Communication">
-                </div>
-
-                <div class="form-group">
-                    <label for="education" data-translate="form-education">Education *</label>
-                    <input type="text" id="education" name="education" required placeholder="e.g., Bachelor's in Computer Science - University Name (Year)">
-                </div>
-
-                <div class="form-group">
-                    <label for="achievements" data-translate="form-achievements">Key Achievements/Certifications (Optional)</label>
-                    <textarea id="achievements" name="achievements" placeholder="• Increased sales by 30% in 2023&#10;• AWS Certified Solutions Architect&#10;• Led team of 5 developers on successful project"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="targetIndustry" data-translate="form-industry">Target Industry/Field *</label>
-                    <select id="targetIndustry" name="targetIndustry" required>
-                        <option value="" data-translate="industry-select">Select your industry...</option>
-                        <option value="technology" data-translate="industry-tech">Technology/IT</option>
-                        <option value="healthcare" data-translate="industry-health">Healthcare</option>
-                        <option value="finance" data-translate="industry-finance">Finance/Banking</option>
-                        <option value="marketing" data-translate="industry-marketing">Marketing/Advertising</option>
-                        <option value="sales" data-translate="industry-sales">Sales</option>
-                        <option value="education" data-translate="industry-education">Education</option>
-                        <option value="engineering" data-translate="industry-engineering">Engineering</option>
-                        <option value="consulting" data-translate="industry-consulting">Consulting</option>
-                        <option value="retail" data-translate="industry-retail">Retail/Customer Service</option>
-                        <option value="manufacturing" data-translate="industry-manufacturing">Manufacturing</option>
-                        <option value="nonprofit" data-translate="industry-nonprofit">Non-profit</option>
-                        <option value="government" data-translate="industry-government">Government</option>
-                        <option value="other" data-translate="industry-other">Other</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="careerLevel" data-translate="form-career-level">Career Level *</label>
-                    <select id="careerLevel" name="careerLevel" required>
-                        <option value="" data-translate="level-select">Select your level...</option>
-                        <option value="entry" data-translate="level-entry">Entry Level (0-2 years)</option>
-                        <option value="mid" data-translate="level-mid">Mid Level (3-7 years)</option>
-                        <option value="senior" data-translate="level-senior">Senior Level (8-15 years)</option>
-                        <option value="executive" data-translate="level-executive">Executive Level (15+ years)</option>
-                        <option value="student" data-translate="level-student">Student/Recent Graduate</option>
-                        <option value="career-change" data-translate="level-change">Career Change</option>
-                    </select>
-                </div>
+                <label>Job Title You're Applying For *</label>
+                <input type="text" name="jobTitle" required>
             </div>
             
             <div class="promo-section">
-                <h3 data-translate="promo-title">Promo Code (Optional)</h3>
+                <h3>Promo Code (Optional)</h3>
                 <div class="promo-input">
-                    <input type="text" id="promoCode" data-translate-placeholder="promo-placeholder" placeholder="Enter promo code" autocomplete="off">
-                    <button type="button" id="applyPromo" data-translate="promo-apply">Apply</button>
+                    <input type="text" id="promoCode" placeholder="Enter promo code">
+                    <button type="button" id="applyPromo">Apply</button>
                 </div>
                 <div id="promoMessage" style="margin-top: 10px;"></div>
             </div>
             
             <div class="price-display">
-                <div class="final-price"><span data-translate="price-total">Total:</span> <span id="finalPrice">$45</span></div>
+                <div class="final-price">Total: <span id="finalPrice">$45</span></div>
                 <div style="margin-top: 10px;">
                     <span id="originalPrice" style="display: none;">$45</span>
                     <span id="discount" style="display: none;">-$0</span>
                 </div>
             </div>
             
-                    <button type="submit" class="submit-button" data-translate="btn-payment">💳 Proceed to Secure Payment</button>
-                </div>
-            </form>
-        </div>
+            <button type="submit" class="submit-button">💳 Proceed to Secure Payment</button>
+        </form>
     </div>
     
     <script>
-        // Global variables - accessible from everywhere (using var for maximum compatibility)
-        var currentPrice = 45;
-        var appliedDiscount = 0;
-        var promoCodeApplied = false;
-        var extractedResumeData = null;
+        console.log("=== SCRIPT STARTING v2.6 - STANDALONE FILE - " + new Date().toISOString() + " ===");
         
-        // Define updatePriceDisplay function FIRST - before any other code
-        function updatePriceDisplay() {
+        // Security: Promo codes are validated server-side only
+        // No promo codes are stored in frontend for security reasons
+        var promoCodes = {};
+        
+        // Promo codes loaded securely from server-side validation
+        
+        // Wait for DOM to be ready before attaching event listeners
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log("DOM is ready, attaching event listeners...");
+            
+            // Test basic DOM elements
+            console.log("Package elements found:", document.querySelectorAll(".package").length);
+            // Promo button check
+            console.log("Final price element:", !!document.getElementById("finalPrice"));
+            // Promo message element check
+            
+            // Global variables - accessible from everywhere (using var for maximum compatibility)
+            var currentPrice = 45;
+            var appliedDiscount = 0;
+            var promoCodeApplied = false;
+            
+            // Global variables initialized
+            
+            // Define updatePriceDisplay function FIRST - before any other code
+            function updatePriceDisplay() {
                 const finalPrice = Math.max(0, currentPrice - appliedDiscount);
+                console.log("updatePriceDisplay called - currentPrice:", currentPrice, "appliedDiscount:", appliedDiscount, "finalPrice:", finalPrice);
                 
                 const finalPriceEl = document.getElementById("finalPrice");
                 if (finalPriceEl) {
                     finalPriceEl.textContent = "$" + finalPrice;
+                    console.log("Final price updated to:", "$" + finalPrice);
+                } else {
+                    console.error("finalPrice element not found!");
                 }
                 
                 if (appliedDiscount > 0) {
@@ -901,653 +178,86 @@
                 const priceInput = document.querySelector("input[name='price']");
                 if (priceInput) {
                     priceInput.value = finalPrice;
+                    console.log("Hidden price input updated to:", finalPrice);
+                } else {
+                    console.error("Price input field not found!");
                 }
             }
-        
-        // Wait for DOM to be ready before attaching event listeners
-        document.addEventListener("DOMContentLoaded", function() {
             
-            // Handle file upload - extract data and fill fields
-            const currentResumeInput = document.getElementById('currentResume');
-            if (currentResumeInput) {
-                currentResumeInput.addEventListener('change', async function() {
-                    const hasFile = this.files && this.files.length > 0;
-                    
-                    // Get all required resume fields
-                    const resumeFields = [
-                        'workExperience',
-                        'skills', 
-                        'education',
-                        'targetIndustry',
-                        'careerLevel'
-                    ];
-                    
-                    // Toggle required attribute and visual indicator
-                    resumeFields.forEach(fieldId => {
-                        const field = document.getElementById(fieldId);
-                        const label = document.querySelector(`label[for="${fieldId}"]`);
-                        
-                        if (field && label) {
-                            if (hasFile) {
-                                // Make optional when file is uploaded
-                                field.removeAttribute('required');
-                                const labelText = label.textContent.replace(' *', '').replace(' (Optional)', '');
-                                if (currentLanguage === 'fr') {
-                                    label.innerHTML = labelText + ' <span style="color: #48bb78; font-weight: 500;">(Optionnel)</span>';
-                                } else {
-                                    label.innerHTML = labelText + ' <span style="color: #48bb78; font-weight: 500;">(Optional)</span>';
-                                }
-                                field.style.borderColor = '#48bb78';
-                                field.style.backgroundColor = '#f0fdf4';
-                                field.placeholder = currentLanguage === 'fr' ? 
-                                    'Optionnel - sera extrait de votre CV' : 
-                                    'Optional - will be extracted from your resume';
-                            } else {
-                                // Make required when no file
-                                field.setAttribute('required', '');
-                                const labelText = label.textContent.replace(' (Optional)', '').replace(' (Optionnel)', '');
-                                label.innerHTML = labelText + ' *';
-                                field.style.borderColor = '';
-                                field.style.backgroundColor = '';
-                                field.placeholder = '';
-                            }
-                        }
-                    });
-                    
-                    // Update section title
-                    const sectionTitle = document.querySelector('[data-translate="resume-info-title"]');
-                    if (sectionTitle) {
-                        if (hasFile) {
-                            if (currentLanguage === 'fr') {
-                                sectionTitle.textContent = '📝 Informations CV (Optionnel - extrait de votre CV téléchargé)';
-                            } else {
-                                sectionTitle.textContent = '📝 Resume Information (Optional - extracted from uploaded resume)';
-                            }
-                        } else {
-                            if (currentLanguage === 'fr') {
-                                sectionTitle.textContent = '📝 Informations CV (Requis pour de meilleurs résultats)';
-                            } else {
-                                sectionTitle.textContent = '📝 Resume Information (Required for Best Results)';
-                            }
-                        }
-                    }
-                    
-                    // Update description
-                    const sectionDesc = document.querySelector('[data-translate="resume-info-desc"]');
-                    if (sectionDesc) {
-                        if (hasFile) {
-                            if (currentLanguage === 'fr') {
-                                sectionDesc.innerHTML = '<strong>✅ CV téléchargé!</strong> Notre IA analysera votre CV pour extraire vos informations. Les champs ci-dessous sont maintenant optionnels, mais vous pouvez les remplir pour fournir des détails supplémentaires ou des mises à jour.';
-                            } else {
-                                sectionDesc.innerHTML = '<strong>✅ Resume uploaded!</strong> Our AI will analyze your resume to extract your information. The fields below are now optional, but you can fill them to provide additional details or updates.';
-                            }
-                        } else {
-                            if (currentLanguage === 'fr') {
-                                sectionDesc.textContent = 'Veuillez fournir les informations suivantes pour créer un CV personnalisé et de haute qualité.';
-                            } else {
-                                sectionDesc.textContent = 'Please provide the following information to create a personalized, high-quality resume.';
-                            }
-                        }
-                    }
-                    
-                    // Process file upload and extract data
-                    if (hasFile && this.files[0]) {
-                        const file = this.files[0];
-                        const fileName = file.name;
-                        const fileSize = (file.size / 1024 / 1024).toFixed(2); // MB
-                        const uploadText = document.querySelector('.file-upload-text');
-                        
-                        // Show processing message
-                        if (uploadText) {
-                            if (currentLanguage === 'fr') {
-                                uploadText.innerHTML = `<strong style="color: #f59e0b;">⏳ Analyse en cours...</strong><br>Extraction des informations de votre CV...`;
-                            } else {
-                                uploadText.innerHTML = `<strong style="color: #f59e0b;">⏳ Processing...</strong><br>Extracting information from your resume...`;
-                            }
-                        }
-                        
-                        // Read file content as text
-                        const reader = new FileReader();
-                        reader.onload = async function(e) {
-                            const fileContent = e.target.result;
-                            
-                            try {
-                                // Call API to extract data
-                                const response = await fetch('/api/resume/extract', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-API-Key': 'neuro-pilot-secure-api-key-2025'
-                                    },
-                                    body: JSON.stringify({ resumeText: fileContent })
-                                });
-                            
-                            const result = await response.json();
-                            
-                            if (result.status === 'success' && result.data) {
-                                
-                                // Store extracted data globally
-                                extractedResumeData = result.data;
-                                
-                                // Display extraction results
-                                displayExtractionResults(result.data);
-                                
-                                // Fill the form fields with extracted data
-                                if (result.data.experience) {
-                                    document.getElementById('workExperience').value = result.data.experience;
-                                }
-                                if (result.data.skills) {
-                                    document.getElementById('skills').value = result.data.skills;
-                                }
-                                if (result.data.education) {
-                                    document.getElementById('education').value = result.data.education;
-                                }
-                                if (result.data.summary) {
-                                    document.getElementById('achievements').value = result.data.summary;
-                                }
-                                
-                                // Fill contact info if available
-                                if (result.data.contact) {
-                                    if (result.data.contact.email && !document.getElementById('email').value) {
-                                        document.getElementById('email').value = result.data.contact.email;
-                                    }
-                                    if (result.data.contact.phone && !document.getElementById('phone').value) {
-                                        document.getElementById('phone').value = result.data.contact.phone;
-                                    }
-                                }
-                                
-                                // Update success message
-                                if (uploadText) {
-                                    if (currentLanguage === 'fr') {
-                                        uploadText.innerHTML = `<strong style="color: #48bb78;">✅ CV analysé avec succès!</strong><br>Les informations ont été extraites et remplies automatiquement. Veuillez vérifier et compléter si nécessaire.`;
-                                    } else {
-                                        uploadText.innerHTML = `<strong style="color: #48bb78;">✅ Resume analyzed successfully!</strong><br>Information has been extracted and filled automatically. Please review and complete if needed.`;
-                                    }
-                                }
-                                
-                                // Check for missing required fields
-                                const missingFields = [];
-                                if (!document.getElementById('firstName').value) missingFields.push(currentLanguage === 'fr' ? 'Prénom' : 'First Name');
-                                if (!document.getElementById('lastName').value) missingFields.push(currentLanguage === 'fr' ? 'Nom' : 'Last Name');
-                                if (!document.getElementById('email').value) missingFields.push(currentLanguage === 'fr' ? 'Courriel' : 'Email');
-                                if (!document.getElementById('jobTitle').value) missingFields.push(currentLanguage === 'fr' ? 'Titre du poste' : 'Job Title');
-                                
-                                if (missingFields.length > 0) {
-                                    const missingMsg = currentLanguage === 'fr' ? 
-                                        `<br><span style="color: #e53e3e;">⚠️ Champs manquants: ${missingFields.join(', ')}</span>` :
-                                        `<br><span style="color: #e53e3e;">⚠️ Missing fields: ${missingFields.join(', ')}</span>`;
-                                    uploadText.innerHTML += missingMsg;
-                                }
-                                
-                            } else {
-                                throw new Error(result.error || 'Failed to extract data');
-                            }
-                            
-                        } catch (error) {
-                            
-                            // Show error message but still make fields optional
-                            if (uploadText) {
-                                if (currentLanguage === 'fr') {
-                                    uploadText.innerHTML = `<strong style="color: #e53e3e;">⚠️ Impossible d'extraire automatiquement</strong><br>Veuillez remplir manuellement les champs ci-dessous.`;
-                                } else {
-                                    uploadText.innerHTML = `<strong style="color: #e53e3e;">⚠️ Could not extract automatically</strong><br>Please fill in the fields below manually.`;
-                                }
-                            }
-                        }
-                        };
-                        
-                        // Read the file as text
-                        reader.readAsText(file);
-                    }
-                });
-            }
-        });
-        
-        // Function to display extraction results
-        function displayExtractionResults(data) {
-            const contentDiv = document.getElementById('extractedContent');
-            const resultsDiv = document.getElementById('extractionResults');
+            console.log("updatePriceDisplay function defined!");
             
-            if (!contentDiv || !resultsDiv) {
-                return;
-            }
-            
-            contentDiv.innerHTML = '';
-            
-            // Define fields to display
-            const fields = [
-                { 
-                    label: currentLanguage === 'fr' ? 'Courriel' : 'Email', 
-                    value: data.contact?.email || null,
-                    key: 'email'
-                },
-                { 
-                    label: currentLanguage === 'fr' ? 'Téléphone' : 'Phone', 
-                    value: data.contact?.phone || null,
-                    key: 'phone'
-                },
-                { 
-                    label: currentLanguage === 'fr' ? 'Lieu' : 'Location', 
-                    value: data.contact?.location || null,
-                    key: 'location'
-                },
-                { 
-                    label: currentLanguage === 'fr' ? 'Expérience Professionnelle' : 'Work Experience', 
-                    value: data.experience || null,
-                    key: 'experience'
-                },
-                { 
-                    label: currentLanguage === 'fr' ? 'Éducation' : 'Education', 
-                    value: data.education || null,
-                    key: 'education'
-                },
-                { 
-                    label: currentLanguage === 'fr' ? 'Compétences' : 'Skills', 
-                    value: data.skills || null,
-                    key: 'skills'
-                },
-                { 
-                    label: currentLanguage === 'fr' ? 'Résumé' : 'Summary', 
-                    value: data.summary || null,
-                    key: 'summary'
-                }
-            ];
-            
-            let hasAnyData = false;
-            
-            fields.forEach(field => {
-                if (field.value && field.value.trim() !== '') {
-                    hasAnyData = true;
-                    const fieldDiv = document.createElement('div');
-                    fieldDiv.className = 'extracted-field';
-                    fieldDiv.innerHTML = `
-                        <div class="extracted-field-label">${field.label}</div>
-                        <div class="extracted-field-value">${field.value.substring(0, 200)}${field.value.length > 200 ? '...' : ''}</div>
-                    `;
-                    contentDiv.appendChild(fieldDiv);
-                }
-            });
-            
-            if (!hasAnyData) {
-                contentDiv.innerHTML = `<div style="text-align: center; color: #6b7280; padding: 20px;">
-                    ${currentLanguage === 'fr' ? 
-                        'Aucune information extractible trouvée. Veuillez remplir le formulaire manuellement.' : 
-                        'No extractable information found. Please fill the form manually.'}
-                </div>`;
-            }
-            
-            // Show results with animation
-            resultsDiv.classList.add('show');
-            
-            // Scroll to results
-            setTimeout(() => {
-                resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 100);
-        }
-        
-        // Function to apply extracted data to form
-        function applyExtractedData() {
-            if (!extractedResumeData) return;
-            
-            // The original code already fills the form, so we just need to hide the results
-            hideExtractionResults();
-            
-            // Show success message
-            const message = currentLanguage === 'fr' ? 
-                'Les informations extraites ont été appliquées au formulaire. Veuillez vérifier et compléter les champs manquants.' :
-                'Extracted information has been applied to the form. Please review and complete any missing fields.';
-            
-            // Update the file upload text to show success
-            const uploadText = document.querySelector('.file-upload-text');
-            if (uploadText) {
-                uploadText.innerHTML = `<strong style="color: #48bb78;">✅ ${message}</strong>`;
-            }
-        }
-        
-        // Function to hide extraction results
-        function hideExtractionResults() {
-            const resultsDiv = document.getElementById('extractionResults');
-            if (resultsDiv) {
-                resultsDiv.classList.remove('show');
-            }
-        }
-        
-        // Bilingual Translation System - English/French for North America (Order Page)
-        const translations = {
-            'en': {
-                'header-tagline': 'AI-Powered Resume Excellence',
-                'badge-rating': '5.0 Rating',
-                'badge-guarantee': '100% Satisfaction',
-                'badge-delivery': 'Fast Delivery',
-                'badge-popular': 'MOST POPULAR',
-                'order-title': 'Order Professional AI Resume',
-                'pkg-basic-title': 'Basic Package',
-                'pkg-basic-1': 'Professional formatting',
-                'pkg-basic-2': 'ATS optimization',
-                'pkg-basic-3': '1 revision',
-                'pkg-basic-4': '24-hour delivery',
-                'pkg-pro-title': 'Professional Package',
-                'pkg-pro-1': 'Everything in Basic',
-                'pkg-pro-2': 'Cover letter included',
-                'pkg-pro-3': 'LinkedIn optimization tips',
-                'pkg-pro-4': '3 revisions',
-                'pkg-pro-5': '12-hour delivery',
-                'pkg-exec-title': 'Executive Package',
-                'pkg-exec-1': 'Everything in Professional',
-                'pkg-exec-2': 'Executive summary',
-                'pkg-exec-3': 'Industry-specific keywords',
-                'pkg-exec-4': '5 revisions',
-                'pkg-exec-5': '6-hour delivery',
-                'form-firstname': 'First Name *',
-                'form-lastname': 'Last Name *',
-                'form-email': 'Email *',
-                'form-jobtitle': 'Job Title You\'re Applying For *',
-                'form-resume-upload': 'Upload Your Current Resume (Optional)',
-                'form-resume-help': 'Accepted formats: PDF, DOC, DOCX (Max 10MB). This helps us understand your experience better.',
-                'resume-info-title': '📝 Resume Information (Required for Best Results)',
-                'resume-info-desc': 'Please provide the following information to create a personalized, high-quality resume.',
-                'form-experience': 'Work Experience (Last 3-5 positions) *',
-                'form-skills': 'Key Skills & Technologies *',
-                'form-education': 'Education *',
-                'form-achievements': 'Key Achievements/Certifications (Optional)',
-                'form-industry': 'Target Industry/Field *',
-                'form-career-level': 'Career Level *',
-                'industry-select': 'Select your industry...',
-                'industry-tech': 'Technology/IT',
-                'industry-health': 'Healthcare',
-                'industry-finance': 'Finance/Banking',
-                'industry-marketing': 'Marketing/Advertising',
-                'industry-sales': 'Sales',
-                'industry-education': 'Education',
-                'industry-engineering': 'Engineering',
-                'industry-consulting': 'Consulting',
-                'industry-retail': 'Retail/Customer Service',
-                'industry-manufacturing': 'Manufacturing',
-                'industry-nonprofit': 'Non-profit',
-                'industry-government': 'Government',
-                'industry-other': 'Other',
-                'level-select': 'Select your level...',
-                'level-entry': 'Entry Level (0-2 years)',
-                'level-mid': 'Mid Level (3-7 years)',
-                'level-senior': 'Senior Level (8-15 years)',
-                'level-executive': 'Executive Level (15+ years)',
-                'level-student': 'Student/Recent Graduate',
-                'level-change': 'Career Change',
-                'promo-title': 'Promo Code (Optional)',
-                'promo-placeholder': 'Enter promo code',
-                'promo-apply': 'Apply',
-                'price-total': 'Total:',
-                'btn-payment': '💳 Proceed to Secure Payment',
-                'extraction-header': 'Resume Analysis Complete',
-                'extraction-apply': 'Apply to Form',
-                'extraction-dismiss': 'Dismiss'
-            },
-            'fr': {
-                'header-tagline': 'Excellence CV assistée par IA',
-                'badge-rating': 'Note 5.0',
-                'badge-guarantee': '100% Satisfaction',
-                'badge-delivery': 'Livraison Rapide',
-                'badge-popular': 'LE PLUS POPULAIRE',
-                'order-title': 'Commandez un CV IA Professionnel',
-                'pkg-basic-title': 'Forfait de Base',
-                'pkg-basic-1': 'Formatage professionnel',
-                'pkg-basic-2': 'Optimisation ATS',
-                'pkg-basic-3': '1 révision',
-                'pkg-basic-4': 'Livraison 24h',
-                'pkg-pro-title': 'Forfait Professionnel',
-                'pkg-pro-1': 'Tout du forfait de base',
-                'pkg-pro-2': 'Lettre de motivation incluse',
-                'pkg-pro-3': 'Conseils d\'optimisation LinkedIn',
-                'pkg-pro-4': '3 révisions',
-                'pkg-pro-5': 'Livraison 12h',
-                'pkg-exec-title': 'Forfait Exécutif',
-                'pkg-exec-1': 'Tout du forfait professionnel',
-                'pkg-exec-2': 'Résumé exécutif',
-                'pkg-exec-3': 'Mots-clés spécifiques à l\'industrie',
-                'pkg-exec-4': '5 révisions',
-                'pkg-exec-5': 'Livraison 6h',
-                'form-firstname': 'Prénom *',
-                'form-lastname': 'Nom de famille *',
-                'form-email': 'Courriel *',
-                'form-jobtitle': 'Titre du poste souhaité *',
-                'form-resume-upload': 'Téléchargez votre CV actuel (Optionnel)',
-                'form-resume-help': 'Formats acceptés: PDF, DOC, DOCX (Max 10MB). Cela nous aide à mieux comprendre votre expérience.',
-                'resume-info-title': '📝 Informations CV (Requis pour de meilleurs résultats)',
-                'resume-info-desc': 'Veuillez fournir les informations suivantes pour créer un CV personnalisé et de haute qualité.',
-                'form-experience': 'Expérience professionnelle (3-5 derniers postes) *',
-                'form-skills': 'Compétences clés et technologies *',
-                'form-education': 'Formation *',
-                'form-achievements': 'Réalisations/Certifications clés (Optionnel)',
-                'form-industry': 'Secteur/Domaine ciblé *',
-                'form-career-level': 'Niveau de carrière *',
-                'industry-select': 'Sélectionnez votre secteur...',
-                'industry-tech': 'Technologie/Informatique',
-                'industry-health': 'Santé',
-                'industry-finance': 'Finance/Banque',
-                'industry-marketing': 'Marketing/Publicité',
-                'industry-sales': 'Ventes',
-                'industry-education': 'Éducation',
-                'industry-engineering': 'Ingénierie',
-                'industry-consulting': 'Conseil',
-                'industry-retail': 'Commerce/Service client',
-                'industry-manufacturing': 'Fabrication',
-                'industry-nonprofit': 'Organisme sans but lucratif',
-                'industry-government': 'Gouvernement',
-                'industry-other': 'Autre',
-                'level-select': 'Sélectionnez votre niveau...',
-                'level-entry': 'Niveau débutant (0-2 ans)',
-                'level-mid': 'Niveau intermédiaire (3-7 ans)',
-                'level-senior': 'Niveau senior (8-15 ans)',
-                'level-executive': 'Niveau exécutif (15+ ans)',
-                'level-student': 'Étudiant/Récent diplômé',
-                'level-change': 'Reconversion professionnelle',
-                'promo-title': 'Code promo (Optionnel)',
-                'promo-placeholder': 'Entrez le code promo',
-                'promo-apply': 'Appliquer',
-                'price-total': 'Total:',
-                'btn-payment': '💳 Procéder au paiement sécurisé',
-                'extraction-header': 'Analyse du CV terminée',
-                'extraction-apply': 'Appliquer au formulaire',
-                'extraction-dismiss': 'Fermer'
-            }
-        };
-        
-        let currentLanguage = 'en';
-        
-        function switchLanguage(lang) {
-            currentLanguage = lang;
-            const elementsToTranslate = document.querySelectorAll('[data-translate]');
-            
-            elementsToTranslate.forEach(element => {
-                const key = element.getAttribute('data-translate');
-                if (translations[lang] && translations[lang][key]) {
-                    element.textContent = translations[lang][key];
-                }
-            });
-            
-            // Handle placeholder translations
-            const placeholderElements = document.querySelectorAll('[data-translate-placeholder]');
-            placeholderElements.forEach(element => {
-                const key = element.getAttribute('data-translate-placeholder');
-                if (translations[lang] && translations[lang][key]) {
-                    element.placeholder = translations[lang][key];
-                }
-            });
-            
-        }
-        
-        // Set up language switcher
-        document.addEventListener('DOMContentLoaded', function() {
-            
-            // 1. Language switcher setup
-            const languageSelect = document.getElementById('languageSelect2');
-            
-            if (languageSelect) {
-                languageSelect.addEventListener('change', function() {
-                    switchLanguage(this.value);
-                });
-            } else {
-            }
-            
-            // 2. Package selection setup  
-            const packages = document.querySelectorAll(".package");
-            
-            packages.forEach(pkg => {
+            // Package selection - attach event listeners
+            document.querySelectorAll(".package").forEach(pkg => {
                 pkg.addEventListener("click", function() {
+                    console.log("Package clicked:", this.dataset.package, "Price:", this.dataset.price);
                     document.querySelectorAll(".package").forEach(p => p.classList.remove("selected"));
                     this.classList.add("selected");
                     document.querySelector("input[name='packageType']").value = this.dataset.package;
                     
                     // Update current price
                     currentPrice = parseInt(this.dataset.price);
+                    console.log("Current price updated to:", currentPrice);
                     
-                    // Recalculate discount if promo code is applied
-                    if (promoCodeApplied) {
-                        const promoCode = document.getElementById("promoCode").value.toUpperCase();
-                        const promo = promoCodes[promoCode];
-                        if (promo) {
-                            appliedDiscount = promo.type === "percentage" ? 
-                                Math.round(currentPrice * promo.discount / 100) : 
-                                Math.min(promo.discount, currentPrice);
-                        }
-                    }
+                    // Security: Promo code discount is maintained from server validation
+                    // No need to recalculate as discount is already stored from server response
                     
+                    console.log("Calling updatePriceDisplay...");
                     updatePriceDisplay();
                 });
             });
             
-            // 3. Promo code setup
-            const applyPromoBtn = document.getElementById("applyPromo");
-            
-            if (applyPromoBtn) {
-                applyPromoBtn.addEventListener("click", async function() {
-                    const promoCode = document.getElementById("promoCode").value.trim();
-                    const messageEl = document.getElementById("promoMessage");
-                    
-                    
-                    if (!promoCode) {
-                        messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
-                        return;
-                    }
-                    
-                    // Show loading state
-                    messageEl.innerHTML = '<span style="color: #2563eb;">🔄 Validating...</span>';
-                    
-                    try {
-                        // Validate promo code with server
-                        const response = await fetch('/api/promo/validate', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-API-Key': 'neuro-pilot-secure-api-key-2025'
-                            },
-                            body: JSON.stringify({ code: promoCode })
-                        });
+            // Promo code application
+            document.getElementById("applyPromo").addEventListener("click", function() {
+                const promoCode = document.getElementById("promoCode").value.toUpperCase();
+                const messageEl = document.getElementById("promoMessage");
+                
+                // Promo code validation initiated
+                
+                if (!promoCode) {
+                    messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
+                    return;
+                }
+                
+                // Security: Validate promo code server-side only
+                messageEl.innerHTML = '<span style="color: #718096;">🔄 Validating promo code...</span>';
+                
+                // Make server-side validation request
+                fetch('/api/public/validate-promo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: promoCode })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.valid) {
+                        // Apply discount based on server response
+                        appliedDiscount = data.type === "percentage" ? 
+                            Math.round(currentPrice * data.discount / 100) : 
+                            Math.min(data.discount, currentPrice);
                         
-                        const result = await response.json();
+                        promoCodeApplied = true;
+                        messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + data.description + ' applied!</span>';
                         
-                        if (result.status === 'success' && result.valid) {
-                            // Calculate discount
-                            appliedDiscount = result.type === "percentage" ? 
-                                Math.round(currentPrice * result.discount / 100) : 
-                                Math.min(result.discount, currentPrice);
-                            
-                            
-                            promoCodeApplied = true;
-                            messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + result.description + ' applied!</span>';
-                            updatePriceDisplay();
-                        } else {
-                            messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
-                            promoCodeApplied = false;
-                            appliedDiscount = 0;
-                            updatePriceDisplay();
-                        }
-                    } catch (error) {
-                        messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Error validating code. Please try again.</span>';
+                        updatePriceDisplay();
+                    } else {
+                        messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
                         promoCodeApplied = false;
                         appliedDiscount = 0;
                         updatePriceDisplay();
                     }
+                })
+                .catch(error => {
+                    console.error('Promo code validation error:', error);
+                    messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Error validating promo code</span>';
+                    promoCodeApplied = false;
+                    appliedDiscount = 0;
+                    updatePriceDisplay();
                 });
-            } else {
-            }
+            });
             
-            // Process order function - defined first
-            async function processOrder() {
-                
-                const submitButton = document.querySelector('.submit-button');
-                const originalText = submitButton.textContent;
-                submitButton.disabled = true;
-                submitButton.textContent = '⏳ Processing...';
-                
-                try {
-                    // Collect form data from the form element
-                    const formElement = document.getElementById('orderForm');
-                    const formData = new FormData(formElement);
-                    const orderData = {
-                        packageType: formData.get('packageType'),
-                        firstName: formData.get('firstName'),
-                        lastName: formData.get('lastName'),
-                        email: formData.get('email'),
-                        jobTitle: formData.get('jobTitle'),
-                        currentResume: formData.get('currentResume') || '',
-                        workExperience: formData.get('workExperience') || '',
-                        skills: formData.get('skills') || '',
-                        education: formData.get('education') || '',
-                        achievements: formData.get('achievements') || '',
-                        targetIndustry: formData.get('targetIndustry') || '',
-                        careerLevel: formData.get('careerLevel') || '',
-                        promoCode: promoCodeApplied ? document.getElementById('promoCode').value.toUpperCase() : '',
-                        finalPrice: Math.max(0, currentPrice - appliedDiscount),
-                        originalPrice: currentPrice,
-                        discount: appliedDiscount
-                    };
-                    
-                    
-                    // Submit order to backend
-                    const response = await fetch('/api/resume/generate', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(orderData)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.status === 'success' && result.checkoutUrl) {
-                        // Redirect to Stripe checkout
-                        window.location.href = result.checkoutUrl;
-                    } else {
-                        throw new Error(result.message || 'Failed to process order');
-                    }
-                    
-                } catch (error) {
-                    alert('Error processing order: ' + error.message + '. Please try again.');
-                    submitButton.disabled = false;
-                    submitButton.textContent = originalText;
-                }
-            }
-            
-            // Form submission handler - moved after processOrder definition
-            const orderForm = document.getElementById('orderForm');
-            
-            if (orderForm) {
-                orderForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    await processOrder();
-                });
-                
-                // Also add click listener to submit button as backup
-                const submitButton = document.querySelector('.submit-button');
-                if (submitButton) {
-                    submitButton.addEventListener('click', async function(e) {
-                        e.preventDefault();
-                        await processOrder();
-                    });
-                }
-            } else {
-            }
+            console.log("All event listeners attached successfully!");
         });
     </script>
 </body>
