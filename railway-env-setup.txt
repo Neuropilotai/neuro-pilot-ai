@@ -1,0 +1,15 @@
+RAILWAY ENVIRONMENT VARIABLES - COPY AND PASTE THESE:
+
+# CRITICAL - Security Configuration
+PROMO_CODES={"WELCOME10":{"discount":10,"type":"percentage","description":"Welcome 10% OFF"},"SAVE20":{"discount":20,"type":"fixed","description":"Save $20 on your order"}}
+
+# Production Security
+NODE_ENV=production
+API_SECRET_KEY=neuro-pilot-secure-api-key-2025-CHANGE-THIS-IN-PRODUCTION
+
+# Optional - Additional Security
+JWT_SECRET=your-super-secure-jwt-secret-key-here-change-this-in-production
+
+# Keep existing variables like:
+# OPENAI_API_KEY=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
+# STRIPE_SECRET_KEY=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
