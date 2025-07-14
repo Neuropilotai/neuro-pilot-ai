@@ -5,10 +5,10 @@ node = "20"
 nixPkgs = ["nodejs_20", "npm"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm ci", "cd frontend && npm ci"]
 
 [phases.build] 
-cmds = ["npm run build"]
+cmds = ["cd frontend && npm run build", "cp -r frontend/build/* ./public/"]
 
 [start]
 cmd = "node railway-server-production.js"

@@ -1,5 +1,6 @@
 // Railway Production Server - Neuro.Pilot.AI
 // Optimized for Railway deployment
+// Build: 2025-07-14-20:15
 require('dotenv').config();
 
 const express = require('express');
@@ -35,7 +36,7 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
+// Serve static files from React build (Railway copies to public/)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check endpoint (required by Railway)
@@ -111,15 +112,7 @@ app.get('/api/trading/status', (req, res) => {
     });
 });
 
-// International buyer page
-app.get('/international', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'international.html'));
-});
-
-// Order page redirect to international
-app.get('/order', (req, res) => {
-    res.redirect('/international');
-});
+// API Routes (keep these before catch-all)
 
 // Resume order processing
 app.get('/api/resume/order', (req, res) => {
@@ -160,9 +153,25 @@ app.get('/api/contact', (req, res) => {
     });
 });
 
-// Catch-all route for SPA
+// Catch-all route for React SPA
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    if (require('fs').existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        // Fallback if React build not found
+        res.json({
+            service: 'Neuro.Pilot.AI',
+            status: 'running',
+            message: 'Professional AI Resume Service',
+            features: ['4 AI Agents', 'Job-Specific Optimization', 'Global Payment Processing'],
+            api_endpoints: {
+                health: '/api/health',
+                resume_order: '/api/resume/order',
+                contact: '/api/contact'
+            }
+        });
+    }
 });
 
 // Error handling middleware
