@@ -215,7 +215,8 @@ router.post('/forgot-password', async (req, res) => {
             resetPasswordExpires: resetExpires
         });
 
-        console.log(`Password reset token for ${email}: ${resetToken}`);
+        // Security: Log password reset request without exposing token
+        console.log(`Password reset requested for user: [EMAIL_REDACTED]`);
 
         res.json({ message: 'If that email exists, we sent a reset link' });
     } catch (error) {

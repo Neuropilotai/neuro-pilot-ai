@@ -118,14 +118,11 @@
     <script>
         console.log("=== SCRIPT STARTING v2.6 - STANDALONE FILE - " + new Date().toISOString() + " ===");
         
-        // Define promo codes object
-        var promoCodes = {
-            "FAMILY2025": { discount: 100, type: "percentage", description: "Family Test - 100% OFF" },
-            "TEST50": { discount: 50, type: "percentage", description: "50% OFF Test Code" },
-            "FIRST10": { discount: 10, type: "fixed", description: "$10 OFF Your First Order" }
-        };
+        // Security: Promo codes are validated server-side only
+        // No promo codes are stored in frontend for security reasons
+        var promoCodes = {};
         
-        console.log("Promo codes defined:", Object.keys(promoCodes));
+        // Promo codes loaded securely from server-side validation
         
         // Wait for DOM to be ready before attaching event listeners
         document.addEventListener("DOMContentLoaded", function() {
@@ -133,16 +130,16 @@
             
             // Test basic DOM elements
             console.log("Package elements found:", document.querySelectorAll(".package").length);
-            console.log("Apply promo button:", !!document.getElementById("applyPromo"));
+            // Promo button check
             console.log("Final price element:", !!document.getElementById("finalPrice"));
-            console.log("Promo message element:", !!document.getElementById("promoMessage"));
+            // Promo message element check
             
             // Global variables - accessible from everywhere (using var for maximum compatibility)
             var currentPrice = 45;
             var appliedDiscount = 0;
             var promoCodeApplied = false;
             
-            console.log("Global variables set - currentPrice:", currentPrice, "promoCodeApplied:", promoCodeApplied);
+            // Global variables initialized
             
             // Define updatePriceDisplay function FIRST - before any other code
             function updatePriceDisplay() {
@@ -201,17 +198,8 @@
                     currentPrice = parseInt(this.dataset.price);
                     console.log("Current price updated to:", currentPrice);
                     
-                    // Recalculate discount if promo code is applied
-                    if (promoCodeApplied) {
-                        const promoCode = document.getElementById("promoCode").value.toUpperCase();
-                        const promo = promoCodes[promoCode];
-                        if (promo) {
-                            appliedDiscount = promo.type === "percentage" ? 
-                                Math.round(currentPrice * promo.discount / 100) : 
-                                Math.min(promo.discount, currentPrice);
-                            console.log("Discount recalculated:", appliedDiscount);
-                        }
-                    }
+                    // Security: Promo code discount is maintained from server validation
+                    // No need to recalculate as discount is already stored from server response
                     
                     console.log("Calling updatePriceDisplay...");
                     updatePriceDisplay();
@@ -223,31 +211,50 @@
                 const promoCode = document.getElementById("promoCode").value.toUpperCase();
                 const messageEl = document.getElementById("promoMessage");
                 
-                console.log("Promo code apply clicked:", promoCode);
+                // Promo code validation initiated
                 
                 if (!promoCode) {
                     messageEl.innerHTML = '<span style="color: #e53e3e;">Please enter a promo code</span>';
                     return;
                 }
                 
-                const promo = promoCodes[promoCode];
-                console.log("Found promo:", promo);
+                // Security: Validate promo code server-side only
+                messageEl.innerHTML = '<span style="color: #718096;">🔄 Validating promo code...</span>';
                 
-                if (promo) {
-                    appliedDiscount = promo.type === "percentage" ? 
-                        Math.round(currentPrice * promo.discount / 100) : 
-                        Math.min(promo.discount, currentPrice);
-                    
-                    console.log("Discount calculated:", appliedDiscount, "for current price:", currentPrice);
-                    
-                    promoCodeApplied = true;
-                    messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + promo.description + ' applied!</span>';
-                    console.log("Calling updatePriceDisplay from promo code...");
+                // Make server-side validation request
+                fetch('/api/public/validate-promo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: promoCode })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.valid) {
+                        // Apply discount based on server response
+                        appliedDiscount = data.type === "percentage" ? 
+                            Math.round(currentPrice * data.discount / 100) : 
+                            Math.min(data.discount, currentPrice);
+                        
+                        promoCodeApplied = true;
+                        messageEl.innerHTML = '<span style="color: #38a169;">✅ ' + data.description + ' applied!</span>';
+                        
+                        updatePriceDisplay();
+                    } else {
+                        messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
+                        promoCodeApplied = false;
+                        appliedDiscount = 0;
+                        updatePriceDisplay();
+                    }
+                })
+                .catch(error => {
+                    console.error('Promo code validation error:', error);
+                    messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Error validating promo code</span>';
+                    promoCodeApplied = false;
+                    appliedDiscount = 0;
                     updatePriceDisplay();
-                } else {
-                    messageEl.innerHTML = '<span style="color: #e53e3e;">❌ Invalid promo code</span>';
-                    console.log("Invalid promo code entered");
-                }
+                });
             });
             
             console.log("All event listeners attached successfully!");

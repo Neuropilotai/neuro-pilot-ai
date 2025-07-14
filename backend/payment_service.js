@@ -91,7 +91,8 @@ class PaymentService {
                     description: `${service.name} - ${service.description}`
                 });
 
-                console.log(`💳 Payment intent created: ${paymentIntent.id} for ${customer_email}`);
+                // Security: Log payment intent without exposing customer email
+                console.log(`💳 Payment intent created: ${paymentIntent.id} for [EMAIL_REDACTED]`);
                 console.log(`📦 Service: ${service.name} - $${(service.price / 100).toFixed(2)}`);
 
                 res.json({
@@ -117,7 +118,8 @@ class PaymentService {
                 
                 if (paymentIntent.status === 'succeeded') {
                     console.log(`✅ Payment confirmed: ${payment_intent_id}`);
-                    console.log(`👤 Customer: ${paymentIntent.metadata.customer_name}`);
+                    // Security: Log payment confirmation without exposing customer name
+                    console.log(`👤 Customer: [NAME_REDACTED]`);
                     
                     // Create order for email agent
                     const order = {

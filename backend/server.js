@@ -16,6 +16,7 @@ const CustomerServiceAgent = require('./customer_service_agent');
 
 // Database and Authentication
 const { initDatabase } = require('./db/database');
+const { connectDB } = require('./db/mongoConnection');
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const { authenticateToken, optionalAuth } = require('./middleware/auth');
@@ -74,8 +75,15 @@ requiredDirs.forEach(dir => {
   }
 });
 
-// Initialize database
-initDatabase().catch(console.error);
+// Initialize databases
+initDatabase().catch(error => {
+    console.error('Database initialization failed');
+    process.exit(1);
+});
+connectDB().catch(error => {
+    console.error('Database connection failed');
+    process.exit(1);
+});
 
 // Connect to live dashboard (only in development)
 let dashboardSocket;
@@ -102,6 +110,40 @@ function broadcastEvent(eventType, data) {
 // Auth routes
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// Agent Monitor routes
+const SuperAgentMonitor = require('./super_agent_monitor');
+const agentMonitor = new SuperAgentMonitor(io);
+
+// Add monitor routes to existing server
+app.get('/monitor', (req, res) => {
+    res.send(agentMonitor.getMonitorHTML());
+});
+
+app.get('/api/monitor/agents', (req, res) => {
+    const agentList = Array.from(agentMonitor.agents.values());
+    res.json(agentList);
+});
+
+app.get('/api/monitor/pending-approvals', (req, res) => {
+    const approvals = Array.from(agentMonitor.pendingApprovals.values());
+    res.json(approvals);
+});
+
+app.post('/api/monitor/approve/:approvalId', (req, res) => {
+    const { approvalId } = req.params;
+    const { approved, feedback } = req.body;
+    
+    agentMonitor.handleApproval(approvalId, approved, feedback);
+    res.json({ success: true });
+});
+
+// Import inventory agent and routes
+const inventoryAgent = require('./inventory_super_agent');
+const inventoryRoutes = require('./routes/inventory_simple');
+
+// Inventory routes
+app.use('/api/inventory', inventoryRoutes);
 
 // Mock agent data that updates
 let agentData = {
@@ -133,6 +175,13 @@ let agentData = {
     auto_response_rate: 0,
     customer_satisfaction: 85,
     services_supported: 5
+  },
+  inventory: {
+    status: 'training',
+    forecast_accuracy: 0,
+    stock_accuracy: 0,
+    warehouse_efficiency: 0,
+    products_tracked: 0
   }
 };
 
@@ -142,7 +191,7 @@ app.get('/', (req, res) => {
     message: '🧠 Neuro.Pilot.AI Backend is running!',
     status: 'operational',
     timestamp: new Date().toISOString(),
-    agents_online: 4
+    agents_online: 5
   });
 });
 
@@ -154,6 +203,16 @@ app.get('/order', (req, res) => {
     'Expires': '0'
   });
   res.sendFile(path.join(__dirname, 'public', 'order.html'));
+});
+
+// Inventory management route
+app.get('/inventory', (req, res) => {
+  res.set({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
+  res.sendFile(path.join(__dirname, 'public', 'inventory.html'));
 });
 
 // Resume generation endpoints
@@ -314,7 +373,12 @@ app.post('/api/payments/resume-checkout', optionalAuth, async (req, res) => {
 
     // For development: create test payment session
     if (!stripe) {
-      console.log('💳 Test Order Received:', orderData);
+      // Security: Log order without exposing customer data
+      console.log('💳 Test Order Received:', {
+        orderId: orderData.orderId,
+        package: orderData.packageType,
+        timestamp: orderData.createdAt
+      });
       
       // Store order data for test mode
       global.pendingOrders = global.pendingOrders || {};
@@ -494,6 +558,51 @@ app.get('/api/pricing', (req, res) => {
   }
 });
 
+// Inventory Super Agent Endpoints
+app.get('/api/inventory/status', async (req, res) => {
+  try {
+    const status = await inventoryAgent.getStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('Inventory status error:', error);
+    res.status(500).json({ error: 'Failed to get inventory status' });
+  }
+});
+
+app.post('/api/inventory/start-training', async (req, res) => {
+  try {
+    const result = await inventoryAgent.startTraining();
+    res.json(result);
+  } catch (error) {
+    console.error('Inventory training error:', error);
+    res.status(500).json({ error: 'Failed to start training' });
+  }
+});
+
+app.post('/api/inventory/stop-training', async (req, res) => {
+  try {
+    const result = await inventoryAgent.stopTraining();
+    res.json(result);
+  } catch (error) {
+    console.error('Inventory stop training error:', error);
+    res.status(500).json({ error: 'Failed to stop training' });
+  }
+});
+
+app.get('/api/inventory/metrics', async (req, res) => {
+  try {
+    const metrics = inventoryAgent.metrics;
+    res.json({ 
+      status: 'success',
+      metrics,
+      training: inventoryAgent.isTraining
+    });
+  } catch (error) {
+    console.error('Inventory metrics error:', error);
+    res.status(500).json({ error: 'Failed to get inventory metrics' });
+  }
+});
+
 // Stripe webhook for payment confirmations
 app.post('/api/payments/webhook', express.raw({type: 'application/json'}), async (req, res) => {
   if (!stripe) {
@@ -532,7 +641,8 @@ app.post('/api/payments/webhook', express.raw({type: 'application/json'}), async
         };
         
         await emailSystem.sendOrderConfirmation(orderData);
-        console.log(`📧 Confirmation email sent to ${orderData.email} for order ${orderData.orderId}`);
+        // Security: Log email confirmation without exposing email address
+        console.log(`📧 Confirmation email sent to [EMAIL_REDACTED] for order ${orderData.orderId}`);
         
       } catch (emailError) {
         console.error('❌ Failed to send confirmation email:', emailError);
@@ -1793,12 +1903,29 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Update inventory agent data periodically
+setInterval(async () => {
+  try {
+    const inventoryStatus = await inventoryAgent.getStatus();
+    agentData.inventory = {
+      status: inventoryStatus.status.toLowerCase(),
+      forecast_accuracy: inventoryStatus.metrics.forecastAccuracy,
+      stock_accuracy: inventoryStatus.metrics.stockAccuracy,
+      warehouse_efficiency: inventoryStatus.metrics.warehouseEfficiency,
+      products_tracked: inventoryStatus.metrics.totalProducts
+    };
+  } catch (error) {
+    console.error('Error updating inventory status:', error);
+  }
+}, 5000); // Update every 5 seconds
+
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
   console.log(`🚀 Neuro.Pilot.AI Backend running on port ${PORT}`);
   console.log(`📊 API Status: http://localhost:${PORT}/api/agents/status`);
+  console.log(`🎛️ Super Agent Monitor: http://localhost:${PORT}/monitor`);
   console.log(`🔗 WebSocket ready for real-time updates`);
-  console.log(`🤖 All 4 AI agents initialized and ONLINE`);
+  console.log(`🤖 All 5 AI agents initialized and ONLINE (including Inventory Super Agent)`);
   console.log('📈 Live Trading Agent integrated with API endpoints');
 }).on('error', (error) => {
   console.error('❌ Server Error:', error);

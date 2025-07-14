@@ -40,7 +40,16 @@ const strictLimiter = rateLimit({
 // API Key validation middleware
 function validateApiKey(req, res, next) {
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
-    const validApiKey = process.env.API_SECRET_KEY || 'neuro-pilot-secure-api-key-2025';
+    const validApiKey = process.env.API_SECRET_KEY;
+    
+    // Security: Fail if API key not configured
+    if (!validApiKey) {
+        console.error('🔒 SECURITY ERROR: API_SECRET_KEY not configured in environment variables');
+        return res.status(500).json({
+            error: 'Server configuration error',
+            code: 'CONFIGURATION_ERROR'
+        });
+    }
     
     // Skip for public endpoints
     const publicEndpoints = ['/api/health', '/', '/order'];
@@ -137,7 +146,8 @@ try {
             }
         });
         console.log('📧 Email system initialized for Railway');
-        console.log(`📧 SMTP configured: ${emailUser}`);
+        // Security: Log SMTP configuration without exposing email address
+        console.log('📧 SMTP configured: [EMAIL_REDACTED]');
     } else {
         console.log('⚠️ Email system disabled - no SMTP credentials');
         console.log('   Required: SMTP_USER and SMTP_PASS environment variables');
@@ -434,18 +444,22 @@ app.post('/api/promo/validate', strictLimiter, validateApiKey, async (req, res) 
             });
         }
         
-        // Server-side promo codes (secure from environment)
-        const promoCodes = JSON.parse(process.env.PROMO_CODES || JSON.stringify({
-            "FAMILY2025": { discount: 100, type: "percentage", description: "Family Test - 100% OFF" },
-            "TEST50": { discount: 50, type: "percentage", description: "50% OFF Test Code" },
-            "FIRST10": { discount: 10, type: "fixed", description: "$10 OFF Your First Order" },
-            "WELCOME20": { discount: 20, type: "percentage", description: "20% OFF Welcome Discount" }
-        }));
+        // Server-side promo codes (secure from environment only)
+        const promoCodes = JSON.parse(process.env.PROMO_CODES || '{}');
+        
+        // Security: No fallback promo codes in source code
+        if (!process.env.PROMO_CODES) {
+            return res.status(500).json({
+                status: 'error',
+                error: 'Promo code system not configured'
+            });
+        }
         
         const upperCode = code.toUpperCase();
         
         if (promoCodes[upperCode]) {
-            console.log(`✅ Valid promo code applied: ${upperCode}`);
+            // Security: Log promo code usage without exposing the actual code
+            console.log(`✅ Valid promo code applied - Order processing`);
             res.json({
                 status: 'success',
                 valid: true,
@@ -455,7 +469,8 @@ app.post('/api/promo/validate', strictLimiter, validateApiKey, async (req, res) 
                 description: promoCodes[upperCode].description
             });
         } else {
-            console.log(`❌ Invalid promo code attempted: ${upperCode}`);
+            // Security: Log invalid attempts without exposing attempted codes
+            console.log(`❌ Invalid promo code attempt from IP: ${req.ip}`);
             res.json({
                 status: 'success',
                 valid: false,
@@ -464,7 +479,64 @@ app.post('/api/promo/validate', strictLimiter, validateApiKey, async (req, res) 
         }
         
     } catch (error) {
-        console.error('❌ Promo validation error:', error);
+        // Security: Log error without exposing sensitive details
+        console.error('❌ Promo validation error occurred');
+        res.status(500).json({
+            status: 'error',
+            error: 'Failed to validate promo code'
+        });
+    }
+});
+
+// Public promo code validation endpoint (no API key required)
+app.post('/api/public/validate-promo', strictLimiter, async (req, res) => {
+    try {
+        const { code } = req.body;
+        
+        if (!code) {
+            return res.status(400).json({
+                status: 'error',
+                error: 'Promo code is required'
+            });
+        }
+        
+        // Server-side promo codes (secure from environment only)
+        const promoCodes = JSON.parse(process.env.PROMO_CODES || '{}');
+        
+        // Security: No fallback promo codes in source code
+        if (!process.env.PROMO_CODES) {
+            return res.status(500).json({
+                status: 'error',
+                error: 'Promo code system not configured'
+            });
+        }
+        
+        const upperCode = code.toUpperCase();
+        
+        if (promoCodes[upperCode]) {
+            // Security: Log promo code usage without exposing the actual code
+            console.log(`✅ Valid promo code applied - Order processing`);
+            res.json({
+                status: 'success',
+                valid: true,
+                code: upperCode,
+                discount: promoCodes[upperCode].discount,
+                type: promoCodes[upperCode].type,
+                description: promoCodes[upperCode].description
+            });
+        } else {
+            // Security: Log invalid attempts without exposing attempted codes
+            console.log(`❌ Invalid promo code attempt from IP: ${req.ip}`);
+            res.json({
+                status: 'success',
+                valid: false,
+                message: 'Invalid promo code'
+            });
+        }
+        
+    } catch (error) {
+        // Security: Log error without exposing sensitive details
+        console.error('❌ Promo validation error occurred');
         res.status(500).json({
             status: 'error',
             error: 'Failed to validate promo code'
@@ -475,7 +547,8 @@ app.post('/api/promo/validate', strictLimiter, validateApiKey, async (req, res) 
 // Submit new order (protected)
 app.post('/api/resume/generate', strictLimiter, validateApiKey, async (req, res) => {
     try {
-        console.log(`📝 New order received: ${req.body.packageType || 'professional'}`);
+        // Security: Log order without exposing sensitive data
+        console.log(`📝 New order received - Package type: ${req.body.packageType || 'professional'}`);
         
         // Create order data
         const orderData = {
