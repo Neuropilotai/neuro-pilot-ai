@@ -1,6 +1,7 @@
 // Railway Production Server - Neuro.Pilot.AI Complete AI Business System
 // Optimized for Railway deployment with full agent integration
 // Security Update: 2025-07-14 - Secure promo code system deployed
+// URGENT DEPLOYMENT TRIGGER: ${new Date().toISOString()} - Force Railway deployment
 
 require('dotenv').config();
 const express = require('express');

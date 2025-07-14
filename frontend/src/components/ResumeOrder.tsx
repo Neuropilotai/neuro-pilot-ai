@@ -556,8 +556,10 @@ const ResumeOrder: React.FC = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Order Form */}
+            {showForm && (
             <div className="bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-600">
               <div className="p-8 border-b border-slate-600">
                 <h3 className="text-3xl font-bold text-white mb-3 flex items-center">
