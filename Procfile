@@ -1,1 +1,1 @@
-web: node railway-server-full.js
+web: node railway-server-production.js

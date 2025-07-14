@@ -1,8 +1,8 @@
 [providers]
-node = "18"
+node = "20"
 
 [phases.setup]
-nixPkgs = ["nodejs_18", "npm"]
+nixPkgs = ["nodejs_20", "npm"]
 
 [phases.install]
 cmds = ["npm ci"]
@@ -11,4 +11,4 @@ cmds = ["npm ci"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "npm start"
+cmd = "node railway-server-production.js"
