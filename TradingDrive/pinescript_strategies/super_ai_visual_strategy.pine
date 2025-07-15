@@ -5,7 +5,7 @@ strategy("🚀 Super AI Visual Trading Strategy", overlay=true, default_qty_type
 aiAccuracy = input.float(0.813, "🧠 AI Model Accuracy", minval=0.5, maxval=1.0, step=0.01, group="🧠 AI Model")
 learningProgress = input.float(1.0, "📈 Learning Progress", minval=0.0, maxval=1.0, step=0.01, group="🧠 AI Model")
 dataPoints = input.int(21644, "📊 Data Points Collected", minval=1000, group="🧠 AI Model")
-confidenceThreshold = input.float(0.829, "🎯 Signal Confidence Threshold", minval=0.5, maxval=0.95, step=0.05, group="🧠 AI Model")
+confidenceThreshold = input.float(0.750, "🎯 Signal Confidence Threshold", minval=0.5, maxval=0.95, step=0.05, group="🧠 AI Model")
 
 // ===== VISUAL SETTINGS =====
 showProfitZones = input.bool(true, "💰 Show Profit Zones", group="📊 Visual Indicators")
