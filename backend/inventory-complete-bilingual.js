@@ -2595,7 +2595,7 @@ app.get('/', (req, res) => {
                                                 <br><small>Current: \${item.location} | Qty: \${item.quantity} \${item.unit}</small>
                                                 <br><small>Category: \${item.category}</small>
                                                 <div style="margin-top: 8px;">
-                                                    <button onclick="moveItem(\${item.id}, '\${locationName}', '\${item.location}')" class="btn btn-small" style="background: #4CAF50; font-size: 12px;">
+                                                    <button onclick="moveItem(\${item.id}, \\'\${locationName}\\', \\'\${item.location}\\')" class="btn btn-small" style="background: #4CAF50; font-size: 12px;">
                                                         ➡️ Move to \${locationName}
                                                     </button>
                                                 </div>
@@ -3216,7 +3216,7 @@ app.get('/', (req, res) => {
                                         item.locations.map(loc => 
                                             \`<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 5px 0; background: rgba(76,175,80,0.3); border-radius: 5px;">
                                                 <span><strong>\${loc}</strong></span>
-                                                <button onclick="removeItemFromLocation(\${itemId}, '\${loc}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Remove</button>
+                                                <button onclick="removeItemFromLocation(\${itemId}, \\'\${loc}\\')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Remove</button>
                                             </div>\`
                                         ).join('') : 
                                         '<p style="color: #888; text-align: center;">No locations assigned</p>'
@@ -3228,7 +3228,7 @@ app.get('/', (req, res) => {
                                 <h3 style="color: #2196F3; margin-bottom: 10px;">Add to Location:</h3>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                                     \${Object.entries(frontendStorageLocations).map(([name, info]) => \`
-                                        <button onclick="addItemToLocation(\${itemId}, '\${name}')" style="
+                                        <button onclick="addItemToLocation(\${itemId}, \\'\${name}\\')" style="
                                             background: \${item.locations && item.locations.includes(name) ? '#95a5a6' : '#3498db'}; 
                                             color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; text-align: left;
                                             \${item.locations && item.locations.includes(name) ? 'opacity: 0.6;' : ''}
@@ -3598,7 +3598,7 @@ app.get('/', (req, res) => {
                         <div style="display: grid; gap: 10px;">
                             \${items.map((item, index) => \`
                                 <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;" 
-                                     onclick="selectItem('\${item.stockNumber}', '\${location}', \${quantity})">
+                                     onclick="selectItem(\\'\${item.stockNumber}\\', \\'\${location}\\', \${quantity})">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <div>
                                             <strong>\${item.displayName}</strong>
@@ -3782,14 +3782,6 @@ app.use((error, req, res, next) => {
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint not found'
-  });
-});
-
 // Initialize server with all data loading
 async function initializeServer() {
   try {
@@ -3822,6 +3814,34 @@ async function initializeServer() {
     inventory = generateFullInventory();
     console.log(`✅ Generated full inventory: ${inventory.length} items`);
 
+    // Initialize AI globals with current inventory data
+    const inventoryGlobals = require('./routes/inventoryGlobals');
+    inventoryGlobals.setInventoryReference(inventory);
+    inventoryGlobals.setStorageLocationsReference(storageLocations);
+    console.log(`✅ Initialized AI optimization system`);
+
+    // Register AI optimization routes AFTER data is loaded (BEFORE 404 handler)
+    try {
+      const aiRoutes = require('./routes/ai');
+      // Set the JWT secret to match the main server
+      aiRoutes.setJWTSecret(JWT_SECRET);
+      app.use('/api/ai', aiRoutes);
+      console.log(`✅ Registered AI optimization routes at /api/ai (with data)`);
+      
+      // Add a direct test route to verify routing works
+      app.get('/api/ai-test', (req, res) => {
+        res.json({ 
+          success: true, 
+          message: 'Direct AI test route works!', 
+          inventoryCount: inventory.length 
+        });
+      });
+      console.log(`✅ Added direct AI test route at /api/ai-test`);
+      
+    } catch (error) {
+      console.error('❌ Error loading AI routes:', error);
+    }
+
   } catch (error) {
     console.log('⚠️ Some data files not found, using defaults');
   }
@@ -3830,6 +3850,15 @@ async function initializeServer() {
 // Start server
 async function startServer() {
   await initializeServer();
+  
+  // 404 handler (MUST be last)
+  app.use((req, res) => {
+    res.status(404).json({
+      success: false,
+      error: 'Endpoint not found'
+    });
+  });
+  console.log(`✅ Registered 404 handler (last)`);
   
   const server = app.listen(PORT, () => {
     console.log('\\n🏕️  COMPLETE BILINGUAL INVENTORY SYSTEM STARTED');

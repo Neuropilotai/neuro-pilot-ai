@@ -139,8 +139,9 @@ app.post('/api/monitor/approve/:approvalId', (req, res) => {
 });
 
 // Import inventory agent and routes
-const inventoryAgent = require('./inventory_super_agent');
-const inventoryRoutes = require('./routes/inventory_simple');
+const InventorySuperAgent = require('./inventory_super_agent');
+const inventoryAgent = new InventorySuperAgent();
+const inventoryRoutes = require('./routes/inventory_production');
 
 // Inventory routes
 app.use('/api/inventory', inventoryRoutes);
@@ -205,6 +206,11 @@ app.get('/order', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'order.html'));
 });
 
+// Login page route
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 // Inventory management route
 app.get('/inventory', (req, res) => {
   res.set({
@@ -212,7 +218,7 @@ app.get('/inventory', (req, res) => {
     'Pragma': 'no-cache',
     'Expires': '0'
   });
-  res.sendFile(path.join(__dirname, 'public', 'inventory.html'));
+  res.sendFile(path.join(__dirname, '../frontend/inventory-bilingual.html'));
 });
 
 // Resume generation endpoints

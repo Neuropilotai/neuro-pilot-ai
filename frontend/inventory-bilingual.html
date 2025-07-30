@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management | Gestion d'Inventaire</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo h1 {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .language-selector {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .lang-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #667eea;
+            background: transparent;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .lang-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .lang-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .metric-card {
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .inventory-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .table-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .table-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .table-controls {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .table-content {
+            padding: 0;
+        }
+        
+        .items-grid {
+            display: grid;
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+        
+        .item-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1rem;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+        
+        .item-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .item-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .item-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-critical { background: #ffebee; color: #c62828; }
+        .status-low { background: #fff3e0; color: #ef6c00; }
+        .status-normal { background: #e8f5e8; color: #2e7d32; }
+        .status-high { background: #e3f2fd; color: #1976d2; }
+        
+        .item-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .detail-item {
+            font-size: 0.9rem;
+        }
+        
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .detail-value {
+            color: #333;
+        }
+        
+        .quantity-input {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .quantity-input input {
+            width: 80px;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem;
+            color: #666;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <h1 data-translate="title">Inventory Management</h1>
+        </div>
+        <div class="language-selector">
+            <button class="lang-btn active" onclick="setLanguage('english')">English</button>
+            <button class="lang-btn" onclick="setLanguage('french')">Français</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Dashboard Metrics -->
+        <div class="dashboard-grid">
+            <div class="card metric-card">
+                <div class="metric-value" id="totalItems">--</div>
+                <div class="metric-label" data-translate="total-items">Total Items</div>
+            </div>
+            <div class="card metric-card">
+                <div class="metric-value" id="criticalItems">--</div>
+                <div class="metric-label" data-translate="critical-items">Critical Items</div>
+            </div>
+            <div class="card metric-card">
+                <div class="metric-value" id="totalValue">--</div>
+                <div class="metric-label" data-translate="total-value">Total Value</div>
+            </div>
+        </div>
+        
+        <!-- Inventory Table -->
+        <div class="inventory-table">
+            <div class="table-header">
+                <h2 class="table-title" data-translate="inventory-items">Inventory Items</h2>
+                <div class="table-controls">
+                    <button class="btn btn-secondary" onclick="refreshInventory()" data-translate="refresh">Refresh</button>
+                    <button class="btn btn-primary" onclick="exportData('csv')" data-translate="export">Export CSV</button>
+                </div>
+            </div>
+            <div class="table-content">
+                <div id="inventoryContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span data-translate="loading">Loading inventory...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Language management
+        let currentLanguage = localStorage.getItem('inventoryLanguage') || 'english';
+        
+        const translations = {
+            english: {
+                'title': 'Inventory Management',
+                'total-items': 'Total Items',
+                'critical-items': 'Critical Items',
+                'total-value': 'Total Value',
+                'inventory-items': 'Inventory Items',
+                'refresh': 'Refresh',
+                'export': 'Export CSV',
+                'loading': 'Loading inventory...',
+                'item-name': 'Item Name',
+                'quantity': 'Quantity',
+                'category': 'Category',
+                'supplier': 'Supplier',
+                'unit-price': 'Unit Price',
+                'location': 'Location',
+                'update': 'Update',
+                'critical': 'Critical',
+                'low': 'Low Stock',
+                'normal': 'Normal',
+                'high': 'High Stock',
+                'error-loading': 'Error loading inventory data',
+                'quantity-updated': 'Quantity updated successfully'
+            },
+            french: {
+                'title': 'Gestion d\'Inventaire',
+                'total-items': 'Articles Totaux',
+                'critical-items': 'Articles Critiques',
+                'total-value': 'Valeur Totale',
+                'inventory-items': 'Articles d\'Inventaire',
+                'refresh': 'Actualiser',
+                'export': 'Exporter CSV',
+                'loading': 'Chargement de l\'inventaire...',
+                'item-name': 'Nom de l\'Article',
+                'quantity': 'Quantité',
+                'category': 'Catégorie',
+                'supplier': 'Fournisseur',
+                'unit-price': 'Prix Unitaire',
+                'location': 'Emplacement',
+                'update': 'Mettre à jour',
+                'critical': 'Critique',
+                'low': 'Stock Faible',
+                'normal': 'Normal',
+                'high': 'Stock Élevé',
+                'error-loading': 'Erreur lors du chargement des données d\'inventaire',
+                'quantity-updated': 'Quantité mise à jour avec succès'
+            }
+        };
+        
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            localStorage.setItem('inventoryLanguage', lang);
+            
+            // Update language buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update all translatable elements
+            updatePageLanguage();
+            
+            // Reload data with new language
+            loadInventoryData();
+        }
+        
+        function updatePageLanguage() {
+            const elements = document.querySelectorAll('[data-translate]');
+            elements.forEach(element => {
+                const key = element.getAttribute('data-translate');
+                const translation = translations[currentLanguage][key];
+                if (translation) {
+                    element.textContent = translation;
+                }
+            });
+        }
+        
+        function getText(key) {
+            return translations[currentLanguage][key] || translations.english[key] || key;
+        }
+        
+        // API functions
+        async function loadInventoryData() {
+            try {
+                const response = await fetch(`/api/inventory/items?lang=${currentLanguage}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayInventoryItems(data.items);
+                    updateDashboardMetrics(data);
+                } else {
+                    showError(getText('error-loading'));
+                }
+            } catch (error) {
+                console.error('Error loading inventory:', error);
+                showError(getText('error-loading'));
+            }
+        }
+        
+        function displayInventoryItems(items) {
+            const container = document.getElementById('inventoryContainer');
+            
+            if (items.length === 0) {
+                container.innerHTML = `<div class="loading">${getText('no-items')}</div>`;
+                return;
+            }
+            
+            const itemsHTML = items.map(item => `
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-name">${item.displayName || item.name}</div>
+                        <div class="item-status status-${item.status}">
+                            ${getText(item.status)}
+                        </div>
+                    </div>
+                    
+                    <div class="item-details">
+                        <div class="detail-item">
+                            <span class="detail-label">${getText('quantity')}:</span>
+                            <span class="detail-value">${item.quantity} ${item.unit}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">${getText('category')}:</span>
+                            <span class="detail-value">${item.category}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">${getText('supplier')}:</span>
+                            <span class="detail-value">${item.supplier || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">${getText('unit-price')}:</span>
+                            <span class="detail-value">$${item.unitPrice}</span>
+                        </div>
+                    </div>
+                    
+                    ${item.aiInsights ? `
+                        <div class="ai-insights" style="margin-top: 1rem; padding: 0.75rem; background: #f0f8ff; border-radius: 6px; border-left: 3px solid #667eea;">
+                            <strong>🤖 AI Insights:</strong><br>
+                            <small>
+                                ${getText('trend')}: ${item.aiInsights.trend}<br>
+                                ${getText('recommended-action')}: ${item.aiInsights.recommendedAction}<br>
+                                ${getText('confidence')}: ${(item.aiInsights.confidence * 100).toFixed(0)}%
+                            </small>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="quantity-input">
+                        <label>${getText('quantity')}:</label>
+                        <input type="number" value="${item.quantity}" min="0" 
+                               onchange="updateQuantity('${item.id}', this.value)">
+                        <button class="btn btn-primary" onclick="updateQuantity('${item.id}', this.previousElementSibling.value)">
+                            ${getText('update')}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = `<div class="items-grid">${itemsHTML}</div>`;
+        }
+        
+        function updateDashboardMetrics(data) {
+            const analytics = data.summary || {};
+            
+            document.getElementById('totalItems').textContent = data.items?.length || 0;
+            document.getElementById('criticalItems').textContent = analytics.criticalCount || 0;
+            document.getElementById('totalValue').textContent = '$' + (
+                data.items?.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0).toFixed(2) || '0.00'
+            );
+        }
+        
+        async function updateQuantity(itemId, newQuantity) {
+            try {
+                const response = await fetch(`/api/inventory/items/${itemId}/quantity?lang=${currentLanguage}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({ quantity: parseInt(newQuantity) })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(getText('quantity-updated'));
+                    loadInventoryData(); // Refresh data
+                } else {
+                    showError(result.error || 'Update failed');
+                }
+            } catch (error) {
+                console.error('Error updating quantity:', error);
+                showError('Error updating quantity');
+            }
+        }
+        
+        async function refreshInventory() {
+            await loadInventoryData();
+        }
+        
+        function exportData(format) {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                showError('Authentication required for export');
+                return;
+            }
+            
+            const url = `/api/inventory/export/${format}?lang=${currentLanguage}`;
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `inventory-export.${format}`;
+            link.click();
+        }
+        
+        function showError(message) {
+            const container = document.getElementById('inventoryContainer');
+            container.innerHTML = `<div class="error">${message}</div>`;
+        }
+        
+        function showSuccess(message) {
+            const notification = document.createElement('div');
+            notification.className = 'success';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set initial language
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase().includes(currentLanguage === 'french' ? 'français' : 'english')) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            updatePageLanguage();
+            loadInventoryData();
+        });
+    </script>
+</body>
+</html>
