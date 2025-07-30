@@ -49,7 +49,7 @@
                     <a href="#examples" class="hover:text-gray-200" data-translate="nav.examples">Examples</a>
                     
                     <!-- Language Selector -->
-                    <select id="language-selector" onchange="switchLanguage(this.value)" class="bg-transparent border border-white/30 rounded px-3 py-1 text-sm">
+                    <select id="language-selector" class="bg-transparent border border-white/30 rounded px-3 py-1 text-sm">
                         <option value="english">English</option>
                         <option value="french">Français</option>
                     </select>
@@ -70,10 +70,10 @@
                 Get hired faster with ATS-optimized, beautifully designed resumes.
             </p>
             <div class="flex flex-col md:flex-row justify-center gap-4 mb-8">
-                <button onclick="scrollToOrder()" class="bg-yellow-400 text-gray-900 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-yellow-300 transition duration-300 pulse-button" data-translate="hero.ctaPrimary">
+                <button id="cta-primary-btn" class="bg-yellow-400 text-gray-900 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-yellow-300 transition duration-300 pulse-button" data-translate="hero.ctaPrimary">
                     🚀 Create My Resume Now
                 </button>
-                <button onclick="scrollToPricing()" class="border-2 border-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-gray-900 transition duration-300" data-translate="hero.ctaSecondary">
+                <button id="cta-secondary-btn" class="border-2 border-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-gray-900 transition duration-300" data-translate="hero.ctaSecondary">
                     💰 View Pricing
                 </button>
             </div>
@@ -165,7 +165,7 @@
                         </li>
                     </ul>
                     <div class="text-center">
-                        <button onclick="selectPackage('basic')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300" data-translate="pricing.packages.basic.button">
+                        <button data-package="basic" class="package-select-btn w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300" data-translate="pricing.packages.basic.button">
                             Choose Basic
                         </button>
                         <p class="text-sm text-gray-500 mt-2" data-translate="pricing.packages.basic.goodFor">Great for McDonald's, retail, entry-level</p>
@@ -205,7 +205,7 @@
                         </li>
                     </ul>
                     <div class="text-center">
-                        <button onclick="selectPackage('professional')" class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-300" data-translate="pricing.packages.professional.button">
+                        <button data-package="professional" class="package-select-btn w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-300" data-translate="pricing.packages.professional.button">
                             Choose Professional
                         </button>
                         <p class="text-sm text-gray-500 mt-2" data-translate="pricing.packages.professional.goodFor">Great for tech, healthcare, management</p>
@@ -242,7 +242,7 @@
                         </li>
                     </ul>
                     <div class="text-center">
-                        <button onclick="selectPackage('executive')" class="w-full bg-yellow-600 text-white py-3 rounded-lg font-semibold hover:bg-yellow-700 transition duration-300" data-translate="pricing.packages.executive.button">
+                        <button data-package="executive" class="package-select-btn w-full bg-yellow-600 text-white py-3 rounded-lg font-semibold hover:bg-yellow-700 transition duration-300" data-translate="pricing.packages.executive.button">
                             Choose Executive
                         </button>
                         <p class="text-sm text-gray-500 mt-2" data-translate="pricing.packages.executive.goodFor">Great for CEO, Director, VP positions</p>
@@ -779,27 +779,48 @@
         // Initialize
         updatePackageDisplay();
         
-        // Add backup event listeners for package selection
+        // Add event listeners for all interactive elements
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, setting up package selectors');
+            console.log('DOM loaded, setting up event listeners');
             
-            // Add click listeners to all package buttons
-            const packageButtons = document.querySelectorAll('[onclick*="selectPackage"]');
+            // Language selector
+            const languageSelector = document.getElementById('language-selector');
+            if (languageSelector) {
+                languageSelector.addEventListener('change', function() {
+                    switchLanguage(this.value);
+                });
+            }
+            
+            // CTA buttons
+            const ctaPrimaryBtn = document.getElementById('cta-primary-btn');
+            if (ctaPrimaryBtn) {
+                ctaPrimaryBtn.addEventListener('click', scrollToOrder);
+            }
+            
+            const ctaSecondaryBtn = document.getElementById('cta-secondary-btn');
+            if (ctaSecondaryBtn) {
+                ctaSecondaryBtn.addEventListener('click', scrollToPricing);
+            }
+            
+            // Package selection buttons
+            const packageButtons = document.querySelectorAll('.package-select-btn');
             packageButtons.forEach(button => {
                 button.addEventListener('click', function(e) {
                     e.preventDefault();
-                    const packageName = this.getAttribute('onclick').match(/selectPackage\('([^']+)'\)/)[1];
+                    const packageName = this.getAttribute('data-package');
                     console.log('Button clicked for package:', packageName);
                     selectPackage(packageName);
                 });
             });
             
-            // Also add click listeners to package cards
+            // Package cards (clicking anywhere on card)
             document.querySelectorAll('.package-card').forEach(card => {
                 card.addEventListener('click', function() {
                     const packageName = this.getAttribute('data-package');
-                    console.log('Card clicked for package:', packageName);
-                    selectPackage(packageName);
+                    if (packageName) {
+                        console.log('Card clicked for package:', packageName);
+                        selectPackage(packageName);
+                    }
                 });
             });
         });

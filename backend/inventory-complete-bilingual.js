@@ -16,6 +16,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
@@ -388,8 +389,8 @@ const suppliers = {
   }
 };
 
-// Storage locations
-const storageLocations = {
+// Storage locations - will be loaded from file or use defaults
+let storageLocations = {
   'Freezer A1': { type: 'Freezer', temp: '-10°F', capacity: 1000, currentUsage: 450 },
   'Freezer A2': { type: 'Freezer', temp: '-10°F', capacity: 1000, currentUsage: 380 },
   'Freezer A3': { type: 'Freezer', temp: '-10°F', capacity: 800, currentUsage: 290 },
@@ -400,8 +401,87 @@ const storageLocations = {
   'Dry Storage C1': { type: 'Dry Storage', temp: 'Room', capacity: 1200, currentUsage: 650 },
   'Dry Storage C2': { type: 'Dry Storage', temp: 'Room', capacity: 1200, currentUsage: 780 },
   'Dry Storage C3': { type: 'Dry Storage', temp: 'Room', capacity: 1000, currentUsage: 420 },
-  'Dry Storage C4': { type: 'Dry Storage', temp: 'Room', capacity: 800, currentUsage: 340 }
+  'Dry Storage C4': { type: 'Dry Storage', temp: 'Room', capacity: 800, currentUsage: 340 },
+  'Walk-in D1': { type: 'Walk-in', temp: 'Room', capacity: 2000, currentUsage: 850 }
 };
+
+// Load storage locations from file
+function loadStorageLocationsFromFile() {
+  const locationsFilePath = path.join(__dirname, 'data', 'storage_locations', 'locations.json');
+  
+  try {
+    if (fsSync.existsSync(locationsFilePath)) {
+      const locationsData = JSON.parse(fsSync.readFileSync(locationsFilePath, 'utf8'));
+      
+      // Convert from array format to object format
+      const loadedLocations = {};
+      locationsData.forEach(loc => {
+        loadedLocations[loc.name] = {
+          type: loc.type || 'General',
+          temp: loc.temperature || 'Room',
+          capacity: parseInt(loc.capacity) || 1000,
+          currentUsage: loc.currentUsage || 0,
+          description: loc.description,
+          zone: loc.zone,
+          building: loc.building,
+          id: loc.id,
+          createdBy: loc.createdBy,
+          createdDate: loc.createdDate,
+          lastModified: loc.lastModified,
+          lastModifiedBy: loc.lastModifiedBy
+        };
+      });
+      
+      storageLocations = loadedLocations;
+      console.log('✅ Loaded storage locations from file:', Object.keys(storageLocations).length, 'locations');
+    } else {
+      console.log('⚠️ No storage locations file found, using defaults');
+      saveStorageLocationsToFile(); // Save defaults
+    }
+  } catch (error) {
+    console.error('❌ Error loading storage locations:', error);
+    console.log('⚠️ Using default storage locations');
+  }
+}
+
+// Save storage locations to file
+function saveStorageLocationsToFile() {
+  const locationsFilePath = path.join(__dirname, 'data', 'storage_locations', 'locations.json');
+  const locationsDir = path.join(__dirname, 'data', 'storage_locations');
+  
+  try {
+    // Ensure directory exists
+    if (!fsSync.existsSync(locationsDir)) {
+      fsSync.mkdirSync(locationsDir, { recursive: true });
+    }
+    
+    // Convert object format to array format for file storage
+    const locationsArray = Object.entries(storageLocations).map(([name, data]) => ({
+      id: data.id || name.toUpperCase().replace(/\s+/g, '_'),
+      name: name,
+      type: data.type,
+      category: data.type === 'Freezer' ? 'frozen_storage' : 
+               data.type === 'Cooler' ? 'cold_storage' :
+               data.type === 'Dry Storage' ? 'dry_storage' : 'general_storage',
+      description: data.description || `${data.type} storage location`,
+      capacity: String(data.capacity),
+      currentUsage: data.currentUsage,
+      temperature: data.temp,
+      zone: data.zone || 'Main',
+      building: data.building || 'Main Lodge',
+      isActive: true,
+      createdBy: data.createdBy || 'System',
+      createdDate: data.createdDate || new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      lastModifiedBy: 'System'
+    }));
+    
+    fsSync.writeFileSync(locationsFilePath, JSON.stringify(locationsArray, null, 2));
+    console.log('✅ Saved storage locations to file');
+  } catch (error) {
+    console.error('❌ Error saving storage locations:', error);
+  }
+}
 
 // Orders history
 let orders = [];
@@ -1012,8 +1092,13 @@ app.post('/api/storage/locations', authenticateToken, (req, res) => {
     type,
     temp,
     capacity: parseInt(capacity),
-    currentUsage: 0
+    currentUsage: 0,
+    createdDate: new Date().toISOString(),
+    createdBy: 'System'
   };
+  
+  // Save to file
+  saveStorageLocationsToFile();
   
   res.json({
     success: true,
@@ -1034,6 +1119,13 @@ app.put('/api/storage/locations/:name', authenticateToken, (req, res) => {
   if (type) storageLocations[name].type = type;
   if (temp) storageLocations[name].temp = temp;
   if (capacity) storageLocations[name].capacity = parseInt(capacity);
+  
+  // Update modification info
+  storageLocations[name].lastModified = new Date().toISOString();
+  storageLocations[name].lastModifiedBy = 'System';
+  
+  // Save to file
+  saveStorageLocationsToFile();
   
   res.json({
     success: true,
@@ -1062,6 +1154,9 @@ app.put('/api/storage/locations/:name/rename', authenticateToken, (req, res) => 
   // Move the location data to the new name
   storageLocations[newName] = { ...storageLocations[oldName] };
   delete storageLocations[oldName];
+  
+  // Save to file
+  saveStorageLocationsToFile();
   
   // Update all inventory items that use this location
   let updatedCount = 0;
@@ -1099,6 +1194,9 @@ app.delete('/api/storage/locations/:name', authenticateToken, (req, res) => {
   }
   
   delete storageLocations[name];
+  
+  // Save to file
+  saveStorageLocationsToFile();
   
   res.json({
     success: true,
@@ -2595,7 +2693,7 @@ app.get('/', (req, res) => {
                                                 <br><small>Current: \${item.location} | Qty: \${item.quantity} \${item.unit}</small>
                                                 <br><small>Category: \${item.category}</small>
                                                 <div style="margin-top: 8px;">
-                                                    <button onclick="moveItem(\${item.id}, \\'\${locationName}\\', \\'\${item.location}\\')" class="btn btn-small" style="background: #4CAF50; font-size: 12px;">
+                                                    <button onclick="moveItem(\${item.id}, '\${locationName}', '\${item.location}')" class="btn btn-small" style="background: #4CAF50; font-size: 12px;">
                                                         ➡️ Move to \${locationName}
                                                     </button>
                                                 </div>
@@ -2743,7 +2841,7 @@ app.get('/', (req, res) => {
                                         item.locations.map(loc => 
                                             '<span class="location-tag" style="background: #4CAF50; color: white; padding: 2px 6px; margin: 2px; border-radius: 3px; font-size: 12px; display: inline-block;">' + 
                                             loc + 
-                                            ' <button onclick="removeItemFromLocation(' + item.id + ', \'' + loc + '\')" style="background: none; border: none; color: white; margin-left: 3px; cursor: pointer; font-size: 10px;">✕</button>' +
+                                            ' <button onclick="removeItemFromLocation(' + item.id + ', &quot;' + loc + '&quot;)" style="background: none; border: none; color: white; margin-left: 3px; cursor: pointer; font-size: 10px;">✕</button>' +
                                             '</span>'
                                         ).join('') : 
                                         '<span style="color: #888;">No location assigned</span>'
@@ -3216,7 +3314,7 @@ app.get('/', (req, res) => {
                                         item.locations.map(loc => 
                                             \`<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 5px 0; background: rgba(76,175,80,0.3); border-radius: 5px;">
                                                 <span><strong>\${loc}</strong></span>
-                                                <button onclick="removeItemFromLocation(\${itemId}, \\'\${loc}\\')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Remove</button>
+                                                <button onclick="removeItemFromLocation(\${itemId}, '\${loc}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Remove</button>
                                             </div>\`
                                         ).join('') : 
                                         '<p style="color: #888; text-align: center;">No locations assigned</p>'
@@ -3228,7 +3326,7 @@ app.get('/', (req, res) => {
                                 <h3 style="color: #2196F3; margin-bottom: 10px;">Add to Location:</h3>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                                     \${Object.entries(frontendStorageLocations).map(([name, info]) => \`
-                                        <button onclick="addItemToLocation(\${itemId}, \\'\${name}\\')" style="
+                                        <button onclick="addItemToLocation(\${itemId}, '\${name}')" style="
                                             background: \${item.locations && item.locations.includes(name) ? '#95a5a6' : '#3498db'}; 
                                             color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; text-align: left;
                                             \${item.locations && item.locations.includes(name) ? 'opacity: 0.6;' : ''}
@@ -3598,7 +3696,7 @@ app.get('/', (req, res) => {
                         <div style="display: grid; gap: 10px;">
                             \${items.map((item, index) => \`
                                 <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;" 
-                                     onclick="selectItem(\\'\${item.stockNumber}\\', \\'\${location}\\', \${quantity})">
+                                     onclick="selectItem('\${item.stockNumber}', '\${location}', \${quantity})">
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <div>
                                             <strong>\${item.displayName}</strong>
@@ -3786,6 +3884,9 @@ app.use((error, req, res, next) => {
 async function initializeServer() {
   try {
     console.log('🔄 Loading data...');
+    
+    // Load storage locations from file
+    loadStorageLocationsFromFile();
     
     // Load Sysco catalog
     const catalogPath = path.join(__dirname, 'data', 'catalog', 'sysco_catalog_1753182965099.json');
