@@ -529,8 +529,8 @@ const authenticateToken = (req, res, next) => {
 
 // API Routes
 
-// Root route - basic info
-app.get('/', (req, res) => {
+// API info route - moved to /api
+app.get('/api', (req, res) => {
   res.json({
     success: true,
     message: 'Camp Inventory System API',
