@@ -3060,7 +3060,7 @@ app.get('/', (req, res) => {
                                 '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">' +
                                     '<h3>📍 Items in ' + locationName + '</h3>' +
                                     '<div>' +
-                                        '<button onclick="startCounting(\'' + locationName + '\')" class="btn" style="background: #2196F3; margin-right: 10px;">🔢 Start Counting</button>' +
+                                        '<button onclick="startCounting(&quot;' + locationName + '&quot;)" class="btn" style="background: #2196F3; margin-right: 10px;">🔢 Start Counting</button>' +
                                         '<button onclick="toggleSequencing()" class="btn" style="background: #9C27B0;">📋 Reorder Items</button>' +
                                     '</div>' +
                                 '</div>' +
@@ -3091,12 +3091,12 @@ app.get('/', (req, res) => {
                             '<div>' +
                                 '<h3>⚡ Quick Actions</h3>' +
                                 '<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">' +
-                                    '<button onclick="saveBatchCounts(\'' + locationName + '\')" class="btn" style="background: #4CAF50; width: 100%; margin-bottom: 10px;">💾 Save All Counts</button>' +
-                                    '<button onclick="resetCounts(\'' + locationName + '\')" class="btn" style="background: #FF9800; width: 100%; margin-bottom: 10px;">🔄 Reset Counts</button>' +
-                                    '<button onclick="exportLocationData(\'' + locationName + '\')" class="btn" style="background: #9C27B0; width: 100%; margin-bottom: 10px;">📊 Export Data</button>' +
+                                    '<button onclick="saveBatchCounts(&quot;' + locationName + '&quot;)" class="btn" style="background: #4CAF50; width: 100%; margin-bottom: 10px;">💾 Save All Counts</button>' +
+                                    '<button onclick="resetCounts(&quot;' + locationName + '&quot;)" class="btn" style="background: #FF9800; width: 100%; margin-bottom: 10px;">🔄 Reset Counts</button>' +
+                                    '<button onclick="exportLocationData(&quot;' + locationName + '&quot;)" class="btn" style="background: #9C27B0; width: 100%; margin-bottom: 10px;">📊 Export Data</button>' +
                                     '<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.3);">' +
                                     '<h4>📋 Count Sheet</h4>' +
-                                    '<button onclick="generateCountSheet(\'' + locationName + '\')" class="btn" style="background: #607D8B; width: 100%;">🖨️ Print Sheet</button>' +
+                                    '<button onclick="generateCountSheet(&quot;' + locationName + '&quot;)" class="btn" style="background: #607D8B; width: 100%;">🖨️ Print Sheet</button>' +
                                 '</div>' +
                             '</div>' +
                         '</div>' +
