@@ -25,6 +25,15 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = 8083;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.FLY_APP_NAME;
+
+// Get the correct data directory based on environment
+function getDataPath(...paths) {
+  if (IS_PRODUCTION) {
+    return path.join('/data', ...paths);
+  }
+  return path.join(__dirname, 'data', ...paths);
+}
 
 // Security Configuration
 const JWT_SECRET = process.env.JWT_SECRET || (() => {
@@ -86,9 +95,12 @@ app.use(express.json({
   }
 }));
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // File upload configuration
 const upload = multer({ 
-  dest: path.join(__dirname, 'data', 'uploads'),
+  dest: getDataPath('uploads'),
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
@@ -121,14 +133,14 @@ let historicalInventory = [];
 async function loadStoredData() {
   try {
     // Load Sysco catalog
-    const catalogPath = path.join(__dirname, 'data', 'catalog', 'sysco_catalog_1753182965099.json');
+    const catalogPath = getDataPath('catalog', 'sysco_catalog_1753182965099.json');
     const catalogData = await fs.readFile(catalogPath, 'utf8');
     const catalogJson = JSON.parse(catalogData);
     syscoCatalog = catalogJson.items || [];
     console.log(`✅ Loaded Sysco catalog: ${syscoCatalog.length} items`);
 
     // Load GFS orders
-    const gfsOrdersPath = path.join(__dirname, 'data', 'gfs_orders');
+    const gfsOrdersPath = getDataPath('gfs_orders');
     const gfsFiles = await fs.readdir(gfsOrdersPath);
     for (const file of gfsFiles) {
       if (file.startsWith('gfs_order_') && !file.includes('deleted') && file.endsWith('.json')) {
@@ -407,7 +419,7 @@ let storageLocations = {
 
 // Load storage locations from file
 function loadStorageLocationsFromFile() {
-  const locationsFilePath = path.join(__dirname, 'data', 'storage_locations', 'locations.json');
+  const locationsFilePath = getDataPath('storage_locations', 'locations.json');
   
   try {
     if (fsSync.existsSync(locationsFilePath)) {
@@ -446,8 +458,8 @@ function loadStorageLocationsFromFile() {
 
 // Save storage locations to file
 function saveStorageLocationsToFile() {
-  const locationsFilePath = path.join(__dirname, 'data', 'storage_locations', 'locations.json');
-  const locationsDir = path.join(__dirname, 'data', 'storage_locations');
+  const locationsFilePath = getDataPath('storage_locations', 'locations.json');
+  const locationsDir = getDataPath('storage_locations');
   
   try {
     // Ensure directory exists
@@ -516,6 +528,24 @@ const authenticateToken = (req, res, next) => {
 };
 
 // API Routes
+
+// Root route - basic info
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Camp Inventory System API',
+    version: '2.0',
+    endpoints: {
+      login: 'POST /api/auth/login',
+      inventory: 'GET /api/inventory/items (requires auth)',
+      documentation: 'Please use a proper frontend client'
+    },
+    credentials: {
+      email: 'david.mikulis@camp-inventory.com',
+      password: 'inventory2025'
+    }
+  });
+});
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -893,7 +923,7 @@ app.delete('/api/orders/gfs/:orderId', authenticateToken, async (req, res) => {
     const order = gfsOrders[orderIndex];
     
     // Find the file path with safe filename construction
-    const gfsOrdersPath = path.join(__dirname, 'data', 'gfs_orders');
+    const gfsOrdersPath = getDataPath('gfs_orders');
     let filePath = null;
     
     // Check both active and deleted file patterns - sanitized filenames
@@ -963,10 +993,10 @@ app.post('/api/orders/clean-invalid', authenticateToken, async (req, res) => {
   try {
     let deletedCount = 0;
     let itemsRemoved = 0;
-    const gfsOrdersPath = path.join(__dirname, 'data', 'gfs_orders');
+    const gfsOrdersPath = getDataPath('gfs_orders');
     
     // Create backup directory
-    const backupPath = path.join(__dirname, 'data', 'gfs_orders_auto_cleaned_backup');
+    const backupPath = getDataPath('gfs_orders_auto_cleaned_backup');
     await fs.mkdir(backupPath, { recursive: true });
     
     const ordersToDelete = [];
@@ -1602,6 +1632,360 @@ app.post('/api/inventory/quick-add', authenticateToken, (req, res) => {
   }
 });
 
+// Get inventory items by location
+app.get('/api/inventory/location/:location', authenticateToken, (req, res) => {
+  try {
+    const { location } = req.params;
+    const itemsInLocation = inventory.filter(item => 
+      item.location === location || (item.locations && item.locations.includes(location))
+    );
+    
+    const locationInfo = storageLocations[location] || { 
+      type: 'Unknown', 
+      temp: 'N/A', 
+      capacity: 0, 
+      currentUsage: 0 
+    };
+    
+    // Calculate statistics
+    const totalValue = itemsInLocation.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+    const totalUnits = itemsInLocation.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+    const categories = [...new Set(itemsInLocation.map(item => item.category))];
+    
+    const countingSummary = {
+      pending: itemsInLocation.filter(item => (item.countingStatus || 'pending') === 'pending').length,
+      counted: itemsInLocation.filter(item => (item.countingStatus || 'pending') === 'counted').length,
+      discrepancies: itemsInLocation.filter(item => 
+        item.physicalCount !== undefined && item.physicalCount !== item.quantity
+      ).length
+    };
+
+    res.json({
+      success: true,
+      location: {
+        name: location,
+        ...locationInfo,
+        utilizationPercent: locationInfo.capacity ? 
+          ((locationInfo.currentUsage / locationInfo.capacity) * 100).toFixed(1) : '0'
+      },
+      statistics: {
+        totalItems: itemsInLocation.length,
+        totalValue: totalValue.toFixed(2),
+        totalUnits,
+        categories: categories.length,
+        categoryList: categories
+      },
+      countingSummary,
+      items: itemsInLocation.map((item, index) => ({
+        id: item.id,
+        name: item.displayName || item.name?.en || item.name,
+        stockNumber: item.stockNumber,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+        supplier: item.supplier,
+        supplierCode: item.supplierCode,
+        unitPrice: item.unitPrice,
+        totalValue: item.totalValue,
+        minQuantity: item.minQuantity || 0,
+        maxQuantity: item.maxQuantity || 0,
+        needsReorder: item.quantity <= (item.minQuantity || 0),
+        // Enhanced location management fields
+        locationSequence: item.locationSequence || (index + 1),
+        physicalCount: item.physicalCount !== undefined ? item.physicalCount : item.quantity,
+        countingStatus: item.countingStatus || 'pending', // pending, counted, discrepancy
+        countDiscrepancy: (item.physicalCount !== undefined && item.physicalCount !== item.quantity) ? 
+          (item.physicalCount - item.quantity) : 0,
+        lastCounted: item.lastCounted || null,
+        countedBy: item.countedBy || null,
+        countingNotes: item.countingNotes || ''
+      })).sort((a, b) => a.locationSequence - b.locationSequence)
+    });
+  } catch (error) {
+    console.error('Error fetching location inventory:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch location inventory'
+    });
+  }
+});
+
+// Update item sequence in location
+app.put('/api/inventory/items/:id/sequence', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sequence, location } = req.body;
+    
+    const itemIndex = inventory.findIndex(item => item.id == id);
+    if (itemIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        error: 'Item not found'
+      });
+    }
+    
+    // Validate sequence number
+    if (!sequence || sequence < 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Sequence must be a positive number'
+      });
+    }
+    
+    // Update item sequence
+    inventory[itemIndex].locationSequence = parseInt(sequence);
+    inventory[itemIndex].lastModified = new Date().toISOString();
+    
+    res.json({
+      success: true,
+      message: 'Item sequence updated successfully',
+      item: {
+        id: inventory[itemIndex].id,
+        name: inventory[itemIndex].displayName || inventory[itemIndex].name?.en || inventory[itemIndex].name,
+        locationSequence: inventory[itemIndex].locationSequence
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update item sequence',
+      details: error.message
+    });
+  }
+});
+
+// Update physical count for item
+app.put('/api/inventory/items/:id/physical-count', authenticateToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { physicalCount, notes, countedBy } = req.body;
+    
+    const itemIndex = inventory.findIndex(item => item.id == id);
+    if (itemIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        error: 'Item not found'
+      });
+    }
+    
+    // Validate physical count
+    if (physicalCount === undefined || physicalCount < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Physical count must be a non-negative number'
+      });
+    }
+    
+    const item = inventory[itemIndex];
+    const originalQuantity = item.quantity;
+    const newPhysicalCount = parseInt(physicalCount);
+    
+    // Update physical count fields
+    item.physicalCount = newPhysicalCount;
+    item.countingNotes = notes || '';
+    item.countedBy = countedBy || 'System';
+    item.lastCounted = new Date().toISOString();
+    
+    // Determine counting status
+    if (newPhysicalCount === originalQuantity) {
+      item.countingStatus = 'counted';
+    } else {
+      item.countingStatus = 'discrepancy';
+    }
+    
+    res.json({
+      success: true,
+      message: 'Physical count updated successfully',
+      item: {
+        id: item.id,
+        name: item.displayName || item.name?.en || item.name,
+        originalQuantity,
+        physicalCount: newPhysicalCount,
+        discrepancy: newPhysicalCount - originalQuantity,
+        countingStatus: item.countingStatus,
+        lastCounted: item.lastCounted
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update physical count',
+      details: error.message
+    });
+  }
+});
+
+// Batch update physical counts for multiple items
+app.post('/api/inventory/location/:location/batch-count', authenticateToken, (req, res) => {
+  try {
+    const { location } = req.params;
+    const { counts, countedBy } = req.body; // counts is array of {itemId, physicalCount, notes}
+    
+    if (!Array.isArray(counts) || counts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Counts array is required'
+      });
+    }
+    
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+    
+    counts.forEach(countData => {
+      const { itemId, physicalCount, notes } = countData;
+      const itemIndex = inventory.findIndex(item => item.id == itemId);
+      
+      if (itemIndex === -1) {
+        results.push({ itemId, success: false, error: 'Item not found' });
+        failCount++;
+        return;
+      }
+      
+      const item = inventory[itemIndex];
+      const originalQuantity = item.quantity;
+      const newPhysicalCount = parseInt(physicalCount);
+      
+      // Update physical count fields
+      item.physicalCount = newPhysicalCount;
+      item.countingNotes = notes || '';
+      item.countedBy = countedBy || 'System';
+      item.lastCounted = new Date().toISOString();
+      
+      // Determine counting status
+      if (newPhysicalCount === originalQuantity) {
+        item.countingStatus = 'counted';
+      } else {
+        item.countingStatus = 'discrepancy';
+      }
+      
+      results.push({ 
+        itemId, 
+        success: true, 
+        discrepancy: newPhysicalCount - originalQuantity,
+        status: item.countingStatus
+      });
+      successCount++;
+    });
+    
+    res.json({
+      success: true,
+      message: `Batch count update completed: ${successCount} successful, ${failCount} failed`,
+      results,
+      summary: {
+        totalProcessed: counts.length,
+        successful: successCount,
+        failed: failCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to batch update counts',
+      details: error.message
+    });
+  }
+});
+
+// Reorder items within a location
+app.post('/api/inventory/location/:location/reorder', authenticateToken, (req, res) => {
+  try {
+    const { location } = req.params;
+    const { itemOrder } = req.body; // Array of {itemId, sequence}
+    
+    if (!Array.isArray(itemOrder) || itemOrder.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Item order array is required'
+      });
+    }
+    
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+    
+    itemOrder.forEach(orderData => {
+      const { itemId, sequence } = orderData;
+      const itemIndex = inventory.findIndex(item => item.id == itemId);
+      
+      if (itemIndex === -1) {
+        results.push({ itemId, success: false, error: 'Item not found' });
+        failCount++;
+        return;
+      }
+      
+      // Update item sequence
+      inventory[itemIndex].locationSequence = parseInt(sequence);
+      inventory[itemIndex].lastModified = new Date().toISOString();
+      
+      results.push({ 
+        itemId, 
+        success: true, 
+        newSequence: inventory[itemIndex].locationSequence
+      });
+      successCount++;
+    });
+    
+    res.json({
+      success: true,
+      message: `Item reordering completed: ${successCount} successful, ${failCount} failed`,
+      results,
+      summary: {
+        totalProcessed: itemOrder.length,
+        successful: successCount,
+        failed: failCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reorder items',
+      details: error.message
+    });
+  }
+});
+
+// Find item by stock number for location assignment
+app.get('/api/inventory/find-by-stock/:stockNumber', authenticateToken, (req, res) => {
+  try {
+    const { stockNumber } = req.params;
+    const item = inventory.find(item => 
+      item.stockNumber === stockNumber || 
+      item.supplierCode === stockNumber ||
+      item.productCode === stockNumber
+    );
+    
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        error: 'Item not found with stock number: ' + stockNumber
+      });
+    }
+    
+    res.json({
+      success: true,
+      item: {
+        id: item.id,
+        name: item.displayName || item.name?.en || item.name,
+        stockNumber: item.stockNumber,
+        supplierCode: item.supplierCode,
+        quantity: item.quantity,
+        unit: item.unit,
+        location: item.location,
+        locations: item.locations || [],
+        category: item.category,
+        supplier: item.supplier
+      }
+    });
+  } catch (error) {
+    console.error('Error finding item by stock number:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to find item'
+    });
+  }
+});
+
 // Counting Mode Interface
 app.get('/api/inventory/counting-mode/:location', authenticateToken, (req, res) => {
   try {
@@ -2198,10 +2582,27 @@ app.get('/', (req, res) => {
                         <span>🗂️ View by Location:</span>
                         <select id="locationFilter" onchange="filterByLocation()" style="padding: 5px; border-radius: 5px; border: none;">
                             <option value="">All Locations</option>
+                            <option value="NO_LOCATION" style="color: #ff9800;">⚠️ Items Without Location</option>
                         </select>
+                        <button onclick="toggleNoLocationFilter()" class="btn" id="noLocationBtn" style="background: #ff9800;">
+                            <span id="noLocationBtnText">🚨 Show Only No Location</span>
+                        </button>
                         <button onclick="showCountingMode()" class="btn" style="background: #9C27B0;">📝 Counting Mode</button>
                         <button onclick="startInventoryProcess()" class="btn" style="background: #795548;">📊 Process Inventory</button>
                     </div>
+                </div>
+                
+                <!-- Stock Number Location Assignment -->
+                <div style="background: rgba(76,175,80,0.1); border-radius: 10px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #4CAF50;">
+                    <h3 style="margin-top: 0; color: #4CAF50;">📍 Assign Location by Stock Number</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="stockNumberInput" placeholder="Enter Stock Number (e.g., SKU, Supplier Code)" style="flex: 1; padding: 8px; border-radius: 5px; border: none;">
+                        <select id="assignLocationSelect" style="padding: 8px; border-radius: 5px; border: none;">
+                            <option value="">Select Location</option>
+                        </select>
+                        <button onclick="assignLocationByStock()" class="btn" style="background: #4CAF50;">📍 Assign</button>
+                    </div>
+                    <div id="stockSearchResult" style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 5px; display: none;"></div>
                 </div>
                 
                 <div id="inventoryGrid" class="inventory-grid"></div>
@@ -2314,6 +2715,7 @@ app.get('/', (req, res) => {
     <script>
         let currentLanguage = 'english';
         let authToken = null;
+        let showNoLocationOnly = false;
         const translations = ${JSON.stringify(translations)};
         
         function setLanguage(lang) {
@@ -2609,15 +3011,15 @@ app.get('/', (req, res) => {
             loadStorageLocations();
         }
         
-        // Manage items in a specific location
+        // Manage items in a specific location with counting and sequencing
         async function manageLocationItems(locationName) {
             try {
-                // Get all inventory items
-                const inventoryResponse = await fetch('/api/inventory/items');
-                const inventoryData = await inventoryResponse.json();
+                // Get enhanced location data with counting info
+                const locationResponse = await fetch('/api/inventory/location/' + encodeURIComponent(locationName));
+                const locationData = await locationResponse.json();
                 
-                if (!inventoryData.success) {
-                    alert('Error loading inventory data');
+                if (!locationData.success) {
+                    alert('Error loading location data');
                     return;
                 }
                 
@@ -2630,81 +3032,76 @@ app.get('/', (req, res) => {
                     return;
                 }
                 
-                // Filter items in this location and items in other locations
-                const itemsInLocation = inventoryData.items.filter(item => item.location === locationName);
-                const itemsInOtherLocations = inventoryData.items.filter(item => item.location !== locationName);
+                const itemsInLocation = locationData.items;
+                const countingSummary = locationData.countingSummary || { pending: 0, counted: 0, discrepancies: 0 };
                 
-                // Create modal HTML
-                const modalHtml = \`
-                    <div id="itemManagementModal" style="
-                        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                        background: rgba(0,0,0,0.8); z-index: 1000; display: flex; 
-                        align-items: center; justify-content: center;
-                    ">
-                        <div style="
-                            background: #2c3e50; color: white; padding: 30px; border-radius: 15px; 
-                            max-width: 90%; max-height: 90%; overflow-y: auto; min-width: 800px;
-                        ">
-                            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 20px;">
-                                <h2>📦 Manage Items in: \${locationName}</h2>
-                                <button onclick="closeItemManagementModal()" style="
-                                    background: #e74c3c; color: white; border: none; padding: 8px 12px; 
-                                    border-radius: 5px; cursor: pointer; font-size: 16px; margin-left: auto;
-                                ">✖ Close</button>
-                            </div>
+                // Create enhanced modal HTML with counting features
+                const modalHtml = '<div id="itemManagementModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center;">' +
+                    '<div style="background: #2c3e50; color: white; padding: 30px; border-radius: 15px; max-width: 95%; max-height: 95%; overflow-y: auto; min-width: 1000px;">' +
+                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">' +
+                            '<h2>📦 ' + locationName + ' - Enhanced Management</h2>' +
+                            '<button onclick="closeItemManagementModal()" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer;">✖ Close</button>' +
+                        '</div>' +
+                        
+                        // Counting Summary
+                        '<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">' +
+                            '<h3>📊 Counting Status</h3>' +
+                            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">' +
+                                '<div><strong>' + itemsInLocation.length + '</strong><br>Total Items</div>' +
+                                '<div style="color: #FFC107;"><strong>' + countingSummary.pending + '</strong><br>Pending</div>' +
+                                '<div style="color: #4CAF50;"><strong>' + countingSummary.counted + '</strong><br>Counted</div>' +
+                                '<div style="color: #f44336;"><strong>' + countingSummary.discrepancies + '</strong><br>Discrepancies</div>' +
+                            '</div>' +
+                        '</div>' +
+                        
+                        '<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">' +
+                            // Main items list with counting
+                            '<div>' +
+                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">' +
+                                    '<h3>📍 Items in ' + locationName + '</h3>' +
+                                    '<div>' +
+                                        '<button onclick="startCounting(\'' + locationName + '\')" class="btn" style="background: #2196F3; margin-right: 10px;">🔢 Start Counting</button>' +
+                                        '<button onclick="toggleSequencing()" class="btn" style="background: #9C27B0;">📋 Reorder Items</button>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div id="itemsList" style="max-height: 500px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">' +
+                                    (itemsInLocation.length === 0 ? 
+                                        '<p style="color: #bbb; text-align: center;">No items in this location</p>' :
+                                        itemsInLocation.map((item, index) => 
+                                            '<div class="location-item" data-item-id="' + item.id + '" style="background: rgba(255,255,255,0.1); padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 4px solid ' + (item.countingStatus === 'counted' ? '#4CAF50' : item.countingStatus === 'discrepancy' ? '#f44336' : '#FFC107') + ';">' +
+                                                '<div style="display: flex; justify-content: space-between; align-items: flex-start;">' +
+                                                    '<div style="flex: 1;">' +
+                                                        '<strong>' + item.name + '</strong>' +
+                                                        '<br><small>Seq: ' + item.locationSequence + ' | System Qty: ' + item.quantity + ' ' + item.unit + '</small>' +
+                                                        '<br><small>Category: ' + item.category + '</small>' +
+                                                        (item.physicalCount !== undefined ? '<br><small style="color: ' + (item.countDiscrepancy === 0 ? '#4CAF50' : '#f44336') + ';">Physical: ' + item.physicalCount + ' (diff: ' + (item.countDiscrepancy > 0 ? '+' : '') + item.countDiscrepancy + ')</small>' : '') +
+                                                    '</div>' +
+                                                    '<div style="text-align: right;">' +
+                                                        '<input type="number" id="count_' + item.id + '" placeholder="Physical count" value="' + (item.physicalCount !== undefined ? item.physicalCount : item.quantity) + '" style="width: 80px; padding: 4px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px;">' +
+                                                        '<br><button onclick="updatePhysicalCount(' + item.id + ')" class="btn btn-small" style="background: #4CAF50; font-size: 11px;">✓ Count</button>' +
+                                                    '</div>' +
+                                                '</div>' +
+                                            '</div>'
+                                        ).join('')
+                                    ) +
+                                '</div>' +
+                            '</div>' +
                             
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                                <!-- Current Items in Location -->
-                                <div>
-                                    <h3 style="color: #4CAF50;">📍 Current Items in \${locationName} (\${itemsInLocation.length})</h3>
-                                    <div style="max-height: 400px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
-                                        \${itemsInLocation.length === 0 ? 
-                                            '<p style="color: #bbb; text-align: center;">No items in this location</p>' :
-                                            itemsInLocation.map(item => \`
-                                                <div style="background: rgba(255,255,255,0.1); padding: 10px; margin-bottom: 10px; border-radius: 5px;">
-                                                    <strong>\${item.displayName || item.name?.en || item.name}</strong>
-                                                    <br><small>Quantity: \${item.quantity} \${item.unit}</small>
-                                                    <br><small>Category: \${item.category}</small>
-                                                    <div style="margin-top: 8px;">
-                                                        <select onchange="moveItem(\${item.id}, this.value, '\${locationName}')" style="padding: 4px; font-size: 12px;">
-                                                            <option value="">Move to...</option>
-                                                            \${locationsData.locations.filter(loc => loc.name !== locationName).map(loc => 
-                                                                \`<option value="\${loc.name}">\${loc.name} (\${loc.type})</option>\`
-                                                            ).join('')}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            \`).join('')
-                                        }
-                                    </div>
-                                </div>
-                                
-                                <!-- Items in Other Locations -->
-                                <div>
-                                    <h3 style="color: #FF9800;">🔄 Items in Other Locations (\${itemsInOtherLocations.length})</h3>
-                                    <input type="text" id="itemSearchFilter" placeholder="Search items..." onkeyup="filterItems()" style="
-                                        width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; 
-                                        border-radius: 4px; background: rgba(255,255,255,0.9);
-                                    ">
-                                    <div id="otherLocationItems" style="max-height: 350px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
-                                        \${itemsInOtherLocations.map(item => \`
-                                            <div class="other-item" data-name="\${(item.displayName || item.name?.en || item.name).toLowerCase()}" style="background: rgba(255,255,255,0.1); padding: 10px; margin-bottom: 10px; border-radius: 5px;">
-                                                <strong>\${item.displayName || item.name?.en || item.name}</strong>
-                                                <br><small>Current: \${item.location} | Qty: \${item.quantity} \${item.unit}</small>
-                                                <br><small>Category: \${item.category}</small>
-                                                <div style="margin-top: 8px;">
-                                                    <button onclick="moveItem(\${item.id}, '\${locationName}', '\${item.location}')" class="btn btn-small" style="background: #4CAF50; font-size: 12px;">
-                                                        ➡️ Move to \${locationName}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        \`).join('')}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                \`;
+                            // Quick actions sidebar
+                            '<div>' +
+                                '<h3>⚡ Quick Actions</h3>' +
+                                '<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">' +
+                                    '<button onclick="saveBatchCounts(\'' + locationName + '\')" class="btn" style="background: #4CAF50; width: 100%; margin-bottom: 10px;">💾 Save All Counts</button>' +
+                                    '<button onclick="resetCounts(\'' + locationName + '\')" class="btn" style="background: #FF9800; width: 100%; margin-bottom: 10px;">🔄 Reset Counts</button>' +
+                                    '<button onclick="exportLocationData(\'' + locationName + '\')" class="btn" style="background: #9C27B0; width: 100%; margin-bottom: 10px;">📊 Export Data</button>' +
+                                    '<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.3);">' +
+                                    '<h4>📋 Count Sheet</h4>' +
+                                    '<button onclick="generateCountSheet(\'' + locationName + '\')" class="btn" style="background: #607D8B; width: 100%;">🖨️ Print Sheet</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
                 
                 // Add modal to page
                 document.body.insertAdjacentHTML('beforeend', modalHtml);
@@ -2721,6 +3118,146 @@ app.get('/', (req, res) => {
             if (modal) {
                 modal.remove();
             }
+        }
+        
+        // Update physical count for an item
+        async function updatePhysicalCount(itemId) {
+            const countInput = document.getElementById('count_' + itemId);
+            const physicalCount = parseInt(countInput.value);
+            
+            if (isNaN(physicalCount) || physicalCount < 0) {
+                alert('Please enter a valid count (0 or greater)');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/inventory/items/' + itemId + '/physical-count', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({
+                        physicalCount: physicalCount,
+                        countedBy: 'Manual Count',
+                        notes: 'Updated via location management'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update the item display with new status
+                    const itemDiv = document.querySelector('[data-item-id="' + itemId + '"]');
+                    if (itemDiv) {
+                        const borderColor = result.item.discrepancy === 0 ? '#4CAF50' : '#f44336';
+                        itemDiv.style.borderLeftColor = borderColor;
+                        
+                        // Show success message briefly
+                        const button = itemDiv.querySelector('button');
+                        const originalText = button.textContent;
+                        button.textContent = '✓ Saved';
+                        button.style.background = '#4CAF50';
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                            button.style.background = '#4CAF50';
+                        }, 2000);
+                    }
+                } else {
+                    alert('Error updating count: ' + result.error);
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        }
+        
+        // Save all physical counts in batch
+        async function saveBatchCounts(locationName) {
+            const countInputs = document.querySelectorAll('[id^="count_"]');
+            const counts = [];
+            
+            countInputs.forEach(input => {
+                const itemId = input.id.replace('count_', '');
+                const physicalCount = parseInt(input.value);
+                if (!isNaN(physicalCount) && physicalCount >= 0) {
+                    counts.push({
+                        itemId: parseInt(itemId),
+                        physicalCount: physicalCount,
+                        notes: 'Batch count update'
+                    });
+                }
+            });
+            
+            if (counts.length === 0) {
+                alert('No valid counts to save');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/inventory/location/' + encodeURIComponent(locationName) + '/batch-count', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({
+                        counts: counts,
+                        countedBy: 'Batch Count'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Batch count saved successfully: ' + result.summary.successful + ' items updated');
+                    // Refresh the modal
+                    closeItemManagementModal();
+                    setTimeout(() => manageLocationItems(locationName), 500);
+                } else {
+                    alert('Error saving batch counts: ' + result.error);
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        }
+        
+        // Reset all counts to system quantities
+        async function resetCounts(locationName) {
+            if (!confirm('Reset all physical counts to system quantities? This will clear all counting progress.')) {
+                return;
+            }
+            
+            // Set all count inputs to system quantities
+            const items = document.querySelectorAll('.location-item');
+            items.forEach(item => {
+                const input = item.querySelector('input[type="number"]');
+                if (input) {
+                    const systemQty = item.querySelector('small').textContent.match(/System Qty: (\d+)/);
+                    if (systemQty) {
+                        input.value = systemQty[1];
+                    }
+                }
+            });
+            
+            alert('Counts reset to system quantities. Click "Save All Counts" to confirm.');
+        }
+        
+        // Export location data
+        function exportLocationData(locationName) {
+            window.open('/api/inventory/download/csv?location=' + encodeURIComponent(locationName), '_blank');
+        }
+        
+        // Start counting mode
+        function startCounting(locationName) {
+            alert('Counting mode started for ' + locationName + '\\n\\n' +
+                  '1. Count each item physically\\n' +
+                  '2. Enter the physical count in the input field\\n' +
+                  '3. Click "✓ Count" for each item\\n' +
+                  '4. Use "Save All Counts" to batch save\\n\\n' +
+                  'Items are color-coded:\\n' +
+                  '🟡 Yellow = Pending count\\n' +
+                  '🟢 Green = Count matches\\n' +
+                  '🔴 Red = Discrepancy found');
         }
         
         // Filter items in the search
@@ -2819,14 +3356,25 @@ app.get('/', (req, res) => {
                 }
                 
                 if (data.success) {
-                    // Update metrics
-                    document.getElementById('totalItems').textContent = data.summary.totalItems;
-                    document.getElementById('criticalItems').textContent = data.summary.criticalItems;
-                    document.getElementById('totalValue').textContent = '$' + data.summary.totalValue;
+                    // Filter items based on location filter
+                    let filteredItems = data.items;
+                    const locationFilter = document.getElementById('locationFilter').value;
+                    
+                    if (showNoLocationOnly || locationFilter === 'NO_LOCATION') {
+                        filteredItems = data.items.filter(item => !item.location || item.location === '');
+                    } else if (locationFilter && locationFilter !== 'NO_LOCATION') {
+                        filteredItems = data.items.filter(item => item.location === locationFilter);
+                    }
+                    
+                    // Update metrics based on filtered items
+                    const noLocationCount = data.items.filter(item => !item.location || item.location === '').length;
+                    document.getElementById('totalItems').textContent = filteredItems.length + (showNoLocationOnly ? ' (' + noLocationCount + ' without location)' : '');
+                    document.getElementById('criticalItems').textContent = filteredItems.filter(item => item.status === 'critical').length;
+                    document.getElementById('totalValue').textContent = '$' + filteredItems.reduce((sum, item) => sum + (item.totalValue || 0), 0).toFixed(2);
                     
                     // Display inventory
                     const grid = document.getElementById('inventoryGrid');
-                    grid.innerHTML = data.items.map(item => 
+                    grid.innerHTML = filteredItems.map(item => 
                         '<div class="inventory-item">' +
                             '<div class="item-header">' +
                                 '<div class="item-name">' + item.displayName + '</div>' +
@@ -2844,7 +3392,7 @@ app.get('/', (req, res) => {
                                             ' <button onclick="removeItemFromLocation(' + item.id + ', &quot;' + loc + '&quot;)" style="background: none; border: none; color: white; margin-left: 3px; cursor: pointer; font-size: 10px;">✕</button>' +
                                             '</span>'
                                         ).join('') : 
-                                        '<span style="color: #888;">No location assigned</span>'
+                                        '<span style="color: #ff9800; background: rgba(255, 152, 0, 0.2); padding: 4px 8px; border-radius: 4px; border-left: 3px solid #ff9800;">⚠️ No location assigned</span>'
                                     ) +
                                 '</div>' +
                                 '<div style="margin-top: 5px;">' +
@@ -3394,8 +3942,24 @@ app.get('/', (req, res) => {
                             
                             <div style="margin-bottom: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px;">
                                 <h3>📊 Location Summary</h3>
-                                <p>Total Items: <strong>\${itemsInLocation.length}</strong> | 
-                                   Total Value: <strong>$\${itemsInLocation.reduce((sum, item) => sum + (item.totalValue || 0), 0).toFixed(2)}</strong></p>
+                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 10px;">
+                                    <div style="text-align: center; padding: 10px; background: rgba(76,175,80,0.2); border-radius: 5px;">
+                                        <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">\${itemsInLocation.length}</div>
+                                        <div style="font-size: 12px; color: #ccc;">Total Items</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 10px; background: rgba(33,150,243,0.2); border-radius: 5px;">
+                                        <div style="font-size: 24px; font-weight: bold; color: #2196F3;">$\${itemsInLocation.reduce((sum, item) => sum + (item.totalValue || 0), 0).toFixed(2)}</div>
+                                        <div style="font-size: 12px; color: #ccc;">Total Value</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 10px; background: rgba(255,152,0,0.2); border-radius: 5px;">
+                                        <div style="font-size: 24px; font-weight: bold; color: #FF9800;">\${itemsInLocation.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)}</div>
+                                        <div style="font-size: 12px; color: #ccc;">Total Units</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 10px; background: rgba(156,39,176,0.2); border-radius: 5px;">
+                                        <div style="font-size: 24px; font-weight: bold; color: #9c27b0;">\${new Set(itemsInLocation.map(item => item.category)).size}</div>
+                                        <div style="font-size: 12px; color: #ccc;">Categories</div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
@@ -3414,20 +3978,34 @@ app.get('/', (req, res) => {
                                                             <br><small>Category: \${item.category} | Value: $\${item.totalValue.toFixed(2)}</small>
                                                         </div>
                                                         <div style="text-align: right;">
-                                                            <label style="font-size: 12px;">Manual Count:</label>
-                                                            <input type="number" 
-                                                                   id="count_\${item.id}" 
-                                                                   placeholder="\${item.quantity}"
-                                                                   style="width: 80px; padding: 4px; margin-left: 5px; text-align: center;"
-                                                                   onchange="updateManualCount(\${item.id}, this.value)">
+                                                            <div style="margin-bottom: 8px;">
+                                                                <label style="font-size: 12px; display: block;">Current Count:</label>
+                                                                <span style="font-size: 20px; font-weight: bold; color: #4CAF50;">\${item.quantity}</span>
+                                                            </div>
+                                                            <div>
+                                                                <label style="font-size: 12px; display: block;">New Count:</label>
+                                                                <input type="number" 
+                                                                       id="count_\${item.id}" 
+                                                                       value="\${item.quantity}"
+                                                                       style="width: 80px; padding: 6px; margin-top: 4px; text-align: center; font-size: 16px; border: 2px solid #4CAF50; border-radius: 4px; background: rgba(255,255,255,0.1); color: white;"
+                                                                       onchange="updateManualCount(\${item.id}, this.value)">
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             \`).join('')
                                         }
                                     </div>
-                                    <div style="margin-top: 15px; text-align: center;">
-                                        <button onclick="saveAllCounts('\${locationName}')" class="btn" style="background: #4CAF50;">
+                                    <div style="margin-top: 15px;">
+                                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                            <button onclick="resetAllCounts('\${locationName}')" class="btn" style="background: #FF9800; flex: 1;">
+                                                🔄 Reset to Current
+                                            </button>
+                                            <button onclick="clearAllCounts('\${locationName}')" class="btn" style="background: #f44336; flex: 1;">
+                                                ❌ Clear All
+                                            </button>
+                                        </div>
+                                        <button onclick="saveAllCounts('\${locationName}')" class="btn" style="background: #4CAF50; width: 100%;">
                                             💾 Save All Manual Counts
                                         </button>
                                     </div>
@@ -3486,6 +4064,33 @@ app.get('/', (req, res) => {
                 window.manualCounts = {};
             }
             window.manualCounts[itemId] = parseInt(newCount) || 0;
+        }
+        
+        // Reset all counts to current inventory values
+        function resetAllCounts(locationName) {
+            const inventoryItems = document.querySelectorAll('[id^="count_"]');
+            inventoryItems.forEach(input => {
+                const itemId = input.id.replace('count_', '');
+                input.value = input.getAttribute('value'); // Reset to original value
+                if (window.manualCounts) {
+                    delete window.manualCounts[itemId];
+                }
+            });
+            alert('✅ All counts reset to current inventory values');
+        }
+        
+        // Clear all count inputs
+        function clearAllCounts(locationName) {
+            const inventoryItems = document.querySelectorAll('[id^="count_"]');
+            inventoryItems.forEach(input => {
+                input.value = '0';
+                const itemId = input.id.replace('count_', '');
+                if (!window.manualCounts) {
+                    window.manualCounts = {};
+                }
+                window.manualCounts[itemId] = 0;
+            });
+            alert('❌ All counts cleared to 0');
         }
         
         // Save all manual counts
@@ -3760,18 +4365,119 @@ app.get('/', (req, res) => {
             }
         }
         
+        // Assign location by stock number
+        async function assignLocationByStock() {
+            const stockNumber = document.getElementById('stockNumberInput').value.trim();
+            const location = document.getElementById('assignLocationSelect').value;
+            const resultDiv = document.getElementById('stockSearchResult');
+            
+            if (!stockNumber) {
+                alert('Please enter a stock number');
+                return;
+            }
+            
+            if (!location) {
+                alert('Please select a location');
+                return;
+            }
+            
+            try {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '🔍 Searching for item...';
+                
+                // Find the item by stock number
+                const findResponse = await fetch('/api/inventory/find-by-stock/' + encodeURIComponent(stockNumber), {
+                    headers: {
+                        'Authorization': 'Bearer ' + authToken
+                    }
+                });
+                
+                const findData = await findResponse.json();
+                
+                if (!findData.success) {
+                    resultDiv.innerHTML = '❌ ' + findData.error;
+                    return;
+                }
+                
+                const item = findData.item;
+                resultDiv.innerHTML = '✅ Found: <strong>' + item.name + '</strong> (Current location: ' + (item.location || 'None') + ')';
+                
+                // Assign the location
+                const assignResponse = await fetch('/api/inventory/items/' + item.id + '/location', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + authToken
+                    },
+                    body: JSON.stringify({
+                        location: location,
+                        action: 'add'
+                    })
+                });
+                
+                const assignData = await assignResponse.json();
+                
+                if (assignData.success) {
+                    resultDiv.innerHTML = '🎉 Successfully assigned <strong>' + item.name + '</strong> to <strong>' + location + '</strong>';
+                    
+                    // Clear inputs
+                    document.getElementById('stockNumberInput').value = '';
+                    document.getElementById('assignLocationSelect').value = '';
+                    
+                    // Refresh inventory display
+                    loadData();
+                    
+                    // Hide result after 3 seconds
+                    setTimeout(() => {
+                        resultDiv.style.display = 'none';
+                    }, 3000);
+                } else {
+                    resultDiv.innerHTML = '❌ Failed to assign location: ' + assignData.error;
+                }
+                
+            } catch (error) {
+                console.error('Error assigning location by stock:', error);
+                resultDiv.innerHTML = '❌ Error: ' + error.message;
+            }
+        }
+        
         // Filter inventory by location
+        function toggleNoLocationFilter() {
+            showNoLocationOnly = !showNoLocationOnly;
+            const btn = document.getElementById('noLocationBtn');
+            const btnText = document.getElementById('noLocationBtnText');
+            
+            if (showNoLocationOnly) {
+                btn.style.background = '#4CAF50';
+                btnText.textContent = '✅ Showing No Location Only';
+                document.getElementById('locationFilter').value = 'NO_LOCATION';
+            } else {
+                btn.style.background = '#ff9800';
+                btnText.textContent = '🚨 Show Only No Location';
+                document.getElementById('locationFilter').value = '';
+            }
+            
+            loadData(); // Refresh display
+        }
+        
         function filterByLocation() {
             const selectedLocation = document.getElementById('locationFilter').value;
-            const items = document.querySelectorAll('.inventory-item');
             
-            items.forEach(item => {
-                if (!selectedLocation || item.textContent.includes(selectedLocation)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+            if (selectedLocation === 'NO_LOCATION') {
+                showNoLocationOnly = true;
+                const btn = document.getElementById('noLocationBtn');
+                const btnText = document.getElementById('noLocationBtnText');
+                btn.style.background = '#4CAF50';
+                btnText.textContent = '✅ Showing No Location Only';
+            } else {
+                showNoLocationOnly = false;
+                const btn = document.getElementById('noLocationBtn');
+                const btnText = document.getElementById('noLocationBtnText');
+                btn.style.background = '#ff9800';
+                btnText.textContent = '🚨 Show Only No Location';
+            }
+            
+            loadData(); // Refresh display
         }
         
         // Counting Mode - Sequential counting interface
@@ -3798,15 +4504,18 @@ app.get('/', (req, res) => {
         function populateLocationDropdowns() {
             const quickAddSelect = document.getElementById('quickAddLocation');
             const filterSelect = document.getElementById('locationFilter');
+            const assignLocationSelect = document.getElementById('assignLocationSelect');
             
             // Clear existing options
             quickAddSelect.innerHTML = '<option value="">Select Location</option>';
-            filterSelect.innerHTML = '<option value="">All Locations</option>';
+            filterSelect.innerHTML = '<option value="">All Locations</option><option value="NO_LOCATION" style="color: #ff9800;">⚠️ Items Without Location</option>';
+            assignLocationSelect.innerHTML = '<option value="">Select Location</option>';
             
             // Add storage locations
             Object.keys(storageLocations).forEach(location => {
                 quickAddSelect.innerHTML += '<option value="' + location + '">' + location + '</option>';
                 filterSelect.innerHTML += '<option value="' + location + '">' + location + '</option>';
+                assignLocationSelect.innerHTML += '<option value="' + location + '">' + location + '</option>';
             });
         }
         
@@ -3889,15 +4598,21 @@ async function initializeServer() {
     loadStorageLocationsFromFile();
     
     // Load Sysco catalog
-    const catalogPath = path.join(__dirname, 'data', 'catalog', 'sysco_catalog_1753182965099.json');
-    const catalogData = await fs.readFile(catalogPath, 'utf8');
-    const catalogJson = JSON.parse(catalogData);
-    syscoCatalog = catalogJson.items || [];
-    console.log(`✅ Loaded Sysco catalog: ${syscoCatalog.length} items`);
+    try {
+      const catalogPath = getDataPath('catalog', 'sysco_catalog_1753182965099.json');
+      const catalogData = await fs.readFile(catalogPath, 'utf8');
+      const catalogJson = JSON.parse(catalogData);
+      syscoCatalog = catalogJson.items || [];
+      console.log(`✅ Loaded Sysco catalog: ${syscoCatalog.length} items`);
+    } catch (error) {
+      console.log('⚠️ Sysco catalog not found, starting with empty catalog');
+      syscoCatalog = [];
+    }
 
     // Load GFS orders
-    const gfsOrdersPath = path.join(__dirname, 'data', 'gfs_orders');
-    const gfsFiles = await fs.readdir(gfsOrdersPath);
+    try {
+      const gfsOrdersPath = getDataPath('gfs_orders');
+      const gfsFiles = await fs.readdir(gfsOrdersPath);
     for (const file of gfsFiles) {
       if (file.startsWith('gfs_order_') && !file.includes('deleted') && file.endsWith('.json')) {
         try {
@@ -3910,37 +4625,48 @@ async function initializeServer() {
       }
     }
     console.log(`✅ Loaded GFS orders: ${gfsOrders.length} orders`);
+    } catch (error) {
+      console.log('⚠️ GFS orders directory not found, starting with empty orders');
+      gfsOrders = [];
+    }
 
     // Generate full inventory AFTER data is loaded
     inventory = generateFullInventory();
     console.log(`✅ Generated full inventory: ${inventory.length} items`);
 
     // Initialize AI globals with current inventory data
-    const inventoryGlobals = require('./routes/inventoryGlobals');
-    inventoryGlobals.setInventoryReference(inventory);
-    inventoryGlobals.setStorageLocationsReference(storageLocations);
-    console.log(`✅ Initialized AI optimization system`);
-
-    // Register AI optimization routes AFTER data is loaded (BEFORE 404 handler)
     try {
-      const aiRoutes = require('./routes/ai');
-      // Set the JWT secret to match the main server
-      aiRoutes.setJWTSecret(JWT_SECRET);
-      app.use('/api/ai', aiRoutes);
-      console.log(`✅ Registered AI optimization routes at /api/ai (with data)`);
-      
-      // Add a direct test route to verify routing works
-      app.get('/api/ai-test', (req, res) => {
-        res.json({ 
-          success: true, 
-          message: 'Direct AI test route works!', 
-          inventoryCount: inventory.length 
+      const inventoryGlobals = require('./routes/inventoryGlobals');
+      inventoryGlobals.setInventoryReference(inventory);
+      inventoryGlobals.setStorageLocationsReference(storageLocations);
+      console.log('📦 Inventory globals module loaded successfully');
+      console.log(`✅ Initialized AI optimization system`);
+
+      // Register AI optimization routes AFTER data is loaded (BEFORE 404 handler)
+      try {
+        const aiRoutes = require('./routes/ai');
+        console.log('🤖 AI routes module loaded successfully');
+        // Set the JWT secret to match the main server
+        aiRoutes.setJWTSecret(JWT_SECRET);
+        console.log('🔐 AI routes JWT secret updated');
+        app.use('/api/ai', aiRoutes);
+        console.log(`✅ Registered AI optimization routes at /api/ai (with data)`);
+        
+        // Add a direct test route to verify routing works
+        app.get('/api/ai-test', (req, res) => {
+          res.json({ 
+            success: true, 
+            message: 'Direct AI test route works!', 
+            inventoryCount: inventory.length 
+          });
         });
-      });
-      console.log(`✅ Added direct AI test route at /api/ai-test`);
-      
+        console.log(`✅ Added direct AI test route at /api/ai-test`);
+        
+      } catch (error) {
+        console.error('❌ Error loading AI routes:', error);
+      }
     } catch (error) {
-      console.error('❌ Error loading AI routes:', error);
+      console.log('⚠️ AI modules not found, AI features disabled');
     }
 
   } catch (error) {
