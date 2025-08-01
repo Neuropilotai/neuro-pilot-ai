@@ -3,21 +3,42 @@
 # Copy essential data files to Fly.io persistent volume
 echo "Copying data files to Fly.io..."
 
-# Copy Sysco catalog
-echo "Copying Sysco catalog..."
-cat "/Users/davidmikulis/neuro-pilot-ai/backend/data/catalog/sysco_catalog_1753182965099.json" | flyctl ssh console --app backend-silent-mountain-3362 -C "cat > /data/sysco_catalog.json"
+# Copy the entire data directory structure
+echo "Creating data directory structure..."
+fly ssh console --app backend-silent-mountain-3362 -C "mkdir -p /data/catalog /data/gfs_orders /data/gfs_orders_backup /data/inventory /data/storage_locations"
 
-# Create GFS orders directory if it doesn't exist and copy orders
+# Use fly sftp to copy files
+echo "Copying catalog data..."
+fly ssh sftp shell --app backend-silent-mountain-3362 <<EOF
+put /Users/davidmikulis/neuro-pilot-ai/backend/data/catalog/sysco_catalog_1753182965099.json /data/catalog/sysco_catalog_1753182965099.json
+exit
+EOF
+
 echo "Copying GFS orders..."
-flyctl ssh console --app backend-silent-mountain-3362 -C "mkdir -p /data/gfs_orders"
+# Copy all GFS order files
+fly ssh sftp shell --app backend-silent-mountain-3362 <<EOF
+cd /data/gfs_orders
+lcd /Users/davidmikulis/neuro-pilot-ai/backend/data/gfs_orders
+mput gfs_order_*.json
+exit
+EOF
 
-# Copy some GFS orders (first 10 files)
-for file in /Users/davidmikulis/neuro-pilot-ai/backend/data/gfs_orders/gfs_order_*.json; do
-    if [ -f "$file" ]; then
-        filename=$(basename "$file")
-        echo "Copying $filename..."
-        cat "$file" | flyctl ssh console --app backend-silent-mountain-3362 -C "cat > /data/gfs_orders/$filename"
-    fi
-done
+echo "Copying inventory data..."
+fly ssh sftp shell --app backend-silent-mountain-3362 <<EOF
+cd /data/inventory
+lcd /Users/davidmikulis/neuro-pilot-ai/backend/data/inventory
+mput *.json
+exit
+EOF
+
+echo "Copying storage locations..."
+fly ssh sftp shell --app backend-silent-mountain-3362 <<EOF
+cd /data/storage_locations
+lcd /Users/davidmikulis/neuro-pilot-ai/backend/data/storage_locations
+mput *.json
+exit
+EOF
 
 echo "Data copy completed!"
+echo "Restarting app to load new data..."
+fly apps restart backend-silent-mountain-3362

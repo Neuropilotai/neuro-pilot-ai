@@ -98,6 +98,23 @@ app.use(express.json({
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// GitHub Orders Sync Integration
+const { GitHubOrdersSync, setupGitHubSyncRoutes } = require('./github-orders-sync');
+setupGitHubSyncRoutes(app);
+
+// Initialize GitHub sync on startup
+const githubSync = new GitHubOrdersSync({
+  owner: 'Neuropilotai',
+  repo: 'gfs-orders-data'
+});
+
+// Sync orders from GitHub on startup
+githubSync.syncToLocal().then(count => {
+  console.log(`✅ Synced ${count} orders from GitHub repository`);
+}).catch(err => {
+  console.log(`⚠️ GitHub sync not configured: ${err.message}`);
+});
+
 // File upload configuration
 const upload = multer({ 
   dest: getDataPath('uploads'),
