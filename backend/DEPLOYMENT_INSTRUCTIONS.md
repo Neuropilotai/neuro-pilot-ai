@@ -1,9 +1,11 @@
 # Production Deployment Instructions
 
 ## Overview
+
 This is a production-ready, single-file inventory management system with minimal dependencies, optimized for cloud deployment.
 
 ## Features
+
 - ✅ Single file deployment (inventory-production.js)
 - ✅ Minimal dependencies (only Express.js)
 - ✅ Built-in security (rate limiting, JWT, CORS protection)
@@ -14,6 +16,7 @@ This is a production-ready, single-file inventory management system with minimal
 - ✅ Environment variable configuration
 
 ## Environment Variables
+
 ```bash
 PORT=3000                    # Server port (auto-set by hosting platforms)
 JWT_SECRET=your-secret-key   # JWT signing secret (auto-generated if not set)
@@ -27,6 +30,7 @@ NODE_ENV=production
 ```
 
 ## Default Credentials
+
 - Email: `admin@inventory.local`
 - Password: `inventory2025`
 
@@ -37,6 +41,7 @@ NODE_ENV=production
 ## Deployment on Render
 
 ### 1. Prepare Files
+
 ```bash
 # Create deployment directory
 mkdir inventory-deploy
@@ -53,13 +58,16 @@ git commit -m "Initial commit"
 ```
 
 ### 2. Deploy to Render
+
 1. Push to GitHub:
+
 ```bash
 git remote add origin https://github.com/YOUR_USERNAME/inventory-system.git
 git push -u origin main
 ```
 
 2. Create Render Web Service:
+
 - Go to [render.com](https://render.com)
 - Click "New +" → "Web Service"
 - Connect your GitHub repo
@@ -71,6 +79,7 @@ git push -u origin main
   - **Plan**: Free or Starter
 
 3. Add Environment Variables in Render Dashboard:
+
 ```
 JWT_SECRET=<generate-random-64-char-string>
 ADMIN_EMAIL=your-email@domain.com
@@ -85,6 +94,7 @@ NODE_ENV=production
 ## Deployment on Fly.io
 
 ### 1. Install Fly CLI
+
 ```bash
 # macOS
 brew install flyctl
@@ -93,6 +103,7 @@ brew install flyctl
 ```
 
 ### 2. Prepare Deployment
+
 ```bash
 # Login to Fly
 fly auth login
@@ -124,6 +135,7 @@ EOF
 ```
 
 ### 3. Create Dockerfile (optional, for better control)
+
 ```dockerfile
 FROM node:18-alpine
 WORKDIR /app
@@ -137,6 +149,7 @@ CMD ["node", "index.js"]
 ```
 
 ### 4. Deploy to Fly
+
 ```bash
 # Create app
 fly apps create inventory-system
@@ -158,15 +171,18 @@ fly open
 ## Post-Deployment Setup
 
 ### 1. Generate Password Hash
+
 To create a bcrypt hash for your password:
+
 ```javascript
 // Use this Node.js script
-const bcrypt = require('bcrypt');
-const password = 'your-secure-password';
-bcrypt.hash(password, 12).then(hash => console.log(hash));
+const bcrypt = require("bcrypt");
+const password = "your-secure-password";
+bcrypt.hash(password, 12).then((hash) => console.log(hash));
 ```
 
 ### 2. Set Up Persistent Storage (Fly.io)
+
 ```bash
 # Create volume for data persistence
 fly volumes create inventory_data --size 1 --region ord
@@ -182,16 +198,19 @@ fly secrets set DATA_PATH=/data
 ```
 
 ### 3. Set Up Backups
+
 The system automatically creates backups in the `data/backups` directory. For cloud backups:
 
 **Render**: Use their backup service or integrate with S3
 **Fly.io**: Use volumes backup or sync to external storage
 
 ### 4. Enable HTTPS
+
 - **Render**: HTTPS is automatic
 - **Fly.io**: HTTPS is automatic with `force_https = true`
 
 ### 5. Custom Domain
+
 - **Render**: Add custom domain in dashboard
 - **Fly.io**: `fly certs add your-domain.com`
 
@@ -213,16 +232,20 @@ The system automatically creates backups in the `data/backups` directory. For cl
 ## Monitoring
 
 ### Health Check
+
 Both platforms will automatically monitor:
+
 ```
 GET /health
 ```
 
 ### Logs
+
 - **Render**: View in dashboard or `render logs`
 - **Fly.io**: `fly logs`
 
 ### Metrics
+
 - **Render**: Built-in metrics dashboard
 - **Fly.io**: `fly status` and metrics dashboard
 
@@ -231,10 +254,12 @@ GET /health
 ## Scaling
 
 ### Render
+
 - Upgrade plan in dashboard
 - Enable auto-scaling
 
 ### Fly.io
+
 ```bash
 # Scale horizontally
 fly scale count 2
@@ -251,16 +276,19 @@ fly autoscale set min=1 max=3
 ## Troubleshooting
 
 ### Data Not Persisting
+
 - Ensure DATA_PATH is set correctly
 - Check volume mounts (Fly.io)
 - Verify write permissions
 
 ### Authentication Issues
+
 - Verify JWT_SECRET is set
 - Check ADMIN_PASSWORD_HASH format
 - Ensure cookies are enabled
 
 ### Performance Issues
+
 - Increase rate limits if needed
 - Scale up instances
 - Enable caching headers
@@ -270,6 +298,7 @@ fly autoscale set min=1 max=3
 ## Maintenance
 
 ### Update Deployment
+
 ```bash
 # Make changes
 git add .
@@ -281,12 +310,14 @@ git push
 ```
 
 ### Backup Data
+
 ```bash
 # Download backups
 fly ssh console -C "tar -czf - /data/backups" > backups.tar.gz
 ```
 
 ### Monitor Usage
+
 - Check memory/CPU usage regularly
 - Review logs for errors
 - Monitor response times
@@ -296,11 +327,13 @@ fly ssh console -C "tar -czf - /data/backups" > backups.tar.gz
 ## Cost Estimates
 
 ### Render
+
 - **Free**: 750 hours/month, 512MB RAM, shared CPU
 - **Starter**: $7/month, always on, 512MB RAM
 - **Standard**: $25/month, 2GB RAM, better performance
 
 ### Fly.io
+
 - **Free**: 3 shared VMs, 3GB total RAM
 - **Pay-as-you-go**: ~$5-10/month for small app
 - **Dedicated**: $30+/month for dedicated resources
@@ -310,10 +343,12 @@ fly ssh console -C "tar -czf - /data/backups" > backups.tar.gz
 ## Support
 
 For deployment issues:
+
 - **Render**: support@render.com
 - **Fly.io**: community.fly.io
 
 For application issues:
+
 - Check logs first
 - Verify environment variables
 - Test locally with same config

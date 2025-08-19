@@ -5,37 +5,45 @@
  * Optimized for Render/Fly.io deployment
  */
 
-const express = require('express');
-const path = require('path');
-const fs = require('fs').promises;
-const crypto = require('crypto');
+const express = require("express");
+const path = require("path");
+const fs = require("fs").promises;
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Environment configuration
 const CONFIG = {
-  JWT_SECRET: process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex'),
-  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@inventory.local',
-  ADMIN_PASSWORD_HASH: process.env.ADMIN_PASSWORD_HASH || '$2b$12$8K1p2V3B.nQ7mF9xJ6tY8eGH2pQ5rT9xM4nL6vZ8wC1yS3dF7gH9i',
-  DATA_PATH: process.env.DATA_PATH || './data',
+  JWT_SECRET: process.env.JWT_SECRET || crypto.randomBytes(64).toString("hex"),
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || "admin@inventory.local",
+  ADMIN_PASSWORD_HASH:
+    process.env.ADMIN_PASSWORD_HASH ||
+    "$2b$12$8K1p2V3B.nQ7mF9xJ6tY8eGH2pQ5rT9xM4nL6vZ8wC1yS3dF7gH9i",
+  DATA_PATH: process.env.DATA_PATH || "./data",
   RATE_LIMIT_WINDOW: parseInt(process.env.RATE_LIMIT_WINDOW) || 900000,
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX) || 100,
   SESSION_TIMEOUT: parseInt(process.env.SESSION_TIMEOUT) || 86400000,
-  NODE_ENV: process.env.NODE_ENV || 'production'
+  NODE_ENV: process.env.NODE_ENV || "production",
 };
 
 // Minimal middleware
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Security headers
 app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https:;");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains",
+  );
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: https:;",
+  );
   next();
 });
 
@@ -45,19 +53,19 @@ const rateLimit = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
   const now = Date.now();
   const windowStart = now - CONFIG.RATE_LIMIT_WINDOW;
-  
+
   if (!rateLimitStore.has(ip)) {
     rateLimitStore.set(ip, []);
   }
-  
-  const requests = rateLimitStore.get(ip).filter(time => time > windowStart);
+
+  const requests = rateLimitStore.get(ip).filter((time) => time > windowStart);
   requests.push(now);
   rateLimitStore.set(ip, requests);
-  
+
   if (requests.length > CONFIG.RATE_LIMIT_MAX) {
-    return res.status(429).json({ error: 'Too many requests' });
+    return res.status(429).json({ error: "Too many requests" });
   }
-  
+
   next();
 };
 
@@ -66,7 +74,7 @@ setInterval(() => {
   const now = Date.now();
   const windowStart = now - CONFIG.RATE_LIMIT_WINDOW;
   for (const [ip, requests] of rateLimitStore) {
-    const filtered = requests.filter(time => time > windowStart);
+    const filtered = requests.filter((time) => time > windowStart);
     if (filtered.length === 0) {
       rateLimitStore.delete(ip);
     } else {
@@ -77,28 +85,30 @@ setInterval(() => {
 
 // Simple JWT implementation
 const generateToken = (payload) => {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const header = Buffer.from(
+    JSON.stringify({ alg: "HS256", typ: "JWT" }),
+  ).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
-    .createHmac('sha256', CONFIG.JWT_SECRET)
+    .createHmac("sha256", CONFIG.JWT_SECRET)
     .update(`${header}.${body}`)
-    .digest('base64url');
+    .digest("base64url");
   return `${header}.${body}.${signature}`;
 };
 
 const verifyToken = (token) => {
   try {
-    const [header, body, signature] = token.split('.');
+    const [header, body, signature] = token.split(".");
     const expectedSignature = crypto
-      .createHmac('sha256', CONFIG.JWT_SECRET)
+      .createHmac("sha256", CONFIG.JWT_SECRET)
       .update(`${header}.${body}`)
-      .digest('base64url');
-    
+      .digest("base64url");
+
     if (signature !== expectedSignature) return null;
-    
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString());
     if (payload.exp && payload.exp < Date.now()) return null;
-    
+
     return payload;
   } catch {
     return null;
@@ -108,17 +118,17 @@ const verifyToken = (token) => {
 // Authentication middleware
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1];
-  
+  const token = authHeader && authHeader.split(" ")[1];
+
   if (!token) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: "Authentication required" });
   }
-  
+
   const payload = verifyToken(token);
   if (!payload) {
-    return res.status(403).json({ error: 'Invalid token' });
+    return res.status(403).json({ error: "Invalid token" });
   }
-  
+
   req.user = payload;
   next();
 };
@@ -126,48 +136,81 @@ const authenticate = (req, res, next) => {
 // Data storage
 let inventory = [];
 let locations = {};
-let aiState = { language: 'english' };
+let aiState = { language: "english" };
 
 // Initialize data directory
 const initDataDir = async () => {
   try {
     await fs.mkdir(CONFIG.DATA_PATH, { recursive: true });
-    await fs.mkdir(path.join(CONFIG.DATA_PATH, 'backups'), { recursive: true });
+    await fs.mkdir(path.join(CONFIG.DATA_PATH, "backups"), { recursive: true });
   } catch (error) {
-    console.error('Failed to create data directories:', error);
+    console.error("Failed to create data directories:", error);
   }
 };
 
 // Load data
 const loadData = async () => {
   try {
-    const inventoryPath = path.join(CONFIG.DATA_PATH, 'inventory.json');
-    const locationsPath = path.join(CONFIG.DATA_PATH, 'locations.json');
-    
+    const inventoryPath = path.join(CONFIG.DATA_PATH, "inventory.json");
+    const locationsPath = path.join(CONFIG.DATA_PATH, "locations.json");
+
     try {
-      const invData = await fs.readFile(inventoryPath, 'utf8');
+      const invData = await fs.readFile(inventoryPath, "utf8");
       inventory = JSON.parse(invData);
     } catch {
       // Initialize with sample data
       inventory = [
-        { id: 1, name: { en: 'Ground Beef', fr: 'Bœuf Haché' }, quantity: 75, min: 50, max: 200, category: 'Meat', unit: 'LB', supplier: 'Sysco', price: 4.99, location: 'Freezer A1' },
-        { id: 2, name: { en: 'Milk', fr: 'Lait' }, quantity: 35, min: 20, max: 100, category: 'Dairy', unit: 'GAL', supplier: 'GFS', price: 3.99, location: 'Cooler B2' },
-        { id: 3, name: { en: 'Bread', fr: 'Pain' }, quantity: 15, min: 25, max: 120, category: 'Bakery', unit: 'LOAF', supplier: 'Local', price: 2.99, location: 'Dry Storage' }
+        {
+          id: 1,
+          name: { en: "Ground Beef", fr: "Bœuf Haché" },
+          quantity: 75,
+          min: 50,
+          max: 200,
+          category: "Meat",
+          unit: "LB",
+          supplier: "Sysco",
+          price: 4.99,
+          location: "Freezer A1",
+        },
+        {
+          id: 2,
+          name: { en: "Milk", fr: "Lait" },
+          quantity: 35,
+          min: 20,
+          max: 100,
+          category: "Dairy",
+          unit: "GAL",
+          supplier: "GFS",
+          price: 3.99,
+          location: "Cooler B2",
+        },
+        {
+          id: 3,
+          name: { en: "Bread", fr: "Pain" },
+          quantity: 15,
+          min: 25,
+          max: 120,
+          category: "Bakery",
+          unit: "LOAF",
+          supplier: "Local",
+          price: 2.99,
+          location: "Dry Storage",
+        },
       ];
     }
-    
+
     try {
-      const locData = await fs.readFile(locationsPath, 'utf8');
+      const locData = await fs.readFile(locationsPath, "utf8");
       locations = JSON.parse(locData);
     } catch {
       locations = {
-        'Freezer A1': { type: 'Freezer', temp: '-10°F', capacity: 500 },
-        'Cooler B2': { type: 'Cooler', temp: '38°F', capacity: 300 },
-        'Dry Storage': { type: 'Dry', temp: 'Room', capacity: 1000 }
+        "Freezer A1": { type: "Freezer", temp: "-10°F", capacity: 500 },
+        "Cooler B2": { type: "Cooler", temp: "38°F", capacity: 300 },
+        "Dry Storage": { type: "Dry", temp: "Room", capacity: 1000 },
       };
     }
   } catch (error) {
-    console.error('Data load error:', error);
+    console.error("Data load error:", error);
   }
 };
 
@@ -175,22 +218,22 @@ const loadData = async () => {
 const saveData = async () => {
   try {
     await fs.writeFile(
-      path.join(CONFIG.DATA_PATH, 'inventory.json'),
-      JSON.stringify(inventory, null, 2)
+      path.join(CONFIG.DATA_PATH, "inventory.json"),
+      JSON.stringify(inventory, null, 2),
     );
     await fs.writeFile(
-      path.join(CONFIG.DATA_PATH, 'locations.json'),
-      JSON.stringify(locations, null, 2)
+      path.join(CONFIG.DATA_PATH, "locations.json"),
+      JSON.stringify(locations, null, 2),
     );
-    
+
     // Create backup
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const timestamp = new Date().toISOString().replace(/:/g, "-");
     await fs.writeFile(
-      path.join(CONFIG.DATA_PATH, 'backups', `backup-${timestamp}.json`),
-      JSON.stringify({ inventory, locations }, null, 2)
+      path.join(CONFIG.DATA_PATH, "backups", `backup-${timestamp}.json`),
+      JSON.stringify({ inventory, locations }, null, 2),
     );
   } catch (error) {
-    console.error('Save error:', error);
+    console.error("Save error:", error);
   }
 };
 
@@ -198,50 +241,54 @@ const saveData = async () => {
 const comparePassword = (password, hash) => {
   // In production, use: return bcrypt.compare(password, hash);
   // For this minimal version, we'll use a simple check
-  return hash === '$2b$12$8K1p2V3B.nQ7mF9xJ6tY8eGH2pQ5rT9xM4nL6vZ8wC1yS3dF7gH9i' && password === 'inventory2025';
+  return (
+    hash === "$2b$12$8K1p2V3B.nQ7mF9xJ6tY8eGH2pQ5rT9xM4nL6vZ8wC1yS3dF7gH9i" &&
+    password === "inventory2025"
+  );
 };
 
 // AI Agent
 class AIAgent {
   analyze() {
-    const critical = inventory.filter(item => item.quantity <= item.min);
-    const predictions = inventory.map(item => ({
-      name: item.name[aiState.language === 'french' ? 'fr' : 'en'],
+    const critical = inventory.filter((item) => item.quantity <= item.min);
+    const predictions = inventory.map((item) => ({
+      name: item.name[aiState.language === "french" ? "fr" : "en"],
       daysLeft: Math.floor(item.quantity / 5), // Simple estimation
-      needsReorder: item.quantity <= item.min
+      needsReorder: item.quantity <= item.min,
     }));
-    
+
     return {
       critical: critical.length,
-      predictions: predictions.filter(p => p.daysLeft <= 7),
-      health: Math.round((1 - critical.length / inventory.length) * 100)
+      predictions: predictions.filter((p) => p.daysLeft <= 7),
+      health: Math.round((1 - critical.length / inventory.length) * 100),
     };
   }
-  
+
   suggest() {
     const suggestions = [];
     const suppliers = {};
-    
-    inventory.forEach(item => {
+
+    inventory.forEach((item) => {
       if (item.quantity <= item.min) {
         if (!suppliers[item.supplier]) suppliers[item.supplier] = [];
         suppliers[item.supplier].push(item);
       }
     });
-    
+
     Object.entries(suppliers).forEach(([supplier, items]) => {
       if (items.length > 1) {
         suggestions.push({
-          type: 'bulk',
+          type: "bulk",
           supplier,
           items: items.length,
-          message: aiState.language === 'french' 
-            ? `Combiner ${items.length} articles de ${supplier}`
-            : `Combine ${items.length} items from ${supplier}`
+          message:
+            aiState.language === "french"
+              ? `Combiner ${items.length} articles de ${supplier}`
+              : `Combine ${items.length} items from ${supplier}`,
         });
       }
     });
-    
+
     return suggestions;
   }
 }
@@ -249,78 +296,81 @@ class AIAgent {
 const ai = new AIAgent();
 
 // API Routes
-app.post('/api/auth/login', rateLimit, async (req, res) => {
+app.post("/api/auth/login", rateLimit, async (req, res) => {
   const { email, password } = req.body;
-  
-  if (email === CONFIG.ADMIN_EMAIL && comparePassword(password, CONFIG.ADMIN_PASSWORD_HASH)) {
+
+  if (
+    email === CONFIG.ADMIN_EMAIL &&
+    comparePassword(password, CONFIG.ADMIN_PASSWORD_HASH)
+  ) {
     const token = generateToken({
       id: 1,
       email,
-      exp: Date.now() + CONFIG.SESSION_TIMEOUT
+      exp: Date.now() + CONFIG.SESSION_TIMEOUT,
     });
     res.json({ success: true, token });
   } else {
-    res.status(401).json({ error: 'Invalid credentials' });
+    res.status(401).json({ error: "Invalid credentials" });
   }
 });
 
-app.get('/api/inventory', authenticate, (req, res) => {
+app.get("/api/inventory", authenticate, (req, res) => {
   res.json({
     items: inventory,
     stats: {
       total: inventory.length,
-      low: inventory.filter(i => i.quantity <= i.min).length,
-      value: inventory.reduce((sum, i) => sum + (i.quantity * i.price), 0)
-    }
+      low: inventory.filter((i) => i.quantity <= i.min).length,
+      value: inventory.reduce((sum, i) => sum + i.quantity * i.price, 0),
+    },
   });
 });
 
-app.put('/api/inventory/:id', authenticate, async (req, res) => {
+app.put("/api/inventory/:id", authenticate, async (req, res) => {
   const id = parseInt(req.params.id);
   const { quantity } = req.body;
-  
-  const item = inventory.find(i => i.id === id);
+
+  const item = inventory.find((i) => i.id === id);
   if (item) {
     item.quantity = parseInt(quantity);
     await saveData();
     res.json({ success: true, item });
   } else {
-    res.status(404).json({ error: 'Item not found' });
+    res.status(404).json({ error: "Item not found" });
   }
 });
 
-app.get('/api/locations', authenticate, (req, res) => {
+app.get("/api/locations", authenticate, (req, res) => {
   res.json({ locations });
 });
 
-app.post('/api/locations', authenticate, async (req, res) => {
+app.post("/api/locations", authenticate, async (req, res) => {
   const { name, type, temp, capacity } = req.body;
   locations[name] = { type, temp, capacity: parseInt(capacity) };
   await saveData();
   res.json({ success: true });
 });
 
-app.get('/api/ai/analysis', authenticate, (req, res) => {
-  aiState.language = req.query.lang || 'english';
+app.get("/api/ai/analysis", authenticate, (req, res) => {
+  aiState.language = req.query.lang || "english";
   res.json(ai.analyze());
 });
 
-app.get('/api/ai/suggestions', authenticate, (req, res) => {
-  aiState.language = req.query.lang || 'english';
+app.get("/api/ai/suggestions", authenticate, (req, res) => {
+  aiState.language = req.query.lang || "english";
   res.json(ai.suggest());
 });
 
-app.get('/api/export', authenticate, (req, res) => {
+app.get("/api/export", authenticate, (req, res) => {
   res.json({ inventory, locations, exported: new Date().toISOString() });
 });
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Serve frontend
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -608,7 +658,7 @@ if (token) {
 (async () => {
   await initDataDir();
   await loadData();
-  
+
   app.listen(PORT, () => {
     console.log(`Inventory system running on port ${PORT}`);
     console.log(`Environment: ${CONFIG.NODE_ENV}`);

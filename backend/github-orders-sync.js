@@ -3,17 +3,18 @@
  * Uses GitHub as a free, versioned storage for order files
  */
 
-const https = require('https');
-const fs = require('fs').promises;
-const path = require('path');
+const https = require("https");
+const fs = require("fs").promises;
+const path = require("path");
 
 class GitHubOrdersSync {
   constructor(config = {}) {
-    this.owner = config.owner || process.env.GITHUB_OWNER || 'Neuropilotai';
-    this.repo = config.repo || process.env.GITHUB_ORDERS_REPO || 'gfs-orders-data';
+    this.owner = config.owner || process.env.GITHUB_OWNER || "Neuropilotai";
+    this.repo =
+      config.repo || process.env.GITHUB_ORDERS_REPO || "gfs-orders-data";
     this.token = config.token || process.env.GITHUB_TOKEN;
-    this.branch = config.branch || 'main';
-    this.ordersPath = config.ordersPath || 'orders';
+    this.branch = config.branch || "main";
+    this.ordersPath = config.ordersPath || "orders/processed";
   }
 
   /**
@@ -23,11 +24,11 @@ class GitHubOrdersSync {
     try {
       const files = await this.listFiles();
       const orders = [];
-      
+
       console.log(`📥 Fetching ${files.length} orders from GitHub...`);
-      
+
       for (const file of files) {
-        if (file.name.endsWith('.json')) {
+        if (file.name.endsWith(".json")) {
           const content = await this.fetchFile(file.path);
           try {
             const order = JSON.parse(content);
@@ -36,12 +37,21 @@ class GitHubOrdersSync {
           } catch (error) {
             console.error(`⚠️ Invalid JSON in ${file.name}`);
           }
+        } else if (file.name.endsWith(".csv")) {
+          // For CSV files, we'll download them but not parse here
+          console.log(`📄 Found CSV order: ${file.name}`);
+          orders.push({
+            type: "csv",
+            filename: file.name,
+            path: file.path,
+            downloadUrl: file.download_url,
+          });
         }
       }
-      
+
       return orders;
     } catch (error) {
-      console.error('❌ Error fetching orders from GitHub:', error);
+      console.error("❌ Error fetching orders from GitHub:", error);
       throw error;
     }
   }
@@ -52,23 +62,23 @@ class GitHubOrdersSync {
   async listFiles() {
     return new Promise((resolve, reject) => {
       const options = {
-        hostname: 'api.github.com',
+        hostname: "api.github.com",
         path: `/repos/${this.owner}/${this.repo}/contents/${this.ordersPath}`,
-        method: 'GET',
+        method: "GET",
         headers: {
-          'User-Agent': 'GFS-Orders-Sync',
-          'Accept': 'application/vnd.github.v3+json'
-        }
+          "User-Agent": "GFS-Orders-Sync",
+          Accept: "application/vnd.github.v3+json",
+        },
       };
 
       if (this.token) {
-        options.headers['Authorization'] = `token ${this.token}`;
+        options.headers["Authorization"] = `token ${this.token}`;
       }
 
       const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
           try {
             const files = JSON.parse(data);
             if (Array.isArray(files)) {
@@ -82,7 +92,7 @@ class GitHubOrdersSync {
         });
       });
 
-      req.on('error', reject);
+      req.on("error", reject);
       req.end();
     });
   }
@@ -93,26 +103,26 @@ class GitHubOrdersSync {
   async fetchFile(filePath) {
     return new Promise((resolve, reject) => {
       const options = {
-        hostname: 'api.github.com',
+        hostname: "api.github.com",
         path: `/repos/${this.owner}/${this.repo}/contents/${filePath}`,
-        method: 'GET',
+        method: "GET",
         headers: {
-          'User-Agent': 'GFS-Orders-Sync',
-          'Accept': 'application/vnd.github.v3.raw'
-        }
+          "User-Agent": "GFS-Orders-Sync",
+          Accept: "application/vnd.github.v3.raw",
+        },
       };
 
       if (this.token) {
-        options.headers['Authorization'] = `token ${this.token}`;
+        options.headers["Authorization"] = `token ${this.token}`;
       }
 
       const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => resolve(data));
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => resolve(data));
       });
 
-      req.on('error', reject);
+      req.on("error", reject);
       req.end();
     });
   }
@@ -120,28 +130,28 @@ class GitHubOrdersSync {
   /**
    * Sync orders to local storage
    */
-  async syncToLocal(localPath = './data/gfs_orders') {
+  async syncToLocal(localPath = "./data/gfs_orders") {
     try {
       // Ensure directory exists
       await fs.mkdir(localPath, { recursive: true });
-      
+
       // Fetch and save orders
       const files = await this.listFiles();
       let syncedCount = 0;
-      
+
       for (const file of files) {
-        if (file.name.endsWith('.json')) {
+        if (file.name.endsWith(".json") || file.name.endsWith(".csv")) {
           const content = await this.fetchFile(file.path);
           const localFile = path.join(localPath, file.name);
           await fs.writeFile(localFile, content);
           syncedCount++;
         }
       }
-      
+
       console.log(`✅ Synced ${syncedCount} orders from GitHub`);
       return syncedCount;
     } catch (error) {
-      console.error('❌ Error syncing orders:', error);
+      console.error("❌ Error syncing orders:", error);
       throw error;
     }
   }
@@ -191,51 +201,54 @@ function setupGitHubSyncRoutes(app) {
   const sync = new GitHubOrdersSync();
 
   // Manual sync endpoint
-  app.post('/api/sync/github-orders', async (req, res) => {
+  app.post("/api/sync/github-orders", async (req, res) => {
     try {
       const count = await sync.syncToLocal();
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Synced ${count} orders from GitHub`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
+      res.status(500).json({
+        success: false,
+        error: error.message,
       });
     }
   });
 
   // Get sync status
-  app.get('/api/sync/status', async (req, res) => {
+  app.get("/api/sync/status", async (req, res) => {
     try {
       const files = await sync.listFiles();
       res.json({
         success: true,
         repository: `${sync.owner}/${sync.repo}`,
-        ordersCount: files.filter(f => f.name.endsWith('.json')).length,
-        lastChecked: new Date().toISOString()
+        ordersCount: files.filter((f) => f.name.endsWith(".json")).length,
+        lastChecked: new Date().toISOString(),
       });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
+      res.status(500).json({
+        success: false,
+        error: error.message,
       });
     }
   });
 
   // Auto-sync every 10 minutes
-  setInterval(async () => {
-    try {
-      console.log('🔄 Auto-syncing orders from GitHub...');
-      await sync.syncToLocal();
-    } catch (error) {
-      console.error('❌ Auto-sync failed:', error.message);
-    }
-  }, 10 * 60 * 1000); // 10 minutes
+  setInterval(
+    async () => {
+      try {
+        console.log("🔄 Auto-syncing orders from GitHub...");
+        await sync.syncToLocal();
+      } catch (error) {
+        console.error("❌ Auto-sync failed:", error.message);
+      }
+    },
+    10 * 60 * 1000,
+  ); // 10 minutes
 
-  console.log('✅ GitHub sync routes configured');
+  console.log("✅ GitHub sync routes configured");
 }
 
 module.exports = { GitHubOrdersSync, setupGitHubSyncRoutes };
@@ -243,7 +256,8 @@ module.exports = { GitHubOrdersSync, setupGitHubSyncRoutes };
 // Test if run directly
 if (require.main === module) {
   const sync = new GitHubOrdersSync();
-  sync.syncToLocal()
-    .then(count => console.log(`✅ Test sync completed: ${count} orders`))
-    .catch(error => console.error('❌ Test sync failed:', error));
+  sync
+    .syncToLocal()
+    .then((count) => console.log(`✅ Test sync completed: ${count} orders`))
+    .catch((error) => console.error("❌ Test sync failed:", error));
 }

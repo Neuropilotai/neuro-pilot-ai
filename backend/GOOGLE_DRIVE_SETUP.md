@@ -55,8 +55,9 @@ GOOGLE_DRIVE_FOLDER_ID=your-folder-id
 ## Integration with Inventory System
 
 1. **Add to your inventory system:**
+
 ```javascript
-const { GoogleDriveSync, AIDataCollector } = require('./google-drive-sync');
+const { GoogleDriveSync, AIDataCollector } = require("./google-drive-sync");
 
 // Initialize on startup
 const driveSync = new GoogleDriveSync();
@@ -67,9 +68,10 @@ aiCollector.start();
 ```
 
 2. **Manual sync command:**
+
 ```javascript
 // Add this route to your Express app
-app.post('/api/sync-gfs-orders', async (req, res) => {
+app.post("/api/sync-gfs-orders", async (req, res) => {
   try {
     const count = await driveSync.syncGFSOrders();
     res.json({ success: true, ordersSync: count });
@@ -105,7 +107,9 @@ If you prefer using GitHub:
 
 ```javascript
 // Fetch from GitHub
-const response = await fetch('https://api.github.com/repos/YOUR_USERNAME/gfs-orders-data/contents/orders');
+const response = await fetch(
+  "https://api.github.com/repos/YOUR_USERNAME/gfs-orders-data/contents/orders",
+);
 const files = await response.json();
 ```
 

@@ -1,132 +1,153 @@
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
 
 class AgentDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3005;
-        this.setupRoutes();
-    }
+  constructor() {
+    this.app = express();
+    this.port = 3005;
+    this.setupRoutes();
+  }
 
-    setupRoutes() {
-        // Serve static files
-        this.app.use(express.static('public'));
-        
-        // Dashboard home page
-        this.app.get('/', (req, res) => {
-            res.send(this.getDashboardHTML());
+  setupRoutes() {
+    // Serve static files
+    this.app.use(express.static("public"));
+
+    // Dashboard home page
+    this.app.get("/", (req, res) => {
+      res.send(this.getDashboardHTML());
+    });
+
+    // API endpoints
+    this.app.get("/api/agents/status", async (req, res) => {
+      try {
+        const status = await this.getAgentStatus();
+        res.json(status);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/logs/:agent", async (req, res) => {
+      try {
+        const logs = await this.getAgentLogs(req.params.agent);
+        res.json(logs);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/orders/processed", async (req, res) => {
+      try {
+        const orders = await this.getProcessedOrders();
+        res.json(orders);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
+  async getAgentStatus() {
+    const agents = [
+      {
+        name: "Email Agent",
+        logFile: "email_agent.log",
+        port: null,
+        status: "active",
+      },
+      {
+        name: "Backend API",
+        logFile: "server_8080.log",
+        port: 8080,
+        status: "active",
+      },
+      {
+        name: "Admin Server",
+        logFile: "admin_8081.log",
+        port: 8081,
+        status: "active",
+      },
+      {
+        name: "Fiverr Pro",
+        logFile: "fiverr_pro.log",
+        port: 8082,
+        status: "active",
+      },
+    ];
+
+    const statusData = [];
+
+    for (const agent of agents) {
+      try {
+        const logPath = path.join(__dirname, agent.logFile);
+        const logContent = await fs.readFile(logPath, "utf8");
+        const lines = logContent.split("\n").filter((line) => line.trim());
+        const lastLine = lines[lines.length - 1] || "";
+
+        statusData.push({
+          name: agent.name,
+          status: lastLine.includes("✅") ? "online" : "unknown",
+          lastActivity: this.extractTimestamp(lastLine) || "Unknown",
+          port: agent.port,
+          totalLines: lines.length,
+          lastLog:
+            lastLine.substring(0, 100) + (lastLine.length > 100 ? "..." : ""),
         });
-
-        // API endpoints
-        this.app.get('/api/agents/status', async (req, res) => {
-            try {
-                const status = await this.getAgentStatus();
-                res.json(status);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+      } catch (error) {
+        statusData.push({
+          name: agent.name,
+          status: "offline",
+          lastActivity: "No log file",
+          port: agent.port,
+          totalLines: 0,
+          lastLog: "Agent not responding",
         });
-
-        this.app.get('/api/logs/:agent', async (req, res) => {
-            try {
-                const logs = await this.getAgentLogs(req.params.agent);
-                res.json(logs);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/orders/processed', async (req, res) => {
-            try {
-                const orders = await this.getProcessedOrders();
-                res.json(orders);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+      }
     }
 
-    async getAgentStatus() {
-        const agents = [
-            { name: 'Email Agent', logFile: 'email_agent.log', port: null, status: 'active' },
-            { name: 'Backend API', logFile: 'server_8080.log', port: 8080, status: 'active' },
-            { name: 'Admin Server', logFile: 'admin_8081.log', port: 8081, status: 'active' },
-            { name: 'Fiverr Pro', logFile: 'fiverr_pro.log', port: 8082, status: 'active' }
-        ];
+    return statusData;
+  }
 
-        const statusData = [];
+  async getAgentLogs(agentName) {
+    const logFiles = {
+      email: "email_agent.log",
+      backend: "server_8080.log",
+      admin: "admin_8081.log",
+      fiverr: "fiverr_pro.log",
+    };
 
-        for (const agent of agents) {
-            try {
-                const logPath = path.join(__dirname, agent.logFile);
-                const logContent = await fs.readFile(logPath, 'utf8');
-                const lines = logContent.split('\n').filter(line => line.trim());
-                const lastLine = lines[lines.length - 1] || '';
-                
-                statusData.push({
-                    name: agent.name,
-                    status: lastLine.includes('✅') ? 'online' : 'unknown',
-                    lastActivity: this.extractTimestamp(lastLine) || 'Unknown',
-                    port: agent.port,
-                    totalLines: lines.length,
-                    lastLog: lastLine.substring(0, 100) + (lastLine.length > 100 ? '...' : '')
-                });
-            } catch (error) {
-                statusData.push({
-                    name: agent.name,
-                    status: 'offline',
-                    lastActivity: 'No log file',
-                    port: agent.port,
-                    totalLines: 0,
-                    lastLog: 'Agent not responding'
-                });
-            }
-        }
-
-        return statusData;
+    const logFile = logFiles[agentName];
+    if (!logFile) {
+      throw new Error("Agent not found");
     }
 
-    async getAgentLogs(agentName) {
-        const logFiles = {
-            'email': 'email_agent.log',
-            'backend': 'server_8080.log',
-            'admin': 'admin_8081.log',
-            'fiverr': 'fiverr_pro.log'
-        };
-
-        const logFile = logFiles[agentName];
-        if (!logFile) {
-            throw new Error('Agent not found');
-        }
-
-        try {
-            const logPath = path.join(__dirname, logFile);
-            const content = await fs.readFile(logPath, 'utf8');
-            const lines = content.split('\n').slice(-50); // Last 50 lines
-            return { lines, total: content.split('\n').length };
-        } catch (error) {
-            return { lines: ['Log file not found'], total: 0 };
-        }
+    try {
+      const logPath = path.join(__dirname, logFile);
+      const content = await fs.readFile(logPath, "utf8");
+      const lines = content.split("\n").slice(-50); // Last 50 lines
+      return { lines, total: content.split("\n").length };
+    } catch (error) {
+      return { lines: ["Log file not found"], total: 0 };
     }
+  }
 
-    async getProcessedOrders() {
-        try {
-            const ordersPath = path.join(__dirname, 'processed_orders_log.json');
-            const content = await fs.readFile(ordersPath, 'utf8');
-            return JSON.parse(content);
-        } catch (error) {
-            return [];
-        }
+  async getProcessedOrders() {
+    try {
+      const ordersPath = path.join(__dirname, "processed_orders_log.json");
+      const content = await fs.readFile(ordersPath, "utf8");
+      return JSON.parse(content);
+    } catch (error) {
+      return [];
     }
+  }
 
-    extractTimestamp(line) {
-        const timeMatch = line.match(/\[(\d+:\d+:\d+\s+[AP]M)\]/);
-        return timeMatch ? timeMatch[1] : null;
-    }
+  extractTimestamp(line) {
+    const timeMatch = line.match(/\[(\d+:\d+:\d+\s+[AP]M)\]/);
+    return timeMatch ? timeMatch[1] : null;
+  }
 
-    getDashboardHTML() {
-        return `
+  getDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -380,20 +401,22 @@ class AgentDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🎛️ Agent Dashboard started on port ${this.port}`);
-            console.log(`📊 Dashboard URL: http://localhost:${this.port}`);
-            console.log(`🌐 Make sure to expose this port via ngrok for external access`);
-        });
-    }
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(`🎛️ Agent Dashboard started on port ${this.port}`);
+      console.log(`📊 Dashboard URL: http://localhost:${this.port}`);
+      console.log(
+        `🌐 Make sure to expose this port via ngrok for external access`,
+      );
+    });
+  }
 }
 
 if (require.main === module) {
-    const dashboard = new AgentDashboard();
-    dashboard.start();
+  const dashboard = new AgentDashboard();
+  dashboard.start();
 }
 
 module.exports = AgentDashboard;

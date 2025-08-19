@@ -1,530 +1,569 @@
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const fs = require('fs').promises;
-const path = require('path');
-const EventEmitter = require('events');
+require("dotenv").config();
+const express = require("express");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+const fs = require("fs").promises;
+const path = require("path");
+const EventEmitter = require("events");
 
 class SuperAgentMonitor extends EventEmitter {
-    constructor(existingIO = null) {
-        super();
-        
-        if (existingIO) {
-            // Use existing Socket.io instance
-            this.io = existingIO;
-            this.setupSocketHandlers();
-        } else {
-            // Create new server (for standalone mode)
-            this.app = express();
-            this.server = createServer(this.app);
-            this.io = new Server(this.server, {
-                cors: {
-                    origin: "*",
-                    methods: ["GET", "POST"]
-                }
-            });
-            this.port = process.env.AGENT_MONITOR_PORT || 3010;
-            this.setupMiddleware();
-            this.setupRoutes();
-            this.setupSocketHandlers();
-        }
-        
-        // Agent state management
-        this.agents = new Map();
-        this.pendingApprovals = new Map();
-        this.workHistory = [];
-        this.approvalCallbacks = new Map();
-        
-        // Initialize agent definitions
-        this.agentDefinitions = {
-            'sales_marketing': {
-                id: 'sales_marketing',
-                name: 'Sales & Marketing Agent',
-                description: 'Handles lead generation, content creation, and social media',
-                capabilities: ['lead_generation', 'content_creation', 'social_media', 'email_campaigns'],
-                requiresApproval: ['content_creation', 'email_campaigns'],
-                status: 'idle',
-                currentWork: null,
-                metrics: {
-                    tasksCompleted: 0,
-                    successRate: 100,
-                    avgResponseTime: 0
-                }
-            },
-            'product_generator': {
-                id: 'product_generator',
-                name: 'Product Generator Agent',
-                description: 'Creates and manages product listings',
-                capabilities: ['product_creation', 'pricing_strategy', 'inventory_management'],
-                requiresApproval: ['product_creation', 'pricing_strategy'],
-                status: 'idle',
-                currentWork: null,
-                metrics: {
-                    productsCreated: 0,
-                    avgCreationTime: 0,
-                    qualityScore: 95
-                }
-            },
-            'billing_order': {
-                id: 'billing_order',
-                name: 'Billing & Order Agent',
-                description: 'Processes orders, payments, and invoices',
-                capabilities: ['order_processing', 'payment_handling', 'invoice_generation', 'refund_processing'],
-                requiresApproval: ['refund_processing'],
-                status: 'idle',
-                currentWork: null,
-                metrics: {
-                    ordersProcessed: 0,
-                    paymentSuccess: 100,
-                    avgProcessingTime: 0
-                }
-            },
-            'compliance_moderation': {
-                id: 'compliance_moderation',
-                name: 'Compliance & Moderation Agent',
-                description: 'Ensures content compliance and moderates user submissions',
-                capabilities: ['content_moderation', 'compliance_check', 'policy_enforcement'],
-                requiresApproval: ['policy_enforcement'],
-                status: 'idle',
-                currentWork: null,
-                metrics: {
-                    itemsReviewed: 0,
-                    violationsDetected: 0,
-                    accuracy: 98
-                }
-            },
-            'customer_service': {
-                id: 'customer_service',
-                name: 'Customer Service Agent',
-                description: 'Handles customer inquiries and support tickets',
-                capabilities: ['ticket_handling', 'auto_response', 'escalation', 'sentiment_analysis'],
-                requiresApproval: ['escalation'],
-                status: 'idle',
-                currentWork: null,
-                metrics: {
-                    ticketsResolved: 0,
-                    satisfactionScore: 85,
-                    avgResponseTime: 0
-                }
-            },
-            'trading': {
-                id: 'trading',
-                name: 'Trading Agent',
-                description: 'Analyzes markets and executes trades',
-                capabilities: ['market_analysis', 'trade_execution', 'risk_management', 'portfolio_optimization'],
-                requiresApproval: ['trade_execution'],
-                status: 'idle',
-                currentWork: null,
-                metrics: {
-                    tradesExecuted: 0,
-                    winRate: 0,
-                    portfolioValue: 100000
-                }
-            }
-        };
-        
-        // Initialize agents after all setup is complete
-        this.initializeAgents();
+  constructor(existingIO = null) {
+    super();
+
+    if (existingIO) {
+      // Use existing Socket.io instance
+      this.io = existingIO;
+      this.setupSocketHandlers();
+    } else {
+      // Create new server (for standalone mode)
+      this.app = express();
+      this.server = createServer(this.app);
+      this.io = new Server(this.server, {
+        cors: {
+          origin: "*",
+          methods: ["GET", "POST"],
+        },
+      });
+      this.port = process.env.AGENT_MONITOR_PORT || 3010;
+      this.setupMiddleware();
+      this.setupRoutes();
+      this.setupSocketHandlers();
     }
-    
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-    }
-    
-    setupRoutes() {
-        // Serve the super monitor dashboard
-        this.app.get('/', (req, res) => {
-            res.send(this.getMonitorHTML());
-        });
-        
-        // API endpoints
-        this.app.get('/api/agents', (req, res) => {
-            const agentList = Array.from(this.agents.values());
-            res.json(agentList);
-        });
-        
-        this.app.get('/api/pending-approvals', (req, res) => {
-            const approvals = Array.from(this.pendingApprovals.values());
-            res.json(approvals);
-        });
-        
-        this.app.get('/api/work-history', (req, res) => {
-            res.json(this.workHistory.slice(-100)); // Last 100 items
-        });
-        
-        this.app.post('/api/approve/:approvalId', (req, res) => {
-            const { approvalId } = req.params;
-            const { approved, feedback } = req.body;
-            
-            this.handleApproval(approvalId, approved, feedback);
-            res.json({ success: true });
-        });
-        
-        this.app.post('/api/agent/:agentId/command', (req, res) => {
-            const { agentId } = req.params;
-            const { command, parameters } = req.body;
-            
-            this.sendAgentCommand(agentId, command, parameters);
-            res.json({ success: true });
-        });
-    }
-    
-    setupSocketHandlers() {
-        this.io.on('connection', (socket) => {
-            const agentId = socket.handshake.auth?.agentId;
-            
-            if (agentId) {
-                // This is an agent connection
-                console.log(`🤖 Agent connected: ${socket.handshake.auth.agentName}`);
-                this.handleAgentConnection(socket, agentId);
-            } else {
-                // This is a dashboard client connection
-                console.log('📱 Dashboard client connected');
-                this.handleDashboardConnection(socket);
-            }
-        });
-    }
-    
-    handleAgentConnection(socket, agentId) {
-        // Handle agent registration
-        socket.on('register_agent', (agentData) => {
-            console.log(`📝 Registering agent: ${agentData.name}`);
-            
-            // Update or add agent
-            const agent = this.agents.get(agentId) || { ...this.agentDefinitions[agentId] };
-            Object.assign(agent, agentData, {
-                status: 'online',
-                lastSeen: new Date(),
-                socketId: socket.id
-            });
-            
-            this.agents.set(agentId, agent);
-            this.broadcastAgentUpdate(agentId);
-        });
-        
-        // Handle agent status updates
-        socket.on('agent_status_update', (data) => {
-            this.updateAgentStatus(data.agentId, data.status, data.currentWork);
-        });
-        
-        // Handle work submission for approval
-        socket.on('submit_work_for_approval', async (data, callback) => {
-            try {
-                const approval = await this.submitWork(data.agentId, data.work);
-                callback(approval);
-            } catch (error) {
-                callback({ approved: false, error: error.message });
-            }
-        });
-        
-        // Handle work completion (no approval needed)
-        socket.on('work_completed', (data) => {
-            const workItem = {
-                id: `WORK_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                agentId: data.agentId,
-                agentName: this.agents.get(data.agentId)?.name || 'Unknown',
-                ...data.work,
-                timestamp: new Date(),
-                status: 'executed',
-                requiresApproval: false
-            };
-            
-            this.executeWork(workItem);
-        });
-        
-        // Handle metrics updates
-        socket.on('agent_metrics_update', (data) => {
-            const agent = this.agents.get(data.agentId);
-            if (agent) {
-                Object.assign(agent.metrics, data.metrics);
-                this.broadcastAgentUpdate(data.agentId);
-            }
-        });
-        
-        // Handle agent errors
-        socket.on('agent_error', (data) => {
-            console.error(`❌ Agent error from ${data.agentId}:`, data.error);
-            this.updateAgentStatus(data.agentId, 'error', {
-                error: data.error,
-                timestamp: new Date()
-            });
-        });
-        
-        // Handle agent disconnect
-        socket.on('disconnect', () => {
-            const agent = this.agents.get(agentId);
-            if (agent) {
-                agent.status = 'offline';
-                agent.socketId = null;
-                this.broadcastAgentUpdate(agentId);
-            }
-            console.log(`🤖 Agent disconnected: ${agentId}`);
-        });
-    }
-    
-    handleDashboardConnection(socket) {
-        // Send initial state
-        socket.emit('initial_state', {
-            agents: Array.from(this.agents.values()),
-            pendingApprovals: Array.from(this.pendingApprovals.values()),
-            workHistory: this.workHistory.slice(-50)
-        });
-        
-        // Handle real-time commands
-        socket.on('approve_work', (data) => {
-            this.handleApproval(data.approvalId, data.approved, data.feedback);
-        });
-        
-        socket.on('pause_agent', (agentId) => {
-            this.pauseAgent(agentId);
-        });
-        
-        socket.on('resume_agent', (agentId) => {
-            this.resumeAgent(agentId);
-        });
-        
-        socket.on('assign_task', (data) => {
-            this.assignTask(data.agentId, data.task);
-        });
-        
-        socket.on('disconnect', () => {
-            console.log('📱 Dashboard client disconnected');
-        });
-    }
-    
-    initializeAgents() {
-        // Initialize all agents from definitions
-        for (const [id, definition] of Object.entries(this.agentDefinitions)) {
-            this.agents.set(id, { ...definition });
-        }
-        
-        // Start agent simulation (replace with real agent connections)
-        this.startAgentSimulation();
-    }
-    
-    // Agent work submission that requires approval
-    submitWork(agentId, work) {
-        const agent = this.agents.get(agentId);
-        if (!agent) return;
-        
-        const workItem = {
-            id: `WORK_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            agentId,
-            agentName: agent.name,
-            type: work.type,
-            description: work.description,
-            data: work.data,
-            timestamp: new Date(),
-            requiresApproval: agent.requiresApproval.includes(work.type)
-        };
-        
-        if (workItem.requiresApproval) {
-            // Add to pending approvals
-            this.pendingApprovals.set(workItem.id, {
-                ...workItem,
-                status: 'pending'
-            });
-            
-            // Notify dashboard
-            this.io.emit('new_approval_required', workItem);
-            
-            // Return promise that resolves when approved/rejected
-            return new Promise((resolve, reject) => {
-                this.approvalCallbacks.set(workItem.id, { resolve, reject });
-            });
-        } else {
-            // Auto-approve work that doesn't require approval
-            this.executeWork(workItem);
-            return Promise.resolve({ approved: true, auto: true });
-        }
-    }
-    
-    handleApproval(approvalId, approved, feedback) {
-        const approval = this.pendingApprovals.get(approvalId);
-        if (!approval) return;
-        
-        approval.status = approved ? 'approved' : 'rejected';
-        approval.feedback = feedback;
-        approval.reviewedAt = new Date();
-        
-        // Remove from pending
-        this.pendingApprovals.delete(approvalId);
-        
-        // Add to history
-        this.workHistory.push(approval);
-        
-        // Execute callback
-        const callback = this.approvalCallbacks.get(approvalId);
-        if (callback) {
-            if (approved) {
-                this.executeWork(approval);
-                callback.resolve({ approved: true, feedback });
-            } else {
-                callback.reject({ approved: false, feedback });
-            }
-            this.approvalCallbacks.delete(approvalId);
-        }
-        
-        // Update agent status
-        const agent = this.agents.get(approval.agentId);
-        if (agent) {
-            agent.status = 'idle';
-            agent.currentWork = null;
-        }
-        
-        // Notify dashboard
-        this.io.emit('approval_processed', {
-            approvalId,
-            approved,
-            feedback
-        });
-        
-        this.broadcastAgentUpdate(approval.agentId);
-    }
-    
-    executeWork(workItem) {
-        console.log(`✅ Executing approved work: ${workItem.id}`);
-        
-        // Add to history
-        this.workHistory.push({
-            ...workItem,
-            executedAt: new Date(),
-            status: 'executed'
-        });
-        
-        // Update agent metrics
-        const agent = this.agents.get(workItem.agentId);
-        if (agent) {
-            if (workItem.type === 'content_creation') {
-                agent.metrics.tasksCompleted++;
-            } else if (workItem.type === 'product_creation') {
-                agent.metrics.productsCreated++;
-            } else if (workItem.type === 'order_processing') {
-                agent.metrics.ordersProcessed++;
-            }
-        }
-        
-        // Emit work executed event
-        this.emit('work_executed', workItem);
-    }
-    
-    updateAgentStatus(agentId, status, currentWork = null) {
-        const agent = this.agents.get(agentId);
-        if (!agent) return;
-        
-        agent.status = status;
-        agent.currentWork = currentWork;
-        agent.lastUpdate = new Date();
-        
+
+    // Agent state management
+    this.agents = new Map();
+    this.pendingApprovals = new Map();
+    this.workHistory = [];
+    this.approvalCallbacks = new Map();
+
+    // Initialize agent definitions
+    this.agentDefinitions = {
+      sales_marketing: {
+        id: "sales_marketing",
+        name: "Sales & Marketing Agent",
+        description:
+          "Handles lead generation, content creation, and social media",
+        capabilities: [
+          "lead_generation",
+          "content_creation",
+          "social_media",
+          "email_campaigns",
+        ],
+        requiresApproval: ["content_creation", "email_campaigns"],
+        status: "idle",
+        currentWork: null,
+        metrics: {
+          tasksCompleted: 0,
+          successRate: 100,
+          avgResponseTime: 0,
+        },
+      },
+      product_generator: {
+        id: "product_generator",
+        name: "Product Generator Agent",
+        description: "Creates and manages product listings",
+        capabilities: [
+          "product_creation",
+          "pricing_strategy",
+          "inventory_management",
+        ],
+        requiresApproval: ["product_creation", "pricing_strategy"],
+        status: "idle",
+        currentWork: null,
+        metrics: {
+          productsCreated: 0,
+          avgCreationTime: 0,
+          qualityScore: 95,
+        },
+      },
+      billing_order: {
+        id: "billing_order",
+        name: "Billing & Order Agent",
+        description: "Processes orders, payments, and invoices",
+        capabilities: [
+          "order_processing",
+          "payment_handling",
+          "invoice_generation",
+          "refund_processing",
+        ],
+        requiresApproval: ["refund_processing"],
+        status: "idle",
+        currentWork: null,
+        metrics: {
+          ordersProcessed: 0,
+          paymentSuccess: 100,
+          avgProcessingTime: 0,
+        },
+      },
+      compliance_moderation: {
+        id: "compliance_moderation",
+        name: "Compliance & Moderation Agent",
+        description:
+          "Ensures content compliance and moderates user submissions",
+        capabilities: [
+          "content_moderation",
+          "compliance_check",
+          "policy_enforcement",
+        ],
+        requiresApproval: ["policy_enforcement"],
+        status: "idle",
+        currentWork: null,
+        metrics: {
+          itemsReviewed: 0,
+          violationsDetected: 0,
+          accuracy: 98,
+        },
+      },
+      customer_service: {
+        id: "customer_service",
+        name: "Customer Service Agent",
+        description: "Handles customer inquiries and support tickets",
+        capabilities: [
+          "ticket_handling",
+          "auto_response",
+          "escalation",
+          "sentiment_analysis",
+        ],
+        requiresApproval: ["escalation"],
+        status: "idle",
+        currentWork: null,
+        metrics: {
+          ticketsResolved: 0,
+          satisfactionScore: 85,
+          avgResponseTime: 0,
+        },
+      },
+      trading: {
+        id: "trading",
+        name: "Trading Agent",
+        description: "Analyzes markets and executes trades",
+        capabilities: [
+          "market_analysis",
+          "trade_execution",
+          "risk_management",
+          "portfolio_optimization",
+        ],
+        requiresApproval: ["trade_execution"],
+        status: "idle",
+        currentWork: null,
+        metrics: {
+          tradesExecuted: 0,
+          winRate: 0,
+          portfolioValue: 100000,
+        },
+      },
+    };
+
+    // Initialize agents after all setup is complete
+    this.initializeAgents();
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+  }
+
+  setupRoutes() {
+    // Serve the super monitor dashboard
+    this.app.get("/", (req, res) => {
+      res.send(this.getMonitorHTML());
+    });
+
+    // API endpoints
+    this.app.get("/api/agents", (req, res) => {
+      const agentList = Array.from(this.agents.values());
+      res.json(agentList);
+    });
+
+    this.app.get("/api/pending-approvals", (req, res) => {
+      const approvals = Array.from(this.pendingApprovals.values());
+      res.json(approvals);
+    });
+
+    this.app.get("/api/work-history", (req, res) => {
+      res.json(this.workHistory.slice(-100)); // Last 100 items
+    });
+
+    this.app.post("/api/approve/:approvalId", (req, res) => {
+      const { approvalId } = req.params;
+      const { approved, feedback } = req.body;
+
+      this.handleApproval(approvalId, approved, feedback);
+      res.json({ success: true });
+    });
+
+    this.app.post("/api/agent/:agentId/command", (req, res) => {
+      const { agentId } = req.params;
+      const { command, parameters } = req.body;
+
+      this.sendAgentCommand(agentId, command, parameters);
+      res.json({ success: true });
+    });
+  }
+
+  setupSocketHandlers() {
+    this.io.on("connection", (socket) => {
+      const agentId = socket.handshake.auth?.agentId;
+
+      if (agentId) {
+        // This is an agent connection
+        console.log(`🤖 Agent connected: ${socket.handshake.auth.agentName}`);
+        this.handleAgentConnection(socket, agentId);
+      } else {
+        // This is a dashboard client connection
+        console.log("📱 Dashboard client connected");
+        this.handleDashboardConnection(socket);
+      }
+    });
+  }
+
+  handleAgentConnection(socket, agentId) {
+    // Handle agent registration
+    socket.on("register_agent", (agentData) => {
+      console.log(`📝 Registering agent: ${agentData.name}`);
+
+      // Update or add agent
+      const agent = this.agents.get(agentId) || {
+        ...this.agentDefinitions[agentId],
+      };
+      Object.assign(agent, agentData, {
+        status: "online",
+        lastSeen: new Date(),
+        socketId: socket.id,
+      });
+
+      this.agents.set(agentId, agent);
+      this.broadcastAgentUpdate(agentId);
+    });
+
+    // Handle agent status updates
+    socket.on("agent_status_update", (data) => {
+      this.updateAgentStatus(data.agentId, data.status, data.currentWork);
+    });
+
+    // Handle work submission for approval
+    socket.on("submit_work_for_approval", async (data, callback) => {
+      try {
+        const approval = await this.submitWork(data.agentId, data.work);
+        callback(approval);
+      } catch (error) {
+        callback({ approved: false, error: error.message });
+      }
+    });
+
+    // Handle work completion (no approval needed)
+    socket.on("work_completed", (data) => {
+      const workItem = {
+        id: `WORK_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        agentId: data.agentId,
+        agentName: this.agents.get(data.agentId)?.name || "Unknown",
+        ...data.work,
+        timestamp: new Date(),
+        status: "executed",
+        requiresApproval: false,
+      };
+
+      this.executeWork(workItem);
+    });
+
+    // Handle metrics updates
+    socket.on("agent_metrics_update", (data) => {
+      const agent = this.agents.get(data.agentId);
+      if (agent) {
+        Object.assign(agent.metrics, data.metrics);
+        this.broadcastAgentUpdate(data.agentId);
+      }
+    });
+
+    // Handle agent errors
+    socket.on("agent_error", (data) => {
+      console.error(`❌ Agent error from ${data.agentId}:`, data.error);
+      this.updateAgentStatus(data.agentId, "error", {
+        error: data.error,
+        timestamp: new Date(),
+      });
+    });
+
+    // Handle agent disconnect
+    socket.on("disconnect", () => {
+      const agent = this.agents.get(agentId);
+      if (agent) {
+        agent.status = "offline";
+        agent.socketId = null;
         this.broadcastAgentUpdate(agentId);
+      }
+      console.log(`🤖 Agent disconnected: ${agentId}`);
+    });
+  }
+
+  handleDashboardConnection(socket) {
+    // Send initial state
+    socket.emit("initial_state", {
+      agents: Array.from(this.agents.values()),
+      pendingApprovals: Array.from(this.pendingApprovals.values()),
+      workHistory: this.workHistory.slice(-50),
+    });
+
+    // Handle real-time commands
+    socket.on("approve_work", (data) => {
+      this.handleApproval(data.approvalId, data.approved, data.feedback);
+    });
+
+    socket.on("pause_agent", (agentId) => {
+      this.pauseAgent(agentId);
+    });
+
+    socket.on("resume_agent", (agentId) => {
+      this.resumeAgent(agentId);
+    });
+
+    socket.on("assign_task", (data) => {
+      this.assignTask(data.agentId, data.task);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("📱 Dashboard client disconnected");
+    });
+  }
+
+  initializeAgents() {
+    // Initialize all agents from definitions
+    for (const [id, definition] of Object.entries(this.agentDefinitions)) {
+      this.agents.set(id, { ...definition });
     }
-    
-    broadcastAgentUpdate(agentId) {
-        const agent = this.agents.get(agentId);
-        if (agent) {
-            this.io.emit('agent_update', agent);
+
+    // Start agent simulation (replace with real agent connections)
+    this.startAgentSimulation();
+  }
+
+  // Agent work submission that requires approval
+  submitWork(agentId, work) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return;
+
+    const workItem = {
+      id: `WORK_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      agentId,
+      agentName: agent.name,
+      type: work.type,
+      description: work.description,
+      data: work.data,
+      timestamp: new Date(),
+      requiresApproval: agent.requiresApproval.includes(work.type),
+    };
+
+    if (workItem.requiresApproval) {
+      // Add to pending approvals
+      this.pendingApprovals.set(workItem.id, {
+        ...workItem,
+        status: "pending",
+      });
+
+      // Notify dashboard
+      this.io.emit("new_approval_required", workItem);
+
+      // Return promise that resolves when approved/rejected
+      return new Promise((resolve, reject) => {
+        this.approvalCallbacks.set(workItem.id, { resolve, reject });
+      });
+    } else {
+      // Auto-approve work that doesn't require approval
+      this.executeWork(workItem);
+      return Promise.resolve({ approved: true, auto: true });
+    }
+  }
+
+  handleApproval(approvalId, approved, feedback) {
+    const approval = this.pendingApprovals.get(approvalId);
+    if (!approval) return;
+
+    approval.status = approved ? "approved" : "rejected";
+    approval.feedback = feedback;
+    approval.reviewedAt = new Date();
+
+    // Remove from pending
+    this.pendingApprovals.delete(approvalId);
+
+    // Add to history
+    this.workHistory.push(approval);
+
+    // Execute callback
+    const callback = this.approvalCallbacks.get(approvalId);
+    if (callback) {
+      if (approved) {
+        this.executeWork(approval);
+        callback.resolve({ approved: true, feedback });
+      } else {
+        callback.reject({ approved: false, feedback });
+      }
+      this.approvalCallbacks.delete(approvalId);
+    }
+
+    // Update agent status
+    const agent = this.agents.get(approval.agentId);
+    if (agent) {
+      agent.status = "idle";
+      agent.currentWork = null;
+    }
+
+    // Notify dashboard
+    this.io.emit("approval_processed", {
+      approvalId,
+      approved,
+      feedback,
+    });
+
+    this.broadcastAgentUpdate(approval.agentId);
+  }
+
+  executeWork(workItem) {
+    console.log(`✅ Executing approved work: ${workItem.id}`);
+
+    // Add to history
+    this.workHistory.push({
+      ...workItem,
+      executedAt: new Date(),
+      status: "executed",
+    });
+
+    // Update agent metrics
+    const agent = this.agents.get(workItem.agentId);
+    if (agent) {
+      if (workItem.type === "content_creation") {
+        agent.metrics.tasksCompleted++;
+      } else if (workItem.type === "product_creation") {
+        agent.metrics.productsCreated++;
+      } else if (workItem.type === "order_processing") {
+        agent.metrics.ordersProcessed++;
+      }
+    }
+
+    // Emit work executed event
+    this.emit("work_executed", workItem);
+  }
+
+  updateAgentStatus(agentId, status, currentWork = null) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return;
+
+    agent.status = status;
+    agent.currentWork = currentWork;
+    agent.lastUpdate = new Date();
+
+    this.broadcastAgentUpdate(agentId);
+  }
+
+  broadcastAgentUpdate(agentId) {
+    const agent = this.agents.get(agentId);
+    if (agent) {
+      this.io.emit("agent_update", agent);
+    }
+  }
+
+  pauseAgent(agentId) {
+    const agent = this.agents.get(agentId);
+    if (agent && agent.status !== "offline") {
+      agent.status = "paused";
+      this.broadcastAgentUpdate(agentId);
+      console.log(`⏸️ Agent paused: ${agent.name}`);
+    }
+  }
+
+  resumeAgent(agentId) {
+    const agent = this.agents.get(agentId);
+    if (agent && agent.status === "paused") {
+      agent.status = "idle";
+      this.broadcastAgentUpdate(agentId);
+      console.log(`▶️ Agent resumed: ${agent.name}`);
+    }
+  }
+
+  assignTask(agentId, task) {
+    const agent = this.agents.get(agentId);
+    if (!agent || agent.status !== "idle") {
+      console.log(`❌ Cannot assign task to agent ${agentId}`);
+      return;
+    }
+
+    agent.status = "working";
+    agent.currentWork = {
+      taskId: `TASK_${Date.now()}`,
+      description: task.description,
+      startTime: new Date(),
+    };
+
+    this.broadcastAgentUpdate(agentId);
+
+    // Simulate task execution
+    setTimeout(() => {
+      this.submitWork(agentId, {
+        type: task.type || "general_task",
+        description: task.description,
+        data: { result: "Task completed successfully" },
+      });
+    }, 5000);
+  }
+
+  // Simulate agent activity (replace with real agent connections)
+  startAgentSimulation() {
+    setInterval(() => {
+      // Randomly update agent states
+      for (const [agentId, agent] of this.agents) {
+        if (agent.status === "idle" && Math.random() < 0.1) {
+          // Simulate agent starting work
+          const workTypes = agent.capabilities;
+          const workType =
+            workTypes[Math.floor(Math.random() * workTypes.length)];
+
+          this.updateAgentStatus(agentId, "working", {
+            type: workType,
+            description: `Processing ${workType}`,
+            startTime: new Date(),
+          });
+
+          // Submit work after delay
+          setTimeout(
+            () => {
+              this.submitWork(agentId, {
+                type: workType,
+                description: `Completed ${workType}`,
+                data: {
+                  result: `${workType} completed successfully`,
+                  details: `Sample output from ${agent.name}`,
+                },
+              });
+            },
+            Math.random() * 10000 + 5000,
+          );
         }
-    }
-    
-    pauseAgent(agentId) {
-        const agent = this.agents.get(agentId);
-        if (agent && agent.status !== 'offline') {
-            agent.status = 'paused';
-            this.broadcastAgentUpdate(agentId);
-            console.log(`⏸️ Agent paused: ${agent.name}`);
-        }
-    }
-    
-    resumeAgent(agentId) {
-        const agent = this.agents.get(agentId);
-        if (agent && agent.status === 'paused') {
-            agent.status = 'idle';
-            this.broadcastAgentUpdate(agentId);
-            console.log(`▶️ Agent resumed: ${agent.name}`);
-        }
-    }
-    
-    assignTask(agentId, task) {
-        const agent = this.agents.get(agentId);
-        if (!agent || agent.status !== 'idle') {
-            console.log(`❌ Cannot assign task to agent ${agentId}`);
-            return;
-        }
-        
-        agent.status = 'working';
-        agent.currentWork = {
-            taskId: `TASK_${Date.now()}`,
-            description: task.description,
-            startTime: new Date()
-        };
-        
-        this.broadcastAgentUpdate(agentId);
-        
-        // Simulate task execution
-        setTimeout(() => {
-            this.submitWork(agentId, {
-                type: task.type || 'general_task',
-                description: task.description,
-                data: { result: 'Task completed successfully' }
-            });
-        }, 5000);
-    }
-    
-    // Simulate agent activity (replace with real agent connections)
-    startAgentSimulation() {
-        setInterval(() => {
-            // Randomly update agent states
-            for (const [agentId, agent] of this.agents) {
-                if (agent.status === 'idle' && Math.random() < 0.1) {
-                    // Simulate agent starting work
-                    const workTypes = agent.capabilities;
-                    const workType = workTypes[Math.floor(Math.random() * workTypes.length)];
-                    
-                    this.updateAgentStatus(agentId, 'working', {
-                        type: workType,
-                        description: `Processing ${workType}`,
-                        startTime: new Date()
-                    });
-                    
-                    // Submit work after delay
-                    setTimeout(() => {
-                        this.submitWork(agentId, {
-                            type: workType,
-                            description: `Completed ${workType}`,
-                            data: {
-                                result: `${workType} completed successfully`,
-                                details: `Sample output from ${agent.name}`
-                            }
-                        });
-                    }, Math.random() * 10000 + 5000);
-                }
-            }
-        }, 5000);
-    }
-    
-    sendAgentCommand(agentId, command, parameters) {
-        console.log(`📤 Sending command to agent ${agentId}: ${command}`, parameters);
-        
-        // Emit command to connected agent (if using real agent connections)
-        this.emit('agent_command', {
-            agentId,
-            command,
-            parameters
-        });
-        
-        // Update UI
-        this.io.emit('command_sent', {
-            agentId,
-            command,
-            parameters,
-            timestamp: new Date()
-        });
-    }
-    
-    getMonitorHTML() {
-        return `
+      }
+    }, 5000);
+  }
+
+  sendAgentCommand(agentId, command, parameters) {
+    console.log(
+      `📤 Sending command to agent ${agentId}: ${command}`,
+      parameters,
+    );
+
+    // Emit command to connected agent (if using real agent connections)
+    this.emit("agent_command", {
+      agentId,
+      command,
+      parameters,
+    });
+
+    // Update UI
+    this.io.emit("command_sent", {
+      agentId,
+      command,
+      parameters,
+      timestamp: new Date(),
+    });
+  }
+
+  getMonitorHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1419,19 +1458,23 @@ class SuperAgentMonitor extends EventEmitter {
 </body>
 </html>
         `;
-    }
-    
-    start() {
-        this.server.listen(this.port, '0.0.0.0', () => {
-            console.log(`🚀 Super Agent Monitor started on http://localhost:${this.port}`);
-            console.log(`📊 Monitoring ${this.agents.size} agents`);
-            console.log(`🌐 Server is binding to all interfaces (0.0.0.0:${this.port})`);
-        });
-        
-        this.server.on('error', (err) => {
-            console.error('❌ Server error:', err);
-        });
-    }
+  }
+
+  start() {
+    this.server.listen(this.port, "0.0.0.0", () => {
+      console.log(
+        `🚀 Super Agent Monitor started on http://localhost:${this.port}`,
+      );
+      console.log(`📊 Monitoring ${this.agents.size} agents`);
+      console.log(
+        `🌐 Server is binding to all interfaces (0.0.0.0:${this.port})`,
+      );
+    });
+
+    this.server.on("error", (err) => {
+      console.error("❌ Server error:", err);
+    });
+  }
 }
 
 // Export for use in other modules
@@ -1439,6 +1482,6 @@ module.exports = SuperAgentMonitor;
 
 // Start if run directly
 if (require.main === module) {
-    const monitor = new SuperAgentMonitor();
-    monitor.start();
+  const monitor = new SuperAgentMonitor();
+  monitor.start();
 }

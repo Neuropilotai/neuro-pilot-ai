@@ -1,13 +1,13 @@
-const express = require('express');
+const express = require("express");
 const app = express();
 const port = 3010;
 
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static("public"));
 
 // Orchestrator Dashboard HTML
-app.get('/', (req, res) => {
-    res.send(`
+app.get("/", (req, res) => {
+  res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -437,6 +437,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`🧠 Orchestrator Dashboard running on port ${port}`);
-    console.log(`📊 Dashboard URL: http://localhost:${port}`);
+  console.log(`🧠 Orchestrator Dashboard running on port ${port}`);
+  console.log(`📊 Dashboard URL: http://localhost:${port}`);
 });

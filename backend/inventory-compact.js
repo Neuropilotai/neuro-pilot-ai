@@ -6,40 +6,42 @@
  * © 2025 David Mikulis - All Rights Reserved
  */
 
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const jwt = require('jsonwebtoken');
-const helmet = require('helmet');
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const jwt = require("jsonwebtoken");
+const helmet = require("helmet");
 
 const app = express();
 const PORT = 8084;
-const JWT_SECRET = 'camp-inventory-secret-2025';
-const upload = multer({ dest: 'uploads/' });
+const JWT_SECRET = "camp-inventory-secret-2025";
+const upload = multer({ dest: "uploads/" });
 
 // Security
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
     },
-  }
-}));
+  }),
+);
 
 app.use(cors());
 app.use(express.json());
 
 // Auth middleware
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
   if (!token) return res.sendStatus(401);
-  
+
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
@@ -49,21 +51,82 @@ const authenticateToken = (req, res, next) => {
 
 // Data storage
 let inventory = [
-  { id: 1, name: 'Ground Beef', quantity: 75, min: 50, location: 'Freezer A1', category: 'Meat', supplier: 'Sysco', dailyUsage: 8, lastOrderDate: '2025-01-20' },
-  { id: 2, name: 'Milk', quantity: 35, min: 20, location: 'Cooler B2', category: 'Dairy', supplier: 'GFS', dailyUsage: 12, lastOrderDate: '2025-01-18' },
-  { id: 3, name: 'Bread', quantity: 15, min: 25, location: 'Dry Storage', category: 'Bakery', supplier: 'Local', dailyUsage: 15, lastOrderDate: '2025-01-15' },
-  { id: 4, name: 'Chicken Breast', quantity: 120, min: 80, location: 'Freezer A2', category: 'Meat', supplier: 'Sysco', dailyUsage: 10, lastOrderDate: '2025-01-22' },
-  { id: 5, name: 'Eggs', quantity: 48, min: 60, location: 'Cooler B1', category: 'Dairy', supplier: 'GFS', dailyUsage: 18, lastOrderDate: '2025-01-19' }
+  {
+    id: 1,
+    name: "Ground Beef",
+    quantity: 75,
+    min: 50,
+    location: "Freezer A1",
+    category: "Meat",
+    supplier: "Sysco",
+    dailyUsage: 8,
+    lastOrderDate: "2025-01-20",
+  },
+  {
+    id: 2,
+    name: "Milk",
+    quantity: 35,
+    min: 20,
+    location: "Cooler B2",
+    category: "Dairy",
+    supplier: "GFS",
+    dailyUsage: 12,
+    lastOrderDate: "2025-01-18",
+  },
+  {
+    id: 3,
+    name: "Bread",
+    quantity: 15,
+    min: 25,
+    location: "Dry Storage",
+    category: "Bakery",
+    supplier: "Local",
+    dailyUsage: 15,
+    lastOrderDate: "2025-01-15",
+  },
+  {
+    id: 4,
+    name: "Chicken Breast",
+    quantity: 120,
+    min: 80,
+    location: "Freezer A2",
+    category: "Meat",
+    supplier: "Sysco",
+    dailyUsage: 10,
+    lastOrderDate: "2025-01-22",
+  },
+  {
+    id: 5,
+    name: "Eggs",
+    quantity: 48,
+    min: 60,
+    location: "Cooler B1",
+    category: "Dairy",
+    supplier: "GFS",
+    dailyUsage: 18,
+    lastOrderDate: "2025-01-19",
+  },
 ];
 
-const locations = ['Freezer A1', 'Freezer A2', 'Cooler B1', 'Cooler B2', 'Dry Storage'];
+const locations = [
+  "Freezer A1",
+  "Freezer A2",
+  "Cooler B1",
+  "Cooler B2",
+  "Dry Storage",
+];
 
 // AI Agent Class
 class InventoryAIAgent {
   constructor() {
     this.name = "Camp Inventory AI Assistant";
     this.version = "2.0";
-    this.capabilities = ['predictions', 'recommendations', 'analysis', 'alerts'];
+    this.capabilities = [
+      "predictions",
+      "recommendations",
+      "analysis",
+      "alerts",
+    ];
     this.learningData = [];
   }
 
@@ -75,19 +138,19 @@ class InventoryAIAgent {
       predictions: [],
       recommendations: [],
       alerts: [],
-      insights: {}
+      insights: {},
     };
 
-    inventory.forEach(item => {
+    inventory.forEach((item) => {
       // Critical stock analysis
       const daysLeft = Math.floor(item.quantity / (item.dailyUsage || 1));
-      
+
       if (item.quantity <= item.min) {
         analysis.criticalItems.push({
           ...item,
-          severity: item.quantity === 0 ? 'critical' : 'low',
+          severity: item.quantity === 0 ? "critical" : "low",
           daysLeft,
-          action: 'immediate_reorder'
+          action: "immediate_reorder",
         });
       }
 
@@ -96,8 +159,12 @@ class InventoryAIAgent {
         analysis.predictions.push({
           item: item.name,
           daysLeft,
-          predictedStockout: new Date(Date.now() + daysLeft * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          confidence: 0.85
+          predictedStockout: new Date(
+            Date.now() + daysLeft * 24 * 60 * 60 * 1000,
+          )
+            .toISOString()
+            .split("T")[0],
+          confidence: 0.85,
         });
       }
 
@@ -106,11 +173,11 @@ class InventoryAIAgent {
         const recommendedQuantity = Math.ceil(item.dailyUsage * 14); // 2 weeks supply
         analysis.recommendations.push({
           item: item.name,
-          action: 'order_now',
+          action: "order_now",
           quantity: recommendedQuantity,
           supplier: item.supplier,
-          priority: daysLeft <= 1 ? 'urgent' : 'high',
-          reasoning: `Current stock will last ${daysLeft} days. Recommend ${recommendedQuantity} units for 2-week supply.`
+          priority: daysLeft <= 1 ? "urgent" : "high",
+          reasoning: `Current stock will last ${daysLeft} days. Recommend ${recommendedQuantity} units for 2-week supply.`,
         });
       }
     });
@@ -118,19 +185,29 @@ class InventoryAIAgent {
     // Generate alerts
     if (analysis.criticalItems.length > 0) {
       analysis.alerts.push({
-        type: 'stock_alert',
+        type: "stock_alert",
         message: `${analysis.criticalItems.length} items need immediate attention`,
-        severity: 'high',
-        items: analysis.criticalItems.map(i => i.name)
+        severity: "high",
+        items: analysis.criticalItems.map((i) => i.name),
       });
     }
 
     // Insights
     analysis.insights = {
-      totalValue: inventory.reduce((sum, item) => sum + (item.quantity * 10), 0),
-      fastestMoving: inventory.sort((a, b) => (b.dailyUsage || 0) - (a.dailyUsage || 0))[0]?.name,
-      slowestMoving: inventory.sort((a, b) => (a.dailyUsage || 0) - (b.dailyUsage || 0))[0]?.name,
-      averageDaysLeft: Math.round(inventory.reduce((sum, item) => sum + Math.floor(item.quantity / (item.dailyUsage || 1)), 0) / inventory.length)
+      totalValue: inventory.reduce((sum, item) => sum + item.quantity * 10, 0),
+      fastestMoving: inventory.sort(
+        (a, b) => (b.dailyUsage || 0) - (a.dailyUsage || 0),
+      )[0]?.name,
+      slowestMoving: inventory.sort(
+        (a, b) => (a.dailyUsage || 0) - (b.dailyUsage || 0),
+      )[0]?.name,
+      averageDaysLeft: Math.round(
+        inventory.reduce(
+          (sum, item) =>
+            sum + Math.floor(item.quantity / (item.dailyUsage || 1)),
+          0,
+        ) / inventory.length,
+      ),
     };
 
     return analysis;
@@ -142,26 +219,28 @@ class InventoryAIAgent {
     const analysis = this.analyzeInventory();
 
     // Suggest optimal reorder quantities
-    analysis.criticalItems.forEach(item => {
+    analysis.criticalItems.forEach((item) => {
       const optimalQuantity = Math.ceil(item.dailyUsage * 21); // 3 weeks supply
       suggestions.push({
-        type: 'reorder',
+        type: "reorder",
         item: item.name,
         suggestion: `Order ${optimalQuantity} units of ${item.name} from ${item.supplier}`,
-        priority: item.severity === 'critical' ? 'urgent' : 'high',
-        reasoning: `Based on daily usage of ${item.dailyUsage}, this provides 3 weeks of inventory`
+        priority: item.severity === "critical" ? "urgent" : "high",
+        reasoning: `Based on daily usage of ${item.dailyUsage}, this provides 3 weeks of inventory`,
       });
     });
 
     // Suggest menu adjustments for overstock
-    const overstockItems = inventory.filter(item => item.quantity > (item.min * 3));
-    overstockItems.forEach(item => {
+    const overstockItems = inventory.filter(
+      (item) => item.quantity > item.min * 3,
+    );
+    overstockItems.forEach((item) => {
       suggestions.push({
-        type: 'menu_optimization',
+        type: "menu_optimization",
         item: item.name,
         suggestion: `Consider featuring ${item.name} in upcoming menus`,
-        priority: 'medium',
-        reasoning: `High stock levels (${item.quantity} units) - use before expiration`
+        priority: "medium",
+        reasoning: `High stock levels (${item.quantity} units) - use before expiration`,
       });
     });
 
@@ -171,36 +250,46 @@ class InventoryAIAgent {
   // Chat interface for AI assistant
   processQuery(query) {
     const lowerQuery = query.toLowerCase();
-    
-    if (lowerQuery.includes('analysis') || lowerQuery.includes('report')) {
+
+    if (lowerQuery.includes("analysis") || lowerQuery.includes("report")) {
       return this.analyzeInventory();
     }
-    
-    if (lowerQuery.includes('suggestion') || lowerQuery.includes('recommend')) {
+
+    if (lowerQuery.includes("suggestion") || lowerQuery.includes("recommend")) {
       return this.generateSuggestions();
     }
-    
-    if (lowerQuery.includes('low stock') || lowerQuery.includes('critical')) {
-      const critical = inventory.filter(item => item.quantity <= item.min);
+
+    if (lowerQuery.includes("low stock") || lowerQuery.includes("critical")) {
+      const critical = inventory.filter((item) => item.quantity <= item.min);
       return {
-        type: 'query_response',
+        type: "query_response",
         items: critical,
-        message: `Found ${critical.length} items with low stock: ${critical.map(i => i.name).join(', ')}`
+        message: `Found ${critical.length} items with low stock: ${critical.map((i) => i.name).join(", ")}`,
       };
     }
-    
-    if (lowerQuery.includes('predict') || lowerQuery.includes('forecast')) {
-      const predictions = inventory.map(item => ({
+
+    if (lowerQuery.includes("predict") || lowerQuery.includes("forecast")) {
+      const predictions = inventory.map((item) => ({
         name: item.name,
         daysLeft: Math.floor(item.quantity / (item.dailyUsage || 1)),
-        stockoutDate: new Date(Date.now() + Math.floor(item.quantity / (item.dailyUsage || 1)) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        stockoutDate: new Date(
+          Date.now() +
+            Math.floor(item.quantity / (item.dailyUsage || 1)) *
+              24 *
+              60 *
+              60 *
+              1000,
+        )
+          .toISOString()
+          .split("T")[0],
       }));
-      return { type: 'predictions', predictions };
+      return { type: "predictions", predictions };
     }
-    
+
     return {
-      type: 'general_response',
-      message: "I can help with inventory analysis, predictions, recommendations, and stock alerts. Try asking: 'Show analysis', 'Give suggestions', or 'Check low stock'"
+      type: "general_response",
+      message:
+        "I can help with inventory analysis, predictions, recommendations, and stock alerts. Try asking: 'Show analysis', 'Give suggestions', or 'Check low stock'",
     };
   }
 }
@@ -208,89 +297,89 @@ class InventoryAIAgent {
 const aiAgent = new InventoryAIAgent();
 
 // Routes
-app.post('/api/auth/login', (req, res) => {
+app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body;
-  
-  if (email === 'admin@camp.com' && password === 'camp2025') {
-    const token = jwt.sign({ id: 1, email, role: 'admin' }, JWT_SECRET);
-    res.json({ success: true, token, user: { name: 'Admin', email } });
+
+  if (email === "admin@camp.com" && password === "camp2025") {
+    const token = jwt.sign({ id: 1, email, role: "admin" }, JWT_SECRET);
+    res.json({ success: true, token, user: { name: "Admin", email } });
   } else {
-    res.status(401).json({ error: 'Invalid credentials' });
+    res.status(401).json({ error: "Invalid credentials" });
   }
 });
 
-app.get('/api/inventory', authenticateToken, (req, res) => {
-  const itemsWithStatus = inventory.map(item => ({
+app.get("/api/inventory", authenticateToken, (req, res) => {
+  const itemsWithStatus = inventory.map((item) => ({
     ...item,
-    status: item.quantity <= item.min ? 'low' : 'normal',
-    needsReorder: item.quantity <= item.min
+    status: item.quantity <= item.min ? "low" : "normal",
+    needsReorder: item.quantity <= item.min,
   }));
-  
+
   res.json({
     items: itemsWithStatus,
     stats: {
       total: inventory.length,
-      lowStock: inventory.filter(i => i.quantity <= i.min).length,
-      totalValue: inventory.reduce((sum, i) => sum + (i.quantity * 10), 0)
-    }
+      lowStock: inventory.filter((i) => i.quantity <= i.min).length,
+      totalValue: inventory.reduce((sum, i) => sum + i.quantity * 10, 0),
+    },
   });
 });
 
-app.put('/api/inventory/:id', authenticateToken, (req, res) => {
+app.put("/api/inventory/:id", authenticateToken, (req, res) => {
   const { id } = req.params;
   const { quantity } = req.body;
-  
-  const item = inventory.find(i => i.id === parseInt(id));
+
+  const item = inventory.find((i) => i.id === parseInt(id));
   if (item) {
     item.quantity = quantity;
     res.json({ success: true, item });
   } else {
-    res.status(404).json({ error: 'Item not found' });
+    res.status(404).json({ error: "Item not found" });
   }
 });
 
-app.post('/api/inventory', authenticateToken, (req, res) => {
+app.post("/api/inventory", authenticateToken, (req, res) => {
   const newItem = {
-    id: Math.max(...inventory.map(i => i.id)) + 1,
-    ...req.body
+    id: Math.max(...inventory.map((i) => i.id)) + 1,
+    ...req.body,
   };
   inventory.push(newItem);
   res.json({ success: true, item: newItem });
 });
 
-app.get('/api/export', authenticateToken, (req, res) => {
+app.get("/api/export", authenticateToken, (req, res) => {
   const data = {
     exportDate: new Date().toISOString(),
     inventory,
-    locations
+    locations,
   };
   res.json(data);
 });
 
 // AI Agent endpoints
-app.get('/api/ai/analysis', authenticateToken, (req, res) => {
+app.get("/api/ai/analysis", authenticateToken, (req, res) => {
   const analysis = aiAgent.analyzeInventory();
   res.json(analysis);
 });
 
-app.get('/api/ai/suggestions', authenticateToken, (req, res) => {
+app.get("/api/ai/suggestions", authenticateToken, (req, res) => {
   const suggestions = aiAgent.generateSuggestions();
   res.json(suggestions);
 });
 
-app.post('/api/ai/chat', authenticateToken, (req, res) => {
+app.post("/api/ai/chat", authenticateToken, (req, res) => {
   const { query } = req.body;
   const response = aiAgent.processQuery(query);
   res.json({
     query,
     response,
     timestamp: new Date().toISOString(),
-    agent: aiAgent.name
+    agent: aiAgent.name,
   });
 });
 
 // Compact UI
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>

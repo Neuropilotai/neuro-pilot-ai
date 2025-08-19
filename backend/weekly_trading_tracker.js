@@ -1,204 +1,255 @@
-const fs = require('fs').promises;
-const path = require('path');
+const fs = require("fs").promises;
+const path = require("path");
 
 class WeeklyTradingTracker {
-    constructor() {
-        this.trackingFile = path.join(__dirname, 'weekly_trading_progress.json');
-        this.startDate = new Date();
-        this.endDate = new Date(this.startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
-        
-        this.dailySnapshots = [];
-        this.milestones = [
-            { amount: 600, message: '🎯 First milestone: +$100 (20% gain)' },
-            { amount: 750, message: '🚀 Second milestone: +$250 (50% gain)' },
-            { amount: 1000, message: '💰 Third milestone: +$500 (100% gain - doubled!)' },
-            { amount: 1500, message: '🌟 Fourth milestone: +$1000 (200% gain - tripled!)' },
-            { amount: 2000, message: '🏆 Fifth milestone: +$1500 (300% gain - quadrupled!)' }
-        ];
-        this.achievedMilestones = [];
+  constructor() {
+    this.trackingFile = path.join(__dirname, "weekly_trading_progress.json");
+    this.startDate = new Date();
+    this.endDate = new Date(this.startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
+    this.dailySnapshots = [];
+    this.milestones = [
+      { amount: 600, message: "🎯 First milestone: +$100 (20% gain)" },
+      { amount: 750, message: "🚀 Second milestone: +$250 (50% gain)" },
+      {
+        amount: 1000,
+        message: "💰 Third milestone: +$500 (100% gain - doubled!)",
+      },
+      {
+        amount: 1500,
+        message: "🌟 Fourth milestone: +$1000 (200% gain - tripled!)",
+      },
+      {
+        amount: 2000,
+        message: "🏆 Fifth milestone: +$1500 (300% gain - quadrupled!)",
+      },
+    ];
+    this.achievedMilestones = [];
+  }
+
+  async initializeWeeklyTracking() {
+    try {
+      const data = await fs.readFile(this.trackingFile, "utf8");
+      const saved = JSON.parse(data);
+
+      this.startDate = new Date(saved.startDate);
+      this.endDate = new Date(saved.endDate);
+      this.dailySnapshots = saved.dailySnapshots || [];
+      this.achievedMilestones = saved.achievedMilestones || [];
+
+      console.log("📊 Loaded existing weekly tracking data");
+    } catch (error) {
+      console.log("🆕 Starting fresh weekly tracking");
+      await this.saveProgress();
     }
-    
-    async initializeWeeklyTracking() {
-        try {
-            const data = await fs.readFile(this.trackingFile, 'utf8');
-            const saved = JSON.parse(data);
-            
-            this.startDate = new Date(saved.startDate);
-            this.endDate = new Date(saved.endDate);
-            this.dailySnapshots = saved.dailySnapshots || [];
-            this.achievedMilestones = saved.achievedMilestones || [];
-            
-            console.log('📊 Loaded existing weekly tracking data');
-        } catch (error) {
-            console.log('🆕 Starting fresh weekly tracking');
-            await this.saveProgress();
-        }
+  }
+
+  async saveProgress() {
+    const data = {
+      startDate: this.startDate,
+      endDate: this.endDate,
+      dailySnapshots: this.dailySnapshots,
+      achievedMilestones: this.achievedMilestones,
+      lastUpdate: new Date(),
+    };
+
+    await fs.writeFile(this.trackingFile, JSON.stringify(data, null, 2));
+  }
+
+  async recordDailySnapshot(tradingData) {
+    const today = new Date().toDateString();
+    const existingIndex = this.dailySnapshots.findIndex(
+      (s) => s.date === today,
+    );
+
+    const snapshot = {
+      date: today,
+      balance: tradingData.wallet.currentBalance,
+      totalPnL: tradingData.wallet.totalPnL,
+      totalTrades: tradingData.wallet.trades.length,
+      winRate: this.calculateWinRate(tradingData.wallet.trades),
+      bestStrategy: tradingData.wallet.learningMetrics.bestStrategy,
+      dayNumber:
+        Math.floor((new Date() - this.startDate) / (1000 * 60 * 60 * 24)) + 1,
+    };
+
+    if (existingIndex >= 0) {
+      this.dailySnapshots[existingIndex] = snapshot;
+    } else {
+      this.dailySnapshots.push(snapshot);
     }
-    
-    async saveProgress() {
-        const data = {
-            startDate: this.startDate,
-            endDate: this.endDate,
-            dailySnapshots: this.dailySnapshots,
-            achievedMilestones: this.achievedMilestones,
-            lastUpdate: new Date()
+
+    // Check for new milestones
+    await this.checkMilestones(snapshot.balance);
+
+    await this.saveProgress();
+    return snapshot;
+  }
+
+  calculateWinRate(trades) {
+    if (trades.length === 0) return 0;
+    const wins = trades.filter((t) => t.pnl > 0).length;
+    return (wins / trades.length) * 100;
+  }
+
+  async checkMilestones(currentBalance) {
+    for (const milestone of this.milestones) {
+      const alreadyAchieved = this.achievedMilestones.find(
+        (m) => m.amount === milestone.amount,
+      );
+
+      if (!alreadyAchieved && currentBalance >= milestone.amount) {
+        const achievement = {
+          ...milestone,
+          achievedAt: new Date(),
+          balance: currentBalance,
+          dayNumber:
+            Math.floor((new Date() - this.startDate) / (1000 * 60 * 60 * 24)) +
+            1,
         };
-        
-        await fs.writeFile(this.trackingFile, JSON.stringify(data, null, 2));
+
+        this.achievedMilestones.push(achievement);
+        console.log(`\\n🎉 MILESTONE ACHIEVED! ${milestone.message}`);
+        console.log(`💰 Current balance: $${currentBalance.toFixed(2)}`);
+        console.log(`📅 Achieved on Day ${achievement.dayNumber}\\n`);
+      }
     }
-    
-    async recordDailySnapshot(tradingData) {
-        const today = new Date().toDateString();
-        const existingIndex = this.dailySnapshots.findIndex(s => s.date === today);
-        
-        const snapshot = {
-            date: today,
-            balance: tradingData.wallet.currentBalance,
-            totalPnL: tradingData.wallet.totalPnL,
-            totalTrades: tradingData.wallet.trades.length,
-            winRate: this.calculateWinRate(tradingData.wallet.trades),
-            bestStrategy: tradingData.wallet.learningMetrics.bestStrategy,
-            dayNumber: Math.floor((new Date() - this.startDate) / (1000 * 60 * 60 * 24)) + 1
-        };
-        
-        if (existingIndex >= 0) {
-            this.dailySnapshots[existingIndex] = snapshot;
-        } else {
-            this.dailySnapshots.push(snapshot);
-        }
-        
-        // Check for new milestones
-        await this.checkMilestones(snapshot.balance);
-        
-        await this.saveProgress();
-        return snapshot;
+  }
+
+  generateWeeklyReport() {
+    const now = new Date();
+    const daysElapsed = Math.floor(
+      (now - this.startDate) / (1000 * 60 * 60 * 24),
+    );
+    const daysRemaining = Math.max(0, 7 - daysElapsed);
+
+    const latestSnapshot = this.dailySnapshots[this.dailySnapshots.length - 1];
+    const startingBalance = 500;
+    const currentBalance = latestSnapshot
+      ? latestSnapshot.balance
+      : startingBalance;
+    const totalReturn =
+      ((currentBalance - startingBalance) / startingBalance) * 100;
+
+    const report = {
+      weekProgress: {
+        startDate: this.startDate.toDateString(),
+        endDate: this.endDate.toDateString(),
+        daysElapsed: daysElapsed,
+        daysRemaining: daysRemaining,
+        percentComplete: (daysElapsed / 7) * 100,
+      },
+      performance: {
+        startingBalance: startingBalance,
+        currentBalance: currentBalance,
+        totalGainLoss: currentBalance - startingBalance,
+        totalReturn: totalReturn,
+        averageDailyReturn: daysElapsed > 0 ? totalReturn / daysElapsed : 0,
+      },
+      milestones: {
+        achieved: this.achievedMilestones.length,
+        total: this.milestones.length,
+        nextMilestone: this.milestones.find((m) => currentBalance < m.amount),
+      },
+      dailyProgress: this.dailySnapshots,
+      projectedWeekEnd:
+        daysElapsed > 0
+          ? startingBalance +
+            (currentBalance - startingBalance) * (7 / daysElapsed)
+          : startingBalance,
+    };
+
+    return report;
+  }
+
+  displayWeeklyReport() {
+    const report = this.generateWeeklyReport();
+
+    console.log("\\n" + "=".repeat(60));
+    console.log("📊 WEEKLY TRADING CHALLENGE REPORT");
+    console.log("=".repeat(60));
+
+    console.log("\\n📅 WEEK PROGRESS:");
+    console.log(`   Start Date: ${report.weekProgress.startDate}`);
+    console.log(`   End Date: ${report.weekProgress.endDate}`);
+    console.log(`   Days Elapsed: ${report.weekProgress.daysElapsed}/7`);
+    console.log(`   Days Remaining: ${report.weekProgress.daysRemaining}`);
+    console.log(
+      `   Week Progress: ${report.weekProgress.percentComplete.toFixed(1)}%`,
+    );
+
+    console.log("\\n💰 FINANCIAL PERFORMANCE:");
+    console.log(
+      `   Starting Balance: $${report.performance.startingBalance.toFixed(2)}`,
+    );
+    console.log(
+      `   Current Balance: $${report.performance.currentBalance.toFixed(2)}`,
+    );
+    console.log(
+      `   Total Gain/Loss: ${report.performance.totalGainLoss >= 0 ? "+" : ""}$${report.performance.totalGainLoss.toFixed(2)}`,
+    );
+    console.log(
+      `   Total Return: ${report.performance.totalReturn >= 0 ? "+" : ""}${report.performance.totalReturn.toFixed(2)}%`,
+    );
+    console.log(
+      `   Avg Daily Return: ${report.performance.averageDailyReturn.toFixed(2)}%`,
+    );
+
+    console.log("\\n🎯 MILESTONE PROGRESS:");
+    console.log(
+      `   Achieved: ${report.milestones.achieved}/${report.milestones.total}`,
+    );
+    if (report.milestones.nextMilestone) {
+      const needed =
+        report.milestones.nextMilestone.amount -
+        report.performance.currentBalance;
+      console.log(
+        `   Next Milestone: $${report.milestones.nextMilestone.amount} (need $${needed.toFixed(2)} more)`,
+      );
+    } else {
+      console.log("   🏆 ALL MILESTONES ACHIEVED!");
     }
-    
-    calculateWinRate(trades) {
-        if (trades.length === 0) return 0;
-        const wins = trades.filter(t => t.pnl > 0).length;
-        return (wins / trades.length) * 100;
+
+    if (report.weekProgress.daysElapsed > 0) {
+      console.log("\\n📈 PROJECTION:");
+      console.log(
+        `   Projected Week-End Balance: $${report.projectedWeekEnd.toFixed(2)}`,
+      );
+      console.log(
+        `   Projected Week-End Return: ${(((report.projectedWeekEnd - 500) / 500) * 100).toFixed(2)}%`,
+      );
     }
-    
-    async checkMilestones(currentBalance) {
-        for (const milestone of this.milestones) {
-            const alreadyAchieved = this.achievedMilestones.find(m => m.amount === milestone.amount);
-            
-            if (!alreadyAchieved && currentBalance >= milestone.amount) {
-                const achievement = {
-                    ...milestone,
-                    achievedAt: new Date(),
-                    balance: currentBalance,
-                    dayNumber: Math.floor((new Date() - this.startDate) / (1000 * 60 * 60 * 24)) + 1
-                };
-                
-                this.achievedMilestones.push(achievement);
-                console.log(`\\n🎉 MILESTONE ACHIEVED! ${milestone.message}`);
-                console.log(`💰 Current balance: $${currentBalance.toFixed(2)}`);
-                console.log(`📅 Achieved on Day ${achievement.dayNumber}\\n`);
-            }
-        }
+
+    console.log("\\n🏆 ACHIEVED MILESTONES:");
+    if (this.achievedMilestones.length > 0) {
+      this.achievedMilestones.forEach((milestone) => {
+        console.log(
+          `   Day ${milestone.dayNumber}: ${milestone.message} ($${milestone.balance.toFixed(2)})`,
+        );
+      });
+    } else {
+      console.log("   No milestones achieved yet");
     }
-    
-    generateWeeklyReport() {
-        const now = new Date();
-        const daysElapsed = Math.floor((now - this.startDate) / (1000 * 60 * 60 * 24));
-        const daysRemaining = Math.max(0, 7 - daysElapsed);
-        
-        const latestSnapshot = this.dailySnapshots[this.dailySnapshots.length - 1];
-        const startingBalance = 500;
-        const currentBalance = latestSnapshot ? latestSnapshot.balance : startingBalance;
-        const totalReturn = ((currentBalance - startingBalance) / startingBalance) * 100;
-        
-        const report = {
-            weekProgress: {
-                startDate: this.startDate.toDateString(),
-                endDate: this.endDate.toDateString(),
-                daysElapsed: daysElapsed,
-                daysRemaining: daysRemaining,
-                percentComplete: (daysElapsed / 7) * 100
-            },
-            performance: {
-                startingBalance: startingBalance,
-                currentBalance: currentBalance,
-                totalGainLoss: currentBalance - startingBalance,
-                totalReturn: totalReturn,
-                averageDailyReturn: daysElapsed > 0 ? totalReturn / daysElapsed : 0
-            },
-            milestones: {
-                achieved: this.achievedMilestones.length,
-                total: this.milestones.length,
-                nextMilestone: this.milestones.find(m => currentBalance < m.amount)
-            },
-            dailyProgress: this.dailySnapshots,
-            projectedWeekEnd: daysElapsed > 0 ? startingBalance + (currentBalance - startingBalance) * (7 / daysElapsed) : startingBalance
-        };
-        
-        return report;
+
+    console.log("\\n📊 DAILY SNAPSHOTS:");
+    if (report.dailyProgress.length > 0) {
+      report.dailyProgress.forEach((day) => {
+        const dailyReturn = ((day.balance - 500) / 500) * 100;
+        console.log(
+          `   Day ${day.dayNumber}: $${day.balance.toFixed(2)} (${dailyReturn >= 0 ? "+" : ""}${dailyReturn.toFixed(2)}%) | ${day.totalTrades} trades | ${day.winRate.toFixed(1)}% win rate`,
+        );
+      });
+    } else {
+      console.log("   No daily data recorded yet");
     }
-    
-    displayWeeklyReport() {
-        const report = this.generateWeeklyReport();
-        
-        console.log('\\n' + '='.repeat(60));
-        console.log('📊 WEEKLY TRADING CHALLENGE REPORT');
-        console.log('='.repeat(60));
-        
-        console.log('\\n📅 WEEK PROGRESS:');
-        console.log(`   Start Date: ${report.weekProgress.startDate}`);
-        console.log(`   End Date: ${report.weekProgress.endDate}`);
-        console.log(`   Days Elapsed: ${report.weekProgress.daysElapsed}/7`);
-        console.log(`   Days Remaining: ${report.weekProgress.daysRemaining}`);
-        console.log(`   Week Progress: ${report.weekProgress.percentComplete.toFixed(1)}%`);
-        
-        console.log('\\n💰 FINANCIAL PERFORMANCE:');
-        console.log(`   Starting Balance: $${report.performance.startingBalance.toFixed(2)}`);
-        console.log(`   Current Balance: $${report.performance.currentBalance.toFixed(2)}`);
-        console.log(`   Total Gain/Loss: ${report.performance.totalGainLoss >= 0 ? '+' : ''}$${report.performance.totalGainLoss.toFixed(2)}`);
-        console.log(`   Total Return: ${report.performance.totalReturn >= 0 ? '+' : ''}${report.performance.totalReturn.toFixed(2)}%`);
-        console.log(`   Avg Daily Return: ${report.performance.averageDailyReturn.toFixed(2)}%`);
-        
-        console.log('\\n🎯 MILESTONE PROGRESS:');
-        console.log(`   Achieved: ${report.milestones.achieved}/${report.milestones.total}`);
-        if (report.milestones.nextMilestone) {
-            const needed = report.milestones.nextMilestone.amount - report.performance.currentBalance;
-            console.log(`   Next Milestone: $${report.milestones.nextMilestone.amount} (need $${needed.toFixed(2)} more)`);
-        } else {
-            console.log('   🏆 ALL MILESTONES ACHIEVED!');
-        }
-        
-        if (report.weekProgress.daysElapsed > 0) {
-            console.log('\\n📈 PROJECTION:');
-            console.log(`   Projected Week-End Balance: $${report.projectedWeekEnd.toFixed(2)}`);
-            console.log(`   Projected Week-End Return: ${((report.projectedWeekEnd - 500) / 500 * 100).toFixed(2)}%`);
-        }
-        
-        console.log('\\n🏆 ACHIEVED MILESTONES:');
-        if (this.achievedMilestones.length > 0) {
-            this.achievedMilestones.forEach(milestone => {
-                console.log(`   Day ${milestone.dayNumber}: ${milestone.message} ($${milestone.balance.toFixed(2)})`);
-            });
-        } else {
-            console.log('   No milestones achieved yet');
-        }
-        
-        console.log('\\n📊 DAILY SNAPSHOTS:');
-        if (report.dailyProgress.length > 0) {
-            report.dailyProgress.forEach(day => {
-                const dailyReturn = ((day.balance - 500) / 500) * 100;
-                console.log(`   Day ${day.dayNumber}: $${day.balance.toFixed(2)} (${dailyReturn >= 0 ? '+' : ''}${dailyReturn.toFixed(2)}%) | ${day.totalTrades} trades | ${day.winRate.toFixed(1)}% win rate`);
-            });
-        } else {
-            console.log('   No daily data recorded yet');
-        }
-        
-        console.log('\\n' + '='.repeat(60));
-    }
-    
-    async generateHTMLReport() {
-        const report = this.generateWeeklyReport();
-        
-        const html = `
+
+    console.log("\\n" + "=".repeat(60));
+  }
+
+  async generateHTMLReport() {
+    const report = this.generateWeeklyReport();
+
+    const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -273,7 +324,7 @@ class WeeklyTradingTracker {
         .stat-value {
             font-size: 2rem;
             font-weight: bold;
-            color: ${report.performance.totalReturn >= 0 ? '#00ff00' : '#ff4444'};
+            color: ${report.performance.totalReturn >= 0 ? "#00ff00" : "#ff4444"};
             margin-bottom: 5px;
         }
         
@@ -381,11 +432,11 @@ class WeeklyTradingTracker {
                 <div class="stat-label">Current Balance</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${report.performance.totalReturn >= 0 ? '+' : ''}${report.performance.totalReturn.toFixed(2)}%</div>
+                <div class="stat-value">${report.performance.totalReturn >= 0 ? "+" : ""}${report.performance.totalReturn.toFixed(2)}%</div>
                 <div class="stat-label">Total Return</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${report.performance.totalGainLoss >= 0 ? '+' : ''}$${report.performance.totalGainLoss.toFixed(2)}</div>
+                <div class="stat-value">${report.performance.totalGainLoss >= 0 ? "+" : ""}$${report.performance.totalGainLoss.toFixed(2)}</div>
                 <div class="stat-label">Total Gain/Loss</div>
             </div>
             <div class="stat-card">
@@ -396,39 +447,56 @@ class WeeklyTradingTracker {
         
         <div class="milestones">
             <h2>🎯 Milestones (${report.milestones.achieved}/${report.milestones.total} achieved)</h2>
-            ${this.milestones.map(milestone => {
-                const achieved = this.achievedMilestones.find(m => m.amount === milestone.amount);
+            ${this.milestones
+              .map((milestone) => {
+                const achieved = this.achievedMilestones.find(
+                  (m) => m.amount === milestone.amount,
+                );
                 return `
-                    <div class="milestone-item ${achieved ? 'milestone-achieved' : 'milestone-pending'}">
+                    <div class="milestone-item ${achieved ? "milestone-achieved" : "milestone-pending"}">
                         <span>${milestone.message}</span>
-                        <span>${achieved ? '✅ Day ' + achieved.dayNumber : '$' + milestone.amount}</span>
+                        <span>${achieved ? "✅ Day " + achieved.dayNumber : "$" + milestone.amount}</span>
                     </div>
                 `;
-            }).join('')}
+              })
+              .join("")}
         </div>
         
         <div class="daily-chart">
             <h2>📊 Daily Progress</h2>
             <div class="chart-container">
-                ${report.dailyProgress.map((day, index) => {
-                    const height = Math.max(20, (day.balance / Math.max(...report.dailyProgress.map(d => d.balance)) * 250));
+                ${report.dailyProgress
+                  .map((day, index) => {
+                    const height = Math.max(
+                      20,
+                      (day.balance /
+                        Math.max(
+                          ...report.dailyProgress.map((d) => d.balance),
+                        )) *
+                        250,
+                    );
                     return `
                         <div class="chart-bar" style="height: ${height}px;">
                             <div class="chart-label">Day ${day.dayNumber}</div>
                         </div>
                     `;
-                }).join('')}
+                  })
+                  .join("")}
             </div>
         </div>
         
-        ${report.weekProgress.daysElapsed > 0 ? `
+        ${
+          report.weekProgress.daysElapsed > 0
+            ? `
             <div class="projection">
                 <h2>🔮 Week-End Projection</h2>
                 <div class="projection-value">$${report.projectedWeekEnd.toFixed(2)}</div>
                 <p>Projected final balance based on current performance</p>
-                <p>Projected return: ${((report.projectedWeekEnd - 500) / 500 * 100).toFixed(2)}%</p>
+                <p>Projected return: ${(((report.projectedWeekEnd - 500) / 500) * 100).toFixed(2)}%</p>
             </div>
-        ` : ''}
+        `
+            : ""
+        }
         
         <div class="update-time">
             Last updated: ${new Date().toLocaleString()}
@@ -444,12 +512,12 @@ class WeeklyTradingTracker {
 </body>
 </html>
         `;
-        
-        const reportPath = path.join(__dirname, 'public', 'weekly_report.html');
-        await fs.writeFile(reportPath, html);
-        
-        return reportPath;
-    }
+
+    const reportPath = path.join(__dirname, "public", "weekly_report.html");
+    await fs.writeFile(reportPath, html);
+
+    return reportPath;
+  }
 }
 
 module.exports = WeeklyTradingTracker;

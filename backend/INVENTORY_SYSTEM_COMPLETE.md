@@ -7,6 +7,7 @@ The inventory management system has been completed, cleaned up, and is ready for
 ## 📦 Single Clean System
 
 ### **Complete Inventory System** (`inventory-system.js`)
+
 - ✅ Login system (david.mikulis@camp-inventory.com / inventory2025)
 - ✅ Sysco, GFS (Gordon Food Service), US Foods suppliers
 - ✅ Full order management with order creation and tracking
@@ -70,6 +71,7 @@ http://localhost:8083
 ## 📈 Metrics Dashboard
 
 The system tracks:
+
 - Total inventory value
 - Stock accuracy levels
 - Turnover rates

@@ -1,0 +1,27 @@
+# COPY/PASTE SECURITY TEST
+
+## 1. Generate hash (replace YOUR-ADMIN-PASSWORD):
+node -e "require('bcrypt').hash(process.argv[1], 12).then(h=>console.log(h))" 'YOUR-ADMIN-PASSWORD'
+
+## 2. Set environment (paste hash from step 1):
+export ALLOWED_ORIGINS="http://localhost:3000"
+export ADMIN_EMAIL="admin@secure-inventory.com"  
+export ADMIN_HASH="<PASTE_HASH_HERE>"
+export JWT_SECRET=$(openssl rand -hex 64)
+export REFRESH_SECRET=$(openssl rand -hex 64)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
+
+## 3. Start server:
+node backend/enterprise-secure-server.js
+
+## 4. Test login (replace YOUR-ADMIN-PASSWORD):
+curl -i -X POST http://localhost:3000/auth/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' --data '{"email":"admin@secure-inventory.com","password":"YOUR-ADMIN-PASSWORD"}'
+
+## 5. Test refresh (paste rt= cookie value):
+curl -i -X POST http://localhost:3000/auth/refresh -H 'Origin: http://localhost:3000' --cookie "rt=PASTE_COOKIE_HERE"
+
+## 6. Test reuse (paste old rt= value):
+curl -i -X POST http://localhost:3000/auth/refresh -H 'Origin: http://localhost:3000' --cookie "rt=OLD_COOKIE_HERE"
+
+## 7. Test rate limiting:
+for i in {1..4}; do curl -X POST http://localhost:3000/auth/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' --data '{"email":"admin@secure-inventory.com","password":"wrong"}'; echo; done

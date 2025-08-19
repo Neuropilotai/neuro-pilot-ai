@@ -1,441 +1,472 @@
-require('dotenv').config();
-const express = require('express');
-const multer = require('multer');
-const fs = require('fs').promises;
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const multer = require("multer");
+const fs = require("fs").promises;
+const path = require("path");
 
 class VideoInterviewCoaching {
-    constructor() {
-        this.app = express();
-        this.port = 3017;
-        this.setupMiddleware();
-        this.setupRoutes();
-        
-        // AI Interview Analysis Engine
-        this.interviewQuestions = {
-            behavioral: [
-                "Tell me about a time you faced a difficult challenge at work",
-                "Describe a situation where you had to work with a difficult colleague",
-                "Give me an example of when you showed leadership",
-                "Tell me about a time you failed and what you learned"
-            ],
-            technical: [
-                "Explain the difference between a stack and a queue",
-                "How would you optimize a slow database query?",
-                "Describe your approach to debugging a complex issue",
-                "Walk me through designing a scalable system"
-            ],
-            situational: [
-                "How would you handle a project with an impossible deadline?",
-                "What would you do if you disagreed with your manager's decision?",
-                "How would you approach learning a new technology quickly?",
-                "Describe how you would prioritize competing tasks"
-            ]
-        };
-        
-        // AI Analysis Algorithms
-        this.analysisEngine = {
-            speechPatterns: this.analyzeSpeechPatterns.bind(this),
-            bodyLanguage: this.analyzeBodyLanguage.bind(this),
-            responseQuality: this.analyzeResponseQuality.bind(this),
-            confidence: this.analyzeConfidence.bind(this),
-            engagement: this.analyzeEngagement.bind(this)
-        };
-        
-        // Coaching Database
-        this.coachingSessions = new Map();
-        this.userProgress = new Map();
-        
-        console.log('🎥 Video Interview Coaching Platform Starting...');
-        this.startServer();
-    }
-    
-    setupMiddleware() {
-        this.app.use(express.json({ limit: '50mb' }));
-        this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-        
-        // Video upload configuration
-        const storage = multer.diskStorage({
-            destination: (req, file, cb) => {
-                cb(null, 'interview_videos/');
-            },
-            filename: (req, file, cb) => {
-                const timestamp = Date.now();
-                cb(null, `interview_${timestamp}_${file.originalname}`);
-            }
-        });
-        
-        this.upload = multer({ 
-            storage,
-            limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
-            fileFilter: (req, file, cb) => {
-                const allowedTypes = ['video/mp4', 'video/webm', 'video/mov'];
-                if (allowedTypes.includes(file.mimetype)) {
-                    cb(null, true);
-                } else {
-                    cb(new Error('Invalid file type. Only MP4, WebM, and MOV allowed.'));
-                }
-            }
-        });
-    }
-    
-    setupRoutes() {
-        // Main coaching interface
-        this.app.get('/', (req, res) => {
-            res.send(this.getCoachingHTML());
-        });
-        
-        // Start interview session
-        this.app.post('/api/start-session', async (req, res) => {
-            try {
-                const { userId, interviewType, targetRole } = req.body;
-                const sessionId = `session_${Date.now()}`;
-                
-                const questions = this.generateInterviewQuestions(interviewType, targetRole);
-                
-                const session = {
-                    id: sessionId,
-                    userId,
-                    interviewType,
-                    targetRole,
-                    questions,
-                    currentQuestion: 0,
-                    startTime: new Date(),
-                    status: 'active',
-                    responses: []
-                };
-                
-                this.coachingSessions.set(sessionId, session);
-                
-                res.json({
-                    success: true,
-                    sessionId,
-                    firstQuestion: questions[0],
-                    totalQuestions: questions.length
-                });
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Upload video response
-        this.app.post('/api/upload-response', this.upload.single('video'), async (req, res) => {
-            try {
-                const { sessionId, questionIndex } = req.body;
-                const videoFile = req.file;
-                
-                if (!videoFile) {
-                    return res.status(400).json({ error: 'No video file uploaded' });
-                }
-                
-                const session = this.coachingSessions.get(sessionId);
-                if (!session) {
-                    return res.status(404).json({ error: 'Session not found' });
-                }
-                
-                // Analyze video response
-                const analysis = await this.analyzeVideoResponse(videoFile.path, session.questions[questionIndex]);
-                
-                session.responses.push({
-                    questionIndex: parseInt(questionIndex),
-                    question: session.questions[questionIndex],
-                    videoPath: videoFile.path,
-                    analysis,
-                    timestamp: new Date()
-                });
-                
-                // Get next question or complete session
-                const nextIndex = parseInt(questionIndex) + 1;
-                const isComplete = nextIndex >= session.questions.length;
-                
-                if (isComplete) {
-                    session.status = 'completed';
-                    session.endTime = new Date();
-                    const finalReport = await this.generateFinalReport(session);
-                    
-                    res.json({
-                        success: true,
-                        isComplete: true,
-                        analysis,
-                        finalReport
-                    });
-                } else {
-                    res.json({
-                        success: true,
-                        isComplete: false,
-                        analysis,
-                        nextQuestion: session.questions[nextIndex],
-                        progress: `${nextIndex}/${session.questions.length}`
-                    });
-                }
-                
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Get session progress
-        this.app.get('/api/session/:sessionId', (req, res) => {
-            try {
-                const session = this.coachingSessions.get(req.params.sessionId);
-                if (!session) {
-                    return res.status(404).json({ error: 'Session not found' });
-                }
-                
-                res.json({
-                    session: {
-                        id: session.id,
-                        interviewType: session.interviewType,
-                        targetRole: session.targetRole,
-                        progress: `${session.responses.length}/${session.questions.length}`,
-                        status: session.status,
-                        startTime: session.startTime
-                    }
-                });
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Get user progress analytics
-        this.app.get('/api/user/:userId/progress', (req, res) => {
-            try {
-                const progress = this.userProgress.get(req.params.userId) || {
-                    sessionsCompleted: 0,
-                    averageScore: 0,
-                    improvementTrend: 'stable',
-                    weakAreas: [],
-                    strengths: []
-                };
-                
-                res.json(progress);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Revenue tracking
-        this.app.get('/api/revenue', (req, res) => {
-            const totalSessions = this.coachingSessions.size;
-            const activeUsers = new Set([...this.coachingSessions.values()].map(s => s.userId)).size;
-            
-            res.json({
-                totalSessions,
-                activeUsers,
-                revenuePerSession: 149, // $149 per coaching session
-                monthlyRevenue: totalSessions * 149,
-                projectedMonthly: Math.min(totalSessions * 149 * 2.5, 35000) // Growth projection
-            });
-        });
-    }
-    
-    generateInterviewQuestions(type, targetRole) {
-        const baseQuestions = [...this.interviewQuestions[type] || this.interviewQuestions.behavioral];
-        
-        // Add role-specific questions
-        const roleSpecificQuestions = this.getRoleSpecificQuestions(targetRole);
-        
-        return [...baseQuestions.slice(0, 3), ...roleSpecificQuestions.slice(0, 2)];
-    }
-    
-    getRoleSpecificQuestions(role) {
-        const roleQuestions = {
-            'Software Engineer': [
-                'Describe your experience with version control and code reviews',
-                'How do you ensure code quality in your projects?'
-            ],
-            'Product Manager': [
-                'How do you prioritize features with competing stakeholder demands?',
-                'Describe your approach to gathering user requirements'
-            ],
-            'Data Scientist': [
-                'Walk me through a complex data analysis project you\'ve completed',
-                'How do you validate the accuracy of your models?'
-            ],
-            'Marketing Manager': [
-                'Describe a successful marketing campaign you\'ve led',
-                'How do you measure marketing ROI?'
-            ]
-        };
-        
-        return roleQuestions[role] || [
-            'What makes you uniquely qualified for this role?',
-            'Where do you see yourself in 5 years?'
-        ];
-    }
-    
-    async analyzeVideoResponse(videoPath, question) {
-        // Simulate AI video analysis
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const analysis = {
-            overallScore: Math.floor(Math.random() * 30) + 70, // 70-100
-            speechAnalysis: {
-                clarity: Math.floor(Math.random() * 20) + 80,
-                pace: Math.floor(Math.random() * 25) + 75,
-                fillerWords: Math.floor(Math.random() * 10) + 2,
-                confidence: Math.floor(Math.random() * 25) + 75
-            },
-            bodyLanguage: {
-                eyeContact: Math.floor(Math.random() * 20) + 80,
-                posture: Math.floor(Math.random() * 15) + 85,
-                gestures: Math.floor(Math.random() * 25) + 75,
-                engagement: Math.floor(Math.random() * 20) + 80
-            },
-            contentAnalysis: {
-                relevance: Math.floor(Math.random() * 20) + 80,
-                structure: Math.floor(Math.random() * 25) + 75,
-                examples: Math.floor(Math.random() * 30) + 70,
-                completeness: Math.floor(Math.random() * 20) + 80
-            },
-            improvements: this.generateImprovementSuggestions()
-        };
-        
-        return analysis;
-    }
-    
-    generateImprovementSuggestions() {
-        const suggestions = [
-            'Try to provide more specific examples from your experience',
-            'Maintain better eye contact with the camera',
-            'Reduce the use of filler words like "um" and "uh"',
-            'Structure your answers using the STAR method (Situation, Task, Action, Result)',
-            'Speak with more confidence and enthusiasm',
-            'Practice better posture - sit up straight',
-            'Use hand gestures naturally to emphasize points',
-            'Pause briefly before answering to collect your thoughts'
-        ];
-        
-        return suggestions.sort(() => 0.5 - Math.random()).slice(0, 3);
-    }
-    
-    async generateFinalReport(session) {
-        const responses = session.responses;
-        const avgScore = responses.reduce((sum, r) => sum + r.analysis.overallScore, 0) / responses.length;
-        
-        // Identify patterns across all responses
-        const strengths = [];
-        const weaknesses = [];
-        const overallImprovements = [];
-        
-        // Analyze speech patterns
-        const avgSpeechClarity = responses.reduce((sum, r) => sum + r.analysis.speechAnalysis.clarity, 0) / responses.length;
-        if (avgSpeechClarity > 85) strengths.push('Clear and articulate speech');
-        else weaknesses.push('Speech clarity needs improvement');
-        
-        // Analyze body language
-        const avgEyeContact = responses.reduce((sum, r) => sum + r.analysis.bodyLanguage.eyeContact, 0) / responses.length;
-        if (avgEyeContact > 85) strengths.push('Good eye contact');
-        else weaknesses.push('Maintain better eye contact');
-        
-        // Analyze content quality
-        const avgRelevance = responses.reduce((sum, r) => sum + r.analysis.contentAnalysis.relevance, 0) / responses.length;
-        if (avgRelevance > 85) strengths.push('Relevant and focused answers');
-        else weaknesses.push('Provide more relevant examples');
-        
-        return {
-            overallScore: Math.round(avgScore),
-            grade: this.getGrade(avgScore),
-            strengths,
-            weaknesses,
-            keyImprovements: this.getTopImprovements(responses),
-            nextSteps: this.getPersonalizedNextSteps(session.targetRole, avgScore),
-            practiceRecommendations: this.getPracticeRecommendations(weaknesses)
-        };
-    }
-    
-    getGrade(score) {
-        if (score >= 90) return 'A';
-        if (score >= 80) return 'B';
-        if (score >= 70) return 'C';
-        if (score >= 60) return 'D';
-        return 'F';
-    }
-    
-    getTopImprovements(responses) {
-        const allImprovements = responses.flatMap(r => r.analysis.improvements);
-        const counts = {};
-        allImprovements.forEach(imp => counts[imp] = (counts[imp] || 0) + 1);
-        
-        return Object.entries(counts)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 3)
-            .map(([improvement]) => improvement);
-    }
-    
-    getPersonalizedNextSteps(targetRole, score) {
-        const baseSteps = [
-            'Practice answering questions in front of a mirror',
-            'Record yourself answering common interview questions',
-            'Research the company and role thoroughly before interviews'
-        ];
-        
-        if (score < 75) {
-            baseSteps.unshift('Focus on fundamental interview skills');
-            baseSteps.push('Consider scheduling additional coaching sessions');
+  constructor() {
+    this.app = express();
+    this.port = 3017;
+    this.setupMiddleware();
+    this.setupRoutes();
+
+    // AI Interview Analysis Engine
+    this.interviewQuestions = {
+      behavioral: [
+        "Tell me about a time you faced a difficult challenge at work",
+        "Describe a situation where you had to work with a difficult colleague",
+        "Give me an example of when you showed leadership",
+        "Tell me about a time you failed and what you learned",
+      ],
+      technical: [
+        "Explain the difference between a stack and a queue",
+        "How would you optimize a slow database query?",
+        "Describe your approach to debugging a complex issue",
+        "Walk me through designing a scalable system",
+      ],
+      situational: [
+        "How would you handle a project with an impossible deadline?",
+        "What would you do if you disagreed with your manager's decision?",
+        "How would you approach learning a new technology quickly?",
+        "Describe how you would prioritize competing tasks",
+      ],
+    };
+
+    // AI Analysis Algorithms
+    this.analysisEngine = {
+      speechPatterns: this.analyzeSpeechPatterns.bind(this),
+      bodyLanguage: this.analyzeBodyLanguage.bind(this),
+      responseQuality: this.analyzeResponseQuality.bind(this),
+      confidence: this.analyzeConfidence.bind(this),
+      engagement: this.analyzeEngagement.bind(this),
+    };
+
+    // Coaching Database
+    this.coachingSessions = new Map();
+    this.userProgress = new Map();
+
+    console.log("🎥 Video Interview Coaching Platform Starting...");
+    this.startServer();
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json({ limit: "50mb" }));
+    this.app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+    // Video upload configuration
+    const storage = multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, "interview_videos/");
+      },
+      filename: (req, file, cb) => {
+        const timestamp = Date.now();
+        cb(null, `interview_${timestamp}_${file.originalname}`);
+      },
+    });
+
+    this.upload = multer({
+      storage,
+      limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = ["video/mp4", "video/webm", "video/mov"];
+        if (allowedTypes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new Error("Invalid file type. Only MP4, WebM, and MOV allowed."));
         }
-        
-        return baseSteps;
-    }
-    
-    getPracticeRecommendations(weaknesses) {
-        const recommendations = {
-            'Speech clarity needs improvement': 'Practice tongue twisters and speak slowly',
-            'Maintain better eye contact': 'Practice looking directly at the camera',
-            'Provide more relevant examples': 'Prepare STAR method examples beforehand'
+      },
+    });
+  }
+
+  setupRoutes() {
+    // Main coaching interface
+    this.app.get("/", (req, res) => {
+      res.send(this.getCoachingHTML());
+    });
+
+    // Start interview session
+    this.app.post("/api/start-session", async (req, res) => {
+      try {
+        const { userId, interviewType, targetRole } = req.body;
+        const sessionId = `session_${Date.now()}`;
+
+        const questions = this.generateInterviewQuestions(
+          interviewType,
+          targetRole,
+        );
+
+        const session = {
+          id: sessionId,
+          userId,
+          interviewType,
+          targetRole,
+          questions,
+          currentQuestion: 0,
+          startTime: new Date(),
+          status: "active",
+          responses: [],
         };
-        
-        return weaknesses.map(w => recommendations[w] || 'Continue practicing this skill').slice(0, 3);
-    }
-    
-    analyzeSpeechPatterns(audioData) {
-        // Simulate speech analysis
-        return {
-            wordsPerMinute: Math.floor(Math.random() * 50) + 120,
-            fillerWordCount: Math.floor(Math.random() * 15),
-            pauseAnalysis: 'Natural pacing',
-            toneAnalysis: 'Confident and professional'
+
+        this.coachingSessions.set(sessionId, session);
+
+        res.json({
+          success: true,
+          sessionId,
+          firstQuestion: questions[0],
+          totalQuestions: questions.length,
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Upload video response
+    this.app.post(
+      "/api/upload-response",
+      this.upload.single("video"),
+      async (req, res) => {
+        try {
+          const { sessionId, questionIndex } = req.body;
+          const videoFile = req.file;
+
+          if (!videoFile) {
+            return res.status(400).json({ error: "No video file uploaded" });
+          }
+
+          const session = this.coachingSessions.get(sessionId);
+          if (!session) {
+            return res.status(404).json({ error: "Session not found" });
+          }
+
+          // Analyze video response
+          const analysis = await this.analyzeVideoResponse(
+            videoFile.path,
+            session.questions[questionIndex],
+          );
+
+          session.responses.push({
+            questionIndex: parseInt(questionIndex),
+            question: session.questions[questionIndex],
+            videoPath: videoFile.path,
+            analysis,
+            timestamp: new Date(),
+          });
+
+          // Get next question or complete session
+          const nextIndex = parseInt(questionIndex) + 1;
+          const isComplete = nextIndex >= session.questions.length;
+
+          if (isComplete) {
+            session.status = "completed";
+            session.endTime = new Date();
+            const finalReport = await this.generateFinalReport(session);
+
+            res.json({
+              success: true,
+              isComplete: true,
+              analysis,
+              finalReport,
+            });
+          } else {
+            res.json({
+              success: true,
+              isComplete: false,
+              analysis,
+              nextQuestion: session.questions[nextIndex],
+              progress: `${nextIndex}/${session.questions.length}`,
+            });
+          }
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
+    // Get session progress
+    this.app.get("/api/session/:sessionId", (req, res) => {
+      try {
+        const session = this.coachingSessions.get(req.params.sessionId);
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        res.json({
+          session: {
+            id: session.id,
+            interviewType: session.interviewType,
+            targetRole: session.targetRole,
+            progress: `${session.responses.length}/${session.questions.length}`,
+            status: session.status,
+            startTime: session.startTime,
+          },
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Get user progress analytics
+    this.app.get("/api/user/:userId/progress", (req, res) => {
+      try {
+        const progress = this.userProgress.get(req.params.userId) || {
+          sessionsCompleted: 0,
+          averageScore: 0,
+          improvementTrend: "stable",
+          weakAreas: [],
+          strengths: [],
         };
+
+        res.json(progress);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Revenue tracking
+    this.app.get("/api/revenue", (req, res) => {
+      const totalSessions = this.coachingSessions.size;
+      const activeUsers = new Set(
+        [...this.coachingSessions.values()].map((s) => s.userId),
+      ).size;
+
+      res.json({
+        totalSessions,
+        activeUsers,
+        revenuePerSession: 149, // $149 per coaching session
+        monthlyRevenue: totalSessions * 149,
+        projectedMonthly: Math.min(totalSessions * 149 * 2.5, 35000), // Growth projection
+      });
+    });
+  }
+
+  generateInterviewQuestions(type, targetRole) {
+    const baseQuestions = [
+      ...(this.interviewQuestions[type] || this.interviewQuestions.behavioral),
+    ];
+
+    // Add role-specific questions
+    const roleSpecificQuestions = this.getRoleSpecificQuestions(targetRole);
+
+    return [...baseQuestions.slice(0, 3), ...roleSpecificQuestions.slice(0, 2)];
+  }
+
+  getRoleSpecificQuestions(role) {
+    const roleQuestions = {
+      "Software Engineer": [
+        "Describe your experience with version control and code reviews",
+        "How do you ensure code quality in your projects?",
+      ],
+      "Product Manager": [
+        "How do you prioritize features with competing stakeholder demands?",
+        "Describe your approach to gathering user requirements",
+      ],
+      "Data Scientist": [
+        "Walk me through a complex data analysis project you've completed",
+        "How do you validate the accuracy of your models?",
+      ],
+      "Marketing Manager": [
+        "Describe a successful marketing campaign you've led",
+        "How do you measure marketing ROI?",
+      ],
+    };
+
+    return (
+      roleQuestions[role] || [
+        "What makes you uniquely qualified for this role?",
+        "Where do you see yourself in 5 years?",
+      ]
+    );
+  }
+
+  async analyzeVideoResponse(videoPath, question) {
+    // Simulate AI video analysis
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const analysis = {
+      overallScore: Math.floor(Math.random() * 30) + 70, // 70-100
+      speechAnalysis: {
+        clarity: Math.floor(Math.random() * 20) + 80,
+        pace: Math.floor(Math.random() * 25) + 75,
+        fillerWords: Math.floor(Math.random() * 10) + 2,
+        confidence: Math.floor(Math.random() * 25) + 75,
+      },
+      bodyLanguage: {
+        eyeContact: Math.floor(Math.random() * 20) + 80,
+        posture: Math.floor(Math.random() * 15) + 85,
+        gestures: Math.floor(Math.random() * 25) + 75,
+        engagement: Math.floor(Math.random() * 20) + 80,
+      },
+      contentAnalysis: {
+        relevance: Math.floor(Math.random() * 20) + 80,
+        structure: Math.floor(Math.random() * 25) + 75,
+        examples: Math.floor(Math.random() * 30) + 70,
+        completeness: Math.floor(Math.random() * 20) + 80,
+      },
+      improvements: this.generateImprovementSuggestions(),
+    };
+
+    return analysis;
+  }
+
+  generateImprovementSuggestions() {
+    const suggestions = [
+      "Try to provide more specific examples from your experience",
+      "Maintain better eye contact with the camera",
+      'Reduce the use of filler words like "um" and "uh"',
+      "Structure your answers using the STAR method (Situation, Task, Action, Result)",
+      "Speak with more confidence and enthusiasm",
+      "Practice better posture - sit up straight",
+      "Use hand gestures naturally to emphasize points",
+      "Pause briefly before answering to collect your thoughts",
+    ];
+
+    return suggestions.sort(() => 0.5 - Math.random()).slice(0, 3);
+  }
+
+  async generateFinalReport(session) {
+    const responses = session.responses;
+    const avgScore =
+      responses.reduce((sum, r) => sum + r.analysis.overallScore, 0) /
+      responses.length;
+
+    // Identify patterns across all responses
+    const strengths = [];
+    const weaknesses = [];
+    const overallImprovements = [];
+
+    // Analyze speech patterns
+    const avgSpeechClarity =
+      responses.reduce((sum, r) => sum + r.analysis.speechAnalysis.clarity, 0) /
+      responses.length;
+    if (avgSpeechClarity > 85) strengths.push("Clear and articulate speech");
+    else weaknesses.push("Speech clarity needs improvement");
+
+    // Analyze body language
+    const avgEyeContact =
+      responses.reduce(
+        (sum, r) => sum + r.analysis.bodyLanguage.eyeContact,
+        0,
+      ) / responses.length;
+    if (avgEyeContact > 85) strengths.push("Good eye contact");
+    else weaknesses.push("Maintain better eye contact");
+
+    // Analyze content quality
+    const avgRelevance =
+      responses.reduce(
+        (sum, r) => sum + r.analysis.contentAnalysis.relevance,
+        0,
+      ) / responses.length;
+    if (avgRelevance > 85) strengths.push("Relevant and focused answers");
+    else weaknesses.push("Provide more relevant examples");
+
+    return {
+      overallScore: Math.round(avgScore),
+      grade: this.getGrade(avgScore),
+      strengths,
+      weaknesses,
+      keyImprovements: this.getTopImprovements(responses),
+      nextSteps: this.getPersonalizedNextSteps(session.targetRole, avgScore),
+      practiceRecommendations: this.getPracticeRecommendations(weaknesses),
+    };
+  }
+
+  getGrade(score) {
+    if (score >= 90) return "A";
+    if (score >= 80) return "B";
+    if (score >= 70) return "C";
+    if (score >= 60) return "D";
+    return "F";
+  }
+
+  getTopImprovements(responses) {
+    const allImprovements = responses.flatMap((r) => r.analysis.improvements);
+    const counts = {};
+    allImprovements.forEach((imp) => (counts[imp] = (counts[imp] || 0) + 1));
+
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([improvement]) => improvement);
+  }
+
+  getPersonalizedNextSteps(targetRole, score) {
+    const baseSteps = [
+      "Practice answering questions in front of a mirror",
+      "Record yourself answering common interview questions",
+      "Research the company and role thoroughly before interviews",
+    ];
+
+    if (score < 75) {
+      baseSteps.unshift("Focus on fundamental interview skills");
+      baseSteps.push("Consider scheduling additional coaching sessions");
     }
-    
-    analyzeBodyLanguage(videoData) {
-        // Simulate body language analysis
-        return {
-            eyeContactPercentage: Math.floor(Math.random() * 30) + 70,
-            postureScore: Math.floor(Math.random() * 20) + 80,
-            gestureFrequency: 'Appropriate',
-            facialExpressions: 'Engaged and positive'
-        };
-    }
-    
-    analyzeResponseQuality(transcript, question) {
-        // Simulate content analysis
-        return {
-            relevanceScore: Math.floor(Math.random() * 30) + 70,
-            structureScore: Math.floor(Math.random() * 25) + 75,
-            exampleQuality: Math.floor(Math.random() * 35) + 65,
-            completeness: Math.floor(Math.random() * 20) + 80
-        };
-    }
-    
-    analyzeConfidence(audioVisualData) {
-        return {
-            voiceConfidence: Math.floor(Math.random() * 25) + 75,
-            bodyConfidence: Math.floor(Math.random() * 20) + 80,
-            overallConfidence: Math.floor(Math.random() * 30) + 70
-        };
-    }
-    
-    analyzeEngagement(videoData) {
-        return {
-            attentiveness: Math.floor(Math.random() * 20) + 80,
-            enthusiasm: Math.floor(Math.random() * 25) + 75,
-            responsiveness: Math.floor(Math.random() * 15) + 85
-        };
-    }
-    
-    getCoachingHTML() {
-        return `
+
+    return baseSteps;
+  }
+
+  getPracticeRecommendations(weaknesses) {
+    const recommendations = {
+      "Speech clarity needs improvement":
+        "Practice tongue twisters and speak slowly",
+      "Maintain better eye contact": "Practice looking directly at the camera",
+      "Provide more relevant examples":
+        "Prepare STAR method examples beforehand",
+    };
+
+    return weaknesses
+      .map((w) => recommendations[w] || "Continue practicing this skill")
+      .slice(0, 3);
+  }
+
+  analyzeSpeechPatterns(audioData) {
+    // Simulate speech analysis
+    return {
+      wordsPerMinute: Math.floor(Math.random() * 50) + 120,
+      fillerWordCount: Math.floor(Math.random() * 15),
+      pauseAnalysis: "Natural pacing",
+      toneAnalysis: "Confident and professional",
+    };
+  }
+
+  analyzeBodyLanguage(videoData) {
+    // Simulate body language analysis
+    return {
+      eyeContactPercentage: Math.floor(Math.random() * 30) + 70,
+      postureScore: Math.floor(Math.random() * 20) + 80,
+      gestureFrequency: "Appropriate",
+      facialExpressions: "Engaged and positive",
+    };
+  }
+
+  analyzeResponseQuality(transcript, question) {
+    // Simulate content analysis
+    return {
+      relevanceScore: Math.floor(Math.random() * 30) + 70,
+      structureScore: Math.floor(Math.random() * 25) + 75,
+      exampleQuality: Math.floor(Math.random() * 35) + 65,
+      completeness: Math.floor(Math.random() * 20) + 80,
+    };
+  }
+
+  analyzeConfidence(audioVisualData) {
+    return {
+      voiceConfidence: Math.floor(Math.random() * 25) + 75,
+      bodyConfidence: Math.floor(Math.random() * 20) + 80,
+      overallConfidence: Math.floor(Math.random() * 30) + 70,
+    };
+  }
+
+  analyzeEngagement(videoData) {
+    return {
+      attentiveness: Math.floor(Math.random() * 20) + 80,
+      enthusiasm: Math.floor(Math.random() * 25) + 75,
+      responsiveness: Math.floor(Math.random() * 15) + 85,
+    };
+  }
+
+  getCoachingHTML() {
+    return `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -929,27 +960,29 @@ class VideoInterviewCoaching {
         </body>
         </html>
         `;
+  }
+
+  async startServer() {
+    // Ensure upload directory exists
+    try {
+      await fs.mkdir("interview_videos", { recursive: true });
+    } catch (error) {
+      // Directory might already exist
     }
-    
-    async startServer() {
-        // Ensure upload directory exists
-        try {
-            await fs.mkdir('interview_videos', { recursive: true });
-        } catch (error) {
-            // Directory might already exist
-        }
-        
-        this.app.listen(this.port, () => {
-            console.log(`🎥 Video Interview Coaching Platform running on port ${this.port}`);
-            console.log(`🔗 http://localhost:${this.port}`);
-            console.log(`💰 Premium coaching sessions: $149 each`);
-            console.log(`🎯 Revenue target: $35K/month`);
-            this.logStartup();
-        });
-    }
-    
-    async logStartup() {
-        const logEntry = `
+
+    this.app.listen(this.port, () => {
+      console.log(
+        `🎥 Video Interview Coaching Platform running on port ${this.port}`,
+      );
+      console.log(`🔗 http://localhost:${this.port}`);
+      console.log(`💰 Premium coaching sessions: $149 each`);
+      console.log(`🎯 Revenue target: $35K/month`);
+      this.logStartup();
+    });
+  }
+
+  async logStartup() {
+    const logEntry = `
 🎥 Video Interview Coaching Platform LAUNCHED!
 💼 AI-powered interview coaching with video analysis
 📊 Speech patterns, body language, and content analysis
@@ -959,13 +992,13 @@ class VideoInterviewCoaching {
 ⚡ READY TO COACH PROFESSIONALS TO SUCCESS!
 
 `;
-        
-        try {
-            await fs.appendFile('video_coaching.log', logEntry);
-        } catch (error) {
-            console.log('Logging note:', error.message);
-        }
+
+    try {
+      await fs.appendFile("video_coaching.log", logEntry);
+    } catch (error) {
+      console.log("Logging note:", error.message);
     }
+  }
 }
 
 // Start the Video Interview Coaching Platform

@@ -1,288 +1,332 @@
-require('dotenv').config();
-const express = require('express');
-const ProjectApprovalSystem = require('./project_approval_system');
-const DevelopmentProgressTracker = require('./development_progress_tracker');
-const IntelligentRecommendationSystem = require('./intelligent_recommendation_system');
+require("dotenv").config();
+const express = require("express");
+const ProjectApprovalSystem = require("./project_approval_system");
+const DevelopmentProgressTracker = require("./development_progress_tracker");
+const IntelligentRecommendationSystem = require("./intelligent_recommendation_system");
 
 class WorkingDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3009;
-        this.projectSystem = new ProjectApprovalSystem();
-        this.progressTracker = new DevelopmentProgressTracker();
-        this.recommendationSystem = new IntelligentRecommendationSystem();
-        this.setupMiddleware();
-        this.setupRoutes();
-    }
+  constructor() {
+    this.app = express();
+    this.port = 3009;
+    this.projectSystem = new ProjectApprovalSystem();
+    this.progressTracker = new DevelopmentProgressTracker();
+    this.recommendationSystem = new IntelligentRecommendationSystem();
+    this.setupMiddleware();
+    this.setupRoutes();
+  }
 
-    setupMiddleware() {
-        this.app.use(express.json({ limit: '10mb' }));
-        this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-        
-        // Add multer for file uploads
-        const multer = require('multer');
-        const upload = multer({ 
-            dest: 'uploads/',
-            limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-            fileFilter: (req, file, cb) => {
-                const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-                cb(null, allowedTypes.includes(file.mimetype));
-            }
-        });
-        this.upload = upload;
-    }
+  setupMiddleware() {
+    this.app.use(express.json({ limit: "10mb" }));
+    this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-    setupRoutes() {
-        // Main dashboard
-        this.app.get('/', (req, res) => {
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.send(this.getWorkingDashboardHTML());
-        });
+    // Add multer for file uploads
+    const multer = require("multer");
+    const upload = multer({
+      dest: "uploads/",
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = [
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ];
+        cb(null, allowedTypes.includes(file.mimetype));
+      },
+    });
+    this.upload = upload;
+  }
 
-        // API endpoints
-        this.app.get('/api/overview', async (req, res) => {
-            try {
-                const overview = await this.getBusinessOverview();
-                res.json(overview);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+  setupRoutes() {
+    // Main dashboard
+    this.app.get("/", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.send(this.getWorkingDashboardHTML());
+    });
 
-        this.app.get('/api/agents', async (req, res) => {
-            try {
-                const agents = await this.getAgentStatuses();
-                res.json(agents);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    // API endpoints
+    this.app.get("/api/overview", async (req, res) => {
+      try {
+        const overview = await this.getBusinessOverview();
+        res.json(overview);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        this.app.get('/api/projects', async (req, res) => {
-            try {
-                const projects = this.projectSystem.getApprovedProjects();
-                res.json(projects);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/api/agents", async (req, res) => {
+      try {
+        const agents = await this.getAgentStatuses();
+        res.json(agents);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        // AI Task Assistant API
-        this.app.post('/api/ai-assistant/execute', async (req, res) => {
-            try {
-                const { task, priority = 'medium' } = req.body;
-                const response = await this.processAITask(task);
-                
-                if (response.createProject) {
-                    const project = await this.projectSystem.approveProject({
-                        title: response.projectTitle,
-                        description: response.projectDescription,
-                        priority: priority,
-                        category: 'ai_enhancement',
-                        timeline: response.timeline || '2-3 weeks',
-                        revenueImpact: response.revenueImpact || 'TBD',
-                        budget: response.budget || 'TBD',
-                        approvedBy: 'Super IT Agent'
-                    });
-                    response.projectId = project.id;
-                }
-
-                res.json({ success: true, response });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
-
-        // CV Upload endpoint
-        this.app.post('/api/upload-cv', this.upload.single('cvFile'), async (req, res) => {
-            try {
-                if (!req.file) {
-                    return res.status(400).json({ success: false, error: 'No file uploaded' });
-                }
-
-                const uploadedFile = {
-                    filename: req.file.filename,
-                    originalName: req.file.originalname,
-                    size: req.file.size,
-                    mimetype: req.file.mimetype,
-                    uploadDate: new Date().toISOString()
-                };
-
-                console.log('📎 CV uploaded:', uploadedFile.originalName);
-                
-                res.json({ 
-                    success: true, 
-                    message: 'CV uploaded successfully',
-                    file: uploadedFile
-                });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
-    }
-
-    async getBusinessOverview() {
+    this.app.get("/api/projects", async (req, res) => {
+      try {
         const projects = this.projectSystem.getApprovedProjects();
-        const research = this.projectSystem.getResearchTasks();
-        const recommendations = await this.recommendationSystem.getFormattedRecommendations();
-        const developmentProgress = await this.progressTracker.getAllProjectsProgress();
+        res.json(projects);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        return {
-            projects: {
-                total: projects.length,
-                approved: projects.filter(p => p.status === 'approved').length,
-                inProgress: projects.filter(p => p.status === 'in_progress').length,
-                completed: projects.filter(p => p.status === 'completed').length,
-                revenueImpact: this.calculateTotalRevenue(projects)
-            },
-            research: {
-                total: research.length,
-                pending: research.filter(r => r.status === 'pending').length,
-                inProgress: research.filter(r => r.status === 'in_progress').length,
-                completed: research.filter(r => r.status === 'completed').length,
-                potentialRevenue: this.calculatePotentialRevenue(research)
-            },
-            recommendations: {
-                total: recommendations.totalRecommendations,
-                superHighDemand: recommendations.superHighDemand.length,
-                highDemand: recommendations.highDemand.length,
-                totalRevenueOpportunity: recommendations.summary.totalProjectedRevenue
-            },
-            development: {
-                activeProjects: developmentProgress.length,
-                averageProgress: developmentProgress.length > 0 ? 
-                    Math.round(developmentProgress.reduce((sum, p) => sum + p.overallProgress, 0) / developmentProgress.length) : 0,
-                totalTasks: developmentProgress.reduce((sum, p) => sum + p.totalTasks, 0),
-                completedTasks: developmentProgress.reduce((sum, p) => sum + p.completedTasks, 0)
-            }
-        };
-    }
+    // AI Task Assistant API
+    this.app.post("/api/ai-assistant/execute", async (req, res) => {
+      try {
+        const { task, priority = "medium" } = req.body;
+        const response = await this.processAITask(task);
 
-    calculateTotalRevenue(projects) {
-        return projects.reduce((total, project) => {
-            const revenueMatch = project.revenueImpact?.match(/\+?\$(\d+)K?/);
-            if (revenueMatch) {
-                const amount = parseInt(revenueMatch[1]);
-                return total + (project.revenueImpact.includes('K') ? amount * 1000 : amount);
-            }
-            return total;
-        }, 0);
-    }
+        if (response.createProject) {
+          const project = await this.projectSystem.approveProject({
+            title: response.projectTitle,
+            description: response.projectDescription,
+            priority: priority,
+            category: "ai_enhancement",
+            timeline: response.timeline || "2-3 weeks",
+            revenueImpact: response.revenueImpact || "TBD",
+            budget: response.budget || "TBD",
+            approvedBy: "Super IT Agent",
+          });
+          response.projectId = project.id;
+        }
 
-    calculatePotentialRevenue(research) {
-        return research.reduce((total, task) => {
-            const revenueMatch = task.marketPotential?.match(/\+?\$(\d+)K?/);
-            if (revenueMatch) {
-                const amount = parseInt(revenueMatch[1]);
-                return total + (task.marketPotential.includes('K') ? amount * 1000 : amount);
-            }
-            return total;
-        }, 0);
-    }
+        res.json({ success: true, response });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
-    async getAgentStatuses() {
-        // Check running processes for agents
-        const { exec } = require('child_process');
-        const util = require('util');
-        const execPromise = util.promisify(exec);
-        
+    // CV Upload endpoint
+    this.app.post(
+      "/api/upload-cv",
+      this.upload.single("cvFile"),
+      async (req, res) => {
         try {
-            const { stdout } = await execPromise('ps aux | grep -v grep | grep -E "(email_agent|customer_service|agent_monitor|workflow_agent|ai_agent)" | awk \'{print $11, $12}\'');
-            const processes = stdout.trim().split('\n').filter(line => line);
-            
-            const agents = [
-                {
-                    name: '📧 Email Processing Agent',
-                    status: processes.some(p => p.includes('email_agent')) ? 'online' : 'offline',
-                    description: 'Processes customer orders from emails',
-                    port: 'N/A',
-                    lastUpdate: new Date().toISOString()
-                },
-                {
-                    name: '🤖 Super Customer Service Agent',
-                    status: processes.some(p => p.includes('customer_service')) ? 'online' : 'offline',
-                    description: 'AI-powered customer support with intelligent responses',
-                    port: 'N/A',
-                    lastUpdate: new Date().toISOString()
-                },
-                {
-                    name: '🎯 Agent Dashboard',
-                    status: processes.some(p => p.includes('agent_dashboard')) ? 'online' : 'offline',
-                    description: 'Real-time agent monitoring interface',
-                    port: '3001',
-                    lastUpdate: new Date().toISOString()
-                },
-                {
-                    name: '📊 Enhanced Dashboard',
-                    status: processes.some(p => p.includes('enhanced_dashboard')) ? 'online' : 'offline',
-                    description: 'Workflow tracking and order pipeline',
-                    port: '3006',
-                    lastUpdate: new Date().toISOString()
-                },
-                {
-                    name: '🎮 Management Dashboard',
-                    status: 'online',
-                    description: 'Business management and control center',
-                    port: '3007',
-                    lastUpdate: new Date().toISOString()
-                },
-                {
-                    name: '🚀 Working Dashboard',
-                    status: 'online',
-                    description: 'This dashboard - fully functional interface',
-                    port: '3009',
-                    lastUpdate: new Date().toISOString()
-                }
-            ];
-            
-            return agents;
+          if (!req.file) {
+            return res
+              .status(400)
+              .json({ success: false, error: "No file uploaded" });
+          }
+
+          const uploadedFile = {
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            size: req.file.size,
+            mimetype: req.file.mimetype,
+            uploadDate: new Date().toISOString(),
+          };
+
+          console.log("📎 CV uploaded:", uploadedFile.originalName);
+
+          res.json({
+            success: true,
+            message: "CV uploaded successfully",
+            file: uploadedFile,
+          });
         } catch (error) {
-            console.error('Error getting agent statuses:', error);
-            return [];
+          res.status(500).json({ success: false, error: error.message });
         }
-    }
+      },
+    );
+  }
 
-    async processAITask(task) {
-        const taskLower = task.toLowerCase();
-        
-        if (taskLower.includes('dashboard')) {
-            return {
-                type: 'dashboard_modification',
-                response: 'Dashboard enhancement task received. I will add real-time analytics, performance metrics, and interactive visualizations.',
-                createProject: true,
-                projectTitle: 'Enhanced Dashboard Analytics',
-                projectDescription: `AI-requested dashboard enhancement: ${task}`,
-                timeline: '1-2 weeks',
-                revenueImpact: '+$5K/month',
-                budget: '$3K'
-            };
-        } else if (taskLower.includes('feature')) {
-            return {
-                type: 'feature_development',
-                response: 'New feature development task accepted. I will design, implement, and test the requested functionality.',
-                createProject: true,
-                projectTitle: 'AI-Requested Feature Development',
-                projectDescription: `Feature development task: ${task}`,
-                timeline: '2-3 weeks',
-                revenueImpact: '+$10K/month',
-                budget: '$8K'
-            };
-        } else {
-            return {
-                type: 'custom_task',
-                response: `Custom task analysis complete. Task: "${task}" has been broken down into actionable steps and added to the work queue.`,
-                createProject: true,
-                projectTitle: 'Custom AI Task',
-                projectDescription: `AI-processed custom task: ${task}`,
-                timeline: '1-3 weeks',
-                revenueImpact: 'TBD',
-                budget: 'TBD'
-            };
-        }
-    }
+  async getBusinessOverview() {
+    const projects = this.projectSystem.getApprovedProjects();
+    const research = this.projectSystem.getResearchTasks();
+    const recommendations =
+      await this.recommendationSystem.getFormattedRecommendations();
+    const developmentProgress =
+      await this.progressTracker.getAllProjectsProgress();
 
-    getWorkingDashboardHTML() {
-        return `
+    return {
+      projects: {
+        total: projects.length,
+        approved: projects.filter((p) => p.status === "approved").length,
+        inProgress: projects.filter((p) => p.status === "in_progress").length,
+        completed: projects.filter((p) => p.status === "completed").length,
+        revenueImpact: this.calculateTotalRevenue(projects),
+      },
+      research: {
+        total: research.length,
+        pending: research.filter((r) => r.status === "pending").length,
+        inProgress: research.filter((r) => r.status === "in_progress").length,
+        completed: research.filter((r) => r.status === "completed").length,
+        potentialRevenue: this.calculatePotentialRevenue(research),
+      },
+      recommendations: {
+        total: recommendations.totalRecommendations,
+        superHighDemand: recommendations.superHighDemand.length,
+        highDemand: recommendations.highDemand.length,
+        totalRevenueOpportunity: recommendations.summary.totalProjectedRevenue,
+      },
+      development: {
+        activeProjects: developmentProgress.length,
+        averageProgress:
+          developmentProgress.length > 0
+            ? Math.round(
+                developmentProgress.reduce(
+                  (sum, p) => sum + p.overallProgress,
+                  0,
+                ) / developmentProgress.length,
+              )
+            : 0,
+        totalTasks: developmentProgress.reduce(
+          (sum, p) => sum + p.totalTasks,
+          0,
+        ),
+        completedTasks: developmentProgress.reduce(
+          (sum, p) => sum + p.completedTasks,
+          0,
+        ),
+      },
+    };
+  }
+
+  calculateTotalRevenue(projects) {
+    return projects.reduce((total, project) => {
+      const revenueMatch = project.revenueImpact?.match(/\+?\$(\d+)K?/);
+      if (revenueMatch) {
+        const amount = parseInt(revenueMatch[1]);
+        return (
+          total + (project.revenueImpact.includes("K") ? amount * 1000 : amount)
+        );
+      }
+      return total;
+    }, 0);
+  }
+
+  calculatePotentialRevenue(research) {
+    return research.reduce((total, task) => {
+      const revenueMatch = task.marketPotential?.match(/\+?\$(\d+)K?/);
+      if (revenueMatch) {
+        const amount = parseInt(revenueMatch[1]);
+        return (
+          total + (task.marketPotential.includes("K") ? amount * 1000 : amount)
+        );
+      }
+      return total;
+    }, 0);
+  }
+
+  async getAgentStatuses() {
+    // Check running processes for agents
+    const { exec } = require("child_process");
+    const util = require("util");
+    const execPromise = util.promisify(exec);
+
+    try {
+      const { stdout } = await execPromise(
+        "ps aux | grep -v grep | grep -E \"(email_agent|customer_service|agent_monitor|workflow_agent|ai_agent)\" | awk '{print $11, $12}'",
+      );
+      const processes = stdout
+        .trim()
+        .split("\n")
+        .filter((line) => line);
+
+      const agents = [
+        {
+          name: "📧 Email Processing Agent",
+          status: processes.some((p) => p.includes("email_agent"))
+            ? "online"
+            : "offline",
+          description: "Processes customer orders from emails",
+          port: "N/A",
+          lastUpdate: new Date().toISOString(),
+        },
+        {
+          name: "🤖 Super Customer Service Agent",
+          status: processes.some((p) => p.includes("customer_service"))
+            ? "online"
+            : "offline",
+          description: "AI-powered customer support with intelligent responses",
+          port: "N/A",
+          lastUpdate: new Date().toISOString(),
+        },
+        {
+          name: "🎯 Agent Dashboard",
+          status: processes.some((p) => p.includes("agent_dashboard"))
+            ? "online"
+            : "offline",
+          description: "Real-time agent monitoring interface",
+          port: "3001",
+          lastUpdate: new Date().toISOString(),
+        },
+        {
+          name: "📊 Enhanced Dashboard",
+          status: processes.some((p) => p.includes("enhanced_dashboard"))
+            ? "online"
+            : "offline",
+          description: "Workflow tracking and order pipeline",
+          port: "3006",
+          lastUpdate: new Date().toISOString(),
+        },
+        {
+          name: "🎮 Management Dashboard",
+          status: "online",
+          description: "Business management and control center",
+          port: "3007",
+          lastUpdate: new Date().toISOString(),
+        },
+        {
+          name: "🚀 Working Dashboard",
+          status: "online",
+          description: "This dashboard - fully functional interface",
+          port: "3009",
+          lastUpdate: new Date().toISOString(),
+        },
+      ];
+
+      return agents;
+    } catch (error) {
+      console.error("Error getting agent statuses:", error);
+      return [];
+    }
+  }
+
+  async processAITask(task) {
+    const taskLower = task.toLowerCase();
+
+    if (taskLower.includes("dashboard")) {
+      return {
+        type: "dashboard_modification",
+        response:
+          "Dashboard enhancement task received. I will add real-time analytics, performance metrics, and interactive visualizations.",
+        createProject: true,
+        projectTitle: "Enhanced Dashboard Analytics",
+        projectDescription: `AI-requested dashboard enhancement: ${task}`,
+        timeline: "1-2 weeks",
+        revenueImpact: "+$5K/month",
+        budget: "$3K",
+      };
+    } else if (taskLower.includes("feature")) {
+      return {
+        type: "feature_development",
+        response:
+          "New feature development task accepted. I will design, implement, and test the requested functionality.",
+        createProject: true,
+        projectTitle: "AI-Requested Feature Development",
+        projectDescription: `Feature development task: ${task}`,
+        timeline: "2-3 weeks",
+        revenueImpact: "+$10K/month",
+        budget: "$8K",
+      };
+    } else {
+      return {
+        type: "custom_task",
+        response: `Custom task analysis complete. Task: "${task}" has been broken down into actionable steps and added to the work queue.`,
+        createProject: true,
+        projectTitle: "Custom AI Task",
+        projectDescription: `AI-processed custom task: ${task}`,
+        timeline: "1-3 weeks",
+        revenueImpact: "TBD",
+        budget: "TBD",
+      };
+    }
+  }
+
+  getWorkingDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -680,19 +724,19 @@ class WorkingDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🎯 Working Dashboard started on port ${this.port}`);
-            console.log(`📊 Working Dashboard URL: http://localhost:${this.port}`);
-        });
-    }
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(`🎯 Working Dashboard started on port ${this.port}`);
+      console.log(`📊 Working Dashboard URL: http://localhost:${this.port}`);
+    });
+  }
 }
 
 if (require.main === module) {
-    const dashboard = new WorkingDashboard();
-    dashboard.start();
+  const dashboard = new WorkingDashboard();
+  dashboard.start();
 }
 
 module.exports = WorkingDashboard;

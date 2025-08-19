@@ -26,13 +26,14 @@ EMAIL_USER=your.email@gmail.com
 EMAIL_PASS=abcdefghijklmnop
 
 # Replace with your actual Gmail and app password
-# EMAIL_USER=david.mikulis@gmail.com  
+# EMAIL_USER=david.mikulis@gmail.com
 # EMAIL_PASS=your16digitapppassword
 ```
 
 ## Step 4: Test the Configuration
 
 Run this command to test:
+
 ```bash
 node test_send_order_email.js
 ```
@@ -40,18 +41,21 @@ node test_send_order_email.js
 ## Quick Setup Script
 
 Run this to create the .env file interactively:
+
 ```bash
 node setup_email_config.js
 ```
 
 ## Troubleshooting
 
-❌ **"Invalid login" error**: 
+❌ **"Invalid login" error**:
+
 - Make sure 2FA is enabled
 - Use app password, not regular password
 - No spaces in the app password
 
 ❌ **"Less secure app access"**:
+
 - This is outdated - use app passwords instead
 
 ✅ **Success**: You should see "Email sent successfully!"
@@ -59,8 +63,9 @@ node setup_email_config.js
 ## Alternative: Use Different Email Service
 
 If Gmail doesn't work, you can use:
+
 - **Outlook**: service: 'hotmail'
-- **Yahoo**: service: 'yahoo'  
+- **Yahoo**: service: 'yahoo'
 - **Custom SMTP**: Configure manually
 
 ## Security Note

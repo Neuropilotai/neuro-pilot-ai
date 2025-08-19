@@ -1,0 +1,56 @@
+app = "neuro-pilot-inventory"
+primary_region = "yyz"
+
+[build]
+  # Use existing Dockerfile or buildpacks
+
+[env]
+  PORT = "8083"
+
+[[mounts]]
+  source = "data"
+  destination = "/data"
+
+[[services]]
+  internal_port = 8083
+  processes = ["app"]
+  protocol = "tcp"
+
+  [services.concurrency]
+    type = "requests"
+    hard_limit = 100
+    soft_limit = 75
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "2s"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+    tls_skip_verify = false
+
+[checks.health]
+  type = "http"
+  interval = "15s"
+  timeout = "2s"
+  path = "/health"
+
+[vm]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[deploy]
+  strategy = "rolling"

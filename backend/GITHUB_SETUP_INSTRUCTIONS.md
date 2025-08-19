@@ -29,11 +29,13 @@ The inventory system now has GitHub sync integrated. Here's how to complete the 
 ## Step 3: Test the Sync
 
 1. **Check sync status:**
+
    ```
    curl http://localhost:8083/api/sync/status
    ```
 
 2. **Manual sync:**
+
    ```
    curl -X POST http://localhost:8083/api/sync/github-orders
    ```
@@ -45,28 +47,33 @@ The inventory system now has GitHub sync integrated. Here's how to complete the 
 ## 📱 How to Add New Orders
 
 ### From Computer:
+
 1. Go to: https://github.com/Neuropilotai/gfs-orders-data
 2. Navigate to `orders/2025/01/`
 3. Click "Add file" → "Upload files"
 4. Upload your CSV or JSON files
 
 ### From Phone:
+
 1. Download GitHub mobile app
 2. Navigate to your repo
 3. Add files directly from phone
 
 ### Via Email (Future):
+
 - Forward orders to a specific email
 - AI agent will parse and add automatically
 
 ## 🔧 If Using Private Repository
 
 Add this to your `.env` file:
+
 ```
 GITHUB_TOKEN=your_personal_access_token
 ```
 
 To get a token:
+
 1. Go to: https://github.com/settings/tokens
 2. Generate new token (classic)
 3. Select "repo" scope
@@ -75,6 +82,7 @@ To get a token:
 ## 📊 Order Formats You Can Use
 
 ### Simple CSV:
+
 ```csv
 Date,Item,Quantity,Unit
 2025-01-20,Ground Beef,50,lb
@@ -82,6 +90,7 @@ Date,Item,Quantity,Unit
 ```
 
 ### Detailed JSON:
+
 ```json
 {
   "orderNumber": "GFS_20250120_001",
@@ -99,6 +108,7 @@ Date,Item,Quantity,Unit
 ## 🤖 What Happens Automatically
 
 Every 10 minutes, your inventory system:
+
 1. Checks GitHub for new orders
 2. Downloads any new files
 3. Processes them into inventory

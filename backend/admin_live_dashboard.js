@@ -1,180 +1,201 @@
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const { UserModel, getDb } = require('./db/database');
-const fs = require('fs').promises;
-const os = require('os');
+require("dotenv").config();
+const express = require("express");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+const { UserModel, getDb } = require("./db/database");
+const fs = require("fs").promises;
+const os = require("os");
 
 class AdminLiveDashboard {
-    constructor() {
-        this.app = express();
-        this.server = createServer(this.app);
-        this.io = new Server(this.server, {
-            cors: { origin: "*", methods: ["GET", "POST"] }
-        });
-        this.port = 3009;
-        this.setupMiddleware();
-        this.setupRoutes();
-        this.setupWebSocket();
-        this.startMonitoring();
-    }
+  constructor() {
+    this.app = express();
+    this.server = createServer(this.app);
+    this.io = new Server(this.server, {
+      cors: { origin: "*", methods: ["GET", "POST"] },
+    });
+    this.port = 3009;
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupWebSocket();
+    this.startMonitoring();
+  }
 
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-    }
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+  }
 
-    setupRoutes() {
-        this.app.get('/', (req, res) => {
-            res.send(this.getAdminDashboardHTML());
-        });
+  setupRoutes() {
+    this.app.get("/", (req, res) => {
+      res.send(this.getAdminDashboardHTML());
+    });
 
-        this.app.get('/api/admin/everything', async (req, res) => {
-            try {
-                const data = await this.getAllData();
-                res.json(data);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-    }
+    this.app.get("/api/admin/everything", async (req, res) => {
+      try {
+        const data = await this.getAllData();
+        res.json(data);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
 
-    setupWebSocket() {
-        this.io.on('connection', (socket) => {
-            console.log('🔴 Admin Dashboard connected:', socket.id);
-            
-            socket.on('disconnect', () => {
-                console.log('🔴 Admin Dashboard disconnected:', socket.id);
-            });
-        });
-    }
+  setupWebSocket() {
+    this.io.on("connection", (socket) => {
+      console.log("🔴 Admin Dashboard connected:", socket.id);
 
-    async startMonitoring() {
-        // Comprehensive monitoring every 1 second
-        setInterval(async () => {
-            try {
-                const allData = await this.getAllData();
-                this.io.emit('live_update', allData);
-            } catch (error) {
-                console.error('Monitor error:', error);
-            }
-        }, 1000);
-    }
+      socket.on("disconnect", () => {
+        console.log("🔴 Admin Dashboard disconnected:", socket.id);
+      });
+    });
+  }
 
-    async getAllData() {
-        const [
-            userStats,
-            orderStats,
-            revenueStats,
-            systemStats,
-            recentActivity,
-            backendStatus
-        ] = await Promise.all([
-            this.getUserStats(),
-            this.getOrderStats(),
-            this.getRevenueStats(),
-            this.getSystemStats(),
-            this.getRecentActivity(),
-            this.getBackendStatus()
-        ]);
+  async startMonitoring() {
+    // Comprehensive monitoring every 1 second
+    setInterval(async () => {
+      try {
+        const allData = await this.getAllData();
+        this.io.emit("live_update", allData);
+      } catch (error) {
+        console.error("Monitor error:", error);
+      }
+    }, 1000);
+  }
 
-        return {
-            timestamp: new Date().toISOString(),
-            users: userStats,
-            orders: orderStats,
-            revenue: revenueStats,
-            system: systemStats,
-            activity: recentActivity,
-            backend: backendStatus
-        };
-    }
+  async getAllData() {
+    const [
+      userStats,
+      orderStats,
+      revenueStats,
+      systemStats,
+      recentActivity,
+      backendStatus,
+    ] = await Promise.all([
+      this.getUserStats(),
+      this.getOrderStats(),
+      this.getRevenueStats(),
+      this.getSystemStats(),
+      this.getRecentActivity(),
+      this.getBackendStatus(),
+    ]);
 
-    async getUserStats() {
-        const db = getDb();
-        if (!db) return { total: 0, today: 0, active: 0 };
+    return {
+      timestamp: new Date().toISOString(),
+      users: userStats,
+      orders: orderStats,
+      revenue: revenueStats,
+      system: systemStats,
+      activity: recentActivity,
+      backend: backendStatus,
+    };
+  }
 
-        const total = await db.get('SELECT COUNT(*) as count FROM users');
-        const today = await db.get(`SELECT COUNT(*) as count FROM users WHERE date(createdAt) = date('now')`);
-        const active = await db.get(`SELECT COUNT(*) as count FROM user_sessions WHERE datetime(expiresAt) > datetime('now')`);
+  async getUserStats() {
+    const db = getDb();
+    if (!db) return { total: 0, today: 0, active: 0 };
 
-        return {
-            total: total?.count || 0,
-            today: today?.count || 0,
-            active: active?.count || 0
-        };
-    }
+    const total = await db.get("SELECT COUNT(*) as count FROM users");
+    const today = await db.get(
+      `SELECT COUNT(*) as count FROM users WHERE date(createdAt) = date('now')`,
+    );
+    const active = await db.get(
+      `SELECT COUNT(*) as count FROM user_sessions WHERE datetime(expiresAt) > datetime('now')`,
+    );
 
-    async getOrderStats() {
-        const db = getDb();
-        if (!db) return { total: 0, completed: 0, pending: 0, today: 0 };
+    return {
+      total: total?.count || 0,
+      today: today?.count || 0,
+      active: active?.count || 0,
+    };
+  }
 
-        const total = await db.get('SELECT COUNT(*) as count FROM resume_orders');
-        const completed = await db.get('SELECT COUNT(*) as count FROM resume_orders WHERE status = "completed"');
-        const pending = await db.get('SELECT COUNT(*) as count FROM resume_orders WHERE status = "pending"');
-        const today = await db.get(`SELECT COUNT(*) as count FROM resume_orders WHERE date(createdAt) = date('now')`);
+  async getOrderStats() {
+    const db = getDb();
+    if (!db) return { total: 0, completed: 0, pending: 0, today: 0 };
 
-        return {
-            total: total?.count || 0,
-            completed: completed?.count || 0,
-            pending: pending?.count || 0,
-            today: today?.count || 0,
-            conversionRate: total?.count > 0 ? ((completed?.count / total?.count) * 100).toFixed(1) : 0
-        };
-    }
+    const total = await db.get("SELECT COUNT(*) as count FROM resume_orders");
+    const completed = await db.get(
+      'SELECT COUNT(*) as count FROM resume_orders WHERE status = "completed"',
+    );
+    const pending = await db.get(
+      'SELECT COUNT(*) as count FROM resume_orders WHERE status = "pending"',
+    );
+    const today = await db.get(
+      `SELECT COUNT(*) as count FROM resume_orders WHERE date(createdAt) = date('now')`,
+    );
 
-    async getRevenueStats() {
-        const db = getDb();
-        if (!db) return { total: 0, today: 0, thisWeek: 0, thisMonth: 0 };
+    return {
+      total: total?.count || 0,
+      completed: completed?.count || 0,
+      pending: pending?.count || 0,
+      today: today?.count || 0,
+      conversionRate:
+        total?.count > 0
+          ? ((completed?.count / total?.count) * 100).toFixed(1)
+          : 0,
+    };
+  }
 
-        const total = await db.get('SELECT SUM(price) as total FROM resume_orders WHERE status = "completed"');
-        const today = await db.get(`SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) = date('now')`);
-        const thisWeek = await db.get(`SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) >= date('now', '-7 days')`);
-        const thisMonth = await db.get(`SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) >= date('now', '-30 days')`);
+  async getRevenueStats() {
+    const db = getDb();
+    if (!db) return { total: 0, today: 0, thisWeek: 0, thisMonth: 0 };
 
-        return {
-            total: total?.total || 0,
-            today: today?.total || 0,
-            thisWeek: thisWeek?.total || 0,
-            thisMonth: thisMonth?.total || 0
-        };
-    }
+    const total = await db.get(
+      'SELECT SUM(price) as total FROM resume_orders WHERE status = "completed"',
+    );
+    const today = await db.get(
+      `SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) = date('now')`,
+    );
+    const thisWeek = await db.get(
+      `SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) >= date('now', '-7 days')`,
+    );
+    const thisMonth = await db.get(
+      `SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) >= date('now', '-30 days')`,
+    );
 
-    async getSystemStats() {
-        const memUsage = process.memoryUsage();
-        const cpuUsage = process.cpuUsage();
-        
-        return {
-            uptime: process.uptime(),
-            memory: {
-                used: Math.round(memUsage.heapUsed / 1024 / 1024),
-                total: Math.round(memUsage.heapTotal / 1024 / 1024),
-                rss: Math.round(memUsage.rss / 1024 / 1024)
-            },
-            cpu: {
-                user: cpuUsage.user,
-                system: cpuUsage.system
-            },
-            platform: os.platform(),
-            arch: os.arch(),
-            loadAverage: os.loadavg(),
-            totalMemory: Math.round(os.totalmem() / 1024 / 1024 / 1024),
-            freeMemory: Math.round(os.freemem() / 1024 / 1024 / 1024)
-        };
-    }
+    return {
+      total: total?.total || 0,
+      today: today?.total || 0,
+      thisWeek: thisWeek?.total || 0,
+      thisMonth: thisMonth?.total || 0,
+    };
+  }
 
-    async getRecentActivity() {
-        const db = getDb();
-        if (!db) return [];
+  async getSystemStats() {
+    const memUsage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
 
-        const recentUsers = await db.all(`
+    return {
+      uptime: process.uptime(),
+      memory: {
+        used: Math.round(memUsage.heapUsed / 1024 / 1024),
+        total: Math.round(memUsage.heapTotal / 1024 / 1024),
+        rss: Math.round(memUsage.rss / 1024 / 1024),
+      },
+      cpu: {
+        user: cpuUsage.user,
+        system: cpuUsage.system,
+      },
+      platform: os.platform(),
+      arch: os.arch(),
+      loadAverage: os.loadavg(),
+      totalMemory: Math.round(os.totalmem() / 1024 / 1024 / 1024),
+      freeMemory: Math.round(os.freemem() / 1024 / 1024 / 1024),
+    };
+  }
+
+  async getRecentActivity() {
+    const db = getDb();
+    if (!db) return [];
+
+    const recentUsers = await db.all(`
             SELECT 'user_registration' as type, email as description, createdAt as timestamp
             FROM users 
             ORDER BY createdAt DESC 
             LIMIT 5
         `);
 
-        const recentOrders = await db.all(`
+    const recentOrders = await db.all(`
             SELECT 'order' as type, 
                    ('Order ' || package || ' - $' || price) as description, 
                    createdAt as timestamp
@@ -183,38 +204,42 @@ class AdminLiveDashboard {
             LIMIT 5
         `);
 
-        return [...recentUsers, ...recentOrders]
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-            .slice(0, 10);
-    }
+    return [...recentUsers, ...recentOrders]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 10);
+  }
 
-    async getBackendStatus() {
-        try {
-            const response = await fetch('http://localhost:8000/api/agents/status');
-            if (response.ok) {
-                const data = await response.json();
-                // The agents data is directly in the response, not nested under 'agents'
-                const agents = {};
-                Object.keys(data).forEach(key => {
-                    if (data[key] && data[key].status) {
-                        agents[key] = data[key].status;
-                    }
-                });
-                
-                return {
-                    status: 'online',
-                    agents: agents,
-                    lastCheck: new Date().toISOString()
-                };
-            }
-            return { status: 'offline', lastCheck: new Date().toISOString() };
-        } catch (error) {
-            return { status: 'error', error: error.message, lastCheck: new Date().toISOString() };
-        }
-    }
+  async getBackendStatus() {
+    try {
+      const response = await fetch("http://localhost:8000/api/agents/status");
+      if (response.ok) {
+        const data = await response.json();
+        // The agents data is directly in the response, not nested under 'agents'
+        const agents = {};
+        Object.keys(data).forEach((key) => {
+          if (data[key] && data[key].status) {
+            agents[key] = data[key].status;
+          }
+        });
 
-    getAdminDashboardHTML() {
-        return `
+        return {
+          status: "online",
+          agents: agents,
+          lastCheck: new Date().toISOString(),
+        };
+      }
+      return { status: "offline", lastCheck: new Date().toISOString() };
+    } catch (error) {
+      return {
+        status: "error",
+        error: error.message,
+        lastCheck: new Date().toISOString(),
+      };
+    }
+  }
+
+  getAdminDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -759,21 +784,21 @@ class AdminLiveDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.server.listen(this.port, () => {
-            console.log(`🔴 Admin Live Dashboard started on port ${this.port}`);
-            console.log(`📊 Admin URL: http://localhost:${this.port}`);
-            console.log(`🎮 Full control panel with real-time monitoring`);
-        });
-    }
+  start() {
+    this.server.listen(this.port, () => {
+      console.log(`🔴 Admin Live Dashboard started on port ${this.port}`);
+      console.log(`📊 Admin URL: http://localhost:${this.port}`);
+      console.log(`🎮 Full control panel with real-time monitoring`);
+    });
+  }
 }
 
 // Start the admin dashboard
 if (require.main === module) {
-    const dashboard = new AdminLiveDashboard();
-    dashboard.start();
+  const dashboard = new AdminLiveDashboard();
+  dashboard.start();
 }
 
 module.exports = AdminLiveDashboard;

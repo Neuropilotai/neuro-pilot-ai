@@ -1,214 +1,220 @@
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
 
 class RealAgentMonitor {
-    constructor() {
-        this.app = express();
-        this.port = 3012;
-        this.agents = new Map();
-        this.pendingApprovals = new Map();
-        this.workHistory = [];
-        
-        this.setupRoutes();
-        this.loadRealAgentData();
-    }
-    
-    setupRoutes() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-        
-        // Main dashboard
-        this.app.get('/', (req, res) => {
-            res.send(this.getRealMonitorHTML());
+  constructor() {
+    this.app = express();
+    this.port = 3012;
+    this.agents = new Map();
+    this.pendingApprovals = new Map();
+    this.workHistory = [];
+
+    this.setupRoutes();
+    this.loadRealAgentData();
+  }
+
+  setupRoutes() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+
+    // Main dashboard
+    this.app.get("/", (req, res) => {
+      res.send(this.getRealMonitorHTML());
+    });
+
+    // API endpoints for real data
+    this.app.get("/api/agents", async (req, res) => {
+      const realData = await this.getRealAgentStatus();
+      res.json(realData);
+    });
+
+    this.app.get("/api/logs", async (req, res) => {
+      const logs = await this.getRecentLogs();
+      res.json(logs);
+    });
+
+    this.app.get("/api/files", async (req, res) => {
+      const files = await this.getRecentFiles();
+      res.json(files);
+    });
+  }
+
+  async loadRealAgentData() {
+    // Check which agents are actually running by looking for their files
+    const agentFiles = [
+      "super_agent.js",
+      "enhanced_super_agent.js",
+      "customer_service_agent.js",
+      "email_agent.js",
+      "real_trading_agent.js",
+      "super_trading_agent.js",
+      "inventory_super_agent.js",
+    ];
+
+    for (const file of agentFiles) {
+      try {
+        const filePath = path.join(__dirname, file);
+        const stats = await fs.stat(filePath);
+        const agentName = this.getAgentNameFromFile(file);
+
+        this.agents.set(file, {
+          id: file,
+          name: agentName,
+          file: file,
+          lastModified: stats.mtime,
+          size: stats.size,
+          status: await this.checkAgentStatus(file),
+          realMetrics: await this.extractRealMetrics(file),
         });
-        
-        // API endpoints for real data
-        this.app.get('/api/agents', async (req, res) => {
-            const realData = await this.getRealAgentStatus();
-            res.json(realData);
+      } catch (error) {
+        // File doesn't exist, skip
+      }
+    }
+  }
+
+  getAgentNameFromFile(filename) {
+    const names = {
+      "super_agent.js": "Super Agent",
+      "enhanced_super_agent.js": "Enhanced Super Agent",
+      "customer_service_agent.js": "Customer Service Agent",
+      "email_agent.js": "Email Agent",
+      "real_trading_agent.js": "Trading Agent",
+      "super_trading_agent.js": "Super Trading Agent",
+      "inventory_super_agent.js": "Inventory Super Agent",
+    };
+    return names[filename] || filename.replace(".js", "");
+  }
+
+  async checkAgentStatus(filename) {
+    // Check if process is running by looking for log files or recent activity
+    try {
+      const logFile = filename.replace(".js", ".log");
+      const logPath = path.join(__dirname, logFile);
+      const stats = await fs.stat(logPath);
+
+      // If log was modified in last 5 minutes, consider agent active
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      return stats.mtime > fiveMinutesAgo ? "online" : "idle";
+    } catch (error) {
+      return "offline";
+    }
+  }
+
+  async extractRealMetrics(filename) {
+    try {
+      const content = await fs.readFile(path.join(__dirname, filename), "utf8");
+      const lines = content.split("\n");
+
+      return {
+        linesOfCode: lines.length,
+        functions: (content.match(/function\s+\w+/g) || []).length,
+        classes: (content.match(/class\s+\w+/g) || []).length,
+        lastUpdate: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        linesOfCode: 0,
+        functions: 0,
+        classes: 0,
+        lastUpdate: "Unknown",
+      };
+    }
+  }
+
+  async getRealAgentStatus() {
+    const realStatus = [];
+
+    for (const [id, agent] of this.agents) {
+      // Get real file stats
+      try {
+        const stats = await fs.stat(path.join(__dirname, agent.file));
+        const isRecent = new Date() - stats.mtime < 24 * 60 * 60 * 1000; // 24 hours
+
+        realStatus.push({
+          id: agent.id,
+          name: agent.name,
+          status: isRecent ? "recently_active" : "dormant",
+          fileSize: Math.round(stats.size / 1024) + " KB",
+          lastModified: stats.mtime.toLocaleString(),
+          linesOfCode: agent.realMetrics.linesOfCode,
+          functions: agent.realMetrics.functions,
+          classes: agent.realMetrics.classes,
         });
-        
-        this.app.get('/api/logs', async (req, res) => {
-            const logs = await this.getRecentLogs();
-            res.json(logs);
+      } catch (error) {
+        realStatus.push({
+          id: agent.id,
+          name: agent.name,
+          status: "file_missing",
+          error: "File not found",
         });
-        
-        this.app.get('/api/files', async (req, res) => {
-            const files = await this.getRecentFiles();
-            res.json(files);
+      }
+    }
+
+    return realStatus;
+  }
+
+  async getRecentLogs() {
+    const logs = [];
+    const logFiles = ["email_agent.log", "server_8080.log", "admin_8081.log"];
+
+    for (const logFile of logFiles) {
+      try {
+        const logPath = path.join(__dirname, logFile);
+        const content = await fs.readFile(logPath, "utf8");
+        const lines = content.split("\n").slice(-5); // Last 5 lines
+
+        logs.push({
+          file: logFile,
+          recentLines: lines.filter((line) => line.trim()),
         });
+      } catch (error) {
+        // Log file doesn't exist
+      }
     }
-    
-    async loadRealAgentData() {
-        // Check which agents are actually running by looking for their files
-        const agentFiles = [
-            'super_agent.js',
-            'enhanced_super_agent.js',
-            'customer_service_agent.js',
-            'email_agent.js',
-            'real_trading_agent.js',
-            'super_trading_agent.js',
-            'inventory_super_agent.js'
-        ];
-        
-        for (const file of agentFiles) {
-            try {
-                const filePath = path.join(__dirname, file);
-                const stats = await fs.stat(filePath);
-                const agentName = this.getAgentNameFromFile(file);
-                
-                this.agents.set(file, {
-                    id: file,
-                    name: agentName,
-                    file: file,
-                    lastModified: stats.mtime,
-                    size: stats.size,
-                    status: await this.checkAgentStatus(file),
-                    realMetrics: await this.extractRealMetrics(file)
-                });
-            } catch (error) {
-                // File doesn't exist, skip
+
+    return logs;
+  }
+
+  async getRecentFiles() {
+    try {
+      const files = await fs.readdir(__dirname);
+      const recentFiles = [];
+
+      for (const file of files) {
+        if (
+          file.endsWith(".js") ||
+          file.endsWith(".json") ||
+          file.endsWith(".log")
+        ) {
+          try {
+            const stats = await fs.stat(path.join(__dirname, file));
+            const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+            if (stats.mtime > hourAgo) {
+              recentFiles.push({
+                name: file,
+                size: Math.round(stats.size / 1024) + " KB",
+                modified: stats.mtime.toLocaleString(),
+                type: file.split(".").pop(),
+              });
             }
+          } catch (error) {
+            // Skip files we can't read
+          }
         }
+      }
+
+      return recentFiles.sort(
+        (a, b) => new Date(b.modified) - new Date(a.modified),
+      );
+    } catch (error) {
+      return [];
     }
-    
-    getAgentNameFromFile(filename) {
-        const names = {
-            'super_agent.js': 'Super Agent',
-            'enhanced_super_agent.js': 'Enhanced Super Agent',
-            'customer_service_agent.js': 'Customer Service Agent',
-            'email_agent.js': 'Email Agent',
-            'real_trading_agent.js': 'Trading Agent',
-            'super_trading_agent.js': 'Super Trading Agent',
-            'inventory_super_agent.js': 'Inventory Super Agent'
-        };
-        return names[filename] || filename.replace('.js', '');
-    }
-    
-    async checkAgentStatus(filename) {
-        // Check if process is running by looking for log files or recent activity
-        try {
-            const logFile = filename.replace('.js', '.log');
-            const logPath = path.join(__dirname, logFile);
-            const stats = await fs.stat(logPath);
-            
-            // If log was modified in last 5 minutes, consider agent active
-            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-            return stats.mtime > fiveMinutesAgo ? 'online' : 'idle';
-        } catch (error) {
-            return 'offline';
-        }
-    }
-    
-    async extractRealMetrics(filename) {
-        try {
-            const content = await fs.readFile(path.join(__dirname, filename), 'utf8');
-            const lines = content.split('\n');
-            
-            return {
-                linesOfCode: lines.length,
-                functions: (content.match(/function\s+\w+/g) || []).length,
-                classes: (content.match(/class\s+\w+/g) || []).length,
-                lastUpdate: new Date().toISOString()
-            };
-        } catch (error) {
-            return {
-                linesOfCode: 0,
-                functions: 0,
-                classes: 0,
-                lastUpdate: 'Unknown'
-            };
-        }
-    }
-    
-    async getRealAgentStatus() {
-        const realStatus = [];
-        
-        for (const [id, agent] of this.agents) {
-            // Get real file stats
-            try {
-                const stats = await fs.stat(path.join(__dirname, agent.file));
-                const isRecent = new Date() - stats.mtime < 24 * 60 * 60 * 1000; // 24 hours
-                
-                realStatus.push({
-                    id: agent.id,
-                    name: agent.name,
-                    status: isRecent ? 'recently_active' : 'dormant',
-                    fileSize: Math.round(stats.size / 1024) + ' KB',
-                    lastModified: stats.mtime.toLocaleString(),
-                    linesOfCode: agent.realMetrics.linesOfCode,
-                    functions: agent.realMetrics.functions,
-                    classes: agent.realMetrics.classes
-                });
-            } catch (error) {
-                realStatus.push({
-                    id: agent.id,
-                    name: agent.name,
-                    status: 'file_missing',
-                    error: 'File not found'
-                });
-            }
-        }
-        
-        return realStatus;
-    }
-    
-    async getRecentLogs() {
-        const logs = [];
-        const logFiles = ['email_agent.log', 'server_8080.log', 'admin_8081.log'];
-        
-        for (const logFile of logFiles) {
-            try {
-                const logPath = path.join(__dirname, logFile);
-                const content = await fs.readFile(logPath, 'utf8');
-                const lines = content.split('\n').slice(-5); // Last 5 lines
-                
-                logs.push({
-                    file: logFile,
-                    recentLines: lines.filter(line => line.trim())
-                });
-            } catch (error) {
-                // Log file doesn't exist
-            }
-        }
-        
-        return logs;
-    }
-    
-    async getRecentFiles() {
-        try {
-            const files = await fs.readdir(__dirname);
-            const recentFiles = [];
-            
-            for (const file of files) {
-                if (file.endsWith('.js') || file.endsWith('.json') || file.endsWith('.log')) {
-                    try {
-                        const stats = await fs.stat(path.join(__dirname, file));
-                        const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-                        
-                        if (stats.mtime > hourAgo) {
-                            recentFiles.push({
-                                name: file,
-                                size: Math.round(stats.size / 1024) + ' KB',
-                                modified: stats.mtime.toLocaleString(),
-                                type: file.split('.').pop()
-                            });
-                        }
-                    } catch (error) {
-                        // Skip files we can't read
-                    }
-                }
-            }
-            
-            return recentFiles.sort((a, b) => new Date(b.modified) - new Date(a.modified));
-        } catch (error) {
-            return [];
-        }
-    }
-    
-    getRealMonitorHTML() {
-        return `
+  }
+
+  getRealMonitorHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -473,20 +479,22 @@ class RealAgentMonitor {
 </body>
 </html>
         `;
-    }
-    
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🔍 Real Agent Monitor started on http://localhost:${this.port}`);
-            console.log('📊 Showing actual agent file status and real system data');
-        });
-    }
+  }
+
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(
+        `🔍 Real Agent Monitor started on http://localhost:${this.port}`,
+      );
+      console.log("📊 Showing actual agent file status and real system data");
+    });
+  }
 }
 
 // Start if run directly
 if (require.main === module) {
-    const monitor = new RealAgentMonitor();
-    monitor.start();
+  const monitor = new RealAgentMonitor();
+  monitor.start();
 }
 
 module.exports = RealAgentMonitor;

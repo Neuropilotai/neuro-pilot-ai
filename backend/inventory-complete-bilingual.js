@@ -12,133 +12,179 @@
  * ████████████████████████████████████████████████████████████████████████████████
  */
 
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs').promises;
-const fsSync = require('fs');
-const multer = require('multer');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+const fs = require("fs").promises;
+const fsSync = require("fs");
+const multer = require("multer");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = 8083;
-const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.FLY_APP_NAME;
+const IS_PRODUCTION =
+  process.env.NODE_ENV === "production" || process.env.FLY_APP_NAME;
 
 // Get the correct data directory based on environment
 function getDataPath(...paths) {
   if (IS_PRODUCTION) {
-    return path.join('/data', ...paths);
+    return path.join("/data", ...paths);
   }
-  return path.join(__dirname, 'data', ...paths);
+  return path.join(__dirname, "data", ...paths);
 }
 
 // Security Configuration
-const JWT_SECRET = process.env.JWT_SECRET || (() => {
-  console.warn('⚠️ WARNING: Using default JWT secret. Set JWT_SECRET environment variable for production!');
-  return 'camp-inventory-secret-2025-david-mikulis-' + Date.now();
-})();
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (IS_PRODUCTION) {
+    throw new Error("JWT_SECRET must be set in production");
+  } else {
+    console.warn(
+      "⚠️ WARNING: JWT_SECRET is not set (development only). Set a strong secret via environment.",
+    );
+  }
+}
 
 // Security Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+          "https://fonts.gstatic.com",
+        ],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: [
+          "'self'",
+          "http://localhost:3000",
+          "http://localhost:8083",
+          "http://localhost:*",
+        ],
+      },
     },
-  }
-}));
+  }),
+);
 
 // Rate Limiting
+const MAX_LOGIN_ATTEMPTS = parseInt(process.env.LOGIN_MAX || "3", 10);
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5
+  max: MAX_LOGIN_ATTEMPTS,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // Input validation and sanitization
-const validator = require('validator');
+const validator = require("validator");
 
 // Enhanced rate limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // limit each IP to 1000 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
+  message: "Too many requests from this IP, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-app.use('/api/auth/login', loginLimiter);
-app.use('/api', generalLimiter);
+app.use("/api/auth/login", loginLimiter);
+app.use("/api", generalLimiter);
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:8083'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(",") || [
+      "http://localhost:8083",
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
-app.use(express.json({ 
-  limit: '10mb',
-  verify: (req, res, buf) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      res.status(400).json({ error: 'Invalid JSON' });
-      return;
-    }
-  }
-}));
+app.use(
+  express.json({
+    limit: "10mb",
+  }),
+);
 
 // Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, "public")));
 
 // GitHub Orders Sync Integration
-const { GitHubOrdersSync, setupGitHubSyncRoutes } = require('./github-orders-sync');
+const {
+  GitHubOrdersSync,
+  setupGitHubSyncRoutes,
+} = require("./github-orders-sync");
 setupGitHubSyncRoutes(app);
 
 // Initialize GitHub sync on startup
 const githubSync = new GitHubOrdersSync({
-  owner: 'Neuropilotai',
-  repo: 'gfs-orders-data'
+  owner: "Neuropilotai",
+  repo: "gfs-orders-data",
+  ordersPath: "orders/processed",
 });
 
 // Sync orders from GitHub on startup
-githubSync.syncToLocal().then(count => {
-  console.log(`✅ Synced ${count} orders from GitHub repository`);
-}).catch(err => {
-  console.log(`⚠️ GitHub sync not configured: ${err.message}`);
-});
+githubSync
+  .syncToLocal()
+  .then((count) => {
+    console.log(`✅ Synced ${count} orders from GitHub repository`);
+  })
+  .catch((err) => {
+    console.log(`⚠️ GitHub sync not configured: ${err.message}`);
+  })
+  .finally(async () => {
+    await loadStoredData().catch(() => {});
+    inventory = generateFullInventory();
+    console.log(`✅ Inventory initialized: ${inventory.length} items`);
+  });
 
 // File upload configuration
-const upload = multer({ 
-  dest: getDataPath('uploads'),
-  limits: { fileSize: 50 * 1024 * 1024 }
+const upload = multer({
+  dest: getDataPath("uploads"),
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 // Input validation functions
 function sanitizeString(str, maxLength = 255) {
-  if (!str || typeof str !== 'string') return '';
+  if (!str || typeof str !== "string") return "";
   return validator.escape(str.trim()).substring(0, maxLength);
 }
 
 function validateOrderId(orderId) {
-  if (!orderId || typeof orderId !== 'string') return false;
+  if (!orderId || typeof orderId !== "string") return false;
   return /^GFS_\d{8}_\d{6}_[A-Z0-9]{6}$/.test(orderId);
 }
 
 function validateProductCode(code) {
-  if (!code || typeof code !== 'string') return false;
+  if (!code || typeof code !== "string") return false;
   return /^[A-Z0-9]{1,20}$/.test(code.toUpperCase());
 }
 
 function validateLocation(location) {
-  const validLocations = ['Freezer A1', 'Freezer A2', 'Freezer A3', 'Cooler B1', 'Cooler B2', 'Cooler B3', 'Dry Storage C1', 'Dry Storage C2', 'Dry Storage C3', 'Dry Storage C4', 'Walk-in D1'];
+  const validLocations = [
+    "Freezer A1",
+    "Freezer A2",
+    "Freezer A3",
+    "Cooler B1",
+    "Cooler B2",
+    "Cooler B3",
+    "Dry Storage C1",
+    "Dry Storage C2",
+    "Dry Storage C3",
+    "Dry Storage C4",
+    "Walk-in D1",
+  ];
   return validLocations.includes(location);
 }
 
@@ -147,22 +193,102 @@ let syscoCatalog = [];
 let gfsOrders = [];
 let historicalInventory = [];
 
+// Location preferences system
+let locationPrefs = {}; // { supplierCode: [{location, weight}] }
+function prefsPath() {
+  return getDataPath("prefs", "location_prefs.json");
+}
+
+function loadLocationPrefs() {
+  try {
+    const p = prefsPath();
+    if (fsSync.existsSync(p)) {
+      locationPrefs = JSON.parse(fsSync.readFileSync(p, "utf8"));
+      console.log(
+        "✅ Loaded location preferences:",
+        Object.keys(locationPrefs).length,
+      );
+    }
+  } catch (e) {
+    console.warn("⚠️ Location prefs load failed", e.message);
+  }
+}
+function saveLocationPrefs() {
+  try {
+    const p = prefsPath();
+    fsSync.mkdirSync(path.dirname(p), { recursive: true });
+    fsSync.writeFileSync(p, JSON.stringify(locationPrefs, null, 2));
+  } catch (e) {
+    console.warn("⚠️ Location prefs save failed", e.message);
+  }
+}
+
+function recordAllocationPref(supplierCode, allocations) {
+  if (!supplierCode) return;
+  if (!locationPrefs[supplierCode]) locationPrefs[supplierCode] = [];
+  allocations.forEach(({ location, qty }) => {
+    if (!location) return;
+    const arr = locationPrefs[supplierCode];
+    const idx = arr.findIndex((x) => x.location === location);
+    if (idx === -1) arr.push({ location, weight: Math.max(1, +qty || 1) });
+    else arr[idx].weight += Math.max(1, +qty || 1);
+  });
+  // normalize top few
+  const arr = locationPrefs[supplierCode];
+  const total = arr.reduce((s, x) => s + x.weight, 0) || 1;
+  arr.forEach((x) => (x.ratio = +(x.weight / total).toFixed(3)));
+  arr.sort((a, b) => b.weight - a.weight);
+  saveLocationPrefs();
+}
+
+function suggestAllocations(supplierCode, qty, fallbackCategory) {
+  qty = +qty || 0;
+  const prefs = locationPrefs[supplierCode];
+  if (prefs && prefs.length) {
+    // propose by historical ratios
+    const base = prefs.slice(0, 3); // cap to 3 locations
+    let remaining = qty;
+    const out = base
+      .map((p, i) => {
+        const proposed =
+          i < base.length - 1 ? Math.floor(qty * p.ratio) : remaining;
+        remaining -= proposed;
+        return { location: p.location, qty: proposed };
+      })
+      .filter((x) => x.qty > 0);
+    if (out.length) return out;
+  }
+  // fallback to single best location from category
+  const loc = assignStorageLocation(fallbackCategory || "General");
+  return [{ location: loc, qty: qty }];
+}
+
 async function loadStoredData() {
   try {
     // Load Sysco catalog
-    const catalogPath = getDataPath('catalog', 'sysco_catalog_1753182965099.json');
-    const catalogData = await fs.readFile(catalogPath, 'utf8');
+    const catalogPath = getDataPath(
+      "catalog",
+      "sysco_catalog_1753182965099.json",
+    );
+    const catalogData = await fs.readFile(catalogPath, "utf8");
     const catalogJson = JSON.parse(catalogData);
     syscoCatalog = catalogJson.items || [];
     console.log(`✅ Loaded Sysco catalog: ${syscoCatalog.length} items`);
 
     // Load GFS orders
-    const gfsOrdersPath = getDataPath('gfs_orders');
+    const gfsOrdersPath = getDataPath("gfs_orders");
     const gfsFiles = await fs.readdir(gfsOrdersPath);
     for (const file of gfsFiles) {
-      if (file.startsWith('gfs_order_') && !file.includes('deleted') && file.endsWith('.json')) {
+      if (
+        file.startsWith("gfs_order_") &&
+        !file.includes("deleted") &&
+        file.endsWith(".json")
+      ) {
         try {
-          const orderData = await fs.readFile(path.join(gfsOrdersPath, file), 'utf8');
+          const orderData = await fs.readFile(
+            path.join(gfsOrdersPath, file),
+            "utf8",
+          );
           const order = JSON.parse(orderData);
           gfsOrders.push(order);
         } catch (error) {
@@ -173,135 +299,215 @@ async function loadStoredData() {
     console.log(`✅ Loaded GFS orders: ${gfsOrders.length} orders`);
 
     // Load historical inventory
-    const inventoryPath = path.join(__dirname, 'storage', 'inventory', 'full_inventory', '2025', 'full_inventory_2025-07-22.csv');
-    const inventoryData = await fs.readFile(inventoryPath, 'utf8');
+    const inventoryPath = path.join(
+      __dirname,
+      "storage",
+      "inventory",
+      "full_inventory",
+      "2025",
+      "full_inventory_2025-07-22.csv",
+    );
+    const inventoryData = await fs.readFile(inventoryPath, "utf8");
     // Parse CSV data here if needed
     console.log(`✅ Loaded historical inventory data`);
-
   } catch (error) {
-    console.log('⚠️  Some data files not found, using defaults');
+    console.log("⚠️  Some data files not found, using defaults");
   }
 }
 
-// Initialize with stored data
-loadStoredData();
+// Location preferences loaded in initializeServer()
+// Data loading moved to initializeServer() for proper async handling
 
 // Bilingual translations
 const translations = {
   english: {
-    title: 'AI Inventory Management System',
-    dashboard: 'Dashboard',
-    inventory: 'Inventory',
-    orders: 'Orders',
-    suppliers: 'Suppliers',
-    catalog: 'Product Catalog',
-    totalItems: 'Total Items',
-    criticalItems: 'Critical Items',
-    totalValue: 'Total Value',
-    newOrder: 'New Order',
-    viewCatalog: 'View Catalog',
-    storage: 'Storage Location',
-    quantity: 'Quantity',
-    supplier: 'Supplier',
-    lastOrder: 'Last Order',
-    reorderNow: 'Reorder Now',
-    monitor: 'Monitor',
-    search: 'Search products...',
-    syscoCatalog: 'Sysco Catalog',
-    gfsOrders: 'GFS Orders',
-    historicalData: 'Historical Data',
-    lowStock: 'Low Stock',
-    outOfStock: 'Out of Stock',
-    normal: 'Normal',
-    high: 'High Stock'
+    title: "AI Inventory Management System",
+    dashboard: "Dashboard",
+    inventory: "Inventory",
+    orders: "Orders",
+    suppliers: "Suppliers",
+    catalog: "Product Catalog",
+    totalItems: "Total Items",
+    criticalItems: "Critical Items",
+    totalValue: "Total Value",
+    newOrder: "New Order",
+    viewCatalog: "View Catalog",
+    storage: "Storage Location",
+    quantity: "Quantity",
+    supplier: "Supplier",
+    lastOrder: "Last Order",
+    reorderNow: "Reorder Now",
+    monitor: "Monitor",
+    search: "Search products...",
+    syscoCatalog: "Sysco Catalog",
+    gfsOrders: "GFS Orders",
+    historicalData: "Historical Data",
+    lowStock: "Low Stock",
+    outOfStock: "Out of Stock",
+    normal: "Normal",
+    high: "High Stock",
   },
   french: {
-    title: 'Système de Gestion d\'Inventaire IA',
-    dashboard: 'Tableau de Bord',
-    inventory: 'Inventaire',
-    orders: 'Commandes',
-    suppliers: 'Fournisseurs',
-    catalog: 'Catalogue de Produits',
-    totalItems: 'Articles Totaux',
-    criticalItems: 'Articles Critiques',
-    totalValue: 'Valeur Totale',
-    newOrder: 'Nouvelle Commande',
-    viewCatalog: 'Voir le Catalogue',
-    storage: 'Emplacement de Stockage',
-    quantity: 'Quantité',
-    supplier: 'Fournisseur',
-    lastOrder: 'Dernière Commande',
-    reorderNow: 'Commander Maintenant',
-    monitor: 'Surveiller',
-    search: 'Rechercher des produits...',
-    syscoCatalog: 'Catalogue Sysco',
-    gfsOrders: 'Commandes GFS',
-    historicalData: 'Données Historiques',
-    lowStock: 'Stock Faible',
-    outOfStock: 'Rupture de Stock',
-    normal: 'Normal',
-    high: 'Stock Élevé'
-  }
+    title: "Système de Gestion d'Inventaire IA",
+    dashboard: "Tableau de Bord",
+    inventory: "Inventaire",
+    orders: "Commandes",
+    suppliers: "Fournisseurs",
+    catalog: "Catalogue de Produits",
+    totalItems: "Articles Totaux",
+    criticalItems: "Articles Critiques",
+    totalValue: "Valeur Totale",
+    newOrder: "Nouvelle Commande",
+    viewCatalog: "Voir le Catalogue",
+    storage: "Emplacement de Stockage",
+    quantity: "Quantité",
+    supplier: "Fournisseur",
+    lastOrder: "Dernière Commande",
+    reorderNow: "Commander Maintenant",
+    monitor: "Surveiller",
+    search: "Rechercher des produits...",
+    syscoCatalog: "Catalogue Sysco",
+    gfsOrders: "Commandes GFS",
+    historicalData: "Données Historiques",
+    lowStock: "Stock Faible",
+    outOfStock: "Rupture de Stock",
+    normal: "Normal",
+    high: "Stock Élevé",
+  },
 };
 
 // Auto-assign storage location based on category
 function assignStorageLocation(category) {
-  const cat = category?.toLowerCase() || '';
-  
-  if (cat.includes('frozen') || cat.includes('ice cream') || cat.includes('frozen food')) {
-    return 'Freezer A1';
+  const cat = category?.toLowerCase() || "";
+
+  if (
+    cat.includes("frozen") ||
+    cat.includes("ice cream") ||
+    cat.includes("frozen food")
+  ) {
+    return "Freezer A1";
   }
-  if (cat.includes('meat') || cat.includes('poultry') || cat.includes('beef') || cat.includes('chicken') || cat.includes('pork')) {
-    return 'Freezer A2';
+  if (
+    cat.includes("meat") ||
+    cat.includes("poultry") ||
+    cat.includes("beef") ||
+    cat.includes("chicken") ||
+    cat.includes("pork")
+  ) {
+    return "Freezer A2";
   }
-  if (cat.includes('dairy') || cat.includes('milk') || cat.includes('cheese') || cat.includes('eggs')) {
-    return 'Cooler B1';
+  if (
+    cat.includes("dairy") ||
+    cat.includes("milk") ||
+    cat.includes("cheese") ||
+    cat.includes("eggs")
+  ) {
+    return "Cooler B1";
   }
-  if (cat.includes('produce') || cat.includes('vegetable') || cat.includes('fruit') || cat.includes('fresh')) {
-    return 'Cooler B2';
+  if (
+    cat.includes("produce") ||
+    cat.includes("vegetable") ||
+    cat.includes("fruit") ||
+    cat.includes("fresh")
+  ) {
+    return "Cooler B2";
   }
-  if (cat.includes('beverage') || cat.includes('drink') || cat.includes('juice')) {
-    return 'Cooler B3';
+  if (
+    cat.includes("beverage") ||
+    cat.includes("drink") ||
+    cat.includes("juice")
+  ) {
+    return "Cooler B3";
   }
-  if (cat.includes('bakery') || cat.includes('bread') || cat.includes('pastry')) {
-    return 'Dry Storage C1';
+  if (
+    cat.includes("bakery") ||
+    cat.includes("bread") ||
+    cat.includes("pastry")
+  ) {
+    return "Dry Storage C1";
   }
-  if (cat.includes('dry goods') || cat.includes('rice') || cat.includes('flour') || cat.includes('grain')) {
-    return 'Dry Storage C2';
+  if (
+    cat.includes("dry goods") ||
+    cat.includes("rice") ||
+    cat.includes("flour") ||
+    cat.includes("grain")
+  ) {
+    return "Dry Storage C2";
   }
-  if (cat.includes('canned') || cat.includes('sauce') || cat.includes('condiment')) {
-    return 'Dry Storage C3';
+  if (
+    cat.includes("canned") ||
+    cat.includes("sauce") ||
+    cat.includes("condiment")
+  ) {
+    return "Dry Storage C3";
   }
-  if (cat.includes('cleaning') || cat.includes('paper') || cat.includes('supplies')) {
-    return 'Dry Storage C4';
+  if (
+    cat.includes("cleaning") ||
+    cat.includes("paper") ||
+    cat.includes("supplies")
+  ) {
+    return "Dry Storage C4";
   }
-  
+
   // Default location for unclassified items
-  return 'Walk-in D1';
+  return "Walk-in D1";
+}
+
+// Helper function to safely parse numbers
+function num(x) {
+  if (x == null) return 0;
+  if (typeof x === 'number') return Number.isFinite(x) ? x : 0;
+  // strip currency symbols/commas
+  const v = Number(String(x).replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(v) ? v : 0;
+}
+
+// Normalize inventory item data
+function normalizeInventoryItem(item) {
+  // Ensure name is structured properly
+  if (typeof item.name === 'string') {
+    item.name = { en: item.name, fr: item.name };
+  } else if (!item.name || typeof item.name !== 'object') {
+    const fallbackName = item.productName || item.itemDescription || item.description || 'Unknown Item';
+    item.name = { en: fallbackName, fr: fallbackName };
+  }
+  
+  // Normalize numeric fields
+  item.unitPrice = num(item.unitPrice ?? item.price ?? item.unit_price ?? 0);
+  item.quantity = num(item.quantity ?? item.qty ?? 0);
+  
+  // Calculate total value if not provided or invalid
+  if (!item.totalValue || num(item.totalValue) <= 0) {
+    item.totalValue = item.quantity * item.unitPrice;
+  } else {
+    item.totalValue = num(item.totalValue);
+  }
+  
+  return item;
 }
 
 // Generate comprehensive inventory from GFS orders and base inventory
 function generateFullInventory() {
   // Start with empty inventory - no demo data, only real orders
   let tempInventory = [];
-  
+
   // First, collect all items from all orders
-  gfsOrders.forEach(order => {
+  gfsOrders.forEach((order) => {
     if (order.items && order.items.length > 0) {
-      order.items.forEach(item => {
+      order.items.forEach((item) => {
         tempInventory.push({
           productName: item.productName || `Product ${item.productCode}`,
-          productCode: item.productCode || '',
+          productCode: item.productCode || "",
           quantity: item.quantity || 1,
-          category: item.category || 'General',
-          unit: item.unit || 'Each',
-          supplier: item.supplier || 'GFS',
+          category: item.category || "General",
+          unit: item.unit || "Each",
+          supplier: item.supplier || "GFS",
           unitPrice: item.unitPrice || 0,
-          packSize: item.packSize || '',
-          brand: item.brand || '',
+          packSize: item.packSize || "",
+          brand: item.brand || "",
           totalPrice: item.totalPrice || 0,
           orderDate: order.orderDate,
-          orderId: order.orderId
+          orderId: order.orderId,
         });
       });
     }
@@ -309,11 +515,11 @@ function generateFullInventory() {
 
   // Now consolidate duplicate items by product name and code
   const consolidatedItems = {};
-  
-  tempInventory.forEach(item => {
+
+  tempInventory.forEach((item) => {
     // Create a unique key based on product name and code
     const key = `${item.productName}_${item.productCode}`.toLowerCase();
-    
+
     if (consolidatedItems[key]) {
       // Item already exists, add quantities and values
       consolidatedItems[key].quantity += item.quantity;
@@ -337,7 +543,7 @@ function generateFullInventory() {
         brand: item.brand,
         totalValue: item.totalPrice,
         lastOrderDate: item.orderDate,
-        orderIds: [item.orderId]
+        orderIds: [item.orderId],
       };
     }
   });
@@ -345,13 +551,14 @@ function generateFullInventory() {
   // Convert consolidated items to final inventory format
   let fullInventory = [];
   let nextId = 1;
-  
-  Object.values(consolidatedItems).forEach(item => {
+
+  Object.values(consolidatedItems).forEach((item) => {
+    const loc = assignStorageLocation(item.category);
     const inventoryItem = {
       id: nextId++,
-      name: { 
+      name: {
         en: item.productName,
-        fr: item.productName
+        fr: item.productName,
       },
       quantity: item.quantity,
       minQuantity: Math.max(1, Math.floor(item.quantity * 0.3)),
@@ -360,7 +567,9 @@ function generateFullInventory() {
       unit: item.unit,
       supplier: item.supplier,
       unitPrice: item.unitPrice,
-      location: assignStorageLocation(item.category),
+      location: loc,
+      locations: [loc], // 👈 add
+      byLocation: { [loc]: item.quantity }, // 👈 add
       supplierCode: item.productCode,
       lastOrderDate: item.lastOrderDate,
       packSize: item.packSize,
@@ -369,85 +578,152 @@ function generateFullInventory() {
       gfsOrderIds: item.orderIds, // Array of all order IDs containing this item
       orderCount: item.orderIds.length, // How many orders this item appears in
       isFromGFS: true,
-      isConsolidated: true
+      isConsolidated: true,
     };
     fullInventory.push(inventoryItem);
   });
 
-  console.log(`✅ Consolidated ${tempInventory.length} individual items into ${fullInventory.length} unique products`);
+  // Normalize all inventory items for consistent data
+  fullInventory = fullInventory.map(normalizeInventoryItem);
+
+  console.log(
+    `✅ Consolidated ${tempInventory.length} individual items into ${fullInventory.length} unique products`,
+  );
   return fullInventory;
 }
 
-// Complete inventory data with all suppliers and storage locations  
+// Complete inventory data with all suppliers and storage locations
 let inventory = [];
 
 // Suppliers with complete information
 const suppliers = {
-  'Sysco': {
-    name: 'Sysco Corporation',
-    contact: '1-800-SYSCO01',
-    email: 'orders@sysco.com',
-    website: 'www.sysco.com',
+  Sysco: {
+    name: "Sysco Corporation",
+    contact: "1-800-SYSCO01",
+    email: "orders@sysco.com",
+    website: "www.sysco.com",
     minimumOrder: 150,
-    deliveryDays: ['Monday', 'Wednesday', 'Friday'],
-    paymentTerms: 'Net 30',
+    deliveryDays: ["Monday", "Wednesday", "Friday"],
+    paymentTerms: "Net 30",
     catalogItems: 2932,
-    accountNumber: 'CAMP-2025-SYS'
+    accountNumber: "CAMP-2025-SYS",
   },
-  'GFS': {
-    name: 'Gordon Food Service',
-    contact: '1-800-968-4164',
-    email: 'customerservice@gfs.com',
-    website: 'www.gfs.com',
+  GFS: {
+    name: "Gordon Food Service",
+    contact: "1-800-968-4164",
+    email: "customerservice@gfs.com",
+    website: "www.gfs.com",
     minimumOrder: 100,
-    deliveryDays: ['Tuesday', 'Thursday', 'Saturday'],
-    paymentTerms: 'Net 30',
+    deliveryDays: ["Tuesday", "Thursday", "Saturday"],
+    paymentTerms: "Net 30",
     catalogItems: 1847,
-    accountNumber: 'CAMP-2025-GFS'
+    accountNumber: "CAMP-2025-GFS",
   },
-  'US Foods': {
-    name: 'US Foods',
-    contact: '1-800-388-8638',
-    email: 'orders@usfoods.com',
-    website: 'www.usfoods.com',
+  "US Foods": {
+    name: "US Foods",
+    contact: "1-800-388-8638",
+    email: "orders@usfoods.com",
+    website: "www.usfoods.com",
     minimumOrder: 125,
-    deliveryDays: ['Monday', 'Tuesday', 'Thursday'],
-    paymentTerms: 'Net 30',
+    deliveryDays: ["Monday", "Tuesday", "Thursday"],
+    paymentTerms: "Net 30",
     catalogItems: 1205,
-    accountNumber: 'CAMP-2025-USF'
-  }
+    accountNumber: "CAMP-2025-USF",
+  },
 };
 
 // Storage locations - will be loaded from file or use defaults
 let storageLocations = {
-  'Freezer A1': { type: 'Freezer', temp: '-10°F', capacity: 1000, currentUsage: 450 },
-  'Freezer A2': { type: 'Freezer', temp: '-10°F', capacity: 1000, currentUsage: 380 },
-  'Freezer A3': { type: 'Freezer', temp: '-10°F', capacity: 800, currentUsage: 290 },
-  'Freezer B1': { type: 'Freezer', temp: '0°F', capacity: 600, currentUsage: 185 },
-  'Cooler B1': { type: 'Cooler', temp: '38°F', capacity: 800, currentUsage: 420 },
-  'Cooler B2': { type: 'Cooler', temp: '38°F', capacity: 800, currentUsage: 510 },
-  'Cooler B3': { type: 'Cooler', temp: '40°F', capacity: 600, currentUsage: 280 },
-  'Dry Storage C1': { type: 'Dry Storage', temp: 'Room', capacity: 1200, currentUsage: 650 },
-  'Dry Storage C2': { type: 'Dry Storage', temp: 'Room', capacity: 1200, currentUsage: 780 },
-  'Dry Storage C3': { type: 'Dry Storage', temp: 'Room', capacity: 1000, currentUsage: 420 },
-  'Dry Storage C4': { type: 'Dry Storage', temp: 'Room', capacity: 800, currentUsage: 340 },
-  'Walk-in D1': { type: 'Walk-in', temp: 'Room', capacity: 2000, currentUsage: 850 }
+  "Freezer A1": {
+    type: "Freezer",
+    temp: "-10°F",
+    capacity: 1000,
+    currentUsage: 450,
+  },
+  "Freezer A2": {
+    type: "Freezer",
+    temp: "-10°F",
+    capacity: 1000,
+    currentUsage: 380,
+  },
+  "Freezer A3": {
+    type: "Freezer",
+    temp: "-10°F",
+    capacity: 800,
+    currentUsage: 290,
+  },
+  "Freezer B1": {
+    type: "Freezer",
+    temp: "0°F",
+    capacity: 600,
+    currentUsage: 185,
+  },
+  "Cooler B1": {
+    type: "Cooler",
+    temp: "38°F",
+    capacity: 800,
+    currentUsage: 420,
+  },
+  "Cooler B2": {
+    type: "Cooler",
+    temp: "38°F",
+    capacity: 800,
+    currentUsage: 510,
+  },
+  "Cooler B3": {
+    type: "Cooler",
+    temp: "40°F",
+    capacity: 600,
+    currentUsage: 280,
+  },
+  "Dry Storage C1": {
+    type: "Dry Storage",
+    temp: "Room",
+    capacity: 1200,
+    currentUsage: 650,
+  },
+  "Dry Storage C2": {
+    type: "Dry Storage",
+    temp: "Room",
+    capacity: 1200,
+    currentUsage: 780,
+  },
+  "Dry Storage C3": {
+    type: "Dry Storage",
+    temp: "Room",
+    capacity: 1000,
+    currentUsage: 420,
+  },
+  "Dry Storage C4": {
+    type: "Dry Storage",
+    temp: "Room",
+    capacity: 800,
+    currentUsage: 340,
+  },
+  "Walk-in D1": {
+    type: "Walk-in",
+    temp: "Room",
+    capacity: 2000,
+    currentUsage: 850,
+  },
 };
 
 // Load storage locations from file
 function loadStorageLocationsFromFile() {
-  const locationsFilePath = getDataPath('storage_locations', 'locations.json');
-  
+  const locationsFilePath = getDataPath("storage_locations", "locations.json");
+
   try {
     if (fsSync.existsSync(locationsFilePath)) {
-      const locationsData = JSON.parse(fsSync.readFileSync(locationsFilePath, 'utf8'));
-      
+      const locationsData = JSON.parse(
+        fsSync.readFileSync(locationsFilePath, "utf8"),
+      );
+
       // Convert from array format to object format
       const loadedLocations = {};
-      locationsData.forEach(loc => {
+      locationsData.forEach((loc) => {
         loadedLocations[loc.name] = {
-          type: loc.type || 'General',
-          temp: loc.temperature || 'Room',
+          type: loc.type || "General",
+          temp: loc.temperature || "Room",
           capacity: parseInt(loc.capacity) || 1000,
           currentUsage: loc.currentUsage || 0,
           description: loc.description,
@@ -457,58 +733,72 @@ function loadStorageLocationsFromFile() {
           createdBy: loc.createdBy,
           createdDate: loc.createdDate,
           lastModified: loc.lastModified,
-          lastModifiedBy: loc.lastModifiedBy
+          lastModifiedBy: loc.lastModifiedBy,
         };
       });
-      
+
       storageLocations = loadedLocations;
-      console.log('✅ Loaded storage locations from file:', Object.keys(storageLocations).length, 'locations');
+      console.log(
+        "✅ Loaded storage locations from file:",
+        Object.keys(storageLocations).length,
+        "locations",
+      );
     } else {
-      console.log('⚠️ No storage locations file found, using defaults');
+      console.log("⚠️ No storage locations file found, using defaults");
       saveStorageLocationsToFile(); // Save defaults
     }
   } catch (error) {
-    console.error('❌ Error loading storage locations:', error);
-    console.log('⚠️ Using default storage locations');
+    console.error("❌ Error loading storage locations:", error);
+    console.log("⚠️ Using default storage locations");
   }
 }
 
 // Save storage locations to file
 function saveStorageLocationsToFile() {
-  const locationsFilePath = getDataPath('storage_locations', 'locations.json');
-  const locationsDir = getDataPath('storage_locations');
-  
+  const locationsFilePath = getDataPath("storage_locations", "locations.json");
+  const locationsDir = getDataPath("storage_locations");
+
   try {
     // Ensure directory exists
     if (!fsSync.existsSync(locationsDir)) {
       fsSync.mkdirSync(locationsDir, { recursive: true });
     }
-    
+
     // Convert object format to array format for file storage
-    const locationsArray = Object.entries(storageLocations).map(([name, data]) => ({
-      id: data.id || name.toUpperCase().replace(/\s+/g, '_'),
-      name: name,
-      type: data.type,
-      category: data.type === 'Freezer' ? 'frozen_storage' : 
-               data.type === 'Cooler' ? 'cold_storage' :
-               data.type === 'Dry Storage' ? 'dry_storage' : 'general_storage',
-      description: data.description || `${data.type} storage location`,
-      capacity: String(data.capacity),
-      currentUsage: data.currentUsage,
-      temperature: data.temp,
-      zone: data.zone || 'Main',
-      building: data.building || 'Main Lodge',
-      isActive: true,
-      createdBy: data.createdBy || 'System',
-      createdDate: data.createdDate || new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-      lastModifiedBy: 'System'
-    }));
-    
-    fsSync.writeFileSync(locationsFilePath, JSON.stringify(locationsArray, null, 2));
-    console.log('✅ Saved storage locations to file');
+    const locationsArray = Object.entries(storageLocations).map(
+      ([name, data]) => ({
+        id: data.id || name.toUpperCase().replace(/\s+/g, "_"),
+        name: name,
+        type: data.type,
+        category:
+          data.type === "Freezer"
+            ? "frozen_storage"
+            : data.type === "Cooler"
+              ? "cold_storage"
+              : data.type === "Dry Storage"
+                ? "dry_storage"
+                : "general_storage",
+        description: data.description || `${data.type} storage location`,
+        capacity: String(data.capacity),
+        currentUsage: data.currentUsage,
+        temperature: data.temp,
+        zone: data.zone || "Main",
+        building: data.building || "Main Lodge",
+        isActive: true,
+        createdBy: data.createdBy || "System",
+        createdDate: data.createdDate || new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        lastModifiedBy: "System",
+      }),
+    );
+
+    fsSync.writeFileSync(
+      locationsFilePath,
+      JSON.stringify(locationsArray, null, 2),
+    );
+    console.log("✅ Saved storage locations to file");
   } catch (error) {
-    console.error('❌ Error saving storage locations:', error);
+    console.error("❌ Error saving storage locations:", error);
   }
 }
 
@@ -518,26 +808,51 @@ let orderCounter = 1;
 
 // Authentication
 const users = [
-  {
-    id: 1,
-    email: 'david.mikulis@camp-inventory.com',
-    passwordHash: '$2b$12$HusVjvsITJMi6GrsElNcKem5qk7BqJQ/1oa1aQ.jbWkq1DtrdKD12',
-    role: 'admin',
-    name: 'David Mikulis'
-  }
+  // Default admin user - configure via environment variables in production
+  // Email: Set via ADMIN_EMAIL, Password: Set via ADMIN_PASSWORD
 ];
 
+// --- Bootstrap admin on first run ---
+(async () => {
+  try {
+    if (
+      Array.isArray(users) &&
+      users.length === 0 &&
+      process.env.ADMIN_BOOTSTRAP_EMAIL &&
+      process.env.ADMIN_BOOTSTRAP_PASSWORD
+    ) {
+      const hash = await bcrypt.hash(process.env.ADMIN_BOOTSTRAP_PASSWORD, 12);
+      users.push({
+        id: 1,
+        email: process.env.ADMIN_BOOTSTRAP_EMAIL,
+        name: "Admin",
+        role: "admin",
+        passwordHash: hash,
+      });
+      console.log(
+        `✅ Bootstrapped admin: ${process.env.ADMIN_BOOTSTRAP_EMAIL}`,
+      );
+    } else if (users.length === 0) {
+      console.warn(
+        "⚠️ No users defined. Set ADMIN_BOOTSTRAP_EMAIL & ADMIN_BOOTSTRAP_PASSWORD to create one.",
+      );
+    }
+  } catch (e) {
+    console.error("Admin bootstrap failed:", e);
+  }
+})();
+
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    return res.status(401).json({ error: "Access token required" });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+      return res.status(403).json({ error: "Invalid or expired token" });
     }
     req.user = user;
     next();
@@ -547,51 +862,46 @@ const authenticateToken = (req, res, next) => {
 // API Routes
 
 // API info route - moved to /api
-app.get('/api', (req, res) => {
+app.get("/api", (req, res) => {
   res.json({
     success: true,
-    message: 'Camp Inventory System API',
-    version: '2.0',
+    message: "Camp Inventory System API",
+    version: "2.0",
     endpoints: {
-      login: 'POST /api/auth/login',
-      inventory: 'GET /api/inventory/items (requires auth)',
-      documentation: 'Please use a proper frontend client'
+      login: "POST /api/auth/login",
+      inventory: "GET /api/inventory/items (requires auth)",
     },
-    credentials: {
-      email: 'david.mikulis@camp-inventory.com',
-      password: 'inventory2025'
-    }
   });
 });
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+app.post("/api/auth/login", loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    const user = users.find(u => u.email === email);
+
+    const user = users.find((u) => u.email === email);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
-    
+
     // Remove plaintext password check - only use hashed passwords
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
-    
+
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
-    
+
     const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email, 
+      {
+        id: user.id,
+        email: user.email,
         role: user.role,
-        name: user.name 
+        name: user.name,
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: "15m" },
     );
-    
+
     res.json({
       success: true,
       token,
@@ -599,58 +909,120 @@ app.post('/api/auth/login', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
-    
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Get inventory items
-app.get('/api/inventory/items', (req, res) => {
-  const lang = req.query.lang || 'english';
+// Refresh stub to stop 404 spam
+app.post("/api/auth/refresh", (_req, res) => {
+  return res
+    .status(501)
+    .json({
+      success: false,
+      error: "Refresh not implemented; please re-login when needed.",
+    });
+});
+
+// Function to get orders containing a specific item
+function getOrdersForItem(item) {
+  const orders = [];
+  const itemName = item.name?.en || item.name || item.productName || '';
+  const itemCode = item.supplierCode || item.stockNumber || '';
   
-  const itemsWithInsights = inventory.map(item => {
+  // Search through all GFS orders to find this item
+  gfsOrders.forEach(order => {
+    if (order.items && Array.isArray(order.items)) {
+      const foundInOrder = order.items.some(orderItem => {
+        const orderItemName = orderItem.productName || orderItem.name || '';
+        const orderItemCode = orderItem.productCode || orderItem.stockNumber || '';
+        
+        // Match by name or code (case insensitive)
+        return (itemName && orderItemName.toLowerCase().includes(itemName.toLowerCase())) ||
+               (itemCode && orderItemCode.toLowerCase() === itemCode.toLowerCase()) ||
+               (orderItemName && itemName.toLowerCase().includes(orderItemName.toLowerCase()));
+      });
+      
+      if (foundInOrder) {
+        orders.push({
+          orderId: order.orderId,
+          supplier: order.supplier || 'GFS',
+          orderDate: order.orderDate,
+          totalItems: order.items.length
+        });
+      }
+    }
+  });
+  
+  return orders.slice(0, 5); // Limit to 5 most recent orders
+}
+
+// Get inventory items
+app.get("/api/inventory/items", (req, res) => {
+  const lang = req.query.lang || "english";
+
+  const itemsWithInsights = inventory.map((item) => {
     const stockLevel = (item.quantity / item.maxQuantity) * 100;
     const daysUntilEmpty = Math.floor(item.quantity / 5);
-    
-    let status = 'normal';
-    if (item.quantity === 0) status = 'outOfStock';
-    else if (item.quantity <= item.minQuantity) status = 'lowStock';
-    else if (item.quantity >= item.maxQuantity * 0.9) status = 'high';
-    
+
+    let status = "normal";
+    if (item.quantity === 0) status = "outOfStock";
+    else if (item.quantity <= item.minQuantity) status = "lowStock";
+    else if (item.quantity >= item.maxQuantity * 0.9) status = "high";
+
     // Ensure locations array exists for backward compatibility
     if (!item.locations && item.location) {
       item.locations = [item.location];
     } else if (!item.locations) {
       item.locations = [];
     }
+
+    // Get orders containing this item
+    const itemOrders = getOrdersForItem(item);
     
     return {
       ...item,
-      displayName: item.name[lang === 'french' ? 'fr' : 'en'],
+      displayName: item.name?.en || item.name || "Unknown Item",
       status,
       stockLevel: stockLevel.toFixed(1),
       storageInfo: storageLocations[item.location],
       locations: item.locations, // Multiple locations support
+      orders: itemOrders, // Orders containing this item
       aiInsights: {
-        trend: stockLevel > 60 ? 'Stable' : stockLevel > 30 ? 'Declining' : 'Critical',
+        trend:
+          stockLevel > 60
+            ? "Stable"
+            : stockLevel > 30
+              ? "Declining"
+              : "Critical",
         daysUntilEmpty,
-        recommendedAction: item.quantity <= item.minQuantity ? 
-          (lang === 'french' ? 'Commander Maintenant' : 'Reorder Now') : 
-          (lang === 'french' ? 'Surveiller' : 'Monitor'),
-        confidence: 0.92
-      }
+        recommendedAction:
+          item.quantity <= item.minQuantity
+            ? lang === "french"
+              ? "Commander Maintenant"
+              : "Reorder Now"
+            : lang === "french"
+              ? "Surveiller"
+              : "Monitor",
+        confidence: 0.92,
+        orderActivity: itemOrders.length > 0 ? `Found in ${itemOrders.length} recent order(s)` : 'No recent orders',
+      },
     };
   });
-  
-  const totalValue = inventory.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  const criticalItems = inventory.filter(item => item.quantity <= item.minQuantity).length;
-  const outOfStock = inventory.filter(item => item.quantity === 0).length;
-  
+
+  const totalValue = inventory.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0,
+  );
+  const criticalItems = inventory.filter(
+    (item) => item.quantity <= item.minQuantity,
+  ).length;
+  const outOfStock = inventory.filter((item) => item.quantity === 0).length;
+
   res.json({
     success: true,
     items: itemsWithInsights,
@@ -660,298 +1032,334 @@ app.get('/api/inventory/items', (req, res) => {
       criticalItems,
       outOfStock,
       language: lang,
-      lastUpdate: new Date().toISOString()
-    }
+      lastUpdate: new Date().toISOString(),
+    },
   });
 });
 
 // Get Sysco catalog
-app.get('/api/catalog/sysco', (req, res) => {
-  const search = req.query.search?.toLowerCase() || '';
-  const category = req.query.category || '';
+app.get("/api/catalog/sysco", (req, res) => {
+  const search = req.query.search?.toLowerCase() || "";
+  const category = req.query.category || "";
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 50;
-  
+
   let filteredItems = syscoCatalog;
-  
+
   if (search) {
-    filteredItems = filteredItems.filter(item => 
-      item.productName.toLowerCase().includes(search) ||
-      item.productCode.toLowerCase().includes(search)
+    filteredItems = filteredItems.filter(
+      (item) =>
+        item.productName.toLowerCase().includes(search) ||
+        item.productCode.toLowerCase().includes(search),
     );
   }
-  
+
   if (category) {
-    filteredItems = filteredItems.filter(item => item.category === category);
+    filteredItems = filteredItems.filter((item) => item.category === category);
   }
-  
+
   const startIndex = (page - 1) * limit;
   const endIndex = startIndex + limit;
   const paginatedItems = filteredItems.slice(startIndex, endIndex);
-  
+
   res.json({
     success: true,
     items: paginatedItems,
     totalItems: filteredItems.length,
     totalPages: Math.ceil(filteredItems.length / limit),
     currentPage: page,
-    itemsPerPage: limit
+    itemsPerPage: limit,
   });
 });
 
 // Get GFS orders history
-app.get('/api/orders/gfs', (req, res) => {
+app.get("/api/orders/gfs", (req, res) => {
   // Filter out deleted orders and remove duplicates by orderId
   const uniqueOrders = [];
   const seenIds = new Set();
-  
+
   for (const order of gfsOrders) {
     // Skip deleted orders
     if (order.deletedBy || order.deletedDate) {
       continue;
     }
-    
+
     if (!seenIds.has(order.orderId)) {
       uniqueOrders.push(order);
       seenIds.add(order.orderId);
     }
   }
-  
+
   res.json({
     success: true,
     orders: uniqueOrders,
     totalOrders: uniqueOrders.length,
-    totalValue: uniqueOrders.reduce((sum, order) => sum + (order.totalValue || 0), 0)
+    totalValue: uniqueOrders.reduce(
+      (sum, order) => sum + (order.totalValue || 0),
+      0,
+    ),
   });
 });
 
 // Search items by stock number (Sysco or GFS)
-app.get('/api/catalog/search/:stockNumber', (req, res) => {
+app.get("/api/catalog/search/:stockNumber", (req, res) => {
   try {
     const { stockNumber } = req.params;
     const searchTerm = stockNumber.toLowerCase().trim();
-    
+
     if (!searchTerm) {
       return res.status(400).json({
         success: false,
-        error: 'Stock number is required'
+        error: "Stock number is required",
       });
     }
-    
+
     let foundItems = [];
-    
+
     // Search in Sysco catalog
-    const syscoMatches = syscoCatalog.filter(item => {
-      const productCode = (item.productCode || '').toLowerCase();
-      const supplierCode = (item.supplierCode || '').toLowerCase();
-      const upc = (item.upc || '').toLowerCase();
-      
-      return productCode.includes(searchTerm) || 
-             supplierCode.includes(searchTerm) || 
-             upc.includes(searchTerm) ||
-             productCode === searchTerm ||
-             supplierCode === searchTerm ||
-             upc === searchTerm;
+    const syscoMatches = syscoCatalog.filter((item) => {
+      const productCode = (item.productCode || "").toLowerCase();
+      const supplierCode = (item.supplierCode || "").toLowerCase();
+      const upc = (item.upc || "").toLowerCase();
+
+      return (
+        productCode.includes(searchTerm) ||
+        supplierCode.includes(searchTerm) ||
+        upc.includes(searchTerm) ||
+        productCode === searchTerm ||
+        supplierCode === searchTerm ||
+        upc === searchTerm
+      );
     });
-    
+
     // Add Sysco items to results
-    foundItems = foundItems.concat(syscoMatches.map(item => ({
-      ...item,
-      source: 'sysco',
-      displayName: item.productDescription || item.productName || 'Unknown Item',
-      stockNumber: item.productCode || item.supplierCode,
-      category: item.category || 'Uncategorized'
-    })));
-    
+    foundItems = foundItems.concat(
+      syscoMatches.map((item) => ({
+        ...item,
+        source: "sysco",
+        displayName:
+          item.productDescription || item.productName || "Unknown Item",
+        stockNumber: item.productCode || item.supplierCode,
+        category: item.category || "Uncategorized",
+      })),
+    );
+
     // Search in GFS orders for items with matching codes
     const gfsMatches = [];
-    gfsOrders.forEach(order => {
+    gfsOrders.forEach((order) => {
       if (order.items && Array.isArray(order.items)) {
-        order.items.forEach(item => {
-          const itemCode = (item.itemCode || '').toLowerCase();
-          const productCode = (item.productCode || '').toLowerCase();
-          const upc = (item.upc || '').toLowerCase();
-          
-          if ((itemCode.includes(searchTerm) || productCode.includes(searchTerm) || upc.includes(searchTerm) ||
-               itemCode === searchTerm || productCode === searchTerm || upc === searchTerm) &&
-              !gfsMatches.find(existing => existing.itemCode === item.itemCode)) {
+        order.items.forEach((item) => {
+          const itemCode = (item.itemCode || "").toLowerCase();
+          const productCode = (item.productCode || "").toLowerCase();
+          const upc = (item.upc || "").toLowerCase();
+
+          if (
+            (itemCode.includes(searchTerm) ||
+              productCode.includes(searchTerm) ||
+              upc.includes(searchTerm) ||
+              itemCode === searchTerm ||
+              productCode === searchTerm ||
+              upc === searchTerm) &&
+            !gfsMatches.find((existing) => existing.itemCode === item.itemCode)
+          ) {
             gfsMatches.push({
               ...item,
-              source: 'gfs',
-              displayName: item.itemDescription || item.productName || 'Unknown Item',
+              source: "gfs",
+              displayName:
+                item.itemDescription || item.productName || "Unknown Item",
               stockNumber: item.itemCode || item.productCode,
-              category: item.category || 'Uncategorized',
-              orderId: order.orderId
+              category: item.category || "Uncategorized",
+              orderId: order.orderId,
             });
           }
         });
       }
     });
-    
+
     foundItems = foundItems.concat(gfsMatches);
-    
+
     // Remove duplicates based on stock number and name
     const uniqueItems = [];
     const seen = new Set();
-    
-    foundItems.forEach(item => {
+
+    foundItems.forEach((item) => {
       const key = `${item.source}-${item.stockNumber}-${item.displayName}`;
       if (!seen.has(key)) {
         seen.add(key);
         uniqueItems.push(item);
       }
     });
-    
+
     res.json({
       success: true,
       items: uniqueItems,
       totalFound: uniqueItems.length,
-      searchTerm: stockNumber
+      searchTerm: stockNumber,
     });
-    
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to search catalog',
-      details: error.message
+      error: "Failed to search catalog",
+      details: error.message,
     });
   }
 });
 
 // Add item to inventory by stock number
-app.post('/api/inventory/add-by-stock', authenticateToken, (req, res) => {
+app.post("/api/inventory/add-by-stock", authenticateToken, (req, res) => {
   try {
-    const { stockNumber, quantity = 1, location = 'Main Storage' } = req.body;
-    
+    const { stockNumber, quantity = 1, location } = req.body;
+
     if (!stockNumber) {
       return res.status(400).json({
         success: false,
-        error: 'Stock number is required'
+        error: "Stock number is required",
       });
     }
-    
+
     // Search for the item first
     const searchTerm = stockNumber.toLowerCase().trim();
     let foundItem = null;
-    
+
     // Search Sysco catalog
-    foundItem = syscoCatalog.find(item => {
-      const productCode = (item.productCode || '').toLowerCase();
-      const supplierCode = (item.supplierCode || '').toLowerCase();
-      const upc = (item.upc || '').toLowerCase();
-      
-      return productCode === searchTerm || supplierCode === searchTerm || upc === searchTerm;
+    foundItem = syscoCatalog.find((item) => {
+      const productCode = (item.productCode || "").toLowerCase();
+      const supplierCode = (item.supplierCode || "").toLowerCase();
+      const upc = (item.upc || "").toLowerCase();
+
+      return (
+        productCode === searchTerm ||
+        supplierCode === searchTerm ||
+        upc === searchTerm
+      );
     });
-    
+
     if (foundItem) {
-      foundItem.source = 'sysco';
+      foundItem.source = "sysco";
     } else {
       // Search GFS orders
-      gfsOrders.forEach(order => {
+      gfsOrders.forEach((order) => {
         if (order.items && Array.isArray(order.items) && !foundItem) {
-          foundItem = order.items.find(item => {
-            const itemCode = (item.itemCode || '').toLowerCase();
-            const productCode = (item.productCode || '').toLowerCase();
-            const upc = (item.upc || '').toLowerCase();
-            
-            return itemCode === searchTerm || productCode === searchTerm || upc === searchTerm;
+          foundItem = order.items.find((item) => {
+            const itemCode = (item.itemCode || "").toLowerCase();
+            const productCode = (item.productCode || "").toLowerCase();
+            const upc = (item.upc || "").toLowerCase();
+
+            return (
+              itemCode === searchTerm ||
+              productCode === searchTerm ||
+              upc === searchTerm
+            );
           });
-          
+
           if (foundItem) {
-            foundItem.source = 'gfs';
+            foundItem.source = "gfs";
             foundItem.orderId = order.orderId;
           }
         }
       });
     }
-    
+
     if (!foundItem) {
       return res.status(404).json({
         success: false,
-        error: 'Item not found in catalog'
+        error: "Item not found in catalog",
       });
     }
-    
+
     // Create new inventory item
+    const initialLoc = location || assignStorageLocation(foundItem.category);
+    const initialQty = parseInt(quantity);
     const newItem = {
       id: Date.now() + Math.random(),
       name: {
-        en: foundItem.productDescription || foundItem.itemDescription || foundItem.productName || 'Unknown Item',
-        fr: foundItem.productDescription || foundItem.itemDescription || foundItem.productName || 'Article Inconnu'
+        en:
+          foundItem.productDescription ||
+          foundItem.itemDescription ||
+          foundItem.productName ||
+          "Unknown Item",
+        fr:
+          foundItem.productDescription ||
+          foundItem.itemDescription ||
+          foundItem.productName ||
+          "Article Inconnu",
       },
-      category: foundItem.category || 'Uncategorized',
-      quantity: parseInt(quantity),
-      unit: foundItem.unit || foundItem.uom || 'each',
-      location: location,
-      locations: [location],
-      supplier: foundItem.source === 'sysco' ? 'Sysco' : 'GFS',
+      category: foundItem.category || "Uncategorized",
+      quantity: initialQty,
+      unit: foundItem.unit || foundItem.uom || "each",
+      location: initialLoc,
+      locations: [initialLoc],
+      byLocation: { [initialLoc]: initialQty },
+      supplier: foundItem.source === "sysco" ? "Sysco" : "GFS",
       supplierCode: foundItem.productCode || foundItem.itemCode || stockNumber,
       unitPrice: parseFloat(foundItem.unitPrice || foundItem.price || 0),
-      totalValue: parseInt(quantity) * parseFloat(foundItem.unitPrice || foundItem.price || 0),
-      minQuantity: Math.max(1, Math.floor(parseInt(quantity) * 0.2)),
-      maxQuantity: parseInt(quantity) * 3,
-      lastOrderDate: new Date().toISOString().split('T')[0],
-      addedBy: 'stock-search',
+      totalValue:
+        initialQty * parseFloat(foundItem.unitPrice || foundItem.price || 0),
+      minQuantity: Math.max(1, Math.floor(initialQty * 0.2)),
+      maxQuantity: initialQty * 3,
+      lastOrderDate: new Date().toISOString().split("T")[0],
+      addedBy: "stock-search",
       addedDate: new Date().toISOString(),
-      isFromGFS: foundItem.source === 'gfs',
-      gfsOrderId: foundItem.orderId
+      isFromGFS: foundItem.source === "gfs",
+      gfsOrderId: foundItem.orderId,
     };
-    
+
     // Add to inventory
     inventory.push(newItem);
-    
+
     res.json({
       success: true,
-      message: 'Item added to inventory successfully',
-      item: newItem
+      message: "Item added to inventory successfully",
+      item: newItem,
     });
-    
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to add item to inventory',
-      details: error.message
+      error: "Failed to add item to inventory",
+      details: error.message,
     });
   }
 });
 
 // Delete GFS order
-app.delete('/api/orders/gfs/:orderId', authenticateToken, async (req, res) => {
+app.delete("/api/orders/gfs/:orderId", authenticateToken, async (req, res) => {
   try {
     const { orderId } = req.params;
-    
+
     // Validate order ID format to prevent path traversal
     if (!validateOrderId(orderId)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid order ID format' 
+      return res.status(400).json({
+        success: false,
+        error: "Invalid order ID format",
       });
     }
-    
+
     // Find the order in memory
-    const orderIndex = gfsOrders.findIndex(order => order.orderId === orderId);
+    const orderIndex = gfsOrders.findIndex(
+      (order) => order.orderId === orderId,
+    );
     if (orderIndex === -1) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Order not found' 
+      return res.status(404).json({
+        success: false,
+        error: "Order not found",
       });
     }
-    
+
     const order = gfsOrders[orderIndex];
-    
+
     // Find the file path with safe filename construction
-    const gfsOrdersPath = getDataPath('gfs_orders');
+    const gfsOrdersPath = getDataPath("gfs_orders");
     let filePath = null;
-    
+
     // Check both active and deleted file patterns - sanitized filenames
     const possibleFiles = [
       `gfs_order_${orderId}.json`,
-      `deleted_gfs_order_${orderId}.json`
+      `deleted_gfs_order_${orderId}.json`,
     ];
-    
+
     for (const fileName of possibleFiles) {
       // Double-check filename safety
-      if (!fileName.includes('..') && fileName.match(/^[a-zA-Z0-9_.-]+$/)) {
+      if (!fileName.includes("..") && fileName.match(/^[a-zA-Z0-9_.-]+$/)) {
         const testPath = path.join(gfsOrdersPath, fileName);
         try {
           await fs.access(testPath);
@@ -962,25 +1370,27 @@ app.delete('/api/orders/gfs/:orderId', authenticateToken, async (req, res) => {
         }
       }
     }
-    
+
     if (!filePath) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Order file not found' 
+      return res.status(404).json({
+        success: false,
+        error: "Order file not found",
       });
     }
-    
+
     // Delete the file
     await fs.unlink(filePath);
-    
+
     // Remove from memory
     gfsOrders.splice(orderIndex, 1);
-    
+
     // Regenerate inventory without this order
     inventory = generateFullInventory();
-    
-    console.log(`🗑️ Deleted order: ${orderId} (${order.totalItems} items, $${order.totalValue})`);
-    
+
+    console.log(
+      `🗑️ Deleted order: ${orderId} (${order.totalItems} items, $${order.totalValue})`,
+    );
+
     res.json({
       success: true,
       message: `Order ${orderId} deleted successfully`,
@@ -988,83 +1398,85 @@ app.delete('/api/orders/gfs/:orderId', authenticateToken, async (req, res) => {
         orderId: order.orderId,
         totalItems: order.totalItems,
         totalValue: order.totalValue,
-        orderDate: order.orderDate
+        orderDate: order.orderDate,
       },
       newTotals: {
         totalOrders: gfsOrders.length,
-        totalInventoryItems: inventory.length
-      }
+        totalInventoryItems: inventory.length,
+      },
     });
-    
   } catch (error) {
-    console.error('Error deleting order:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to delete order' 
+    console.error("Error deleting order:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to delete order",
     });
   }
 });
 
 // Auto-clean invalid orders
-app.post('/api/orders/clean-invalid', authenticateToken, async (req, res) => {
+app.post("/api/orders/clean-invalid", authenticateToken, async (req, res) => {
   try {
     let deletedCount = 0;
     let itemsRemoved = 0;
-    const gfsOrdersPath = getDataPath('gfs_orders');
-    
+    const gfsOrdersPath = getDataPath("gfs_orders");
+
     // Create backup directory
-    const backupPath = getDataPath('gfs_orders_auto_cleaned_backup');
+    const backupPath = getDataPath("gfs_orders_auto_cleaned_backup");
     await fs.mkdir(backupPath, { recursive: true });
-    
+
     const ordersToDelete = [];
-    
+
     // Identify invalid orders
     for (const order of gfsOrders) {
       let isInvalid = false;
-      
+
       // Check for unrealistic total values
       if (order.totalValue > 100000 || order.totalValue < 0) {
         isInvalid = true;
       }
-      
+
       // Check for orders with no items or corrupted items
       if (!order.items || order.items.length === 0 || order.totalItems === 0) {
         isInvalid = true;
       }
-      
+
       // Check for orders with mostly invalid product codes
       if (order.items && order.items.length > 0) {
-        const validItems = order.items.filter(item => 
-          item.productCode && item.productCode.length >= 6 && 
-          item.productName && item.productName.length > 3 &&
-          !item.productName.toLowerCase().includes('tvq') &&
-          !item.productName.toLowerCase().includes('tps') &&
-          !item.productName.toLowerCase().includes('fax')
+        const validItems = order.items.filter(
+          (item) =>
+            item.productCode &&
+            item.productCode.length >= 6 &&
+            item.productName &&
+            item.productName.length > 3 &&
+            !item.productName.toLowerCase().includes("tvq") &&
+            !item.productName.toLowerCase().includes("tps") &&
+            !item.productName.toLowerCase().includes("fax"),
         );
-        
+
         if (validItems.length < order.items.length * 0.5) {
           isInvalid = true;
         }
       }
-      
+
       if (isInvalid) {
         ordersToDelete.push(order);
         itemsRemoved += order.totalItems || 0;
       }
     }
-    
+
     // Delete invalid orders
     for (const order of ordersToDelete) {
       const possibleFiles = [
         `gfs_order_${order.orderId}.json`,
-        `deleted_gfs_order_${order.orderId}.json`
+        `deleted_gfs_order_${order.orderId}.json`,
       ];
-      
+
       for (const fileName of possibleFiles) {
         if (fileName.match(/^[a-zA-Z0-9_.-]+$/)) {
           const filePath = path.join(gfsOrdersPath, fileName);
           const backupFilePath = path.join(backupPath, fileName);
-          
+
           try {
             await fs.access(filePath);
             // Move to backup instead of deleting
@@ -1077,208 +1489,269 @@ app.post('/api/orders/clean-invalid', authenticateToken, async (req, res) => {
           }
         }
       }
-      
+
       // Remove from memory
-      const index = gfsOrders.findIndex(o => o.orderId === order.orderId);
+      const index = gfsOrders.findIndex((o) => o.orderId === order.orderId);
       if (index !== -1) {
         gfsOrders.splice(index, 1);
       }
     }
-    
+
     // Regenerate inventory without invalid orders
     inventory = generateFullInventory();
-    
-    console.log(`🧹 Auto-cleaned ${deletedCount} invalid orders, removed ${itemsRemoved} items`);
-    
+
+    console.log(
+      `🧹 Auto-cleaned ${deletedCount} invalid orders, removed ${itemsRemoved} items`,
+    );
+
     res.json({
       success: true,
       deletedCount: deletedCount,
       remainingCount: gfsOrders.length,
       itemsRemoved: itemsRemoved,
-      newInventoryCount: inventory.length
+      newInventoryCount: inventory.length,
     });
-    
   } catch (error) {
-    console.error('Error cleaning invalid orders:', error);
+    console.error("Error cleaning invalid orders:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to clean invalid orders'
+      error: "Failed to clean invalid orders",
     });
   }
 });
 
+// API: list consolidated items from orders
+// Flatten & group items across orders
+app.get("/api/orders/items", (req, res) => {
+  const since = req.query.sinceDate; // optional ISO date
+  const only = (o) => !since || (o.orderDate && o.orderDate >= since);
+  const map = new Map(); // key = productCode|itemCode
+
+  gfsOrders.filter(only).forEach((o) => {
+    (o.items || []).forEach((it) => {
+      const code = (it.productCode || it.itemCode || "").trim();
+      if (!code) return;
+      const key = code.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, {
+          stockNumber: code,
+          name: it.productName || it.itemDescription || `Item ${code}`,
+          category: it.category || "Uncategorized",
+          unit: it.unit || it.uom || "ea",
+          supplier: "GFS",
+          totalQty: 0,
+          orders: [],
+        });
+      }
+      const row = map.get(key);
+      const q = +it.quantity || 0;
+      row.totalQty += q;
+      row.orders.push({ orderId: o.orderId, qty: q, date: o.orderDate });
+    });
+  });
+
+  const items = [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  res.json({ success: true, count: items.length, items });
+});
+
 // Get storage locations
-app.get('/api/storage/locations', (req, res) => {
+app.get("/api/storage/locations", (req, res) => {
   const locations = Object.entries(storageLocations).map(([name, info]) => ({
     name,
     ...info,
     utilizationPercent: ((info.currentUsage / info.capacity) * 100).toFixed(1),
-    availableSpace: info.capacity - info.currentUsage
+    availableSpace: info.capacity - info.currentUsage,
   }));
-  
+
   res.json({
     success: true,
     locations,
-    totalLocations: locations.length
+    totalLocations: locations.length,
   });
 });
 
 // Create new storage location
-app.post('/api/storage/locations', authenticateToken, (req, res) => {
+app.post("/api/storage/locations", authenticateToken, (req, res) => {
   const { name, type, temp, capacity } = req.body;
-  
+
   if (!name || !type || !temp || !capacity) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    return res.status(400).json({ error: "Missing required fields" });
   }
-  
+
   if (storageLocations[name]) {
-    return res.status(400).json({ error: 'Storage location already exists' });
+    return res.status(400).json({ error: "Storage location already exists" });
   }
-  
+
   storageLocations[name] = {
     type,
     temp,
     capacity: parseInt(capacity),
     currentUsage: 0,
     createdDate: new Date().toISOString(),
-    createdBy: 'System'
+    createdBy: "System",
   };
-  
+
   // Save to file
   saveStorageLocationsToFile();
-  
+
   res.json({
     success: true,
-    message: 'Storage location created successfully',
-    location: { name, ...storageLocations[name] }
+    message: "Storage location created successfully",
+    location: { name, ...storageLocations[name] },
   });
 });
 
 // Update storage location
-app.put('/api/storage/locations/:name', authenticateToken, (req, res) => {
+app.put("/api/storage/locations/:name", authenticateToken, (req, res) => {
   const { name } = req.params;
   const { type, temp, capacity } = req.body;
-  
+
   if (!storageLocations[name]) {
-    return res.status(404).json({ error: 'Storage location not found' });
+    return res.status(404).json({ error: "Storage location not found" });
   }
-  
+
   if (type) storageLocations[name].type = type;
   if (temp) storageLocations[name].temp = temp;
   if (capacity) storageLocations[name].capacity = parseInt(capacity);
-  
+
   // Update modification info
   storageLocations[name].lastModified = new Date().toISOString();
-  storageLocations[name].lastModifiedBy = 'System';
-  
+  storageLocations[name].lastModifiedBy = "System";
+
   // Save to file
   saveStorageLocationsToFile();
-  
+
   res.json({
     success: true,
-    message: 'Storage location updated successfully',
-    location: { name, ...storageLocations[name] }
+    message: "Storage location updated successfully",
+    location: { name, ...storageLocations[name] },
   });
 });
 
 // Rename storage location
-app.put('/api/storage/locations/:name/rename', authenticateToken, (req, res) => {
-  const { name: oldName } = req.params;
-  const { newName } = req.body;
-  
-  if (!storageLocations[oldName]) {
-    return res.status(404).json({ error: 'Storage location not found' });
-  }
-  
-  if (!newName || newName.trim() === '') {
-    return res.status(400).json({ error: 'New name is required' });
-  }
-  
-  if (storageLocations[newName]) {
-    return res.status(400).json({ error: 'A location with that name already exists' });
-  }
-  
-  // Move the location data to the new name
-  storageLocations[newName] = { ...storageLocations[oldName] };
-  delete storageLocations[oldName];
-  
-  // Save to file
-  saveStorageLocationsToFile();
-  
-  // Update all inventory items that use this location
-  let updatedCount = 0;
-  inventory.forEach(item => {
-    if (item.location === oldName) {
-      item.location = newName;
-      updatedCount++;
+app.put(
+  "/api/storage/locations/:name/rename",
+  authenticateToken,
+  (req, res) => {
+    const { name: oldName } = req.params;
+    const { newName } = req.body;
+
+    if (!storageLocations[oldName]) {
+      return res.status(404).json({ error: "Storage location not found" });
     }
-  });
-  
-  res.json({
-    success: true,
-    message: 'Storage location renamed successfully',
-    oldName,
-    newName,
-    updatedItems: updatedCount
-  });
-});
+
+    if (!newName || newName.trim() === "") {
+      return res.status(400).json({ error: "New name is required" });
+    }
+
+    if (storageLocations[newName]) {
+      return res
+        .status(400)
+        .json({ error: "A location with that name already exists" });
+    }
+
+    // Move the location data to the new name
+    storageLocations[newName] = { ...storageLocations[oldName] };
+    delete storageLocations[oldName];
+
+    // Save to file
+    saveStorageLocationsToFile();
+
+    // Update all inventory items that use this location
+    let updatedCount = 0;
+    inventory.forEach((item) => {
+      if (item.location === oldName) {
+        item.location = newName;
+        updatedCount++;
+      }
+    });
+
+    res.json({
+      success: true,
+      message: "Storage location renamed successfully",
+      oldName,
+      newName,
+      updatedItems: updatedCount,
+    });
+  },
+);
 
 // Delete storage location
-app.delete('/api/storage/locations/:name', authenticateToken, (req, res) => {
+app.delete("/api/storage/locations/:name", authenticateToken, (req, res) => {
   const { name } = req.params;
-  
+
   if (!storageLocations[name]) {
-    return res.status(404).json({ error: 'Storage location not found' });
+    return res.status(404).json({ error: "Storage location not found" });
   }
-  
+
   // Check if any inventory items are using this location
-  const itemsUsingLocation = inventory.filter(item => item.location === name);
+  const itemsUsingLocation = inventory.filter((item) => item.location === name);
   if (itemsUsingLocation.length > 0) {
-    return res.status(400).json({ 
-      error: 'Cannot delete location - items are currently stored here',
-      itemsCount: itemsUsingLocation.length
+    return res.status(400).json({
+      error: "Cannot delete location - items are currently stored here",
+      itemsCount: itemsUsingLocation.length,
     });
   }
-  
+
   delete storageLocations[name];
-  
+
   // Save to file
   saveStorageLocationsToFile();
-  
+
   res.json({
     success: true,
-    message: 'Storage location deleted successfully'
+    message: "Storage location deleted successfully",
   });
 });
 
+// Back-compat aliases for frontend that uses /api/locations
+app.get("/api/locations", (req, res) =>
+  res.redirect(307, "/api/storage/locations"),
+);
+app.post("/api/locations", (req, res) =>
+  res.redirect(307, "/api/storage/locations"),
+);
+app.put("/api/locations/:name", (req, res) =>
+  res.redirect(
+    307,
+    `/api/storage/locations/${encodeURIComponent(req.params.name)}`,
+  ),
+);
+app.delete("/api/locations/:name", (req, res) =>
+  res.redirect(
+    307,
+    `/api/storage/locations/${encodeURIComponent(req.params.name)}`,
+  ),
+);
+
 // Create order
-app.post('/api/inventory/orders', authenticateToken, (req, res) => {
+app.post("/api/inventory/orders", authenticateToken, (req, res) => {
   const { supplierId, items: orderItems, notes } = req.body;
-  
+
   if (!suppliers[supplierId]) {
-    return res.status(400).json({ error: 'Invalid supplier' });
+    return res.status(400).json({ error: "Invalid supplier" });
   }
-  
+
   let totalAmount = 0;
-  const validatedItems = orderItems.map(orderItem => {
-    const inventoryItem = inventory.find(i => i.id === orderItem.itemId);
+  const validatedItems = orderItems.map((orderItem) => {
+    const inventoryItem = inventory.find((i) => i.id === orderItem.itemId);
     if (!inventoryItem) {
       throw new Error(`Item ${orderItem.itemId} not found`);
     }
-    
+
     const itemTotal = orderItem.quantity * inventoryItem.unitPrice;
     totalAmount += itemTotal;
-    
+
     return {
       itemId: orderItem.itemId,
       name: inventoryItem.name,
       quantity: orderItem.quantity,
       unitPrice: inventoryItem.unitPrice,
       total: itemTotal,
-      unit: inventoryItem.unit
+      unit: inventoryItem.unit,
     };
   });
-  
+
   const newOrder = {
     id: orderCounter++,
     orderNumber: `ORD-${Date.now()}`,
@@ -1286,395 +1759,455 @@ app.post('/api/inventory/orders', authenticateToken, (req, res) => {
     supplierInfo: suppliers[supplierId],
     items: validatedItems,
     totalAmount: totalAmount.toFixed(2),
-    status: 'pending',
+    status: "pending",
     orderDate: new Date().toISOString(),
-    notes: notes || '',
-    createdBy: 'David Mikulis'
+    notes: notes || "",
+    createdBy: "David Mikulis",
   };
-  
+
   orders.push(newOrder);
-  
+
   res.json({
     success: true,
     order: newOrder,
-    message: 'Order created successfully'
+    message: "Order created successfully",
   });
 });
 
 // Update item quantity
-app.put('/api/inventory/items/:id', authenticateToken, (req, res) => {
+app.put("/api/inventory/items/:id", authenticateToken, (req, res) => {
   const itemId = parseInt(req.params.id);
   const { quantity } = req.body;
-  
-  const item = inventory.find(i => i.id === itemId);
+
+  const item = inventory.find((i) => i.id === itemId);
   if (!item) {
-    return res.status(404).json({ error: 'Item not found' });
+    return res.status(404).json({ error: "Item not found" });
   }
-  
+
   item.quantity = parseInt(quantity);
   item.lastUpdate = new Date().toISOString();
-  
+
   res.json({
     success: true,
-    message: 'Quantity updated successfully',
-    item
+    message: "Quantity updated successfully",
+    item,
   });
 });
 
 // Upload files
-app.post('/api/inventory/upload', authenticateToken, upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+app.post(
+  "/api/inventory/upload",
+  authenticateToken,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      res.json({
+        success: true,
+        message: "File uploaded successfully",
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to process file" });
     }
-    
-    res.json({
-      success: true,
-      message: 'File uploaded successfully',
-      filename: req.file.originalname,
-      size: req.file.size
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to process file' });
-  }
-});
+  },
+);
 
 // Update inventory item location
-app.put('/api/inventory/items/:id/location', authenticateToken, (req, res) => {
+app.put("/api/inventory/items/:id/location", authenticateToken, (req, res) => {
   try {
     const { id } = req.params;
-    const { location, action = 'set' } = req.body; // action can be 'set', 'add', 'remove'
-    
-    const itemIndex = inventory.findIndex(item => item.id == id);
+    const { location, action = "set" } = req.body; // action can be 'set', 'add', 'remove'
+
+    const itemIndex = inventory.findIndex((item) => item.id == id);
     if (itemIndex === -1) {
       return res.status(404).json({
         success: false,
-        error: 'Item not found'
+        error: "Item not found",
       });
     }
-    
+
     // Validate location exists
     if (!storageLocations[location]) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid storage location'
+        error: "Invalid storage location",
       });
     }
-    
+
     // Ensure locations is an array
     if (!Array.isArray(inventory[itemIndex].locations)) {
-      inventory[itemIndex].locations = inventory[itemIndex].location ? [inventory[itemIndex].location] : [];
+      inventory[itemIndex].locations = inventory[itemIndex].location
+        ? [inventory[itemIndex].location]
+        : [];
     }
-    
+
     // Handle different actions
     switch (action) {
-      case 'add':
+      case "add":
         if (!inventory[itemIndex].locations.includes(location)) {
           inventory[itemIndex].locations.push(location);
         }
         break;
-      case 'remove':
-        inventory[itemIndex].locations = inventory[itemIndex].locations.filter(loc => loc !== location);
+      case "remove":
+        inventory[itemIndex].locations = inventory[itemIndex].locations.filter(
+          (loc) => loc !== location,
+        );
         break;
-      case 'set':
+      case "set":
       default:
         inventory[itemIndex].locations = [location];
         break;
     }
-    
+
     // Update legacy location field for backward compatibility
-    inventory[itemIndex].location = inventory[itemIndex].locations[0] || '';
-    
+    inventory[itemIndex].location = inventory[itemIndex].locations[0] || "";
+
     res.json({
       success: true,
-      message: 'Item location updated successfully',
-      item: inventory[itemIndex]
+      message: "Item location updated successfully",
+      item: inventory[itemIndex],
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to update item location',
-      details: error.message
+      error: "Failed to update item location",
+      details: error.message,
     });
   }
 });
 
 // Batch location operations
-app.post('/api/inventory/items/batch/location', authenticateToken, (req, res) => {
-  try {
-    const { items, location, action = 'add' } = req.body; // items is array of item IDs
-    
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
+app.post(
+  "/api/inventory/items/batch/location",
+  authenticateToken,
+  (req, res) => {
+    try {
+      const { items, location, action = "add" } = req.body; // items is array of item IDs
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Items array is required",
+        });
+      }
+
+      // Validate location exists
+      if (!storageLocations[location]) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid storage location",
+        });
+      }
+
+      const results = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      items.forEach((itemId) => {
+        const itemIndex = inventory.findIndex((item) => item.id == itemId);
+        if (itemIndex === -1) {
+          results.push({ itemId, success: false, error: "Item not found" });
+          failCount++;
+          return;
+        }
+
+        // Ensure locations is an array
+        if (!Array.isArray(inventory[itemIndex].locations)) {
+          inventory[itemIndex].locations = inventory[itemIndex].location
+            ? [inventory[itemIndex].location]
+            : [];
+        }
+
+        // Handle different actions
+        switch (action) {
+          case "add":
+            if (!inventory[itemIndex].locations.includes(location)) {
+              inventory[itemIndex].locations.push(location);
+            }
+            break;
+          case "remove":
+            inventory[itemIndex].locations = inventory[
+              itemIndex
+            ].locations.filter((loc) => loc !== location);
+            break;
+          case "move": // Remove from all other locations and add to this one
+            inventory[itemIndex].locations = [location];
+            break;
+        }
+
+        // Update legacy location field
+        inventory[itemIndex].location = inventory[itemIndex].locations[0] || "";
+
+        results.push({ itemId, success: true });
+        successCount++;
+      });
+
+      res.json({
+        success: true,
+        message: `Batch location update completed: ${successCount} success, ${failCount} failed`,
+        results,
+        successCount,
+        failCount,
+      });
+    } catch (error) {
+      res.status(500).json({
         success: false,
-        error: 'Items array is required'
+        error: "Failed to batch update locations",
+        details: error.message,
       });
     }
-    
-    // Validate location exists
-    if (!storageLocations[location]) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid storage location'
-      });
-    }
-    
-    const results = [];
-    let successCount = 0;
-    let failCount = 0;
-    
-    items.forEach(itemId => {
-      const itemIndex = inventory.findIndex(item => item.id == itemId);
-      if (itemIndex === -1) {
-        results.push({ itemId, success: false, error: 'Item not found' });
-        failCount++;
-        return;
-      }
-      
-      // Ensure locations is an array
-      if (!Array.isArray(inventory[itemIndex].locations)) {
-        inventory[itemIndex].locations = inventory[itemIndex].location ? [inventory[itemIndex].location] : [];
-      }
-      
-      // Handle different actions
-      switch (action) {
-        case 'add':
-          if (!inventory[itemIndex].locations.includes(location)) {
-            inventory[itemIndex].locations.push(location);
-          }
-          break;
-        case 'remove':
-          inventory[itemIndex].locations = inventory[itemIndex].locations.filter(loc => loc !== location);
-          break;
-        case 'move': // Remove from all other locations and add to this one
-          inventory[itemIndex].locations = [location];
-          break;
-      }
-      
-      // Update legacy location field
-      inventory[itemIndex].location = inventory[itemIndex].locations[0] || '';
-      
-      results.push({ itemId, success: true });
-      successCount++;
-    });
-    
-    res.json({
-      success: true,
-      message: `Batch location update completed: ${successCount} success, ${failCount} failed`,
-      results,
-      successCount,
-      failCount
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to batch update locations',
-      details: error.message
-    });
-  }
-});
+  },
+);
 
 // Download complete inventory file
-app.get('/api/inventory/download/:format', authenticateToken, (req, res) => {
+app.get("/api/inventory/download/:format", authenticateToken, (req, res) => {
   try {
     const { format } = req.params;
-    const timestamp = new Date().toISOString().split('T')[0];
-    
-    if (format === 'csv') {
+    const timestamp = new Date().toISOString().split("T")[0];
+
+    if (format === "csv") {
       const csvHeaders = [
-        'ID', 'Name', 'Category', 'Quantity', 'Unit', 
-        'Location', 'Supplier', 'Unit Price', 'Total Value',
-        'Min Quantity', 'Max Quantity', 'Supplier Code', 
-        'Last Order Date', 'Pack Size', 'Brand', 'GFS Order ID'
-      ].join(',');
-      
-      const csvRows = inventory.map(item => [
-        item.id,
-        `"${item.name?.en || item.name || ''}"`,
-        `"${item.category || ''}"`,
-        item.quantity || 0,
-        `"${item.unit || ''}"`,
-        `"${item.location || ''}"`,
-        `"${item.supplier || ''}"`,
-        item.unitPrice || 0,
-        item.totalValue || 0,
-        item.minQuantity || 0,
-        item.maxQuantity || 0,
-        `"${item.supplierCode || ''}"`,
-        `"${item.lastOrderDate || ''}"`,
-        `"${item.packSize || ''}"`,
-        `"${item.brand || ''}"`,
-        `"${item.gfsOrderId || ''}"`
-      ].join(','));
-      
-      const csvContent = [csvHeaders, ...csvRows].join('\\n');
-      
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="complete_inventory_${timestamp}.csv"`);
+        "ID",
+        "Name",
+        "Category",
+        "Quantity",
+        "Unit",
+        "Location",
+        "Supplier",
+        "Unit Price",
+        "Total Value",
+        "Min Quantity",
+        "Max Quantity",
+        "Supplier Code",
+        "Last Order Date",
+        "Pack Size",
+        "Brand",
+        "GFS Order ID",
+      ].join(",");
+
+      const csvRows = inventory.map((item) =>
+        [
+          item.id,
+          `"${item.name?.en || item.name || ""}"`,
+          `"${item.category || ""}"`,
+          item.quantity || 0,
+          `"${item.unit || ""}"`,
+          `"${item.location || ""}"`,
+          `"${item.supplier || ""}"`,
+          item.unitPrice || 0,
+          item.totalValue || 0,
+          item.minQuantity || 0,
+          item.maxQuantity || 0,
+          `"${item.supplierCode || ""}"`,
+          `"${item.lastOrderDate || ""}"`,
+          `"${item.packSize || ""}"`,
+          `"${item.brand || ""}"`,
+          `"${item.gfsOrderId || ""}"`,
+        ].join(","),
+      );
+
+      const csvContent = [csvHeaders, ...csvRows].join("\\n");
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="complete_inventory_${timestamp}.csv"`,
+      );
       res.send(csvContent);
-      
-    } else if (format === 'json') {
+    } else if (format === "json") {
       const jsonData = {
         exportDate: new Date().toISOString(),
         totalItems: inventory.length,
         locations: Object.keys(storageLocations),
-        inventory: inventory.map(item => ({
+        inventory: inventory.map((item) => ({
           ...item,
-          displayName: item.name?.en || item.name || 'Unknown Item'
+          displayName: item.name?.en || item.name || "Unknown Item",
         })),
         summary: {
-          totalValue: inventory.reduce((sum, item) => sum + (item.totalValue || 0), 0),
-          itemsByLocation: Object.keys(storageLocations).reduce((acc, location) => {
-            acc[location] = inventory.filter(item => item.location === location).length;
-            return acc;
-          }, {}),
+          totalValue: inventory.reduce(
+            (sum, item) => sum + (item.totalValue || 0),
+            0,
+          ),
+          itemsByLocation: Object.keys(storageLocations).reduce(
+            (acc, location) => {
+              acc[location] = inventory.filter(
+                (item) => item.location === location,
+              ).length;
+              return acc;
+            },
+            {},
+          ),
           itemsByCategory: inventory.reduce((acc, item) => {
-            const cat = item.category || 'Unknown';
+            const cat = item.category || "Unknown";
             acc[cat] = (acc[cat] || 0) + 1;
             return acc;
           }, {}),
           itemsBySupplier: inventory.reduce((acc, item) => {
-            const sup = item.supplier || 'Unknown';
+            const sup = item.supplier || "Unknown";
             acc[sup] = (acc[sup] || 0) + 1;
             return acc;
-          }, {})
-        }
+          }, {}),
+        },
       };
-      
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Content-Disposition', `attachment; filename="complete_inventory_${timestamp}.json"`);
+
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="complete_inventory_${timestamp}.json"`,
+      );
       res.json(jsonData);
-      
     } else {
       res.status(400).json({
         success: false,
-        error: 'Invalid format. Use csv or json'
+        error: "Invalid format. Use csv or json",
       });
     }
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to generate download',
-      details: error.message
+      error: "Failed to generate download",
+      details: error.message,
     });
   }
 });
 
 // Quick Add Item by Stock Number
-app.post('/api/inventory/quick-add', authenticateToken, (req, res) => {
+app.post("/api/inventory/quick-add", authenticateToken, (req, res) => {
   try {
     const { productCode, location, quantity } = req.body;
-    
+
     // Validate input parameters
     if (!productCode || !location || quantity === undefined) {
       return res.status(400).json({
         success: false,
-        error: 'Product code, location, and quantity are required'
+        error: "Product code, location, and quantity are required",
       });
     }
-    
+
     // Sanitize and validate inputs
     const sanitizedCode = sanitizeString(productCode, 50);
     const sanitizedLocation = sanitizeString(location, 100);
     const numQuantity = parseInt(quantity);
-    
+
     if (!validateLocation(sanitizedLocation)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid storage location'
+        error: "Invalid storage location",
       });
     }
-    
+
     if (isNaN(numQuantity) || numQuantity < 0 || numQuantity > 10000) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid quantity (must be 0-10000)'
+        error: "Invalid quantity (must be 0-10000)",
       });
     }
-    
+
     // Check if item already exists in inventory
-    const existingItem = inventory.find(item => 
-      item.supplierCode === sanitizedCode || 
-      item.name.en.toLowerCase().includes(sanitizedCode.toLowerCase())
+    const existingItem = inventory.find(
+      (item) =>
+        item.supplierCode === sanitizedCode ||
+        item.name.en.toLowerCase().includes(sanitizedCode.toLowerCase()),
     );
-    
+
     if (existingItem) {
       // Update existing item
       existingItem.quantity += numQuantity;
       existingItem.location = sanitizedLocation;
-      
+
       res.json({
         success: true,
         message: `Updated existing item: ${existingItem.name.en}`,
-        item: existingItem
+        item: existingItem,
       });
     } else {
       // Create new item
       const newItem = {
-        id: Math.max(...inventory.map(i => i.id)) + 1,
-        name: { 
-          en: `Product ${sanitizedCode}`, 
-          fr: `Produit ${sanitizedCode}` 
+        id: Math.max(...inventory.map((i) => i.id)) + 1,
+        name: {
+          en: `Product ${sanitizedCode}`,
+          fr: `Produit ${sanitizedCode}`,
         },
         quantity: numQuantity,
         minQuantity: 1,
         maxQuantity: numQuantity * 3,
-        category: 'Manual Entry',
-        unit: 'Each',
-        supplier: 'Manual',
+        category: "Manual Entry",
+        unit: "Each",
+        supplier: "Manual",
         unitPrice: 0,
         location: sanitizedLocation,
         supplierCode: sanitizedCode,
-        lastOrderDate: new Date().toISOString().split('T')[0],
-        packSize: '',
-        brand: '',
+        lastOrderDate: new Date().toISOString().split("T")[0],
+        packSize: "",
+        brand: "",
         totalValue: 0,
-        isManualEntry: true
+        isManualEntry: true,
       };
-      
+
       inventory.push(newItem);
-      
+
       res.json({
         success: true,
         message: `Added new item: ${newItem.name.en}`,
-        item: newItem
+        item: newItem,
       });
     }
   } catch (error) {
-    console.error('Error in quick add:', error);
+    console.error("Error in quick add:", error);
     res.status(500).json({
       success: false,
-      error: 'Internal server error'
+      error: "Internal server error",
     });
   }
 });
 
 // Get inventory items by location
-app.get('/api/inventory/location/:location', authenticateToken, (req, res) => {
+app.get("/api/inventory/location/:location", authenticateToken, (req, res) => {
   try {
     const { location } = req.params;
-    const itemsInLocation = inventory.filter(item => 
-      item.location === location || (item.locations && item.locations.includes(location))
+    const itemsInLocation = inventory.filter(
+      (item) =>
+        item.location === location ||
+        (item.locations && item.locations.includes(location)),
     );
-    
-    const locationInfo = storageLocations[location] || { 
-      type: 'Unknown', 
-      temp: 'N/A', 
-      capacity: 0, 
-      currentUsage: 0 
+
+    const locationInfo = storageLocations[location] || {
+      type: "Unknown",
+      temp: "N/A",
+      capacity: 0,
+      currentUsage: 0,
     };
-    
+
     // Calculate statistics
-    const totalValue = itemsInLocation.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-    const totalUnits = itemsInLocation.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
-    const categories = [...new Set(itemsInLocation.map(item => item.category))];
-    
+    const totalValue = itemsInLocation.reduce(
+      (sum, item) => sum + (item.totalValue || 0),
+      0,
+    );
+    const totalUnits = itemsInLocation.reduce(
+      (sum, item) => sum + (parseInt(item.quantity) || 0),
+      0,
+    );
+    const categories = [
+      ...new Set(itemsInLocation.map((item) => item.category)),
+    ];
+
     const countingSummary = {
-      pending: itemsInLocation.filter(item => (item.countingStatus || 'pending') === 'pending').length,
-      counted: itemsInLocation.filter(item => (item.countingStatus || 'pending') === 'counted').length,
-      discrepancies: itemsInLocation.filter(item => 
-        item.physicalCount !== undefined && item.physicalCount !== item.quantity
-      ).length
+      pending: itemsInLocation.filter(
+        (item) => (item.countingStatus || "pending") === "pending",
+      ).length,
+      counted: itemsInLocation.filter(
+        (item) => (item.countingStatus || "pending") === "counted",
+      ).length,
+      discrepancies: itemsInLocation.filter(
+        (item) =>
+          item.physicalCount !== undefined &&
+          item.physicalCount !== item.quantity,
+      ).length,
     };
 
     res.json({
@@ -1682,342 +2215,378 @@ app.get('/api/inventory/location/:location', authenticateToken, (req, res) => {
       location: {
         name: location,
         ...locationInfo,
-        utilizationPercent: locationInfo.capacity ? 
-          ((locationInfo.currentUsage / locationInfo.capacity) * 100).toFixed(1) : '0'
+        utilizationPercent: locationInfo.capacity
+          ? ((locationInfo.currentUsage / locationInfo.capacity) * 100).toFixed(
+              1,
+            )
+          : "0",
       },
       statistics: {
         totalItems: itemsInLocation.length,
         totalValue: totalValue.toFixed(2),
         totalUnits,
         categories: categories.length,
-        categoryList: categories
+        categoryList: categories,
       },
       countingSummary,
-      items: itemsInLocation.map((item, index) => ({
-        id: item.id,
-        name: item.displayName || item.name?.en || item.name,
-        stockNumber: item.stockNumber,
-        quantity: item.quantity,
-        unit: item.unit,
-        category: item.category,
-        supplier: item.supplier,
-        supplierCode: item.supplierCode,
-        unitPrice: item.unitPrice,
-        totalValue: item.totalValue,
-        minQuantity: item.minQuantity || 0,
-        maxQuantity: item.maxQuantity || 0,
-        needsReorder: item.quantity <= (item.minQuantity || 0),
-        // Enhanced location management fields
-        locationSequence: item.locationSequence || (index + 1),
-        physicalCount: item.physicalCount !== undefined ? item.physicalCount : item.quantity,
-        countingStatus: item.countingStatus || 'pending', // pending, counted, discrepancy
-        countDiscrepancy: (item.physicalCount !== undefined && item.physicalCount !== item.quantity) ? 
-          (item.physicalCount - item.quantity) : 0,
-        lastCounted: item.lastCounted || null,
-        countedBy: item.countedBy || null,
-        countingNotes: item.countingNotes || ''
-      })).sort((a, b) => a.locationSequence - b.locationSequence)
+      items: itemsInLocation
+        .map((item, index) => ({
+          id: item.id,
+          name: item.displayName || item.name?.en || item.name,
+          stockNumber: item.stockNumber,
+          quantity: item.quantity,
+          unit: item.unit,
+          category: item.category,
+          supplier: item.supplier,
+          supplierCode: item.supplierCode,
+          unitPrice: item.unitPrice,
+          totalValue: item.totalValue,
+          minQuantity: item.minQuantity || 0,
+          maxQuantity: item.maxQuantity || 0,
+          needsReorder: item.quantity <= (item.minQuantity || 0),
+          // Enhanced location management fields
+          locationSequence: item.locationSequence || index + 1,
+          physicalCount:
+            item.physicalCount !== undefined
+              ? item.physicalCount
+              : item.quantity,
+          countingStatus: item.countingStatus || "pending", // pending, counted, discrepancy
+          countDiscrepancy:
+            item.physicalCount !== undefined &&
+            item.physicalCount !== item.quantity
+              ? item.physicalCount - item.quantity
+              : 0,
+          lastCounted: item.lastCounted || null,
+          countedBy: item.countedBy || null,
+          countingNotes: item.countingNotes || "",
+        }))
+        .sort((a, b) => a.locationSequence - b.locationSequence),
     });
   } catch (error) {
-    console.error('Error fetching location inventory:', error);
+    console.error("Error fetching location inventory:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch location inventory'
+      error: "Failed to fetch location inventory",
     });
   }
 });
 
 // Update item sequence in location
-app.put('/api/inventory/items/:id/sequence', authenticateToken, (req, res) => {
+app.put("/api/inventory/items/:id/sequence", authenticateToken, (req, res) => {
   try {
     const { id } = req.params;
     const { sequence, location } = req.body;
-    
-    const itemIndex = inventory.findIndex(item => item.id == id);
+
+    const itemIndex = inventory.findIndex((item) => item.id == id);
     if (itemIndex === -1) {
       return res.status(404).json({
         success: false,
-        error: 'Item not found'
+        error: "Item not found",
       });
     }
-    
+
     // Validate sequence number
     if (!sequence || sequence < 1) {
       return res.status(400).json({
         success: false,
-        error: 'Sequence must be a positive number'
+        error: "Sequence must be a positive number",
       });
     }
-    
+
     // Update item sequence
     inventory[itemIndex].locationSequence = parseInt(sequence);
     inventory[itemIndex].lastModified = new Date().toISOString();
-    
+
     res.json({
       success: true,
-      message: 'Item sequence updated successfully',
+      message: "Item sequence updated successfully",
       item: {
         id: inventory[itemIndex].id,
-        name: inventory[itemIndex].displayName || inventory[itemIndex].name?.en || inventory[itemIndex].name,
-        locationSequence: inventory[itemIndex].locationSequence
-      }
+        name:
+          inventory[itemIndex].displayName ||
+          inventory[itemIndex].name?.en ||
+          inventory[itemIndex].name,
+        locationSequence: inventory[itemIndex].locationSequence,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to update item sequence',
-      details: error.message
+      error: "Failed to update item sequence",
+      details: error.message,
     });
   }
 });
 
 // Update physical count for item
-app.put('/api/inventory/items/:id/physical-count', authenticateToken, (req, res) => {
-  try {
-    const { id } = req.params;
-    const { physicalCount, notes, countedBy } = req.body;
-    
-    const itemIndex = inventory.findIndex(item => item.id == id);
-    if (itemIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        error: 'Item not found'
-      });
-    }
-    
-    // Validate physical count
-    if (physicalCount === undefined || physicalCount < 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Physical count must be a non-negative number'
-      });
-    }
-    
-    const item = inventory[itemIndex];
-    const originalQuantity = item.quantity;
-    const newPhysicalCount = parseInt(physicalCount);
-    
-    // Update physical count fields
-    item.physicalCount = newPhysicalCount;
-    item.countingNotes = notes || '';
-    item.countedBy = countedBy || 'System';
-    item.lastCounted = new Date().toISOString();
-    
-    // Determine counting status
-    if (newPhysicalCount === originalQuantity) {
-      item.countingStatus = 'counted';
-    } else {
-      item.countingStatus = 'discrepancy';
-    }
-    
-    res.json({
-      success: true,
-      message: 'Physical count updated successfully',
-      item: {
-        id: item.id,
-        name: item.displayName || item.name?.en || item.name,
-        originalQuantity,
-        physicalCount: newPhysicalCount,
-        discrepancy: newPhysicalCount - originalQuantity,
-        countingStatus: item.countingStatus,
-        lastCounted: item.lastCounted
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update physical count',
-      details: error.message
-    });
-  }
-});
+app.put(
+  "/api/inventory/items/:id/physical-count",
+  authenticateToken,
+  (req, res) => {
+    try {
+      const { id } = req.params;
+      const { physicalCount, notes, countedBy } = req.body;
 
-// Batch update physical counts for multiple items
-app.post('/api/inventory/location/:location/batch-count', authenticateToken, (req, res) => {
-  try {
-    const { location } = req.params;
-    const { counts, countedBy } = req.body; // counts is array of {itemId, physicalCount, notes}
-    
-    if (!Array.isArray(counts) || counts.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Counts array is required'
-      });
-    }
-    
-    const results = [];
-    let successCount = 0;
-    let failCount = 0;
-    
-    counts.forEach(countData => {
-      const { itemId, physicalCount, notes } = countData;
-      const itemIndex = inventory.findIndex(item => item.id == itemId);
-      
+      const itemIndex = inventory.findIndex((item) => item.id == id);
       if (itemIndex === -1) {
-        results.push({ itemId, success: false, error: 'Item not found' });
-        failCount++;
-        return;
+        return res.status(404).json({
+          success: false,
+          error: "Item not found",
+        });
       }
-      
+
+      // Validate physical count
+      if (physicalCount === undefined || physicalCount < 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Physical count must be a non-negative number",
+        });
+      }
+
       const item = inventory[itemIndex];
       const originalQuantity = item.quantity;
       const newPhysicalCount = parseInt(physicalCount);
-      
+
       // Update physical count fields
       item.physicalCount = newPhysicalCount;
-      item.countingNotes = notes || '';
-      item.countedBy = countedBy || 'System';
+      item.countingNotes = notes || "";
+      item.countedBy = countedBy || "System";
       item.lastCounted = new Date().toISOString();
-      
+
       // Determine counting status
       if (newPhysicalCount === originalQuantity) {
-        item.countingStatus = 'counted';
+        item.countingStatus = "counted";
       } else {
-        item.countingStatus = 'discrepancy';
+        item.countingStatus = "discrepancy";
       }
-      
-      results.push({ 
-        itemId, 
-        success: true, 
-        discrepancy: newPhysicalCount - originalQuantity,
-        status: item.countingStatus
+
+      res.json({
+        success: true,
+        message: "Physical count updated successfully",
+        item: {
+          id: item.id,
+          name: item.displayName || item.name?.en || item.name,
+          originalQuantity,
+          physicalCount: newPhysicalCount,
+          discrepancy: newPhysicalCount - originalQuantity,
+          countingStatus: item.countingStatus,
+          lastCounted: item.lastCounted,
+        },
       });
-      successCount++;
-    });
-    
-    res.json({
-      success: true,
-      message: `Batch count update completed: ${successCount} successful, ${failCount} failed`,
-      results,
-      summary: {
-        totalProcessed: counts.length,
-        successful: successCount,
-        failed: failCount
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: "Failed to update physical count",
+        details: error.message,
+      });
+    }
+  },
+);
+
+// Batch update physical counts for multiple items
+app.post(
+  "/api/inventory/location/:location/batch-count",
+  authenticateToken,
+  (req, res) => {
+    try {
+      const { location } = req.params;
+      const { counts, countedBy } = req.body; // counts is array of {itemId, physicalCount, notes}
+
+      if (!Array.isArray(counts) || counts.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Counts array is required",
+        });
       }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to batch update counts',
-      details: error.message
-    });
-  }
-});
+
+      const results = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      counts.forEach((countData) => {
+        const { itemId, physicalCount, notes } = countData;
+        const itemIndex = inventory.findIndex((item) => item.id == itemId);
+
+        if (itemIndex === -1) {
+          results.push({ itemId, success: false, error: "Item not found" });
+          failCount++;
+          return;
+        }
+
+        const item = inventory[itemIndex];
+        const originalQuantity = item.quantity;
+        const newPhysicalCount = parseInt(physicalCount);
+
+        // Update physical count fields
+        item.physicalCount = newPhysicalCount;
+        item.countingNotes = notes || "";
+        item.countedBy = countedBy || "System";
+        item.lastCounted = new Date().toISOString();
+
+        // Determine counting status
+        if (newPhysicalCount === originalQuantity) {
+          item.countingStatus = "counted";
+        } else {
+          item.countingStatus = "discrepancy";
+        }
+
+        results.push({
+          itemId,
+          success: true,
+          discrepancy: newPhysicalCount - originalQuantity,
+          status: item.countingStatus,
+        });
+        successCount++;
+      });
+
+      res.json({
+        success: true,
+        message: `Batch count update completed: ${successCount} successful, ${failCount} failed`,
+        results,
+        summary: {
+          totalProcessed: counts.length,
+          successful: successCount,
+          failed: failCount,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: "Failed to batch update counts",
+        details: error.message,
+      });
+    }
+  },
+);
 
 // Reorder items within a location
-app.post('/api/inventory/location/:location/reorder', authenticateToken, (req, res) => {
-  try {
-    const { location } = req.params;
-    const { itemOrder } = req.body; // Array of {itemId, sequence}
-    
-    if (!Array.isArray(itemOrder) || itemOrder.length === 0) {
-      return res.status(400).json({
+app.post(
+  "/api/inventory/location/:location/reorder",
+  authenticateToken,
+  (req, res) => {
+    try {
+      const { location } = req.params;
+      const { itemOrder } = req.body; // Array of {itemId, sequence}
+
+      if (!Array.isArray(itemOrder) || itemOrder.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Item order array is required",
+        });
+      }
+
+      const results = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      itemOrder.forEach((orderData) => {
+        const { itemId, sequence } = orderData;
+        const itemIndex = inventory.findIndex((item) => item.id == itemId);
+
+        if (itemIndex === -1) {
+          results.push({ itemId, success: false, error: "Item not found" });
+          failCount++;
+          return;
+        }
+
+        // Update item sequence
+        inventory[itemIndex].locationSequence = parseInt(sequence);
+        inventory[itemIndex].lastModified = new Date().toISOString();
+
+        results.push({
+          itemId,
+          success: true,
+          newSequence: inventory[itemIndex].locationSequence,
+        });
+        successCount++;
+      });
+
+      res.json({
+        success: true,
+        message: `Item reordering completed: ${successCount} successful, ${failCount} failed`,
+        results,
+        summary: {
+          totalProcessed: itemOrder.length,
+          successful: successCount,
+          failed: failCount,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
         success: false,
-        error: 'Item order array is required'
+        error: "Failed to reorder items",
+        details: error.message,
       });
     }
-    
-    const results = [];
-    let successCount = 0;
-    let failCount = 0;
-    
-    itemOrder.forEach(orderData => {
-      const { itemId, sequence } = orderData;
-      const itemIndex = inventory.findIndex(item => item.id == itemId);
-      
-      if (itemIndex === -1) {
-        results.push({ itemId, success: false, error: 'Item not found' });
-        failCount++;
-        return;
-      }
-      
-      // Update item sequence
-      inventory[itemIndex].locationSequence = parseInt(sequence);
-      inventory[itemIndex].lastModified = new Date().toISOString();
-      
-      results.push({ 
-        itemId, 
-        success: true, 
-        newSequence: inventory[itemIndex].locationSequence
-      });
-      successCount++;
-    });
-    
-    res.json({
-      success: true,
-      message: `Item reordering completed: ${successCount} successful, ${failCount} failed`,
-      results,
-      summary: {
-        totalProcessed: itemOrder.length,
-        successful: successCount,
-        failed: failCount
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to reorder items',
-      details: error.message
-    });
-  }
-});
+  },
+);
 
 // Find item by stock number for location assignment
-app.get('/api/inventory/find-by-stock/:stockNumber', authenticateToken, (req, res) => {
-  try {
-    const { stockNumber } = req.params;
-    const item = inventory.find(item => 
-      item.stockNumber === stockNumber || 
-      item.supplierCode === stockNumber ||
-      item.productCode === stockNumber
-    );
-    
-    if (!item) {
-      return res.status(404).json({
+app.get(
+  "/api/inventory/find-by-stock/:stockNumber",
+  authenticateToken,
+  (req, res) => {
+    try {
+      const { stockNumber } = req.params;
+      const item = inventory.find(
+        (item) =>
+          item.stockNumber === stockNumber ||
+          item.supplierCode === stockNumber ||
+          item.productCode === stockNumber,
+      );
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          error: "Item not found with stock number: " + stockNumber,
+        });
+      }
+
+      res.json({
+        success: true,
+        item: {
+          id: item.id,
+          name: item.displayName || item.name?.en || item.name,
+          stockNumber: item.stockNumber,
+          supplierCode: item.supplierCode,
+          quantity: item.quantity,
+          unit: item.unit,
+          location: item.location,
+          locations: item.locations || [],
+          category: item.category,
+          supplier: item.supplier,
+        },
+      });
+    } catch (error) {
+      console.error("Error finding item by stock number:", error);
+      res.status(500).json({
         success: false,
-        error: 'Item not found with stock number: ' + stockNumber
+        error: "Failed to find item",
       });
     }
-    
-    res.json({
-      success: true,
-      item: {
-        id: item.id,
-        name: item.displayName || item.name?.en || item.name,
-        stockNumber: item.stockNumber,
-        supplierCode: item.supplierCode,
-        quantity: item.quantity,
-        unit: item.unit,
-        location: item.location,
-        locations: item.locations || [],
-        category: item.category,
-        supplier: item.supplier
-      }
-    });
-  } catch (error) {
-    console.error('Error finding item by stock number:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to find item'
-    });
-  }
-});
+  },
+);
 
 // Counting Mode Interface
-app.get('/api/inventory/counting-mode/:location', authenticateToken, (req, res) => {
-  try {
-    const { location } = req.params;
-    const itemsInLocation = inventory.filter(item => item.location === location);
-    
-    // Sort items for easier counting (by category, then name)
-    itemsInLocation.sort((a, b) => {
-      if (a.category !== b.category) {
-        return a.category.localeCompare(b.category);
-      }
-      return a.name.en.localeCompare(b.name.en);
-    });
-    
-    res.send(`
+app.get(
+  "/api/inventory/counting-mode/:location",
+  authenticateToken,
+  (req, res) => {
+    try {
+      const { location } = req.params;
+      const itemsInLocation = inventory.filter(
+        (item) => item.location === location,
+      );
+
+      // Sort items for easier counting (by category, then name)
+      itemsInLocation.sort((a, b) => {
+        if (a.category !== b.category) {
+          return a.category.localeCompare(b.category);
+        }
+        return a.name.en.localeCompare(b.name.en);
+      });
+
+      res.send(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -2042,7 +2611,9 @@ app.get('/api/inventory/counting-mode/:location', authenticateToken, (req, res) 
         <p><strong>${itemsInLocation.length} items</strong> to count in this location</p>
     </div>
     
-    ${itemsInLocation.map((item, index) => `
+    ${itemsInLocation
+      .map(
+        (item, index) => `
         <div class="counting-item">
             <div class="item-name">${item.name.en}</div>
             <div class="item-details">
@@ -2054,7 +2625,9 @@ app.get('/api/inventory/counting-mode/:location', authenticateToken, (req, res) 
                 <button class="save-btn" onclick="saveCount(${item.id})">✓ Update</button>
             </div>
         </div>
-    `).join('')}
+    `,
+      )
+      .join("")}
     
     <div class="navigation">
         <button class="nav-btn" onclick="saveAllCounts()">💾 Save All Counts</button>
@@ -2062,6 +2635,9 @@ app.get('/api/inventory/counting-mode/:location', authenticateToken, (req, res) 
     </div>
     
     <script>
+        const authToken = (new URLSearchParams(location.search)).get('token') || '';
+        if (!authToken) console.warn('Counting mode: no auth token supplied via ?token=');
+        
         async function saveCount(itemId) {
             const newCount = document.getElementById('count_' + itemId).value;
             const response = await fetch('/api/inventory/update-count', {
@@ -2085,12 +2661,16 @@ app.get('/api/inventory/counting-mode/:location', authenticateToken, (req, res) 
         
         async function saveAllCounts() {
             const updates = [];
-            ${itemsInLocation.map(item => `
+            ${itemsInLocation
+              .map(
+                (item) => `
                 updates.push({
                     itemId: ${item.id},
                     newCount: parseInt(document.getElementById('count_${item.id}').value)
                 });
-            `).join('')}
+            `,
+              )
+              .join("")}
             
             // Implementation for batch update
             alert('All counts saved! (Feature in development)');
@@ -2099,108 +2679,144 @@ app.get('/api/inventory/counting-mode/:location', authenticateToken, (req, res) 
 </body>
 </html>
     `);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to generate counting interface'
-    });
-  }
-});
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: "Failed to generate counting interface",
+      });
+    }
+  },
+);
 
 // AI Assistant Chat Endpoint
-app.post('/api/ai/chat', authenticateToken, (req, res) => {
+app.post("/api/ai/chat", authenticateToken, (req, res) => {
   try {
     const { message } = req.body;
-    
+
     if (!message || message.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Message is required'
+        error: "Message is required",
       });
     }
-    
+
     const lowerMessage = message.toLowerCase();
-    let response = '';
-    
-    if (lowerMessage.includes('move') || lowerMessage.includes('reorganize') || lowerMessage.includes('organize')) {
-      const misplacedCount = inventory.filter(item => {
-        const category = item.category?.toLowerCase() || '';
-        const shouldBeInFreezer = category.includes('meat') || category.includes('frozen');
-        const shouldBeInCooler = category.includes('dairy') || category.includes('produce');
-        const isInWrongPlace = (shouldBeInFreezer && !item.location.includes('Freezer')) ||
-                              (shouldBeInCooler && !item.location.includes('Cooler'));
+    let response = "";
+
+    if (
+      lowerMessage.includes("move") ||
+      lowerMessage.includes("reorganize") ||
+      lowerMessage.includes("organize")
+    ) {
+      const misplacedCount = inventory.filter((item) => {
+        const category = item.category?.toLowerCase() || "";
+        const shouldBeInFreezer =
+          category.includes("meat") || category.includes("frozen");
+        const shouldBeInCooler =
+          category.includes("dairy") || category.includes("produce");
+        const isInWrongPlace =
+          (shouldBeInFreezer && !item.location.includes("Freezer")) ||
+          (shouldBeInCooler && !item.location.includes("Cooler"));
         return isInWrongPlace;
       }).length;
-      
+
       if (misplacedCount > 0) {
         response = `🤖 I found ${misplacedCount} items that should be moved:\n\n`;
-        inventory.filter(item => {
-          const category = item.category?.toLowerCase() || '';
-          const shouldBeInFreezer = category.includes('meat') || category.includes('frozen');
-          const shouldBeInCooler = category.includes('dairy') || category.includes('produce');
-          const isInWrongPlace = (shouldBeInFreezer && !item.location.includes('Freezer')) ||
-                                (shouldBeInCooler && !item.location.includes('Cooler'));
-          return isInWrongPlace;
-        }).slice(0, 3).forEach(item => {
-          const name = item.name?.en || item.name || 'Unknown Item';
-          const suggested = item.category?.toLowerCase().includes('meat') ? 'Freezer A1' : 
-                           item.category?.toLowerCase().includes('dairy') ? 'Cooler B2' : 'Cooler B3';
-          response += `• Move "${name}" from ${item.location} to ${suggested}\n`;
-        });
-        response += '\nThis will improve food safety and organization!';
+        inventory
+          .filter((item) => {
+            const category = item.category?.toLowerCase() || "";
+            const shouldBeInFreezer =
+              category.includes("meat") || category.includes("frozen");
+            const shouldBeInCooler =
+              category.includes("dairy") || category.includes("produce");
+            const isInWrongPlace =
+              (shouldBeInFreezer && !item.location.includes("Freezer")) ||
+              (shouldBeInCooler && !item.location.includes("Cooler"));
+            return isInWrongPlace;
+          })
+          .slice(0, 3)
+          .forEach((item) => {
+            const name = item.name?.en || item.name || "Unknown Item";
+            const suggested = item.category?.toLowerCase().includes("meat")
+              ? "Freezer A1"
+              : item.category?.toLowerCase().includes("dairy")
+                ? "Cooler B2"
+                : "Cooler B3";
+            response += `• Move "${name}" from ${item.location} to ${suggested}\n`;
+          });
+        response += "\nThis will improve food safety and organization!";
       } else {
         response = `🤖 Great news! All items are already in their optimal storage locations.`;
       }
-    } else if (lowerMessage.includes('count') || lowerMessage.includes('sheet') || lowerMessage.includes('audit')) {
+    } else if (
+      lowerMessage.includes("count") ||
+      lowerMessage.includes("sheet") ||
+      lowerMessage.includes("audit")
+    ) {
       const locationCount = Object.keys(storageLocations).length;
       response = `🤖 I can generate count sheets for all ${locationCount} storage locations.\n\nEach sheet will include:\n• Items organized by category\n• Current quantities\n• Space for counted quantities\n• Discrepancy calculations\n\nUse the count sheets feature to generate printable sheets for each location.`;
-    } else if (lowerMessage.includes('location') || lowerMessage.includes('where')) {
+    } else if (
+      lowerMessage.includes("location") ||
+      lowerMessage.includes("where")
+    ) {
       response = `🤖 Here are your storage locations:\n\n`;
       Object.entries(storageLocations).forEach(([name, info]) => {
-        const itemCount = inventory.filter(item => item.location === name).length;
+        const itemCount = inventory.filter(
+          (item) => item.location === name,
+        ).length;
         response += `• ${name} (${info.type}, ${info.temp}) - ${itemCount} items\n`;
       });
-    } else if (lowerMessage.includes('capacity') || lowerMessage.includes('space') || lowerMessage.includes('full')) {
+    } else if (
+      lowerMessage.includes("capacity") ||
+      lowerMessage.includes("space") ||
+      lowerMessage.includes("full")
+    ) {
       response = `🤖 Storage capacity overview:\n\n`;
       Object.entries(storageLocations).forEach(([name, info]) => {
-        const utilization = ((info.currentUsage / info.capacity) * 100).toFixed(1);
-        const status = utilization > 90 ? '🔴' : utilization > 70 ? '🟡' : '🟢';
+        const utilization = ((info.currentUsage / info.capacity) * 100).toFixed(
+          1,
+        );
+        const status = utilization > 90 ? "🔴" : utilization > 70 ? "🟡" : "🟢";
         response += `${status} ${name}: ${utilization}% full (${info.currentUsage}/${info.capacity})\n`;
       });
     } else {
       response = `🤖 I'm your inventory AI assistant! I can help you with:\n\n• 📦 Moving products to optimal locations\n• 📋 Generating count sheets for inventory audits\n• 📍 Finding where items are stored\n• 📊 Checking storage capacity and utilization\n\nTry asking: "Move products to proper locations" or "Generate count sheets"`;
     }
-    
+
     res.json({
       success: true,
       response,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to process AI chat request',
-      details: error.message
+      error: "Failed to process AI chat request",
+      details: error.message,
     });
   }
 });
 
 // Generate count sheets for specific location
-app.get('/api/ai/count-sheets/:location', authenticateToken, (req, res) => {
+app.get("/api/ai/count-sheets/:location", authenticateToken, (req, res) => {
   try {
     const { location } = req.params;
-    const locationItems = inventory.filter(item => item.location === location);
-    
+    const locationItems = inventory.filter(
+      (item) => item.location === location,
+    );
+
     if (locationItems.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'No items found in this location'
+        error: "No items found in this location",
       });
     }
-    
-    const locationInfo = storageLocations[location] || { type: 'Unknown', temp: 'N/A' };
-    
+
+    const locationInfo = storageLocations[location] || {
+      type: "Unknown",
+      temp: "N/A",
+    };
+
     // Generate simple HTML for printing
     const html = `<!DOCTYPE html>
 <html>
@@ -2227,15 +2843,19 @@ app.get('/api/ai/count-sheets/:location', authenticateToken, (req, res) => {
             <tr><th>Item Name</th><th>Category</th><th>Current Qty</th><th>Counted Qty</th><th>Difference</th></tr>
         </thead>
         <tbody>
-            ${locationItems.map(item => `
+            ${locationItems
+              .map(
+                (item) => `
                 <tr>
-                    <td>${item.name?.en || item.name || 'Unknown Item'}</td>
-                    <td>${item.category || 'N/A'}</td>
-                    <td>${item.quantity} ${item.unit || 'units'}</td>
+                    <td>${item.name?.en || item.name || "Unknown Item"}</td>
+                    <td>${item.category || "N/A"}</td>
+                    <td>${item.quantity} ${item.unit || "units"}</td>
                     <td><div class="count-box"></div></td>
                     <td><div class="count-box"></div></td>
                 </tr>
-            `).join('')}
+            `,
+              )
+              .join("")}
         </tbody>
     </table>
     <div style="margin-top: 30px;">
@@ -2243,2407 +2863,857 @@ app.get('/api/ai/count-sheets/:location', authenticateToken, (req, res) => {
     </div>
 </body>
 </html>`;
-    
-    res.setHeader('Content-Type', 'text/html');
+
+    res.setHeader("Content-Type", "text/html");
     res.send(html);
-    
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to generate count sheet',
-      details: error.message
+      error: "Failed to generate count sheet",
+      details: error.message,
     });
   }
 });
 
 // Health check
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
-    status: 'healthy',
-    service: 'Complete Bilingual Inventory System',
-    version: '3.0',
+    status: "healthy",
+    service: "Complete Bilingual Inventory System",
+    version: "3.0",
     features: {
       bilingual: true,
       syscoCatalog: syscoCatalog.length,
       gfsOrders: gfsOrders.length,
       storageLocations: Object.keys(storageLocations).length,
-      inventoryItems: inventory.length
-    }
+      inventoryItems: inventory.length,
+    },
   });
 });
 
 // Main bilingual interface
-app.get('/', (req, res) => {
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏕️ Complete Bilingual Inventory System</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            color: white;
-            min-height: 100vh;
-        }
-        
-        .login-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        
-        .login-box {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-        }
-        
-        .lang-switch {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-        }
-        
-        .lang-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            cursor: pointer;
-            margin-left: 5px;
-            transition: all 0.3s ease;
-        }
-        
-        .lang-btn.active {
-            background: #4CAF50;
-        }
-        
-        .dashboard {
-            display: none;
-            min-height: 100vh;
-        }
-        
-        .header {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .nav-tabs {
-            display: flex;
-            gap: 10px;
-            margin: 20px;
-        }
-        
-        .nav-tab {
-            padding: 12px 24px;
-            background: rgba(255,255,255,0.1);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .nav-tab.active {
-            background: #4CAF50;
-        }
-        
-        .content {
-            padding: 20px;
-        }
-        
-        .inventory-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-        
-        .inventory-item {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .item-name {
-            font-size: 18px;
-            font-weight: bold;
-        }
-        
-        .status-badge {
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        
-        .status-outOfStock { background: #F44336; }
-        .status-lowStock { background: #FF9800; }
-        .status-normal { background: #4CAF50; }
-        .status-high { background: #2196F3; }
-        
-        .storage-location {
-            background: rgba(0,0,0,0.2);
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-size: 14px;
-        }
-        
-        .catalog-search {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            padding: 12px 20px;
-            border-radius: 8px;
-            color: white;
-            width: 100%;
-            max-width: 500px;
-            margin-bottom: 20px;
-        }
-        
-        .catalog-item {
-            background: rgba(255,255,255,0.05);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .btn {
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        
-        .btn:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-        }
-        
-        .btn-small {
-            padding: 5px 10px;
-            font-size: 12px;
-        }
-        
-        .btn-danger {
-            background: linear-gradient(45deg, #FF6B6B, #F44336);
-        }
-        
-        .btn-secondary {
-            background: linear-gradient(45deg, #2196F3, #1976D2);
-        }
-        
-        input, select {
-            padding: 12px;
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            background: rgba(255,255,255,0.1);
-            color: white;
-            width: 100%;
-            margin-bottom: 15px;
-        }
-        
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .metric-card {
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-        }
-        
-        .metric-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        
-        .metric-label {
-            color: #ccc;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-    </style>
-</head>
-<body>
-    <div class="lang-switch">
-        <button class="lang-btn active" onclick="setLanguage('english')">English</button>
-        <button class="lang-btn" onclick="setLanguage('french')">Français</button>
-    </div>
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "professional-inventory.html"));
+});
+
+// Legacy embedded interface removed due to syntax conflicts
+
+app.post(
+  "/api/inventory/items/:id/allocate-locations",
+  authenticateToken,
+  (req, res) => {
+    const id = req.params.id;
+    const { allocations } = req.body; // [{location, qty}]
+    const item = inventory.find((i) => String(i.id) === String(id));
+    if (!item)
+      return res.status(404).json({ success: false, error: "Item not found" });
+
+    // validate locations
+    for (const a of allocations) {
+      if (!storageLocations[a.location]) {
+        return res
+          .status(400)
+          .json({ success: false, error: `Invalid location ${a.location}` });
+      }
+    }
+    // apply
+    item.byLocation = item.byLocation || {};
+    allocations.forEach(({ location, qty }) => {
+      item.byLocation[location] = Math.max(0, parseInt(qty) || 0);
+    });
+    // remove zeros
+    Object.keys(item.byLocation).forEach((loc) => {
+      if (!item.byLocation[loc]) delete item.byLocation[loc];
+    });
+    // recompute
+    item.locations = Object.keys(item.byLocation);
+    item.location = item.locations[0] || item.location || "";
+    item.quantity = Object.values(item.byLocation).reduce(
+      (s, v) => s + (+v || 0),
+      0,
+    );
+    item.lastModified = new Date().toISOString();
+
+    // learn prefs
+    recordAllocationPref(item.supplierCode || item.stockNumber, allocations);
+
+    res.json({ success: true, item });
+  },
+);
+
+// API: receive an order in one go (auto-suggest + ask when multi)
+app.post("/api/orders/receive/:orderId", authenticateToken, (req, res) => {
+  const { orderId } = req.params;
+  const { decisions = [] } = req.body; // optional: [{stockNumber, allocations:[{location,qty}]}]
+
+  const order = gfsOrders.find((o) => o.orderId === orderId);
+  if (!order)
+    return res.status(404).json({ success: false, error: "Order not found" });
+
+  // build work list
+  const items = (order.items || []).map((it) => {
+    const code = it.productCode || it.itemCode;
+    const qty = +it.quantity || 0;
+    const name = it.productName || it.itemDescription || `Item ${code}`;
+    const category = it.category || "Uncategorized";
+    const pref = suggestAllocations(code, qty, category);
+    return { stockNumber: code, name, qty, category, suggested: pref };
+  });
+
+  // apply decisions if provided
+  const applied = [];
+  for (const dec of decisions) {
+    let inv = inventory.find((i) => i.supplierCode === dec.stockNumber);
+    if (!inv) {
+      // create an item if missing
+      const sug = items.find((x) => x.stockNumber === dec.stockNumber) || {};
+      const baseQty = dec.allocations.reduce((s, a) => s + (+a.qty || 0), 0);
+      const firstLoc =
+        dec.allocations[0]?.location || assignStorageLocation(sug.category);
+      const newItem = {
+        id: Date.now() + Math.random(),
+        name: {
+          en: sug.name || `Item ${dec.stockNumber}`,
+          fr: sug.name || `Article ${dec.stockNumber}`,
+        },
+        supplierCode: dec.stockNumber,
+        category: sug.category || "Uncategorized",
+        unit: "each",
+        supplier: "GFS",
+        byLocation: {},
+        locations: [],
+        location: firstLoc,
+        quantity: 0,
+        minQuantity: Math.max(1, Math.floor(baseQty * 0.2)),
+        maxQuantity: baseQty * 3,
+        lastOrderDate: new Date().toISOString().slice(0, 10),
+      };
+      inventory.push(newItem);
+      inv = newItem;
+    }
+    inv.byLocation = inv.byLocation || {};
+    dec.allocations.forEach(({ location, qty }) => {
+      inv.byLocation[location] =
+        (inv.byLocation[location] || 0) + Math.max(0, parseInt(qty) || 0);
+    });
+    inv.locations = Object.keys(inv.byLocation);
+    inv.location = inv.locations[0] || inv.location || "";
+    inv.quantity = Object.values(inv.byLocation).reduce(
+      (s, v) => s + (+v || 0),
+      0,
+    );
+    inv.lastOrderDate = new Date().toISOString().slice(0, 10);
+
+    recordAllocationPref(inv.supplierCode, dec.allocations);
+    applied.push({
+      stockNumber: inv.supplierCode,
+      total: inv.quantity,
+      byLocation: inv.byLocation,
+    });
+  }
+
+  res.json({
+    success: true,
+    orderId,
+    items, // has .suggested allocations per item
+    applied, // what we actually applied (if decisions were sent)
+  });
+});
+
+// API: get location preferences for a specific stock number
+app.get("/api/location-preferences/:stock", authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    stock: req.params.stock,
+    prefs: locationPrefs[req.params.stock] || [],
+  });
+});
+
+// Dev debug endpoint to confirm user bootstrap worked
+if (!IS_PRODUCTION) {
+  app.get("/api/debug/users-count", (_req, res) => {
+    res.json({ count: users.length, emails: users.map((u) => u.email) });
+  });
+  
+  // DEV ONLY: recreate admin (remove or protect in prod)
+  app.post('/api/dev/reset-admin', async (_req, res) => {
+    try {
+      const email = process.env.ADMIN_BOOTSTRAP_EMAIL;
+      const password = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+      if (!email || !password) return res.status(400).json({ success:false, error:'Missing ADMIN_BOOTSTRAP_* envs' });
+      
+      // Hash the password
+      const passwordHash = await bcrypt.hash(password, 12);
+      
+      // Find existing user or create new
+      const existingUserIndex = users.findIndex(u => u.email === email);
+      const userData = {
+        id: existingUserIndex >= 0 ? users[existingUserIndex].id : users.length + 1,
+        email,
+        name: "Admin",
+        role: "admin",
+        passwordHash,
+        createdAt: new Date().toISOString(),
+      };
+      
+      if (existingUserIndex >= 0) {
+        users[existingUserIndex] = userData;
+      } else {
+        users.push(userData);
+      }
+      
+      res.json({ success:true, email, message: 'Admin reset successfully' });
+    } catch (e) {
+      res.status(500).json({ success:false, error:'Failed to reset admin: ' + e.message });
+    }
+  });
+}
+
+// ========== TEST ENDPOINT ==========
+app.get('/api/test-endpoint', (req, res) => {
+  res.json({ success: true, message: 'Test endpoint works!' });
+});
+
+// ========== Stock Transfer (move qty between locations) ==========
+// Note: Using simple validation instead of zod to avoid new dependencies
+app.post('/api/inventory/transfer', authenticateToken, async (req, res) => {
+  try {
+    const { stockNumber, itemId, fromLocation, toLocation, quantity, reason, ordersContext, learningData } = req.body || {};
+    const qtyNum = Number(quantity);
     
-    <!-- LOGIN -->
-    <div id="loginScreen" class="login-container">
-        <div class="login-box">
-            <h1 id="loginTitle">🏕️ AI Inventory Management</h1>
-            <p id="loginSubtitle">Complete Bilingual System</p>
-            <form id="loginForm">
-                <label for="email" class="sr-only">Email Address</label>
-                <input type="email" id="email" placeholder="Email" value="david.mikulis@camp-inventory.com" autocomplete="email" required>
-                <label for="password" class="sr-only">Password</label>
-                <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
-                <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">Login</button>
-            </form>
-        </div>
-    </div>
+    // Validation
+    if (!qtyNum || qtyNum <= 0 || !Number.isInteger(qtyNum)) {
+      return res.status(400).json({ success: false, error: 'quantity must be a positive integer' });
+    }
+    if (!fromLocation || !toLocation) {
+      return res.status(400).json({ success: false, error: 'fromLocation and toLocation are required' });
+    }
+    if (fromLocation === toLocation) {
+      return res.status(400).json({ success: false, error: 'fromLocation and toLocation are identical' });
+    }
+    if (!storageLocations[fromLocation] || !storageLocations[toLocation]) {
+      return res.status(404).json({ success: false, error: 'Unknown from/to location' });
+    }
+
+    // find item by itemId or supplierCode
+    let item = null;
+    if (itemId != null) {
+      item = inventory.find(i => String(i.id) === String(itemId));
+    } else if (stockNumber) {
+      item = inventory.find(i => (i.supplierCode || '').toLowerCase() === stockNumber.toLowerCase());
+    }
+    if (!item) return res.status(404).json({ success: false, error: 'Item not found' });
+
+    item.byLocation = item.byLocation || {};
+    const available = Number(item.byLocation[fromLocation] || 0);
+    if (available < qtyNum) {
+      return res.status(400).json({ success: false, error: `Insufficient stock in ${fromLocation} (have ${available}, need ${qtyNum})` });
+    }
+
+    // apply move
+    item.byLocation[fromLocation] = available - qtyNum;
+    item.byLocation[toLocation] = Number(item.byLocation[toLocation] || 0) + qtyNum;
+
+    // maintain locations array
+    item.locations = Array.isArray(item.locations) ? item.locations : [];
+    if (!item.locations.includes(toLocation)) item.locations.push(toLocation);
+    if (item.byLocation[fromLocation] === 0) {
+      // optionally remove empty location from list (keeps UI tidy)
+      item.locations = item.locations.filter(l => l !== fromLocation);
+    }
+
+    // quantity (total) unchanged; nudge location usage if you track it
+    if (storageLocations[fromLocation]) {
+      storageLocations[fromLocation].currentUsage = Math.max(0, Number(storageLocations[fromLocation].currentUsage || 0) - qtyNum);
+    }
+    if (storageLocations[toLocation]) {
+      storageLocations[toLocation].currentUsage = Math.max(0, Number(storageLocations[toLocation].currentUsage || 0) + qtyNum);
+    }
+
+    // AI Learning: Log the transfer for machine learning
+    if (learningData) {
+      const aiLearningEntry = {
+        timestamp: new Date().toISOString(),
+        action: 'stock_transfer',
+        itemId: item.id,
+        itemName: item.name?.en || item.name || 'Unknown',
+        fromLocation,
+        toLocation,
+        quantity: qtyNum,
+        reason: reason || 'Manual transfer',
+        hasOrders: learningData.hasOrders || false,
+        orderCount: learningData.orderCount || 0,
+        suppliers: learningData.suppliers || [],
+        peopleCount: learningData.peopleCount || null,
+        userInitiated: true,
+        ordersContext: ordersContext || []
+      };
+      
+      // Log to console for now (could be saved to file or database later)
+      console.log('🤖 AI Learning Data:', JSON.stringify(aiLearningEntry, null, 2));
+      
+      // TODO: In the future, save this to a learning database for AI training
+      // await saveLearningData(aiLearningEntry);
+    }
+
+    return res.json({ 
+      success: true, 
+      itemId: item.id, 
+      stockNumber: item.supplierCode, 
+      fromLocation, 
+      toLocation, 
+      qty: qtyNum,
+      learningLogged: !!learningData
+    });
+  } catch (e) {
+    console.error('transfer error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to transfer stock' });
+  }
+});
+
+// Smart Quantity Update with AI Learning
+app.post('/api/inventory/update-quantity', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      itemId, 
+      newQuantity, 
+      reason, 
+      newMin, 
+      newMax, 
+      includeInReordering, 
+      previousQuantity, 
+      aiLearningData 
+    } = req.body || {};
     
-    <!-- DASHBOARD -->
-    <div id="dashboard" class="dashboard">
-        <div class="header">
-            <h1 id="title">🏕️ AI Inventory Management System</h1>
-            <div>
-                <span id="userName">David Mikulis</span>
-                <button class="btn" onclick="logout()">Logout</button>
-            </div>
-        </div>
-        
-        <div class="nav-tabs">
-            <button class="nav-tab active" onclick="showTab('inventory')" id="navInventory">Inventory</button>
-            <button class="nav-tab" onclick="showTab('catalog')" id="navCatalog">Sysco Catalog (2932)</button>
-            <button class="nav-tab" onclick="showTab('orders')" id="navOrders">GFS Orders</button>
-            <button class="nav-tab" onclick="showTab('storage')" id="navStorage">Storage Locations</button>
-            <button class="nav-tab" onclick="showTab('suppliers')" id="navSuppliers">Suppliers</button>
-            <button class="nav-tab" onclick="showTab('ai-assistant')" id="navAI">🤖 AI Assistant</button>
-        </div>
-        
-        <div class="content">
-            <!-- Metrics -->
-            <div class="metrics">
-                <div class="metric-card">
-                    <div class="metric-value" id="totalItems">--</div>
-                    <div class="metric-label" id="labelTotalItems">Total Items</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value" id="criticalItems">--</div>
-                    <div class="metric-label" id="labelCriticalItems">Critical Items</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value" id="totalValue">--</div>
-                    <div class="metric-label" id="labelTotalValue">Total Value</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value" id="storageUtilization">--</div>
-                    <div class="metric-label" id="labelStorageUtil">Storage Utilization</div>
-                </div>
-            </div>
-            
-            <!-- Inventory Tab -->
-            <div id="inventoryTab" class="tab-content">
-                <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
-                    <h2>Complete Inventory System</h2>
-                    <div style="margin-left: auto;">
-                        <button onclick="downloadInventory('csv')" class="btn" style="background: #4CAF50; margin-right: 10px;">📥 Download CSV</button>
-                        <button onclick="downloadInventory('json')" class="btn" style="background: #2196F3;">📥 Download JSON</button>
-                    </div>
-                </div>
-                
-                <!-- Quick Add & Location Management -->
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-                    <h3>🚀 Quick Add Item</h3>
-                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <input type="text" id="quickAddCode" placeholder="Enter product/stock number..." style="flex: 1; padding: 8px; border-radius: 5px; border: none;">
-                        <select id="quickAddLocation" style="padding: 8px; border-radius: 5px; border: none;">
-                            <option value="">Select Location</option>
-                        </select>
-                        <input type="number" id="quickAddQuantity" placeholder="Qty" value="1" style="width: 80px; padding: 8px; border-radius: 5px; border: none;">
-                        <button onclick="quickAddItem()" class="btn" style="background: #FF9800;">➕ Add</button>
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <span>🗂️ View by Location:</span>
-                        <select id="locationFilter" onchange="filterByLocation()" style="padding: 5px; border-radius: 5px; border: none;">
-                            <option value="">All Locations</option>
-                            <option value="NO_LOCATION" style="color: #ff9800;">⚠️ Items Without Location</option>
-                        </select>
-                        <button onclick="toggleNoLocationFilter()" class="btn" id="noLocationBtn" style="background: #ff9800;">
-                            <span id="noLocationBtnText">🚨 Show Only No Location</span>
-                        </button>
-                        <button onclick="showCountingMode()" class="btn" style="background: #9C27B0;">📝 Counting Mode</button>
-                        <button onclick="startInventoryProcess()" class="btn" style="background: #795548;">📊 Process Inventory</button>
-                    </div>
-                </div>
-                
-                <!-- Stock Number Location Assignment -->
-                <div style="background: rgba(76,175,80,0.1); border-radius: 10px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #4CAF50;">
-                    <h3 style="margin-top: 0; color: #4CAF50;">📍 Assign Location by Stock Number</h3>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="stockNumberInput" placeholder="Enter Stock Number (e.g., SKU, Supplier Code)" style="flex: 1; padding: 8px; border-radius: 5px; border: none;">
-                        <select id="assignLocationSelect" style="padding: 8px; border-radius: 5px; border: none;">
-                            <option value="">Select Location</option>
-                        </select>
-                        <button onclick="assignLocationByStock()" class="btn" style="background: #4CAF50;">📍 Assign</button>
-                    </div>
-                    <div id="stockSearchResult" style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 5px; display: none;"></div>
-                </div>
-                
-                <div id="inventoryGrid" class="inventory-grid"></div>
-            </div>
-            
-            <!-- Catalog Tab -->
-            <div id="catalogTab" class="tab-content" style="display: none;">
-                <input type="text" class="catalog-search" placeholder="Search Sysco catalog..." id="catalogSearch">
-                <div id="catalogItems"></div>
-            </div>
-            
-            <!-- Orders Tab -->
-            <div id="ordersTab" class="tab-content" style="display: none;">
-                <h2>GFS Order History</h2>
-                <div id="gfsOrders"></div>
-            </div>
-            
-            <!-- Storage Tab -->
-            <div id="storageTab" class="tab-content" style="display: none;">
-                <h2>Storage Locations</h2>
-                
-                <!-- Add New Location Button -->
-                <div style="margin-bottom: 20px;">
-                    <button class="btn" onclick="showAddLocationForm()">➕ Add New Location</button>
-                </div>
-                
-                <!-- Add/Edit Location Form -->
-                <div id="locationForm" style="display: none; background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                    <h3 id="formTitle">Add New Storage Location</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0;">
-                        <div>
-                            <label>Location Name *</label>
-                            <input type="text" id="locationName" placeholder="e.g., Freezer A4" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
-                        </div>
-                        <div>
-                            <label>Type *</label>
-                            <select id="locationType" onchange="suggestTemperature()" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
-                                <option value="">Select Type</option>
-                                <option value="Freezer">Freezer</option>
-                                <option value="Cooler">Cooler</option>
-                                <option value="Dry Storage">Dry Storage</option>
-                                <option value="Pantry">Pantry</option>
-                                <option value="Wine Cellar">Wine Cellar</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label>Temperature * <small style="color: #666;">(auto-suggests, but you can change)</small></label>
-                            <input type="text" id="locationTemp" placeholder="Select type first for auto-suggestion" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
-                        </div>
-                        <div>
-                            <label>Capacity *</label>
-                            <input type="number" id="locationCapacity" placeholder="e.g., 1000" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;">
-                        </div>
-                    </div>
-                    <div style="margin-top: 15px;">
-                        <button class="btn" onclick="saveLocation()">💾 Save Location</button>
-                        <button class="btn btn-secondary" onclick="cancelLocationForm()" style="margin-left: 10px;">❌ Cancel</button>
-                    </div>
-                </div>
-                
-                <div id="storageLocations"></div>
-            </div>
-            
-            <!-- Suppliers Tab -->
-            <div id="suppliersTab" class="tab-content" style="display: none;">
-                <h2>Supplier Information</h2>
-                <div id="suppliersList"></div>
-            </div>
-            
-            <!-- AI Assistant Tab -->
-            <div id="ai-assistantTab" class="tab-content" style="display: none;">
-                <h2>🤖 AI Inventory Assistant</h2>
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-                    <h3>💬 Ask Your AI Assistant</h3>
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <label for="aiChatInput" class="sr-only">Ask AI Assistant</label>
-                        <input type="text" id="aiChatInput" placeholder="Ask me to move products to proper locations or generate count sheets..." 
-                               style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" autocomplete="off">
-                        <button onclick="sendAIMessage()" class="btn" style="background: #4CAF50;">Send</button>
-                    </div>
-                    <div id="aiChatResponse" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 5px; min-height: 100px; white-space: pre-line; font-family: monospace;">
-                        🤖 Hello! I'm your inventory AI assistant. Ask me to:
-                        • Move products to optimal locations
-                        • Generate count sheets for audits
-                        • Check storage capacity
-                        • Find item locations
-                    </div>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px;">
-                        <h3>📦 Quick Actions</h3>
-                        <button onclick="askAI('move products to proper locations')" class="btn" style="background: #2196F3; margin: 5px;">Organize Inventory</button>
-                        <button onclick="askAI('show me storage capacity')" class="btn" style="background: #FF9800; margin: 5px;">Check Capacity</button>
-                        <button onclick="askAI('where are my items located?')" class="btn" style="background: #9C27B0; margin: 5px;">Find Locations</button>
-                    </div>
-                    
-                    <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 20px;">
-                        <h3>📋 Count Sheets</h3>
-                        <p>Generate printable count sheets for physical inventory:</p>
-                        <div id="countSheetsList">
-                            <!-- Will be populated with location buttons -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    // Validation
+    const qtyNum = Number(newQuantity);
+    if (isNaN(qtyNum) || qtyNum < 0) {
+      return res.status(400).json({ success: false, error: 'newQuantity must be a non-negative number' });
+    }
     
-    <script>
-        let currentLanguage = 'english';
-        let authToken = null;
-        let showNoLocationOnly = false;
-        const translations = ${JSON.stringify(translations)};
-        
-        function setLanguage(lang) {
-            currentLanguage = lang;
-            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            updateUILanguage();
-            if (authToken) loadData();
+    if (!itemId || !reason) {
+      return res.status(400).json({ success: false, error: 'itemId and reason are required' });
+    }
+    
+    // Find the item
+    let item = inventory.find(i => String(i.id) === String(itemId));
+    if (!item) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+    
+    // Store previous state for learning
+    const previousState = {
+      quantity: item.quantity,
+      minQuantity: item.minQuantity,
+      maxQuantity: item.maxQuantity,
+      includeInReordering: item.includeInReordering
+    };
+    
+    // Update item properties
+    item.quantity = qtyNum;
+    item.lastUpdated = new Date().toISOString();
+    item.lastUpdateReason = reason;
+    
+    // Update min/max if provided
+    if (newMin !== undefined && newMin >= 0) {
+      item.minQuantity = Number(newMin);
+    }
+    if (newMax !== undefined && newMax >= 0) {
+      item.maxQuantity = Number(newMax);
+    }
+    
+    // Update auto-reordering preference
+    item.includeInReordering = includeInReordering === 'yes';
+    item.askBeforeReordering = includeInReordering === 'ask';
+    
+    // Update location quantities if item has locations
+    if (item.byLocation && Object.keys(item.byLocation).length > 0) {
+      // Distribute new quantity proportionally across existing locations
+      const totalCurrentQty = Object.values(item.byLocation).reduce((sum, qty) => sum + (qty || 0), 0);
+      
+      if (totalCurrentQty > 0) {
+        // Proportional distribution
+        const ratio = qtyNum / totalCurrentQty;
+        for (const location in item.byLocation) {
+          item.byLocation[location] = Math.floor(item.byLocation[location] * ratio);
         }
         
-        function updateUILanguage() {
-            const t = translations[currentLanguage];
-            document.getElementById('title').textContent = '🏕️ ' + t.title;
-            document.getElementById('navInventory').textContent = t.inventory;
-            document.getElementById('navCatalog').textContent = t.syscoCatalog + ' (2932)';
-            document.getElementById('navOrders').textContent = t.gfsOrders;
-            document.getElementById('navStorage').textContent = t.storage;
-            document.getElementById('navSuppliers').textContent = t.suppliers;
-            document.getElementById('labelTotalItems').textContent = t.totalItems;
-            document.getElementById('labelCriticalItems').textContent = t.criticalItems;
-            document.getElementById('labelTotalValue').textContent = t.totalValue;
-            document.getElementById('catalogSearch').placeholder = t.search;
+        // Handle any rounding remainder
+        const distributedTotal = Object.values(item.byLocation).reduce((sum, qty) => sum + qty, 0);
+        const remainder = qtyNum - distributedTotal;
+        if (remainder > 0) {
+          const firstLocation = Object.keys(item.byLocation)[0];
+          item.byLocation[firstLocation] += remainder;
         }
+      } else if (qtyNum > 0) {
+        // If all locations were at 0, put everything in the primary location
+        const primaryLocation = item.location || item.locations?.[0] || 'Storage Room Dry Back';
+        item.byLocation = { [primaryLocation]: qtyNum };
+        if (!item.locations || !item.locations.includes(primaryLocation)) {
+          item.locations = item.locations || [];
+          item.locations.push(primaryLocation);
+        }
+      }
+    }
+    
+    // AI Learning: Log the quantity adjustment for machine learning
+    const learningEntry = {
+      timestamp: new Date().toISOString(),
+      action: aiLearningData?.action || 'quantity_adjustment',
+      itemId: item.id,
+      itemName: item.name?.en || item.name || 'Unknown',
+      category: item.category || 'General',
+      supplier: item.supplier || 'Unknown',
+      previousQuantity: previousQuantity || previousState.quantity,
+      newQuantity: qtyNum,
+      quantityChange: qtyNum - (previousQuantity || previousState.quantity),
+      reason: reason,
+      minMaxChanges: {
+        previousMin: previousState.minQuantity,
+        newMin: item.minQuantity,
+        acceptedMinSuggestion: aiLearningData?.userDecision?.acceptedMinSuggestion || false,
+        previousMax: previousState.maxQuantity,
+        newMax: item.maxQuantity,
+        acceptedMaxSuggestion: aiLearningData?.userDecision?.acceptedMaxSuggestion || false
+      },
+      reorderingPreference: {
+        previous: previousState.includeInReordering,
+        new: item.includeInReordering,
+        acceptedSuggestion: aiLearningData?.userDecision?.acceptedAutoReorder || false
+      },
+      ordersContext: aiLearningData?.ordersContext || [],
+      userInitiated: true,
+      isZeroOut: qtyNum === 0,
+      isRestock: qtyNum > (previousQuantity || previousState.quantity),
+      stockoutPattern: {
+        wasOutOfStock: (previousQuantity || previousState.quantity) === 0,
+        nowOutOfStock: qtyNum === 0,
+        stockoutFrequency: await calculateStockoutFrequency(item.id)
+      }
+    };
+    
+    // Log to console for now (could be saved to file or database later)
+    console.log('🤖 Quantity Adjustment AI Learning Data:', JSON.stringify(learningEntry, null, 2));
+    
+    // TODO: Save this learning data to a database for AI training
+    // await saveLearningData(learningEntry);
+    
+    // Generate AI insights for the response
+    const insights = generateStockAdjustmentInsights(learningEntry, item);
+    
+    res.json({ 
+      success: true, 
+      item: {
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        minQuantity: item.minQuantity,
+        maxQuantity: item.maxQuantity,
+        includeInReordering: item.includeInReordering
+      },
+      aiInsights: insights,
+      learningLogged: true
+    });
+    
+  } catch (e) {
+    console.error('quantity update error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to update quantity' });
+  }
+});
+
+// Helper function to calculate stockout frequency for AI learning
+async function calculateStockoutFrequency(itemId) {
+  // In a real implementation, this would query historical data
+  // For now, return a placeholder that could be enhanced
+  return {
+    totalStockouts: 0, // Would count from historical data
+    averageDaysBetweenStockouts: 0,
+    lastStockoutDate: null,
+    isFrequentStockout: false // Items that stock out more than once per month
+  };
+}
+
+// Generate insights from stock adjustment for user feedback
+function generateStockAdjustmentInsights(learningEntry, item) {
+  const insights = [];
+  
+  if (learningEntry.isZeroOut) {
+    insights.push("🤖 AI Learning: This stockout will help me better predict reorder timing");
+    if (learningEntry.ordersContext.length > 0) {
+      insights.push(`📊 Pattern detected: This item appears in ${learningEntry.ordersContext.length} recent orders`);
+    }
+  }
+  
+  if (learningEntry.isRestock && learningEntry.quantityChange > item.maxQuantity) {
+    insights.push("📈 Notice: New stock exceeds max quantity - consider adjusting max");
+  }
+  
+  if (!item.includeInReordering && learningEntry.ordersContext.length >= 2) {
+    insights.push("💡 Suggestion: This item appears frequently in orders - consider enabling auto-reordering");
+  }
+  
+  if (learningEntry.minMaxChanges.acceptedMinSuggestion && learningEntry.minMaxChanges.acceptedMaxSuggestion) {
+    insights.push("✅ Thanks! Your acceptance of AI suggestions helps improve future recommendations");
+  }
+  
+  return insights;
+}
+
+// ========== Smart Order Processing ==========
+
+// Function to suggest optimal location for an item based on AI learning
+function suggestOptimalLocation(item, existingLocations = [], options = {}) {
+  const { peopleCount, orderQuantity } = options;
+  const suggestions = [];
+  
+  // Get item's order history
+  const itemOrders = getOrdersForItem(item);
+  const orderCount = itemOrders.length;
+  
+  // Rule 1: High-frequency items (3+ orders) go to accessible locations
+  if (orderCount >= 3) {
+    let reason = `High-frequency item (${orderCount} orders) - needs accessible location`;
+    if (peopleCount && orderQuantity) {
+      const portionRatio = orderQuantity / peopleCount;
+      reason += ` (${portionRatio.toFixed(1)} units per person)`;
+    }
+    suggestions.push({
+      location: "Refrigerator Milk Yogourt ",
+      reason: reason,
+      confidence: 0.9
+    });
+  }
+  
+  // Rule 2: Temperature-sensitive items
+  const itemName = (item.name?.en || item.name || '').toLowerCase();
+  if (itemName.includes('milk') || itemName.includes('dairy') || itemName.includes('yogurt')) {
+    let reason = "Dairy product - requires refrigeration";
+    if (peopleCount && orderQuantity) {
+      const portionRatio = orderQuantity / peopleCount;
+      if (portionRatio > 2) reason += " (bulk order - consider secondary storage)";
+    }
+    suggestions.push({
+      location: "Refrigerator Milk Yogourt ",
+      reason: reason,
+      confidence: 0.95
+    });
+  }
+  
+  if (itemName.includes('frozen') || itemName.includes('ice')) {
+    suggestions.push({
+      location: "40FT Freezer",
+      reason: "Frozen product - requires freezer storage",
+      confidence: 0.95
+    });
+  }
+  
+  // Rule 3: Dry goods to pantry
+  if (itemName.includes('flour') || itemName.includes('rice') || itemName.includes('pasta') || itemName.includes('cereal')) {
+    suggestions.push({
+      location: "Main Pantry - Dry Storage",
+      reason: "Dry goods - suitable for pantry storage",
+      confidence: 0.8
+    });
+  }
+  
+  // Rule 4: If item already exists in locations, prefer consolidation
+  if (existingLocations && existingLocations.length === 1) {
+    suggestions.unshift({
+      location: existingLocations[0],
+      reason: "Consolidate with existing stock",
+      confidence: 0.7
+    });
+  }
+  
+  // Default suggestion
+  if (suggestions.length === 0) {
+    suggestions.push({
+      location: "Storage Room Dry Back",
+      reason: "General storage location",
+      confidence: 0.5
+    });
+  }
+  
+  return suggestions;
+}
+
+// Process new order and make intelligent placement decisions
+app.post('/api/orders/process-new', authenticateToken, async (req, res) => {
+  try {
+    const { orderId, items = [], peopleCount } = req.body;
+    
+    if (!orderId || !items.length) {
+      return res.status(400).json({ success: false, error: 'orderId and items array required' });
+    }
+    
+    const placementResults = [];
+    
+    for (const orderItem of items) {
+      // Find corresponding inventory item
+      const inventoryItem = inventory.find(invItem => {
+        const invName = (invItem.name?.en || invItem.name || '').toLowerCase();
+        const orderName = (orderItem.productName || orderItem.name || '').toLowerCase();
+        return invName.includes(orderName) || orderName.includes(invName);
+      });
+      
+      if (inventoryItem) {
+        // Get current locations for this item
+        const currentLocations = Object.keys(inventoryItem.byLocation || {}).filter(loc => 
+          inventoryItem.byLocation[loc] > 0
+        );
         
-        // Login
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    authToken = result.token;
-                    localStorage.setItem('inventory_token', authToken);
-                    document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('dashboard').style.display = 'block';
-                    loadData();
-                } else {
-                    alert('Invalid credentials');
-                }
-            } catch (error) {
-                alert('Login failed');
-            }
+        // Get AI suggestions
+        const suggestions = suggestOptimalLocation(inventoryItem, currentLocations, {
+          peopleCount: peopleCount ? Number(peopleCount) : null,
+          orderQuantity: orderItem.quantity || 1
         });
+        const topSuggestion = suggestions[0];
         
-        // Storage Location Management Functions
-        let editingLocationName = null;
-        
-        function showAddLocationForm() {
-            editingLocationName = null;
-            document.getElementById('formTitle').textContent = 'Add New Storage Location';
-            document.getElementById('locationName').value = '';
-            document.getElementById('locationType').value = '';
-            document.getElementById('locationTemp').value = '';
-            document.getElementById('locationCapacity').value = '';
-            document.getElementById('locationName').disabled = false;
-            document.getElementById('locationForm').style.display = 'block';
-        }
-        
-        function editLocation(locationName) {
-            editingLocationName = locationName;
-            document.getElementById('formTitle').textContent = 'Edit Storage Location';
-            
-            // Find the location data
-            fetch('/api/storage/locations')
-                .then(response => response.json())
-                .then(data => {
-                    const location = data.locations.find(loc => loc.name === locationName);
-                    if (location) {
-                        document.getElementById('locationName').value = location.name;
-                        document.getElementById('locationType').value = location.type;
-                        document.getElementById('locationTemp').value = location.temp;
-                        document.getElementById('locationCapacity').value = location.capacity;
-                        document.getElementById('locationName').disabled = false; // Allow name editing
-                        document.getElementById('locationForm').style.display = 'block';
-                    }
-                });
-        }
-        
-        async function saveLocation() {
-            const name = document.getElementById('locationName').value.trim();
-            const type = document.getElementById('locationType').value;
-            const temp = document.getElementById('locationTemp').value.trim();
-            const capacity = document.getElementById('locationCapacity').value;
-            
-            if (!name || !type || !temp || !capacity) {
-                alert('Please fill in all required fields');
-                return;
-            }
-            
-            const locationData = { type, temp, capacity: parseInt(capacity) };
-            
-            try {
-                let response;
-                if (editingLocationName) {
-                    // Check if name has changed
-                    if (name !== editingLocationName) {
-                        // First rename the location
-                        response = await fetch(\`/api/storage/locations/\${encodeURIComponent(editingLocationName)}/rename\`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': \`Bearer \${authToken}\`
-                            },
-                            body: JSON.stringify({ newName: name })
-                        });
-                        
-                        if (response.status === 403) {
-                            alert('Your session has expired. Please log in again.');
-                            showSection('login');
-                            return;
-                        }
-                        
-                        const renameResult = await response.json();
-                        if (!renameResult.success) {
-                            alert('Error renaming location: ' + renameResult.error);
-                            return;
-                        }
-                        
-                        // If rename successful, update other properties with new name
-                        editingLocationName = name;
-                    }
-                    
-                    // Update existing location properties
-                    response = await fetch(\`/api/storage/locations/\${encodeURIComponent(editingLocationName)}\`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': \`Bearer \${authToken}\`
-                        },
-                        body: JSON.stringify(locationData)
-                    });
-                } else {
-                    // Create new location
-                    response = await fetch('/api/storage/locations', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': \`Bearer \${authToken}\`
-                        },
-                        body: JSON.stringify({ name, ...locationData })
-                    });
-                }
-                
-                if (response.status === 403) {
-                    alert('Your session has expired. Please log in again.');
-                    showSection('login');
-                    return;
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(result.message);
-                    cancelLocationForm();
-                    loadStorageLocations(); // Refresh the list
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        async function deleteLocation(locationName) {
-            if (!confirm(\`Are you sure you want to delete the storage location "\${locationName}"?\`)) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(\`/api/storage/locations/\${encodeURIComponent(locationName)}\`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': \`Bearer \${authToken}\`
-                    }
-                });
-                
-                if (response.status === 403) {
-                    alert('Your session has expired. Please log in again.');
-                    showSection('login');
-                    return;
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(result.message);
-                    loadStorageLocations(); // Refresh the list
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        function cancelLocationForm() {
-            document.getElementById('locationForm').style.display = 'none';
-            editingLocationName = null;
-        }
-        
-        // Auto-suggest temperature based on storage type
-        function suggestTemperature() {
-            const typeSelect = document.getElementById('locationType');
-            const tempInput = document.getElementById('locationTemp');
-            const selectedType = typeSelect.value;
-            
-            // Only suggest if temperature field is empty or contains a previous suggestion
-            const currentTemp = tempInput.value.trim();
-            const shouldSuggest = !currentTemp || 
-                                currentTemp === '-10°F' || 
-                                currentTemp === '38°F' || 
-                                currentTemp === 'Room Temperature' || 
-                                currentTemp === '55-60°F' || 
-                                currentTemp === '50-55°F';
-            
-            if (shouldSuggest) {
-                const tempSuggestions = {
-                    'Freezer': '-10°F',
-                    'Cooler': '38°F', 
-                    'Dry Storage': 'Room Temperature',
-                    'Pantry': 'Room Temperature',
-                    'Wine Cellar': '55-60°F'
-                };
-                
-                if (tempSuggestions[selectedType]) {
-                    tempInput.value = tempSuggestions[selectedType];
-                    // Add visual feedback
-                    tempInput.style.backgroundColor = '#e8f5e8';
-                    setTimeout(() => {
-                        tempInput.style.backgroundColor = '';
-                    }, 1000);
-                }
-            }
-        }
-        
-        // Load storage locations
-        async function loadStorageLocations() {
-            try {
-                const response = await fetch('/api/storage/locations');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const container = document.getElementById('storageLocations');
-                    container.innerHTML = \`
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
-                            \${data.locations.map(loc => \`
-                                <div class="catalog-item">
-                                    <div>
-                                        <strong>\${loc.name}</strong>
-                                        <br><small>Type: \${loc.type} | Temp: \${loc.temp}</small>
-                                        <br><small>Capacity: \${loc.capacity} units</small>
-                                    </div>
-                                    <div>
-                                        <strong>\${loc.utilizationPercent}%</strong> Used
-                                        <br><small>\${loc.currentUsage}/\${loc.capacity} units</small>
-                                        <div style="margin-top: 10px;">
-                                            <button class="btn btn-small" onclick="manageLocationItems('\${loc.name}')">📦 Manage Items</button>
-                                            <button class="btn btn-small" onclick="editLocation('\${loc.name}')" style="margin-left: 5px;">✏️ Edit</button>
-                                            <button class="btn btn-danger btn-small" onclick="deleteLocation('\${loc.name}')" style="margin-left: 5px;">🗑️ Delete</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            \`).join('')}
-                        </div>
-                    \`;
-                    
-                    // Update storage utilization metric
-                    if (data.locations.length > 0) {
-                        const avgUtilization = data.locations.reduce((sum, loc) => sum + parseFloat(loc.utilizationPercent), 0) / data.locations.length;
-                        const utilizationElement = document.getElementById('storageUtilization');
-                        if (utilizationElement) {
-                            utilizationElement.textContent = avgUtilization.toFixed(1) + '%';
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading storage locations:', error);
-                alert('Error loading storage locations: ' + error.message);
-            }
-        }
-        
-        // Load storage tab (main function called by tab switching)
-        function loadStorage() {
-            loadStorageLocations();
-        }
-        
-        // Manage items in a specific location with counting and sequencing
-        async function manageLocationItems(locationName) {
-            try {
-                // Get enhanced location data with counting info
-                const locationResponse = await fetch('/api/inventory/location/' + encodeURIComponent(locationName));
-                const locationData = await locationResponse.json();
-                
-                if (!locationData.success) {
-                    alert('Error loading location data');
-                    return;
-                }
-                
-                // Get storage locations for dropdown
-                const locationsResponse = await fetch('/api/storage/locations');
-                const locationsData = await locationsResponse.json();
-                
-                if (!locationsData.success) {
-                    alert('Error loading storage locations');
-                    return;
-                }
-                
-                const itemsInLocation = locationData.items;
-                const countingSummary = locationData.countingSummary || { pending: 0, counted: 0, discrepancies: 0 };
-                
-                // Create enhanced modal HTML with counting features
-                const modalHtml = '<div id="itemManagementModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center;">' +
-                    '<div style="background: #2c3e50; color: white; padding: 30px; border-radius: 15px; max-width: 95%; max-height: 95%; overflow-y: auto; min-width: 1000px;">' +
-                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">' +
-                            '<h2>📦 ' + locationName + ' - Enhanced Management</h2>' +
-                            '<button onclick="closeItemManagementModal()" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer;">✖ Close</button>' +
-                        '</div>' +
-                        
-                        // Counting Summary
-                        '<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">' +
-                            '<h3>📊 Counting Status</h3>' +
-                            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">' +
-                                '<div><strong>' + itemsInLocation.length + '</strong><br>Total Items</div>' +
-                                '<div style="color: #FFC107;"><strong>' + countingSummary.pending + '</strong><br>Pending</div>' +
-                                '<div style="color: #4CAF50;"><strong>' + countingSummary.counted + '</strong><br>Counted</div>' +
-                                '<div style="color: #f44336;"><strong>' + countingSummary.discrepancies + '</strong><br>Discrepancies</div>' +
-                            '</div>' +
-                        '</div>' +
-                        
-                        '<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">' +
-                            // Main items list with counting
-                            '<div>' +
-                                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">' +
-                                    '<h3>📍 Items in ' + locationName + '</h3>' +
-                                    '<div>' +
-                                        '<button onclick="startCounting(&quot;' + locationName + '&quot;)" class="btn" style="background: #2196F3; margin-right: 10px;">🔢 Start Counting</button>' +
-                                        '<button onclick="toggleSequencing()" class="btn" style="background: #9C27B0;">📋 Reorder Items</button>' +
-                                    '</div>' +
-                                '</div>' +
-                                '<div id="itemsList" style="max-height: 500px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">' +
-                                    (itemsInLocation.length === 0 ? 
-                                        '<p style="color: #bbb; text-align: center;">No items in this location</p>' :
-                                        itemsInLocation.map((item, index) => 
-                                            '<div class="location-item" data-item-id="' + item.id + '" style="background: rgba(255,255,255,0.1); padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 4px solid ' + (item.countingStatus === 'counted' ? '#4CAF50' : item.countingStatus === 'discrepancy' ? '#f44336' : '#FFC107') + ';">' +
-                                                '<div style="display: flex; justify-content: space-between; align-items: flex-start;">' +
-                                                    '<div style="flex: 1;">' +
-                                                        '<strong>' + item.name + '</strong>' +
-                                                        '<br><small>Seq: ' + item.locationSequence + ' | System Qty: ' + item.quantity + ' ' + item.unit + '</small>' +
-                                                        '<br><small>Category: ' + item.category + '</small>' +
-                                                        (item.physicalCount !== undefined ? '<br><small style="color: ' + (item.countDiscrepancy === 0 ? '#4CAF50' : '#f44336') + ';">Physical: ' + item.physicalCount + ' (diff: ' + (item.countDiscrepancy > 0 ? '+' : '') + item.countDiscrepancy + ')</small>' : '') +
-                                                    '</div>' +
-                                                    '<div style="text-align: right;">' +
-                                                        '<input type="number" id="count_' + item.id + '" placeholder="Physical count" value="' + (item.physicalCount !== undefined ? item.physicalCount : item.quantity) + '" style="width: 80px; padding: 4px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px;">' +
-                                                        '<br><button onclick="updatePhysicalCount(' + item.id + ')" class="btn btn-small" style="background: #4CAF50; font-size: 11px;">✓ Count</button>' +
-                                                    '</div>' +
-                                                '</div>' +
-                                            '</div>'
-                                        ).join('')
-                                    ) +
-                                '</div>' +
-                            '</div>' +
-                            
-                            // Quick actions sidebar
-                            '<div>' +
-                                '<h3>⚡ Quick Actions</h3>' +
-                                '<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">' +
-                                    '<button onclick="saveBatchCounts(&quot;' + locationName + '&quot;)" class="btn" style="background: #4CAF50; width: 100%; margin-bottom: 10px;">💾 Save All Counts</button>' +
-                                    '<button onclick="resetCounts(&quot;' + locationName + '&quot;)" class="btn" style="background: #FF9800; width: 100%; margin-bottom: 10px;">🔄 Reset Counts</button>' +
-                                    '<button onclick="exportLocationData(&quot;' + locationName + '&quot;)" class="btn" style="background: #9C27B0; width: 100%; margin-bottom: 10px;">📊 Export Data</button>' +
-                                    '<hr style="margin: 15px 0; border-color: rgba(255,255,255,0.3);">' +
-                                    '<h4>📋 Count Sheet</h4>' +
-                                    '<button onclick="generateCountSheet(&quot;' + locationName + '&quot;)" class="btn" style="background: #607D8B; width: 100%;">🖨️ Print Sheet</button>' +
-                                '</div>' +
-                            '</div>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-                
-                // Add modal to page
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-                
-            } catch (error) {
-                console.error('Error loading location items:', error);
-                alert('Error loading location items: ' + error.message);
-            }
-        }
-        
-        // Close item management modal
-        function closeItemManagementModal() {
-            const modal = document.getElementById('itemManagementModal');
-            if (modal) {
-                modal.remove();
-            }
-        }
-        
-        // Update physical count for an item
-        async function updatePhysicalCount(itemId) {
-            const countInput = document.getElementById('count_' + itemId);
-            const physicalCount = parseInt(countInput.value);
-            
-            if (isNaN(physicalCount) || physicalCount < 0) {
-                alert('Please enter a valid count (0 or greater)');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/inventory/items/' + itemId + '/physical-count', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify({
-                        physicalCount: physicalCount,
-                        countedBy: 'Manual Count',
-                        notes: 'Updated via location management'
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Update the item display with new status
-                    const itemDiv = document.querySelector('[data-item-id="' + itemId + '"]');
-                    if (itemDiv) {
-                        const borderColor = result.item.discrepancy === 0 ? '#4CAF50' : '#f44336';
-                        itemDiv.style.borderLeftColor = borderColor;
-                        
-                        // Show success message briefly
-                        const button = itemDiv.querySelector('button');
-                        const originalText = button.textContent;
-                        button.textContent = '✓ Saved';
-                        button.style.background = '#4CAF50';
-                        setTimeout(() => {
-                            button.textContent = originalText;
-                            button.style.background = '#4CAF50';
-                        }, 2000);
-                    }
-                } else {
-                    alert('Error updating count: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        // Save all physical counts in batch
-        async function saveBatchCounts(locationName) {
-            const countInputs = document.querySelectorAll('[id^="count_"]');
-            const counts = [];
-            
-            countInputs.forEach(input => {
-                const itemId = input.id.replace('count_', '');
-                const physicalCount = parseInt(input.value);
-                if (!isNaN(physicalCount) && physicalCount >= 0) {
-                    counts.push({
-                        itemId: parseInt(itemId),
-                        physicalCount: physicalCount,
-                        notes: 'Batch count update'
-                    });
-                }
-            });
-            
-            if (counts.length === 0) {
-                alert('No valid counts to save');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/inventory/location/' + encodeURIComponent(locationName) + '/batch-count', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify({
-                        counts: counts,
-                        countedBy: 'Batch Count'
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('Batch count saved successfully: ' + result.summary.successful + ' items updated');
-                    // Refresh the modal
-                    closeItemManagementModal();
-                    setTimeout(() => manageLocationItems(locationName), 500);
-                } else {
-                    alert('Error saving batch counts: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        // Reset all counts to system quantities
-        async function resetCounts(locationName) {
-            if (!confirm('Reset all physical counts to system quantities? This will clear all counting progress.')) {
-                return;
-            }
-            
-            // Set all count inputs to system quantities
-            const items = document.querySelectorAll('.location-item');
-            items.forEach(item => {
-                const input = item.querySelector('input[type="number"]');
-                if (input) {
-                    const systemQty = item.querySelector('small').textContent.match(/System Qty: (\d+)/);
-                    if (systemQty) {
-                        input.value = systemQty[1];
-                    }
-                }
-            });
-            
-            alert('Counts reset to system quantities. Click "Save All Counts" to confirm.');
-        }
-        
-        // Export location data
-        function exportLocationData(locationName) {
-            window.open('/api/inventory/download/csv?location=' + encodeURIComponent(locationName), '_blank');
-        }
-        
-        // Start counting mode
-        function startCounting(locationName) {
-            alert('Counting mode started for ' + locationName + '\\n\\n' +
-                  '1. Count each item physically\\n' +
-                  '2. Enter the physical count in the input field\\n' +
-                  '3. Click "✓ Count" for each item\\n' +
-                  '4. Use "Save All Counts" to batch save\\n\\n' +
-                  'Items are color-coded:\\n' +
-                  '🟡 Yellow = Pending count\\n' +
-                  '🟢 Green = Count matches\\n' +
-                  '🔴 Red = Discrepancy found');
-        }
-        
-        // Filter items in the search
-        function filterItems() {
-            const searchTerm = document.getElementById('itemSearchFilter').value.toLowerCase();
-            const items = document.querySelectorAll('.other-item');
-            
-            items.forEach(item => {
-                const itemName = item.getAttribute('data-name');
-                if (itemName.includes(searchTerm)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
-        
-        // Move an item between locations
-        async function moveItem(itemId, newLocation, currentLocation) {
-            if (!newLocation) {
-                alert('Please select a location to move to');
-                return;
-            }
-            
-            if (!confirm(\`Move this item from \${currentLocation} to \${newLocation}?\`)) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(\`/api/inventory/items/\${itemId}/location\`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify({ location: newLocation })
-                });
-                
-                if (response.status === 403) {
-                    alert('Your session has expired. Please log in again.');
-                    showSection('login');
-                    return;
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(\`Item moved successfully to \${newLocation}!\`);
-                    // Close modal and refresh
-                    closeItemManagementModal();
-                    loadStorageLocations(); // Refresh storage locations
-                    loadData(); // Refresh inventory data
-                } else {
-                    alert('Error moving item: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        // Tab switching
-        function showTab(tabName) {
-            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
-            
-            event.target.classList.add('active');
-            document.getElementById(tabName + 'Tab').style.display = 'block';
-            
-            if (tabName === 'catalog') loadCatalog();
-            if (tabName === 'orders') loadOrders();
-            if (tabName === 'storage') loadStorage();
-            if (tabName === 'suppliers') loadSuppliers();
-        }
-        
-        // Storage locations cache for frontend
-        let frontendStorageLocations = {};
-        
-        // Load inventory data
-        async function loadData() {
-            try {
-                // Load both inventory and storage locations
-                const [inventoryResponse, locationsResponse] = await Promise.all([
-                    fetch('/api/inventory/items?lang=' + currentLanguage),
-                    fetch('/api/storage/locations')
-                ]);
-                
-                const data = await inventoryResponse.json();
-                const locationsData = await locationsResponse.json();
-                
-                // Cache storage locations for dropdown generation
-                if (locationsData.success) {
-                    frontendStorageLocations = {};
-                    locationsData.locations.forEach(loc => {
-                        frontendStorageLocations[loc.name] = loc;
-                    });
-                }
-                
-                if (data.success) {
-                    // Filter items based on location filter
-                    let filteredItems = data.items;
-                    const locationFilter = document.getElementById('locationFilter').value;
-                    
-                    if (showNoLocationOnly || locationFilter === 'NO_LOCATION') {
-                        filteredItems = data.items.filter(item => !item.location || item.location === '');
-                    } else if (locationFilter && locationFilter !== 'NO_LOCATION') {
-                        filteredItems = data.items.filter(item => item.location === locationFilter);
-                    }
-                    
-                    // Update metrics based on filtered items
-                    const noLocationCount = data.items.filter(item => !item.location || item.location === '').length;
-                    document.getElementById('totalItems').textContent = filteredItems.length + (showNoLocationOnly ? ' (' + noLocationCount + ' without location)' : '');
-                    document.getElementById('criticalItems').textContent = filteredItems.filter(item => item.status === 'critical').length;
-                    document.getElementById('totalValue').textContent = '$' + filteredItems.reduce((sum, item) => sum + (item.totalValue || 0), 0).toFixed(2);
-                    
-                    // Display inventory
-                    const grid = document.getElementById('inventoryGrid');
-                    grid.innerHTML = filteredItems.map(item => 
-                        '<div class="inventory-item">' +
-                            '<div class="item-header">' +
-                                '<div class="item-name">' + item.displayName + '</div>' +
-                                '<div class="status-badge status-' + item.status + '">' + (translations[currentLanguage][item.status] || item.status) + '</div>' +
-                            '</div>' +
-                            '<div><strong>' + translations[currentLanguage].quantity + ':</strong> ' + item.quantity + ' ' + item.unit + '</div>' +
-                            '<div><strong>' + translations[currentLanguage].supplier + ':</strong> ' + item.supplier + '</div>' +
-                            '<div class="storage-location">' +
-                                '<strong>📍 Locations:</strong> ' +
-                                '<div style="margin: 5px 0;">' +
-                                    (item.locations && item.locations.length > 0 ? 
-                                        item.locations.map(loc => 
-                                            '<span class="location-tag" style="background: #4CAF50; color: white; padding: 2px 6px; margin: 2px; border-radius: 3px; font-size: 12px; display: inline-block;">' + 
-                                            loc + 
-                                            ' <button onclick="removeItemFromLocation(' + item.id + ', &quot;' + loc + '&quot;)" style="background: none; border: none; color: white; margin-left: 3px; cursor: pointer; font-size: 10px;">✕</button>' +
-                                            '</span>'
-                                        ).join('') : 
-                                        '<span style="color: #ff9800; background: rgba(255, 152, 0, 0.2); padding: 4px 8px; border-radius: 4px; border-left: 3px solid #ff9800;">⚠️ No location assigned</span>'
-                                    ) +
-                                '</div>' +
-                                '<div style="margin-top: 5px;">' +
-                                    '<select onchange="addItemToLocation(' + item.id + ', this.value)" style="padding: 2px; font-size: 12px;">' +
-                                        '<option value="">+ Add to location</option>' +
-                                        Object.keys(frontendStorageLocations).map(loc => 
-                                            '<option value="' + loc + '">' + loc + '</option>'
-                                        ).join('') +
-                                    '</select>' +
-                                    '<button onclick="showLocationManager(' + item.id + ')" style="margin-left: 5px; padding: 2px 6px; font-size: 12px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer;">📍 Manage</button>' +
-                                '</div>' +
-                            '</div>' +
-                            '<div><strong>' + translations[currentLanguage].lastOrder + ':</strong> ' + item.lastOrderDate + '</div>' +
-                            '<div style="margin-top: 10px;">' +
-                                '<strong>🤖 AI:</strong> ' + item.aiInsights.recommendedAction +
-                            '</div>' +
-                            (item.isFromGFS && item.isConsolidated ? 
-                                '<div style="margin-top: 5px;"><small style="color: #4CAF50;">📦 Consolidated from ' + item.orderCount + ' orders<br>Order IDs: ' + (item.gfsOrderIds ? item.gfsOrderIds.slice(0,3).join(', ') + (item.orderCount > 3 ? '...' : '') : 'N/A') + '</small></div>' : 
-                                item.isFromGFS ? '<div style="margin-top: 5px;"><small style="color: #4CAF50;">📦 From GFS Order: ' + (item.gfsOrderId || 'N/A') + '</small></div>' : '') +
-                        '</div>'
-                    ).join('');
-                }
-            } catch (error) {
-                console.error('Error loading data:', error);
-            }
-        }
-        
-        // Load Sysco catalog
-        async function loadCatalog() {
-            const search = document.getElementById('catalogSearch').value;
-            try {
-                const response = await fetch(\`/api/catalog/sysco?search=\${search}&limit=20\`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    const container = document.getElementById('catalogItems');
-                    container.innerHTML = data.items.map(item => \`
-                        <div class="catalog-item">
-                            <div>
-                                <strong>\${item.productName}</strong>
-                                <br><small>Code: \${item.productCode || 'N/A'} | Unit: \${item.unit}</small>
-                            </div>
-                            <div>
-                                <strong>$\${item.unitPrice}</strong>
-                                <button class="btn" style="margin-left: 10px;">Add to Order</button>
-                            </div>
-                        </div>
-                    \`).join('');
-                }
-            } catch (error) {
-                console.error('Error loading catalog:', error);
-            }
-        }
-        
-        // Load GFS orders
-        async function loadOrders() {
-            try {
-                const response = await fetch('/api/orders/gfs');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const container = document.getElementById('gfsOrders');
-                    const ordersHtml = data.orders.map(order => \`
-                        <div class="catalog-item">
-                            <div>
-                                <strong>Order #\${order.invoiceNumber || order.orderId}</strong>
-                                <br><small>Date: \${order.orderDate} | Items: \${order.totalItems} | Status: \${order.status}</small>
-                                <br><small>Order ID: \${order.orderId}</small>
-                            </div>
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                                <strong>$\${order.totalValue.toFixed(2)}</strong>
-                                <button onclick="deleteOrder('\${order.orderId}')" 
-                                        class="btn" 
-                                        style="background: #f44336; color: white; padding: 4px 8px; font-size: 12px;">
-                                    🗑️ Delete
-                                </button>
-                            </div>
-                        </div>
-                    \`).join('');
-                    
-                    // Create and add the clean button
-                    const cleanButton = document.createElement('button');
-                    cleanButton.textContent = '🧹 Auto-Clean Invalid Orders';
-                    cleanButton.className = 'btn';
-                    cleanButton.style.cssText = 'background: #ff4444; color: white; margin-bottom: 15px; padding: 10px 20px;';
-                    cleanButton.onclick = cleanInvalidOrders;
-                    
-                    // Set container content
-                    container.innerHTML = '';
-                    container.appendChild(cleanButton);
-                    container.innerHTML += ordersHtml;
-                }
-            } catch (error) {
-                console.error('Error loading orders:', error);
-            }
-        }
-        
-        // Load storage locations
-        async function loadStorage() {
-            try {
-                const response = await fetch('/api/storage/locations');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const container = document.getElementById('storageLocations');
-                    container.innerHTML = data.locations.map(loc => \`
-                        <div class="catalog-item">
-                            <div>
-                                <strong>\${loc.name}</strong>
-                                <br><small>Type: \${loc.type} | Temp: \${loc.temp}</small>
-                                <br><small>Capacity: \${loc.capacity} units</small>
-                            </div>
-                            <div>
-                                <strong>\${loc.utilizationPercent}%</strong> Used
-                                <br><small>\${loc.currentUsage}/\${loc.capacity} units</small>
-                                <div style="margin-top: 10px;">
-                                    <button class="btn btn-small" onclick="editLocation('\${loc.name}')">✏️ Edit</button>
-                                    <button class="btn btn-danger btn-small" onclick="deleteLocation('\${loc.name}')" style="margin-left: 5px;">🗑️ Delete</button>
-                                </div>
-                            </div>
-                        </div>
-                    \`).join('');
-                    
-                    // Update storage utilization metric
-                    const avgUtilization = data.locations.reduce((sum, loc) => sum + parseFloat(loc.utilizationPercent), 0) / data.locations.length;
-                    document.getElementById('storageUtilization').textContent = avgUtilization.toFixed(1) + '%';
-                }
-            } catch (error) {
-                console.error('Error loading storage:', error);
-            }
-        }
-        
-        // Load suppliers
-        function loadSuppliers() {
-            const suppliersData = ${JSON.stringify(suppliers)};
-            const container = document.getElementById('suppliersList');
-            
-            let html = '';
-            Object.entries(suppliersData).forEach(([key, supplier]) => {
-                html += '<div class="inventory-item">';
-                html += '<h3>' + supplier.name + '</h3>';
-                html += '<div><strong>Contact:</strong> ' + supplier.contact + '</div>';
-                html += '<div><strong>Email:</strong> ' + supplier.email + '</div>';
-                html += '<div><strong>Account:</strong> ' + supplier.accountNumber + '</div>';
-                html += '<div><strong>Min Order:</strong> $' + supplier.minimumOrder + '</div>';
-                html += '<div><strong>Delivery Days:</strong> ' + supplier.deliveryDays.join(', ') + '</div>';
-                html += '<div><strong>Catalog Items:</strong> ' + supplier.catalogItems + '</div>';
-                html += '<button class="btn" style="margin-top: 10px;">Create Order</button>';
-                html += '</div>';
-            });
-            container.innerHTML = html;
-        }
-        
-        // Catalog search
-        document.getElementById('catalogSearch').addEventListener('input', loadCatalog);
-        
-        // Logout
-        function logout() {
-            authToken = null;
-            localStorage.removeItem('inventory_token');
-            location.reload();
-        }
-        
-        // Check existing token
-        const savedToken = localStorage.getItem('inventory_token');
-        if (savedToken) {
-            authToken = savedToken;
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('dashboard').style.display = 'block';
-            loadData();
-        }
-        
-        // AI Assistant Functions
-        async function sendAIMessage() {
-            const input = document.getElementById('aiChatInput');
-            const responseDiv = document.getElementById('aiChatResponse');
-            
-            if (!input.value.trim()) {
-                alert('Please enter a message');
-                return;
-            }
-            
-            responseDiv.textContent = '🤖 Thinking...';
-            
-            try {
-                const response = await fetch('/api/ai/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify({ message: input.value.trim() })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    responseDiv.textContent = result.response;
-                } else {
-                    responseDiv.textContent = '❌ Error: ' + result.error;
-                }
-            } catch (error) {
-                responseDiv.textContent = '❌ Network error: ' + error.message;
-            }
-            
-            input.value = '';
-        }
-        
-        function askAI(message) {
-            document.getElementById('aiChatInput').value = message;
-            sendAIMessage();
-        }
-        
-        function generateCountSheet(location) {
-            const printUrl = '/api/ai/count-sheets/' + encodeURIComponent(location);
-            window.open(printUrl, '_blank');
-        }
-        
-        // Populate count sheets list when AI tab is shown
-        function loadCountSheets() {
-            const listDiv = document.getElementById('countSheetsList');
-            if (!listDiv) return;
-            
-            let html = '';
-            Object.keys(storageLocations).forEach(location => {
-                const safeLocation = location.replace(/'/g, "\\'");
-                html += '<button onclick="generateCountSheet(\\'' + safeLocation + '\\')" class="btn btn-small" style="background: #607D8B; margin: 3px;">📋 ' + location + '</button>';
-            });
-            listDiv.innerHTML = html;
-        }
-        
-        // Add Enter key support for AI chat
-        document.addEventListener('DOMContentLoaded', function() {
-            const aiChatInput = document.getElementById('aiChatInput');
-            if (aiChatInput) {
-                aiChatInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        sendAIMessage();
-                    }
-                });
-            }
-        });
-        
-        // Override showTab to load count sheets when AI tab is shown
-        const originalShowTab = window.showTab;
-        window.showTab = function(tabName) {
-            if (originalShowTab) {
-                originalShowTab(tabName);
-            }
-            if (tabName === 'ai-assistant') {
-                setTimeout(loadCountSheets, 100);
-            }
+        const result = {
+          itemId: inventoryItem.id,
+          itemName: inventoryItem.name?.en || inventoryItem.name,
+          orderQuantity: orderItem.quantity || 1,
+          currentLocations: currentLocations,
+          suggestions: suggestions,
+          action: null
         };
         
-        // Update item location
-        async function updateItemLocation(itemId, newLocation) {
-            try {
-                // First, get current inventory data to find similar items
-                const inventoryResponse = await fetch('/api/inventory/items');
-                const inventoryData = await inventoryResponse.json();
-                
-                if (!inventoryData.success) {
-                    alert('Error loading inventory data');
-                    return;
-                }
-                
-                // Find the moved item
-                const movedItem = inventoryData.items.find(item => item.id == itemId);
-                if (!movedItem) {
-                    alert('Item not found');
-                    return;
-                }
-                
-                // Find similar items in the same category
-                const similarItems = inventoryData.items.filter(item => 
-                    item.id != itemId && 
-                    item.category === movedItem.category &&
-                    item.location !== newLocation
-                );
-                
-                // Move the selected item first
-                const response = await fetch('/api/inventory/items/' + itemId + '/location', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify({ location: newLocation })
-                });
-                
-                if (response.status === 403) {
-                    alert('Your session has expired. Please log in again.');
-                    showSection('login');
-                    return;
-                }
-                
-                const result = await response.json();
-                if (!result.success) {
-                    alert('Error updating location: ' + result.error);
-                    return;
-                }
-                
-                // If there are similar items, ask about batch movement
-                if (similarItems.length > 0) {
-                    const itemNames = similarItems.slice(0, 5).map(item => item.displayName).join('\\n• ');
-                    const moreText = similarItems.length > 5 ? \`\\\\n...and \${similarItems.length - 5} more items\` : '';
-                    
-                    const moveAll = confirm(
-                        \`Moved "\${movedItem.displayName}" to \${newLocation}\\\\n\\\\n\` +
-                        \`Found \${similarItems.length} other \${movedItem.category} items:\\\\n• \${itemNames}\${moreText}\\\\n\\\\n\` +
-                        \`Would you like to move ALL \${movedItem.category} items to \${newLocation}?\`
-                    );
-                    
-                    if (moveAll) {
-                        await batchMoveItems(similarItems, newLocation, movedItem.category);
-                    }
-                }
-                
-                // Refresh inventory to show updated data
-                loadData();
-                
-                // Show location management option
-                setTimeout(() => {
-                    if (confirm(\`Would you like to view and organize items in \${newLocation}?\`)) {
-                        showLocationManagement(newLocation);
-                    }
-                }, 500);
-                
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
+        // Decision logic  
+        if (topSuggestion.confidence >= 0.9) {
+          // Auto-place with very high confidence
+          result.action = 'auto_place';
+          result.selectedLocation = topSuggestion.location;
+          result.reason = topSuggestion.reason;
+          
+          // Actually update the inventory
+          inventoryItem.byLocation = inventoryItem.byLocation || {};
+          inventoryItem.byLocation[topSuggestion.location] = 
+            (inventoryItem.byLocation[topSuggestion.location] || 0) + (orderItem.quantity || 1);
+          
+          // Update total quantity
+          inventoryItem.quantity = (inventoryItem.quantity || 0) + (orderItem.quantity || 1);
+          
+          // Add to locations array if not present
+          inventoryItem.locations = inventoryItem.locations || [];
+          if (!inventoryItem.locations.includes(topSuggestion.location)) {
+            inventoryItem.locations.push(topSuggestion.location);
+          }
+          
+        } else {
+          // Ask user for confirmation
+          result.action = 'ask_user';
+          result.reason = 'Multiple location options available - user input needed';
         }
         
-        // Batch move multiple items
-        async function batchMoveItems(items, newLocation, category) {
-            let successCount = 0;
-            let failCount = 0;
-            
-            for (const item of items) {
-                try {
-                    const response = await fetch('/api/inventory/items/' + item.id + '/location', {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + authToken
-                        },
-                        body: JSON.stringify({ location: newLocation })
-                    });
-                    
-                    if (response.status === 403) {
-                        alert('Session expired during batch move. Please log in again.');
-                        showSection('login');
-                        return;
-                    }
-                    
-                    const result = await response.json();
-                    if (result.success) {
-                        successCount++;
-                    } else {
-                        failCount++;
-                    }
-                } catch (error) {
-                    failCount++;
-                }
-            }
-            
-            alert(\`Batch Move Complete!\\n\\nSuccessfully moved: \${successCount} items\\nFailed: \${failCount} items\\n\\nAll \${category} items are now in \${newLocation}\`);
+        placementResults.push(result);
+      } else {
+        // New item not in inventory
+        const suggestions = suggestOptimalLocation(
+          { name: orderItem.productName || orderItem.name }, 
+          [], 
+          {
+            peopleCount: peopleCount ? Number(peopleCount) : null,
+            orderQuantity: orderItem.quantity || 1
+          }
+        );
+        const topSuggestion = suggestions[0];
+        
+        const result = {
+          itemName: orderItem.productName || orderItem.name,
+          orderQuantity: orderItem.quantity || 1,
+          suggestions: suggestions,
+          action: null
+        };
+        
+        if (topSuggestion.confidence >= 0.9) {
+          // Auto-place new items with very high confidence (like frozen/dairy)
+          result.action = 'auto_place';
+          result.selectedLocation = topSuggestion.location;
+          result.reason = `New item: ${topSuggestion.reason}`;
+          
+          // TODO: Create new inventory item and place it
+          console.log(`🤖 Would auto-place new item "${result.itemName}" in ${result.selectedLocation}`);
+        } else {
+          result.action = 'ask_user';
+          result.reason = 'New item - user input needed for location';
         }
         
-        // Add item to a new location (multiple locations support)
-        async function addItemToLocation(itemId, location) {
-            if (!location) return;
-            
-            try {
-                const response = await fetch(\`/api/inventory/items/\${itemId}/location\`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': \`Bearer \${localStorage.getItem('token')}\`
-                    },
-                    body: JSON.stringify({ location, action: 'add' })
-                });
-                
-                if (response.status === 403) {
-                    alert('Session expired. Please log in again.');
-                    showSection('login');
-                    return;
-                }
-                
-                const result = await response.json();
-                if (result.success) {
-                    loadData(); // Refresh the display
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        // Remove item from a location
-        async function removeItemFromLocation(itemId, location) {
-            try {
-                const response = await fetch(\`/api/inventory/items/\${itemId}/location\`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': \`Bearer \${localStorage.getItem('token')}\`
-                    },
-                    body: JSON.stringify({ location, action: 'remove' })
-                });
-                
-                if (response.status === 403) {
-                    alert('Session expired. Please log in again.');
-                    showSection('login');
-                    return;
-                }
-                
-                const result = await response.json();
-                if (result.success) {
-                    loadData(); // Refresh the display
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Network error: ' + error.message);
-            }
-        }
-        
-        // Show location manager for an item
-        async function showLocationManager(itemId) {
-            try {
-                const inventoryResponse = await fetch('/api/inventory/items');
-                const inventoryData = await inventoryResponse.json();
-                
-                if (!inventoryData.success) {
-                    alert('Error loading inventory data');
-                    return;
-                }
-                
-                const item = inventoryData.items.find(item => item.id == itemId);
-                if (!item) {
-                    alert('Item not found');
-                    return;
-                }
-                
-                const modalHtml = \`
-                    <div id="itemLocationModal" style="
-                        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                        background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000;
-                    ">
-                        <div style="
-                            background: #2c3e50; color: white; padding: 30px; border-radius: 15px; 
-                            max-width: 600px; width: 90%; max-height: 80%; overflow-y: auto;
-                        ">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                <h2>📍 Manage Locations: \${item.displayName}</h2>
-                                <button onclick="closeLocationManager()" style="
-                                    background: #e74c3c; color: white; border: none; padding: 8px 12px; 
-                                    border-radius: 5px; cursor: pointer; font-size: 16px;
-                                ">✖ Close</button>
-                            </div>
-                            
-                            <div style="margin-bottom: 20px;">
-                                <h3 style="color: #4CAF50; margin-bottom: 10px;">Current Locations:</h3>
-                                <div id="currentLocations" style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; min-height: 60px;">
-                                    \${item.locations && item.locations.length > 0 ? 
-                                        item.locations.map(loc => 
-                                            \`<div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 5px 0; background: rgba(76,175,80,0.3); border-radius: 5px;">
-                                                <span><strong>\${loc}</strong></span>
-                                                <button onclick="removeItemFromLocation(\${itemId}, '\${loc}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Remove</button>
-                                            </div>\`
-                                        ).join('') : 
-                                        '<p style="color: #888; text-align: center;">No locations assigned</p>'
-                                    }
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h3 style="color: #2196F3; margin-bottom: 10px;">Add to Location:</h3>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                                    \${Object.entries(frontendStorageLocations).map(([name, info]) => \`
-                                        <button onclick="addItemToLocation(\${itemId}, '\${name}')" style="
-                                            background: \${item.locations && item.locations.includes(name) ? '#95a5a6' : '#3498db'}; 
-                                            color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; text-align: left;
-                                            \${item.locations && item.locations.includes(name) ? 'opacity: 0.6;' : ''}
-                                        " \${item.locations && item.locations.includes(name) ? 'disabled' : ''}>
-                                            <strong>\${name}</strong><br>
-                                            <small>\${info.type} • \${info.temp}</small>
-                                        </button>
-                                    \`).join('')}
-                                </div>
-                            </div>
-                            
-                            <div style="margin-top: 20px; text-align: center;">
-                                <button onclick="batchLocationActions(\${itemId})" style="background: #9b59b6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                                    🎯 Quick Actions
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                \`;
-                
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-            } catch (error) {
-                alert('Error loading location manager: ' + error.message);
-            }
-        }
-        
-        // Close location manager modal
-        function closeLocationManager() {
-            const modal = document.getElementById('itemLocationModal');
-            if (modal) {
-                modal.remove();
-            }
-        }
-        
-        // Show location management interface
-        async function showLocationManagement(locationName) {
-            try {
-                const inventoryResponse = await fetch('/api/inventory/items');
-                const inventoryData = await inventoryResponse.json();
-                
-                if (!inventoryData.success) {
-                    alert('Error loading inventory data');
-                    return;
-                }
-                
-                const itemsInLocation = inventoryData.items.filter(item => item.location === locationName);
-                
-                const modalHtml = \`
-                    <div id="locationManagementModal" style="
-                        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                        background: rgba(0,0,0,0.9); z-index: 1000; display: flex; 
-                        align-items: center; justify-content: center;
-                    ">
-                        <div style="
-                            background: #2c3e50; color: white; padding: 30px; border-radius: 15px; 
-                            max-width: 95%; max-height: 95%; overflow-y: auto; min-width: 900px;
-                        ">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                <h2>📍 Managing Location: \${locationName}</h2>
-                                <button onclick="closeLocationManagement()" style="
-                                    background: #e74c3c; color: white; border: none; padding: 8px 12px; 
-                                    border-radius: 5px; cursor: pointer; font-size: 16px;
-                                ">✖ Close</button>
-                            </div>
-                            
-                            <div style="margin-bottom: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px;">
-                                <h3>📊 Location Summary</h3>
-                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 10px;">
-                                    <div style="text-align: center; padding: 10px; background: rgba(76,175,80,0.2); border-radius: 5px;">
-                                        <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">\${itemsInLocation.length}</div>
-                                        <div style="font-size: 12px; color: #ccc;">Total Items</div>
-                                    </div>
-                                    <div style="text-align: center; padding: 10px; background: rgba(33,150,243,0.2); border-radius: 5px;">
-                                        <div style="font-size: 24px; font-weight: bold; color: #2196F3;">$\${itemsInLocation.reduce((sum, item) => sum + (item.totalValue || 0), 0).toFixed(2)}</div>
-                                        <div style="font-size: 12px; color: #ccc;">Total Value</div>
-                                    </div>
-                                    <div style="text-align: center; padding: 10px; background: rgba(255,152,0,0.2); border-radius: 5px;">
-                                        <div style="font-size: 24px; font-weight: bold; color: #FF9800;">\${itemsInLocation.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0)}</div>
-                                        <div style="font-size: 12px; color: #ccc;">Total Units</div>
-                                    </div>
-                                    <div style="text-align: center; padding: 10px; background: rgba(156,39,176,0.2); border-radius: 5px;">
-                                        <div style="font-size: 24px; font-weight: bold; color: #9c27b0;">\${new Set(itemsInLocation.map(item => item.category)).size}</div>
-                                        <div style="font-size: 12px; color: #ccc;">Categories</div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                                <!-- Items List with Manual Count -->
-                                <div>
-                                    <h3 style="color: #4CAF50;">📦 Items in \${locationName} (\${itemsInLocation.length})</h3>
-                                    <div style="max-height: 500px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
-                                        \${itemsInLocation.length === 0 ? 
-                                            '<p style="color: #bbb; text-align: center;">No items in this location</p>' :
-                                            itemsInLocation.map((item, index) => \`
-                                                <div style="background: rgba(255,255,255,0.1); padding: 12px; margin-bottom: 10px; border-radius: 5px; border-left: 4px solid #4CAF50;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                        <div>
-                                                            <strong>\${item.displayName}</strong>
-                                                            <br><small>Expected: \${item.quantity} \${item.unit} | Code: \${item.supplierCode}</small>
-                                                            <br><small>Category: \${item.category} | Value: $\${item.totalValue.toFixed(2)}</small>
-                                                        </div>
-                                                        <div style="text-align: right;">
-                                                            <div style="margin-bottom: 8px;">
-                                                                <label style="font-size: 12px; display: block;">Current Count:</label>
-                                                                <span style="font-size: 20px; font-weight: bold; color: #4CAF50;">\${item.quantity}</span>
-                                                            </div>
-                                                            <div>
-                                                                <label style="font-size: 12px; display: block;">New Count:</label>
-                                                                <input type="number" 
-                                                                       id="count_\${item.id}" 
-                                                                       value="\${item.quantity}"
-                                                                       style="width: 80px; padding: 6px; margin-top: 4px; text-align: center; font-size: 16px; border: 2px solid #4CAF50; border-radius: 4px; background: rgba(255,255,255,0.1); color: white;"
-                                                                       onchange="updateManualCount(\${item.id}, this.value)">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            \`).join('')
-                                        }
-                                    </div>
-                                    <div style="margin-top: 15px;">
-                                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                                            <button onclick="resetAllCounts('\${locationName}')" class="btn" style="background: #FF9800; flex: 1;">
-                                                🔄 Reset to Current
-                                            </button>
-                                            <button onclick="clearAllCounts('\${locationName}')" class="btn" style="background: #f44336; flex: 1;">
-                                                ❌ Clear All
-                                            </button>
-                                        </div>
-                                        <button onclick="saveAllCounts('\${locationName}')" class="btn" style="background: #4CAF50; width: 100%;">
-                                            💾 Save All Manual Counts
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <!-- Sequence Management -->
-                                <div>
-                                    <h3 style="color: #FF9800;">🔢 Counting Sequence</h3>
-                                    <p style="margin-bottom: 15px;">Arrange items in the order you want to count them:</p>
-                                    <div id="sequenceList" style="max-height: 500px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
-                                        \${itemsInLocation.map((item, index) => \`
-                                            <div class="sequence-item" draggable="true" data-item-id="\${item.id}" style="
-                                                background: rgba(255,255,255,0.2); padding: 10px; margin-bottom: 8px; 
-                                                border-radius: 5px; cursor: move; border-left: 3px solid #FF9800;
-                                                display: flex; justify-content: space-between; align-items: center;
-                                            ">
-                                                <div>
-                                                    <strong>\${index + 1}.</strong> \${item.displayName}
-                                                    <br><small>\${item.quantity} \${item.unit}</small>
-                                                </div>
-                                                <div style="font-size: 18px; color: #ccc;">⋮⋮</div>
-                                            </div>
-                                        \`).join('')}
-                                    </div>
-                                    <div style="margin-top: 15px; text-align: center;">
-                                        <button onclick="generateCountSheet('\${locationName}')" class="btn" style="background: #2196F3;">
-                                            📋 Generate Count Sheet
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                \`;
-                
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-                
-            } catch (error) {
-                console.error('Error loading location management:', error);
-                alert('Error loading location management: ' + error.message);
-            }
-        }
-        
-        // Close location management modal
-        function closeLocationManagement() {
-            const modal = document.getElementById('locationManagementModal');
-            if (modal) {
-                modal.remove();
-            }
-        }
-        
-        // Update manual count for an item
-        function updateManualCount(itemId, newCount) {
-            // Store manual count for later saving
-            if (!window.manualCounts) {
-                window.manualCounts = {};
-            }
-            window.manualCounts[itemId] = parseInt(newCount) || 0;
-        }
-        
-        // Reset all counts to current inventory values
-        function resetAllCounts(locationName) {
-            const inventoryItems = document.querySelectorAll('[id^="count_"]');
-            inventoryItems.forEach(input => {
-                const itemId = input.id.replace('count_', '');
-                input.value = input.getAttribute('value'); // Reset to original value
-                if (window.manualCounts) {
-                    delete window.manualCounts[itemId];
-                }
-            });
-            alert('✅ All counts reset to current inventory values');
-        }
-        
-        // Clear all count inputs
-        function clearAllCounts(locationName) {
-            const inventoryItems = document.querySelectorAll('[id^="count_"]');
-            inventoryItems.forEach(input => {
-                input.value = '0';
-                const itemId = input.id.replace('count_', '');
-                if (!window.manualCounts) {
-                    window.manualCounts = {};
-                }
-                window.manualCounts[itemId] = 0;
-            });
-            alert('❌ All counts cleared to 0');
-        }
-        
-        // Save all manual counts
-        async function saveAllCounts(locationName) {
-            if (!window.manualCounts || Object.keys(window.manualCounts).length === 0) {
-                alert('No manual counts entered');
-                return;
-            }
-            
-            let successCount = 0;
-            let failCount = 0;
-            
-            for (const [itemId, count] of Object.entries(window.manualCounts)) {
-                try {
-                    const response = await fetch(\`/api/inventory/items/\${itemId}\`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + authToken
-                        },
-                        body: JSON.stringify({ quantity: count })
-                    });
-                    
-                    if (response.status === 403) {
-                        alert('Session expired. Please log in again.');
-                        showSection('login');
-                        return;
-                    }
-                    
-                    const result = await response.json();
-                    if (result.success) {
-                        successCount++;
-                    } else {
-                        failCount++;
-                    }
-                } catch (error) {
-                    failCount++;
-                }
-            }
-            
-            alert(\`📊 Manual Count Update Complete!\\n\\n✅ Updated: \${successCount} items\\n❌ Failed: \${failCount} items\\n\\nLocation: \${locationName}\`);
-            
-            // Clear manual counts and refresh
-            window.manualCounts = {};
-            closeLocationManagement();
-            loadData();
-        }
-        
-        // Generate printable count sheet
-        function generateCountSheet(locationName) {
-            const sequenceItems = Array.from(document.querySelectorAll('.sequence-item')).map((item, index) => {
-                const itemId = item.getAttribute('data-item-id');
-                const itemName = item.querySelector('strong').nextSibling.textContent.trim();
-                const itemDetails = item.querySelector('small').textContent;
-                return \`\${index + 1}. \${itemName} (\${itemDetails})\`;
-            });
-            
-            const countSheet = \`
-                📍 INVENTORY COUNT SHEET - \${locationName}
-                Date: \${new Date().toLocaleDateString()}
-                Time: \${new Date().toLocaleTimeString()}
-                
-                Instructions: Count items in this order and enter actual quantities
-                
-                \${sequenceItems.join('\\n')}
-                
-                ________________
-                Counter Signature: _________________ Date: _______
-                Verified By: _________________ Date: _______
-            \`;
-            
-            // Open in new window for printing
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(\`
-                <html>
-                <head><title>Count Sheet - \${locationName}</title></head>
-                <body style="font-family: monospace; padding: 20px; white-space: pre-line;">
-                \${countSheet}
-                </body>
-                </html>
-            \`);
-            printWindow.document.close();
-            printWindow.print();
-        }
-        
-        // Download inventory
-        function downloadInventory(format) {
-            const downloadUrl = '/api/inventory/download/' + format + '?token=' + authToken;
-            window.open(downloadUrl, '_blank');
-        }
-        
-        async function deleteOrder(orderId) {
-            if (!confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/orders/gfs/' + orderId, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': 'Bearer ' + authToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.status === 403) {
-                    alert('Your session has expired. Please log in again.');
-                    showSection('login');
-                    return;
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert('Order deleted successfully!\\n\\n' +
-                          'Order ID: ' + result.deletedOrder.orderId + '\\n' +
-                          'Items: ' + result.deletedOrder.totalItems + '\\n' +
-                          'Value: $' + result.deletedOrder.totalValue.toFixed(2) + '\\n\\n' +
-                          'New totals:\\n' +
-                          'Orders: ' + result.newTotals.totalOrders + '\\n' +
-                          'Inventory Items: ' + result.newTotals.totalInventoryItems);
-                    
-                    // Refresh the orders list and inventory data
-                    showSection('orders');
-                    loadData();
-                } else {
-                    alert('Error deleting order: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error deleting order:', error);
-                alert('Failed to delete order. Please try again.');
-            }
-        }
-        
-        // Quick Add Item by Stock Number
-        async function quickAddItem() {
-            const code = document.getElementById('quickAddCode').value.trim();
-            const location = document.getElementById('quickAddLocation').value;
-            const quantity = parseInt(document.getElementById('quickAddQuantity').value) || 1;
-            
-            if (!code) {
-                alert('Please enter a product/stock number');
-                return;
-            }
-            
-            if (!location) {
-                alert('Please select a location');
-                return;
-            }
-            
-            try {
-                // First search for the item
-                const searchResponse = await fetch(\`/api/catalog/search/\${encodeURIComponent(code)}\`);
-                const searchResult = await searchResponse.json();
-                
-                if (!searchResult.success || searchResult.items.length === 0) {
-                    alert('No items found with stock number: ' + code);
-                    return;
-                }
-                
-                // If multiple items found, show selection dialog
-                if (searchResult.items.length > 1) {
-                    showItemSelectionDialog(searchResult.items, location, quantity);
-                    return;
-                }
-                
-                // Single item found, confirm and add
-                const item = searchResult.items[0];
-                const confirmMessage = \`Add this item to inventory?\\n\\n\` +
-                    \`Name: \${item.displayName}\\n\` +
-                    \`Source: \${item.source.toUpperCase()}\\n\` +
-                    \`Stock#: \${item.stockNumber}\\n\` +
-                    \`Category: \${item.category}\\n\` +
-                    \`Quantity: \${quantity}\\n\` +
-                    \`Location: \${location}\`;
-                
-                if (confirm(confirmMessage)) {
-                    await addItemToInventory(item.stockNumber, quantity, location);
-                }
-                
-            } catch (error) {
-                console.error('Error adding item:', error);
-                alert('Failed to add item. Please try again.');
-            }
-        }
-        
-        // Show dialog for selecting from multiple found items
-        function showItemSelectionDialog(items, location, quantity) {
-            const modalHtml = \`
-                <div id="itemSelectionModal" style="
-                    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                    background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000;
-                ">
-                    <div style="
-                        background: #2c3e50; color: white; padding: 30px; border-radius: 15px; 
-                        max-width: 800px; width: 90%; max-height: 80%; overflow-y: auto;
-                    ">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h2>🔍 Multiple Items Found</h2>
-                            <button onclick="closeItemSelectionDialog()" style="
-                                background: #e74c3c; color: white; border: none; padding: 8px 12px; 
-                                border-radius: 5px; cursor: pointer; font-size: 16px;
-                            ">✖ Close</button>
-                        </div>
-                        
-                        <p style="margin-bottom: 20px;">Select the item you want to add:</p>
-                        
-                        <div style="display: grid; gap: 10px;">
-                            \${items.map((item, index) => \`
-                                <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;" 
-                                     onclick="selectItem('\${item.stockNumber}', '\${location}', \${quantity})">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <strong>\${item.displayName}</strong>
-                                            <br><small>Stock#: \${item.stockNumber} | Source: \${item.source.toUpperCase()}</small>
-                                            <br><small>Category: \${item.category}</small>
-                                        </div>
-                                        <button style="background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 5px;">
-                                            Select
-                                        </button>
-                                    </div>
-                                </div>
-                            \`).join('')}
-                        </div>
-                    </div>
-                </div>
-            \`;
-            
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-        }
-        
-        function closeItemSelectionDialog() {
-            const modal = document.getElementById('itemSelectionModal');
-            if (modal) {
-                modal.remove();
-            }
-        }
-        
-        async function selectItem(stockNumber, location, quantity) {
-            closeItemSelectionDialog();
-            await addItemToInventory(stockNumber, location, quantity);
-        }
-        
-        // Add item to inventory using the new API
-        async function addItemToInventory(stockNumber, quantity, location) {
-            try {
-                const response = await fetch('/api/inventory/add-by-stock', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + authToken,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        stockNumber: stockNumber,
-                        quantity: quantity,
-                        location: location
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    alert('Item added successfully!');
-                    document.getElementById('quickAddCode').value = '';
-                    document.getElementById('quickAddQuantity').value = '1';
-                    loadData(); // Refresh inventory
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error adding item:', error);
-                alert('Failed to add item. Please try again.');
-            }
-        }
-        
-        // Assign location by stock number
-        async function assignLocationByStock() {
-            const stockNumber = document.getElementById('stockNumberInput').value.trim();
-            const location = document.getElementById('assignLocationSelect').value;
-            const resultDiv = document.getElementById('stockSearchResult');
-            
-            if (!stockNumber) {
-                alert('Please enter a stock number');
-                return;
-            }
-            
-            if (!location) {
-                alert('Please select a location');
-                return;
-            }
-            
-            try {
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = '🔍 Searching for item...';
-                
-                // Find the item by stock number
-                const findResponse = await fetch('/api/inventory/find-by-stock/' + encodeURIComponent(stockNumber), {
-                    headers: {
-                        'Authorization': 'Bearer ' + authToken
-                    }
-                });
-                
-                const findData = await findResponse.json();
-                
-                if (!findData.success) {
-                    resultDiv.innerHTML = '❌ ' + findData.error;
-                    return;
-                }
-                
-                const item = findData.item;
-                resultDiv.innerHTML = '✅ Found: <strong>' + item.name + '</strong> (Current location: ' + (item.location || 'None') + ')';
-                
-                // Assign the location
-                const assignResponse = await fetch('/api/inventory/items/' + item.id + '/location', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + authToken
-                    },
-                    body: JSON.stringify({
-                        location: location,
-                        action: 'add'
-                    })
-                });
-                
-                const assignData = await assignResponse.json();
-                
-                if (assignData.success) {
-                    resultDiv.innerHTML = '🎉 Successfully assigned <strong>' + item.name + '</strong> to <strong>' + location + '</strong>';
-                    
-                    // Clear inputs
-                    document.getElementById('stockNumberInput').value = '';
-                    document.getElementById('assignLocationSelect').value = '';
-                    
-                    // Refresh inventory display
-                    loadData();
-                    
-                    // Hide result after 3 seconds
-                    setTimeout(() => {
-                        resultDiv.style.display = 'none';
-                    }, 3000);
-                } else {
-                    resultDiv.innerHTML = '❌ Failed to assign location: ' + assignData.error;
-                }
-                
-            } catch (error) {
-                console.error('Error assigning location by stock:', error);
-                resultDiv.innerHTML = '❌ Error: ' + error.message;
-            }
-        }
-        
-        // Filter inventory by location
-        function toggleNoLocationFilter() {
-            showNoLocationOnly = !showNoLocationOnly;
-            const btn = document.getElementById('noLocationBtn');
-            const btnText = document.getElementById('noLocationBtnText');
-            
-            if (showNoLocationOnly) {
-                btn.style.background = '#4CAF50';
-                btnText.textContent = '✅ Showing No Location Only';
-                document.getElementById('locationFilter').value = 'NO_LOCATION';
-            } else {
-                btn.style.background = '#ff9800';
-                btnText.textContent = '🚨 Show Only No Location';
-                document.getElementById('locationFilter').value = '';
-            }
-            
-            loadData(); // Refresh display
-        }
-        
-        function filterByLocation() {
-            const selectedLocation = document.getElementById('locationFilter').value;
-            
-            if (selectedLocation === 'NO_LOCATION') {
-                showNoLocationOnly = true;
-                const btn = document.getElementById('noLocationBtn');
-                const btnText = document.getElementById('noLocationBtnText');
-                btn.style.background = '#4CAF50';
-                btnText.textContent = '✅ Showing No Location Only';
-            } else {
-                showNoLocationOnly = false;
-                const btn = document.getElementById('noLocationBtn');
-                const btnText = document.getElementById('noLocationBtnText');
-                btn.style.background = '#ff9800';
-                btnText.textContent = '🚨 Show Only No Location';
-            }
-            
-            loadData(); // Refresh display
-        }
-        
-        // Counting Mode - Sequential counting interface
-        function showCountingMode() {
-            const location = document.getElementById('locationFilter').value;
-            if (!location) {
-                alert('Please select a location first to enter counting mode');
-                return;
-            }
-            
-            const countingUrl = '/api/inventory/counting-mode/' + encodeURIComponent(location) + '?token=' + authToken;
-            window.open(countingUrl, '_blank', 'width=800,height=600');
-        }
-        
-        // Start Inventory Process
-        function startInventoryProcess() {
-            if (confirm('Start a new inventory process? This will create a snapshot of current inventory.')) {
-                // Implementation for inventory processing cycle
-                alert('Inventory process started! (Feature in development)');
-            }
-        }
-        
-        // Populate location dropdowns
-        function populateLocationDropdowns() {
-            const quickAddSelect = document.getElementById('quickAddLocation');
-            const filterSelect = document.getElementById('locationFilter');
-            const assignLocationSelect = document.getElementById('assignLocationSelect');
-            
-            // Clear existing options
-            quickAddSelect.innerHTML = '<option value="">Select Location</option>';
-            filterSelect.innerHTML = '<option value="">All Locations</option><option value="NO_LOCATION" style="color: #ff9800;">⚠️ Items Without Location</option>';
-            assignLocationSelect.innerHTML = '<option value="">Select Location</option>';
-            
-            // Add storage locations
-            Object.keys(storageLocations).forEach(location => {
-                quickAddSelect.innerHTML += '<option value="' + location + '">' + location + '</option>';
-                filterSelect.innerHTML += '<option value="' + location + '">' + location + '</option>';
-                assignLocationSelect.innerHTML += '<option value="' + location + '">' + location + '</option>';
-            });
-        }
-        
-        async function cleanInvalidOrders() {
-            const validIds = new Set([
-                '2002362584', '2002373141',
-                '9021570039', '9021570042', '9021570043',
-                '9021750789', '9021819128', '9021819129',
-                '9021819130', '9021819131'
-            ]);
+        placementResults.push(result);
+      }
+    }
+    
+    // Log AI learning data
+    console.log('🤖 Order Processing AI Decision Log:', JSON.stringify({
+      timestamp: new Date().toISOString(),
+      orderId,
+      peopleCount: peopleCount ? Number(peopleCount) : null,
+      totalItems: items.length,
+      autoPlaced: placementResults.filter(r => r.action === 'auto_place').length,
+      needsUserInput: placementResults.filter(r => r.action === 'ask_user').length,
+      decisions: placementResults
+    }, null, 2));
+    
+    res.json({
+      success: true,
+      orderId,
+      placementResults,
+      summary: {
+        totalItems: placementResults.length,
+        autoPlaced: placementResults.filter(r => r.action === 'auto_place').length,
+        needsUserInput: placementResults.filter(r => r.action === 'ask_user').length
+      }
+    });
+    
+  } catch (error) {
+    console.error('Order processing error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process order' });
+  }
+});
 
-            const response = await fetch('/api/orders/gfs');
-            const data = await response.json();
-            if (!data.success) {
-                alert('❌ Failed to fetch orders');
-                return;
-            }
+// ========== Manual/CSV Orders ==========
 
-            // Remove duplicates first
-            const uniqueOrders = [];
-            const seenIds = new Set();
-            for (const order of data.orders) {
-                if (!seenIds.has(order.orderId)) {
-                    uniqueOrders.push(order);
-                    seenIds.add(order.orderId);
-                }
-            }
+// Create a manual order (simple JSON form)
+app.post('/api/orders/manual', authenticateToken, (req, res) => {
+  try {
+    const { supplier = 'Manual', orderId, orderDate, items = [], peopleCount } = req.body || {};
+    
+    // Validation
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'items array is required and must not be empty' });
+    }
+    
+    // Validate each item
+    for (const item of items) {
+      if (!item.stockNumber || !item.qty || Number(item.qty) <= 0) {
+        return res.status(400).json({ success: false, error: 'Each item must have stockNumber and positive qty' });
+      }
+    }
 
-            const ordersToDelete = uniqueOrders.filter(order => !validIds.has(order.orderId));
-            let deletedCount = 0;
-            
-            for (const order of ordersToDelete) {
-                try {
-                    const del = await fetch('/api/orders/gfs/' + order.orderId, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': 'Bearer ' + authToken
-                        }
-                    });
-                    
-                    if (del.ok) {
-                        const result = await del.json();
-                        console.log('🗑️ Deleted order ' + order.orderId, result);
-                        deletedCount++;
-                    } else {
-                        console.log('⚠️ Failed to delete order ' + order.orderId + ' (already deleted?)');
-                    }
-                } catch (error) {
-                    console.log('⚠️ Error deleting order ' + order.orderId + ':', error);
-                }
-            }
+    const id = orderId || `MAN_${Date.now()}`;
+    const date = orderDate || new Date().toISOString();
 
-            alert('🧹 Deleted ' + deletedCount + ' invalid GFS orders.');
-            showSection('orders'); // Refresh list
-        }
-        
-        // Initialize
-        updateUILanguage();
-        populateLocationDropdowns();
-    </script>
-</body>
-</html>`);
+    const normalized = {
+      orderId: id,
+      orderDate: date,
+      supplier: supplier,
+      peopleCount: peopleCount ? Number(peopleCount) : null,
+      items: items.map(it => ({
+        productCode: it.stockNumber,
+        productName: it.name || it.stockNumber,
+        quantity: Number(it.qty),
+        unit: it.unit || 'ea',
+        category: it.category || 'General'
+      }))
+    };
+
+    // Append to in-memory "gfsOrders" list for reuse of existing flows
+    if (!Array.isArray(gfsOrders)) global.gfsOrders = [];
+    gfsOrders.push(normalized);
+
+    res.json({ success: true, orderId: id, totalItems: normalized.items.length });
+  } catch (e) {
+    console.error('manual order error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to create manual order' });
+  }
+});
+
+// Quick CSV import (CSV: stockNumber,name,qty,unit,category)
+app.post('/api/orders/import', authenticateToken, (req, res) => {
+  try {
+    const { supplier = 'Manual', csv = '', orderId, orderDate, peopleCount } = req.body || {};
+    if (!csv || typeof csv !== 'string') return res.status(400).json({ success: false, error: 'csv string required' });
+
+    const lines = csv.trim().split(/\r?\n/);
+    const items = [];
+    for (const line of lines) {
+      const [stockNumber, name, qtyStr, unit, category] = line.split(',').map(s => (s ?? '').trim());
+      const qty = Number(qtyStr || '0');
+      if (!stockNumber || !qty) continue;
+      items.push({ productCode: stockNumber, productName: name || stockNumber, quantity: qty, unit: unit || 'ea', category: category || 'General' });
+    }
+    if (!items.length) return res.status(400).json({ success: false, error: 'no valid items parsed from csv' });
+
+    const id = orderId || `CSV_${Date.now()}`;
+    const date = orderDate || new Date().toISOString();
+    const normalized = { 
+      orderId: id, 
+      orderDate: date, 
+      supplier, 
+      items,
+      peopleCount: peopleCount ? Number(peopleCount) : null
+    };
+    if (!Array.isArray(gfsOrders)) global.gfsOrders = [];
+    gfsOrders.push(normalized);
+
+    return res.json({ success: true, orderId: id, totalItems: items.length });
+  } catch (e) {
+    console.error('orders/import error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to import order' });
+  }
 });
 
 // Global error handler
 app.use((error, req, res, next) => {
-  console.error('Global error handler:', error);
+  console.error("Global error handler:", error);
   res.status(500).json({
     success: false,
-    error: 'Internal server error'
+    error: "Internal server error",
   });
 });
 
 // Initialize server with all data loading
 async function initializeServer() {
   try {
-    console.log('🔄 Loading data...');
-    
+    console.log("🔄 Loading data...");
+
+    // Load location preferences
+    loadLocationPrefs();
+
     // Load storage locations from file
     loadStorageLocationsFromFile();
-    
+
     // Load Sysco catalog
     try {
-      const catalogPath = getDataPath('catalog', 'sysco_catalog_1753182965099.json');
-      const catalogData = await fs.readFile(catalogPath, 'utf8');
+      const catalogPath = getDataPath(
+        "catalog",
+        "sysco_catalog_1753182965099.json",
+      );
+      const catalogData = await fs.readFile(catalogPath, "utf8");
       const catalogJson = JSON.parse(catalogData);
       syscoCatalog = catalogJson.items || [];
       console.log(`✅ Loaded Sysco catalog: ${syscoCatalog.length} items`);
     } catch (error) {
-      console.log('⚠️ Sysco catalog not found, starting with empty catalog');
+      console.log("⚠️ Sysco catalog not found, starting with empty catalog");
       syscoCatalog = [];
     }
 
     // Load GFS orders
     try {
-      const gfsOrdersPath = getDataPath('gfs_orders');
+      const gfsOrdersPath = getDataPath("gfs_orders");
       const gfsFiles = await fs.readdir(gfsOrdersPath);
-    for (const file of gfsFiles) {
-      if (file.startsWith('gfs_order_') && !file.includes('deleted') && file.endsWith('.json')) {
-        try {
-          const orderData = await fs.readFile(path.join(gfsOrdersPath, file), 'utf8');
-          const order = JSON.parse(orderData);
-          gfsOrders.push(order);
-        } catch (error) {
-          console.log(`⚠️ Skipped corrupted file: ${file}`);
+      for (const file of gfsFiles) {
+        if (
+          file.startsWith("gfs_order_") &&
+          !file.includes("deleted") &&
+          file.endsWith(".json")
+        ) {
+          try {
+            const orderData = await fs.readFile(
+              path.join(gfsOrdersPath, file),
+              "utf8",
+            );
+            const order = JSON.parse(orderData);
+            gfsOrders.push(order);
+          } catch (error) {
+            console.log(`⚠️ Skipped corrupted file: ${file}`);
+          }
         }
       }
-    }
-    console.log(`✅ Loaded GFS orders: ${gfsOrders.length} orders`);
+      console.log(`✅ Loaded GFS orders: ${gfsOrders.length} orders`);
     } catch (error) {
-      console.log('⚠️ GFS orders directory not found, starting with empty orders');
+      console.log(
+        "⚠️ GFS orders directory not found, starting with empty orders",
+      );
       gfsOrders = [];
     }
 
@@ -4653,86 +3723,97 @@ async function initializeServer() {
 
     // Initialize AI globals with current inventory data
     try {
-      const inventoryGlobals = require('./routes/inventoryGlobals');
+      const inventoryGlobals = require("./routes/inventoryGlobals");
       inventoryGlobals.setInventoryReference(inventory);
       inventoryGlobals.setStorageLocationsReference(storageLocations);
-      console.log('📦 Inventory globals module loaded successfully');
+      console.log("📦 Inventory globals module loaded successfully");
       console.log(`✅ Initialized AI optimization system`);
 
       // Register AI optimization routes AFTER data is loaded (BEFORE 404 handler)
       try {
-        const aiRoutes = require('./routes/ai');
-        console.log('🤖 AI routes module loaded successfully');
+        const aiRoutes = require("./routes/ai");
+        console.log("🤖 AI routes module loaded successfully");
         // Set the JWT secret to match the main server
         aiRoutes.setJWTSecret(JWT_SECRET);
-        console.log('🔐 AI routes JWT secret updated');
-        app.use('/api/ai', aiRoutes);
-        console.log(`✅ Registered AI optimization routes at /api/ai (with data)`);
-        
+        console.log("🔐 AI routes JWT secret updated");
+        app.use("/api/ai", aiRoutes);
+        console.log(
+          `✅ Registered AI optimization routes at /api/ai (with data)`,
+        );
+
         // Add a direct test route to verify routing works
-        app.get('/api/ai-test', (req, res) => {
-          res.json({ 
-            success: true, 
-            message: 'Direct AI test route works!', 
-            inventoryCount: inventory.length 
+        app.get("/api/ai-test", (req, res) => {
+          res.json({
+            success: true,
+            message: "Direct AI test route works!",
+            inventoryCount: inventory.length,
           });
         });
         console.log(`✅ Added direct AI test route at /api/ai-test`);
-        
       } catch (error) {
-        console.error('❌ Error loading AI routes:', error);
+        console.error("❌ Error loading AI routes:", error);
       }
     } catch (error) {
-      console.log('⚠️ AI modules not found, AI features disabled');
+      console.log("⚠️ AI modules not found, AI features disabled");
     }
-
   } catch (error) {
-    console.log('⚠️ Some data files not found, using defaults');
+    console.log("⚠️ Some data files not found, using defaults");
   }
 }
 
 // Start server
 async function startServer() {
   await initializeServer();
-  
+
+  // Menu routes
+  try {
+    const menuRoutes = require("./routes/menu");
+    app.use("/api/menu", menuRoutes);
+    console.log("✅ Menu routes registered");
+  } catch (error) {
+    console.log("⚠️ Menu routes not available:", error.message);
+  }
+
   // 404 handler (MUST be last)
   app.use((req, res) => {
     res.status(404).json({
       success: false,
-      error: 'Endpoint not found'
+      error: "Endpoint not found",
     });
   });
   console.log(`✅ Registered 404 handler (last)`);
-  
+
   const server = app.listen(PORT, () => {
-    console.log('\\n🏕️  COMPLETE BILINGUAL INVENTORY SYSTEM STARTED');
-    console.log('✅ Features Active:');
+    console.log("\\n🏕️  COMPLETE BILINGUAL INVENTORY SYSTEM STARTED");
+    console.log("✅ Features Active:");
     console.log(`   • Bilingual (English/French) interface`);
     console.log(`   • Sysco catalog: ${syscoCatalog.length} items loaded`);
     console.log(`   • GFS orders: ${gfsOrders.length} orders loaded`);
     console.log(`   • Full inventory: ${inventory.length} items total`);
-    console.log('   • Storage locations: 11 locations tracked');
-    console.log('   • All inventory items with locations');
-    console.log('\\n📦 Server: http://localhost:' + PORT);
-    console.log('🔐 Login: david.mikulis@camp-inventory.com / inventory2025');
-    console.log('\\n🔒 PROPRIETARY SOFTWARE - © 2025 David Mikulis');
-    console.log('⚠️  UNAUTHORIZED USE PROHIBITED\\n');
+    console.log("   • Storage locations: 11 locations tracked");
+    console.log("   • All inventory items with locations");
+    console.log("\\n📦 Server: http://localhost:" + PORT);
+    console.log("🔐 Login: Configure credentials via environment variables");
+    console.log("\\n🔒 PROPRIETARY SOFTWARE - © 2025 David Mikulis");
+    console.log("⚠️  UNAUTHORIZED USE PROHIBITED\\n");
   });
-  
+
   return server;
 }
 
 // Initialize and start the server
 let server;
-startServer().then(s => {
-  server = s;
-}).catch(console.error);
+startServer()
+  .then((s) => {
+    server = s;
+  })
+  .catch(console.error);
 
-process.on('SIGINT', () => {
-  console.log('\\n🛑 Shutting down...');
+process.on("SIGINT", () => {
+  console.log("\\n🛑 Shutting down...");
   if (server) {
     server.close(() => {
-      console.log('✅ System stopped');
+      console.log("✅ System stopped");
       process.exit(0);
     });
   } else {

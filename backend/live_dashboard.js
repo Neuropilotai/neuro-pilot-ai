@@ -1,147 +1,167 @@
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const { UserModel, getDb } = require('./db/database');
+require("dotenv").config();
+const express = require("express");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+const { UserModel, getDb } = require("./db/database");
 
 class LiveDashboard {
-    constructor() {
-        this.app = express();
-        this.server = createServer(this.app);
-        this.io = new Server(this.server, {
-            cors: {
-                origin: "*",
-                methods: ["GET", "POST"]
-            }
-        });
-        this.port = 3008;
-        this.setupMiddleware();
-        this.setupRoutes();
-        this.setupWebSocket();
-        this.startMonitoring();
-    }
+  constructor() {
+    this.app = express();
+    this.server = createServer(this.app);
+    this.io = new Server(this.server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+      },
+    });
+    this.port = 3008;
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupWebSocket();
+    this.startMonitoring();
+  }
 
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-    }
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+  }
 
-    setupRoutes() {
-        this.app.get('/', (req, res) => {
-            res.send(this.getLiveDashboardHTML());
-        });
+  setupRoutes() {
+    this.app.get("/", (req, res) => {
+      res.send(this.getLiveDashboardHTML());
+    });
 
-        this.app.get('/api/live/stats', async (req, res) => {
-            try {
-                const stats = await this.getLiveStats();
-                res.json(stats);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/api/live/stats", async (req, res) => {
+      try {
+        const stats = await this.getLiveStats();
+        res.json(stats);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        this.app.get('/api/live/users', async (req, res) => {
-            try {
-                const users = await this.getUsers();
-                res.json(users);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/api/live/users", async (req, res) => {
+      try {
+        const users = await this.getUsers();
+        res.json(users);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        this.app.get('/api/live/orders', async (req, res) => {
-            try {
-                const orders = await this.getRecentOrders();
-                res.json(orders);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/api/live/orders", async (req, res) => {
+      try {
+        const orders = await this.getRecentOrders();
+        res.json(orders);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        this.app.get('/api/live/system', async (req, res) => {
-            try {
-                const systemInfo = await this.getSystemInfo();
-                res.json(systemInfo);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-    }
+    this.app.get("/api/live/system", async (req, res) => {
+      try {
+        const systemInfo = await this.getSystemInfo();
+        res.json(systemInfo);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
 
-    setupWebSocket() {
-        this.io.on('connection', (socket) => {
-            console.log('📊 Dashboard client connected:', socket.id);
-            
-            socket.on('disconnect', () => {
-                console.log('📊 Dashboard client disconnected:', socket.id);
-            });
-        });
-    }
+  setupWebSocket() {
+    this.io.on("connection", (socket) => {
+      console.log("📊 Dashboard client connected:", socket.id);
 
-    async startMonitoring() {
-        // Monitor database changes every 2 seconds
-        setInterval(async () => {
-            try {
-                const stats = await this.getLiveStats();
-                this.io.emit('stats_update', stats);
-            } catch (error) {
-                console.error('Error broadcasting stats:', error);
-            }
-        }, 2000);
+      socket.on("disconnect", () => {
+        console.log("📊 Dashboard client disconnected:", socket.id);
+      });
+    });
+  }
 
-        // Monitor system info every 5 seconds
-        setInterval(async () => {
-            try {
-                const systemInfo = await this.getSystemInfo();
-                this.io.emit('system_update', systemInfo);
-            } catch (error) {
-                console.error('Error broadcasting system info:', error);
-            }
-        }, 5000);
+  async startMonitoring() {
+    // Monitor database changes every 2 seconds
+    setInterval(async () => {
+      try {
+        const stats = await this.getLiveStats();
+        this.io.emit("stats_update", stats);
+      } catch (error) {
+        console.error("Error broadcasting stats:", error);
+      }
+    }, 2000);
 
-        // Monitor recent activity every 3 seconds
-        setInterval(async () => {
-            try {
-                const recentOrders = await this.getRecentOrders();
-                this.io.emit('orders_update', recentOrders);
-            } catch (error) {
-                console.error('Error broadcasting orders:', error);
-            }
-        }, 3000);
-    }
+    // Monitor system info every 5 seconds
+    setInterval(async () => {
+      try {
+        const systemInfo = await this.getSystemInfo();
+        this.io.emit("system_update", systemInfo);
+      } catch (error) {
+        console.error("Error broadcasting system info:", error);
+      }
+    }, 5000);
 
-    async getLiveStats() {
-        const db = getDb();
-        if (!db) return {};
+    // Monitor recent activity every 3 seconds
+    setInterval(async () => {
+      try {
+        const recentOrders = await this.getRecentOrders();
+        this.io.emit("orders_update", recentOrders);
+      } catch (error) {
+        console.error("Error broadcasting orders:", error);
+      }
+    }, 3000);
+  }
 
-        const totalUsers = await db.get('SELECT COUNT(*) as count FROM users');
-        const totalOrders = await db.get('SELECT COUNT(*) as count FROM resume_orders');
-        const completedOrders = await db.get('SELECT COUNT(*) as count FROM resume_orders WHERE status = "completed"');
-        const totalRevenue = await db.get('SELECT SUM(price) as total FROM resume_orders WHERE status = "completed"');
-        const todayUsers = await db.get(`SELECT COUNT(*) as count FROM users WHERE date(createdAt) = date('now')`);
-        const todayOrders = await db.get(`SELECT COUNT(*) as count FROM resume_orders WHERE date(createdAt) = date('now')`);
-        const todayRevenue = await db.get(`SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) = date('now')`);
-        const activeSessions = await db.get(`SELECT COUNT(*) as count FROM user_sessions WHERE datetime(expiresAt) > datetime('now')`);
+  async getLiveStats() {
+    const db = getDb();
+    if (!db) return {};
 
-        return {
-            totalUsers: totalUsers?.count || 0,
-            totalOrders: totalOrders?.count || 0,
-            completedOrders: completedOrders?.count || 0,
-            totalRevenue: totalRevenue?.total || 0,
-            todayUsers: todayUsers?.count || 0,
-            todayOrders: todayOrders?.count || 0,
-            todayRevenue: todayRevenue?.total || 0,
-            activeSessions: activeSessions?.count || 0,
-            conversionRate: totalOrders?.count > 0 ? (completedOrders?.count / totalOrders?.count * 100).toFixed(1) : 0,
-            avgOrderValue: completedOrders?.count > 0 ? (totalRevenue?.total / completedOrders?.count).toFixed(2) : 0
-        };
-    }
+    const totalUsers = await db.get("SELECT COUNT(*) as count FROM users");
+    const totalOrders = await db.get(
+      "SELECT COUNT(*) as count FROM resume_orders",
+    );
+    const completedOrders = await db.get(
+      'SELECT COUNT(*) as count FROM resume_orders WHERE status = "completed"',
+    );
+    const totalRevenue = await db.get(
+      'SELECT SUM(price) as total FROM resume_orders WHERE status = "completed"',
+    );
+    const todayUsers = await db.get(
+      `SELECT COUNT(*) as count FROM users WHERE date(createdAt) = date('now')`,
+    );
+    const todayOrders = await db.get(
+      `SELECT COUNT(*) as count FROM resume_orders WHERE date(createdAt) = date('now')`,
+    );
+    const todayRevenue = await db.get(
+      `SELECT SUM(price) as total FROM resume_orders WHERE status = "completed" AND date(createdAt) = date('now')`,
+    );
+    const activeSessions = await db.get(
+      `SELECT COUNT(*) as count FROM user_sessions WHERE datetime(expiresAt) > datetime('now')`,
+    );
 
-    async getUsers() {
-        const db = getDb();
-        if (!db) return [];
+    return {
+      totalUsers: totalUsers?.count || 0,
+      totalOrders: totalOrders?.count || 0,
+      completedOrders: completedOrders?.count || 0,
+      totalRevenue: totalRevenue?.total || 0,
+      todayUsers: todayUsers?.count || 0,
+      todayOrders: todayOrders?.count || 0,
+      todayRevenue: todayRevenue?.total || 0,
+      activeSessions: activeSessions?.count || 0,
+      conversionRate:
+        totalOrders?.count > 0
+          ? ((completedOrders?.count / totalOrders?.count) * 100).toFixed(1)
+          : 0,
+      avgOrderValue:
+        completedOrders?.count > 0
+          ? (totalRevenue?.total / completedOrders?.count).toFixed(2)
+          : 0,
+    };
+  }
 
-        return await db.all(`
+  async getUsers() {
+    const db = getDb();
+    if (!db) return [];
+
+    return await db.all(`
             SELECT 
                 u.id, u.email, u.firstName, u.lastName, u.company, u.role, u.isActive,
                 u.createdAt,
@@ -153,13 +173,13 @@ class LiveDashboard {
             ORDER BY u.createdAt DESC
             LIMIT 50
         `);
-    }
+  }
 
-    async getRecentOrders() {
-        const db = getDb();
-        if (!db) return [];
+  async getRecentOrders() {
+    const db = getDb();
+    if (!db) return [];
 
-        return await db.all(`
+    return await db.all(`
             SELECT 
                 ro.*,
                 u.email as userEmail,
@@ -170,49 +190,49 @@ class LiveDashboard {
             ORDER BY ro.createdAt DESC
             LIMIT 20
         `);
+  }
+
+  async getSystemInfo() {
+    const os = require("os");
+    const fs = require("fs").promises;
+
+    const cpuUsage = process.cpuUsage();
+    const memUsage = process.memoryUsage();
+
+    // Try to get backend server status
+    let backendStatus = "Unknown";
+    try {
+      const response = await fetch("http://localhost:8000/api/agents/status");
+      backendStatus = response.ok ? "Online" : "Offline";
+    } catch (error) {
+      backendStatus = "Offline";
     }
 
-    async getSystemInfo() {
-        const os = require('os');
-        const fs = require('fs').promises;
-        
-        const cpuUsage = process.cpuUsage();
-        const memUsage = process.memoryUsage();
-        
-        // Try to get backend server status
-        let backendStatus = 'Unknown';
-        try {
-            const response = await fetch('http://localhost:8000/api/agents/status');
-            backendStatus = response.ok ? 'Online' : 'Offline';
-        } catch (error) {
-            backendStatus = 'Offline';
-        }
+    return {
+      platform: os.platform(),
+      arch: os.arch(),
+      nodeVersion: process.version,
+      uptime: process.uptime(),
+      cpuUsage: {
+        user: cpuUsage.user,
+        system: cpuUsage.system,
+      },
+      memoryUsage: {
+        rss: Math.round(memUsage.rss / 1024 / 1024),
+        heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+        external: Math.round(memUsage.external / 1024 / 1024),
+      },
+      loadAverage: os.loadavg(),
+      totalMemory: Math.round(os.totalmem() / 1024 / 1024 / 1024),
+      freeMemory: Math.round(os.freemem() / 1024 / 1024 / 1024),
+      backendStatus,
+      timestamp: new Date().toISOString(),
+    };
+  }
 
-        return {
-            platform: os.platform(),
-            arch: os.arch(),
-            nodeVersion: process.version,
-            uptime: process.uptime(),
-            cpuUsage: {
-                user: cpuUsage.user,
-                system: cpuUsage.system
-            },
-            memoryUsage: {
-                rss: Math.round(memUsage.rss / 1024 / 1024),
-                heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
-                heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
-                external: Math.round(memUsage.external / 1024 / 1024)
-            },
-            loadAverage: os.loadavg(),
-            totalMemory: Math.round(os.totalmem() / 1024 / 1024 / 1024),
-            freeMemory: Math.round(os.freemem() / 1024 / 1024 / 1024),
-            backendStatus,
-            timestamp: new Date().toISOString()
-        };
-    }
-
-    getLiveDashboardHTML() {
-        return `
+  getLiveDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -820,21 +840,21 @@ class LiveDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.server.listen(this.port, () => {
-            console.log(`🔴 Live Dashboard started on port ${this.port}`);
-            console.log(`📊 Live Dashboard URL: http://localhost:${this.port}`);
-            console.log(`🔗 Real-time monitoring active`);
-        });
-    }
+  start() {
+    this.server.listen(this.port, () => {
+      console.log(`🔴 Live Dashboard started on port ${this.port}`);
+      console.log(`📊 Live Dashboard URL: http://localhost:${this.port}`);
+      console.log(`🔗 Real-time monitoring active`);
+    });
+  }
 }
 
 // Start the live dashboard
 if (require.main === module) {
-    const dashboard = new LiveDashboard();
-    dashboard.start();
+  const dashboard = new LiveDashboard();
+  dashboard.start();
 }
 
 module.exports = LiveDashboard;

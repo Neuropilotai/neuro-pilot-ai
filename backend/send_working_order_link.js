@@ -1,13 +1,14 @@
-require('dotenv').config();
-const EmailOrderSystem = require('./email_order_system');
+require("dotenv").config();
+const EmailOrderSystem = require("./email_order_system");
 
 async function sendWorkingOrderLink() {
-    const emailSystem = new EmailOrderSystem();
-    
-    const workingURL = 'https://0122-23-233-176-252.ngrok-free.app/simple-order.html';
-    const demoURL = workingURL + '?demo=true';
-    
-    const emailTemplate = `
+  const emailSystem = new EmailOrderSystem();
+
+  const workingURL =
+    "https://0122-23-233-176-252.ngrok-free.app/simple-order.html";
+  const demoURL = workingURL + "?demo=true";
+
+  const emailTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -108,24 +109,23 @@ async function sendWorkingOrderLink() {
 </html>
     `;
 
-    try {
-        const result = await emailSystem.transporter.sendMail({
-            from: '"Neuro.Pilot.AI" <Neuro.Pilot.AI@gmail.com>',
-            to: 'neuro.pilot.ai@gmail.com',
-            subject: '🚀 Order Form LIVE - Complete System Working!',
-            html: emailTemplate,
-            text: `Order Form is Now LIVE!\n\nWorking URLs:\n- Order Form: ${workingURL}\n- Demo Version: ${demoURL}\n\nAll systems are working:\n✅ Order Form\n✅ PDF Generation  \n✅ Email System\n✅ Automated Processing\n\nThe system is ready for customers!`
-        });
+  try {
+    const result = await emailSystem.transporter.sendMail({
+      from: '"Neuro.Pilot.AI" <Neuro.Pilot.AI@gmail.com>',
+      to: "neuro.pilot.ai@gmail.com",
+      subject: "🚀 Order Form LIVE - Complete System Working!",
+      html: emailTemplate,
+      text: `Order Form is Now LIVE!\n\nWorking URLs:\n- Order Form: ${workingURL}\n- Demo Version: ${demoURL}\n\nAll systems are working:\n✅ Order Form\n✅ PDF Generation  \n✅ Email System\n✅ Automated Processing\n\nThe system is ready for customers!`,
+    });
 
-        console.log('✅ Working order form email sent!');
-        console.log('📧 Message ID:', result.messageId);
-        console.log('\n🔗 Working URLs:');
-        console.log('📋 Order Form:', workingURL);
-        console.log('🧪 Demo Version:', demoURL);
-        
-    } catch (error) {
-        console.error('❌ Error:', error.message);
-    }
+    console.log("✅ Working order form email sent!");
+    console.log("📧 Message ID:", result.messageId);
+    console.log("\n🔗 Working URLs:");
+    console.log("📋 Order Form:", workingURL);
+    console.log("🧪 Demo Version:", demoURL);
+  } catch (error) {
+    console.error("❌ Error:", error.message);
+  }
 }
 
 sendWorkingOrderLink();

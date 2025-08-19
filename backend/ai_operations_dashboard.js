@@ -1,357 +1,403 @@
-require('dotenv').config();
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
-const WebSocket = require('ws');
+require("dotenv").config();
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
+const WebSocket = require("ws");
 
 // Import all agents for real-time monitoring
-const MasterOrchestrator = require('./agents/master_orchestrator');
-const SalesMarketingAgent = require('./agents/sales_marketing_agent');
-const ProductGeneratorAgent = require('./agents/product_generator_agent');
-const BillingOrderAgent = require('./agents/billing_order_agent');
-const ComplianceModerationAgent = require('./agents/compliance_moderation_agent');
-const OpportunityScoutAgent = require('./agents/opportunity_scout_agent');
+const MasterOrchestrator = require("./agents/master_orchestrator");
+const SalesMarketingAgent = require("./agents/sales_marketing_agent");
+const ProductGeneratorAgent = require("./agents/product_generator_agent");
+const BillingOrderAgent = require("./agents/billing_order_agent");
+const ComplianceModerationAgent = require("./agents/compliance_moderation_agent");
+const OpportunityScoutAgent = require("./agents/opportunity_scout_agent");
 
 class AIOperationsDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3009;
-        this.wss = null;
-        this.masterOrchestrator = null;
-        this.agents = new Map();
-        this.realTimeData = {
-            globalMetrics: {
-                revenue_today: 0,
-                revenue_week: 0,
-                revenue_month: 0,
-                conversion_rate: 0,
-                orders_today: 0,
-                automation_uptime: 99.9,
-                active_agents: 0,
-                system_alerts: []
-            },
-            agentActivities: [],
-            resumeOrders: [],
-            feedbackData: [],
-            taskQueue: [],
-            billingData: {},
-            marketingMetrics: {}
-        };
-        
-        this.setupMiddleware();
-        this.setupRoutes();
-        this.initializeAgents();
+  constructor() {
+    this.app = express();
+    this.port = 3009;
+    this.wss = null;
+    this.masterOrchestrator = null;
+    this.agents = new Map();
+    this.realTimeData = {
+      globalMetrics: {
+        revenue_today: 0,
+        revenue_week: 0,
+        revenue_month: 0,
+        conversion_rate: 0,
+        orders_today: 0,
+        automation_uptime: 99.9,
+        active_agents: 0,
+        system_alerts: [],
+      },
+      agentActivities: [],
+      resumeOrders: [],
+      feedbackData: [],
+      taskQueue: [],
+      billingData: {},
+      marketingMetrics: {},
+    };
+
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.initializeAgents();
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.static("public"));
+
+    // Enable CORS for WebSocket connections
+    this.app.use((req, res, next) => {
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept",
+      );
+      next();
+    });
+  }
+
+  async initializeAgents() {
+    try {
+      console.log("🚀 Initializing AI Operations Dashboard...");
+
+      // Initialize master orchestrator
+      this.masterOrchestrator = new MasterOrchestrator();
+
+      // Initialize individual agents for monitoring
+      this.agents.set("sales_marketing", new SalesMarketingAgent());
+      this.agents.set("product_generator", new ProductGeneratorAgent());
+      this.agents.set("billing_order", new BillingOrderAgent());
+      this.agents.set("compliance_moderation", new ComplianceModerationAgent());
+      this.agents.set("opportunity_scout", new OpportunityScoutAgent());
+
+      // Start real-time monitoring
+      this.startRealTimeMonitoring();
+
+      console.log("✅ All agents initialized for monitoring");
+    } catch (error) {
+      console.error("❌ Agent initialization failed:", error);
     }
-    
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.urlencoded({ extended: true }));
-        this.app.use(express.static('public'));
-        
-        // Enable CORS for WebSocket connections
-        this.app.use((req, res, next) => {
-            res.header('Access-Control-Allow-Origin', '*');
-            res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-            next();
+  }
+
+  startRealTimeMonitoring() {
+    // Update metrics every 5 seconds
+    setInterval(async () => {
+      await this.updateRealTimeMetrics();
+      this.broadcastUpdate();
+    }, 5000);
+
+    // Update agent activities every 10 seconds
+    setInterval(async () => {
+      await this.updateAgentActivities();
+    }, 10000);
+
+    // Update orders every 15 seconds
+    setInterval(async () => {
+      await this.updateResumeOrders();
+    }, 15000);
+  }
+
+  async updateRealTimeMetrics() {
+    try {
+      // Get system status from orchestrator
+      const systemStatus = await this.masterOrchestrator.getSystemStatus();
+
+      // Calculate revenue metrics (simulate for demo)
+      const today = new Date();
+      const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      this.realTimeData.globalMetrics = {
+        revenue_today: Math.floor(Math.random() * 5000) + 1000,
+        revenue_week: Math.floor(Math.random() * 25000) + 15000,
+        revenue_month: Math.floor(Math.random() * 100000) + 50000,
+        conversion_rate: Math.random() * 20 + 75, // 75-95%
+        orders_today: Math.floor(Math.random() * 50) + 20,
+        automation_uptime: 99.9,
+        active_agents: systemStatus.active_workflows || 0,
+        system_alerts: this.generateSystemAlerts(),
+        total_agents: Object.keys(systemStatus.agents).length,
+        performance_score: Math.random() * 10 + 85, // 85-95
+      };
+    } catch (error) {
+      console.error("Error updating real-time metrics:", error);
+    }
+  }
+
+  async updateAgentActivities() {
+    const activities = [];
+
+    for (const [name, agent] of this.agents) {
+      try {
+        const report = await agent.getPerformanceReport();
+
+        activities.push({
+          name: this.formatAgentName(name),
+          status: this.getAgentStatus(agent, report),
+          last_task: this.getLastTask(report),
+          success_rate: this.calculateSuccessRate(report),
+          error_log: this.getRecentErrors(report),
+          uptime: Math.random() * 5 + 95, // 95-100%
+          last_activity: new Date().toLocaleTimeString(),
         });
+      } catch (error) {
+        activities.push({
+          name: this.formatAgentName(name),
+          status: "🔴 Error",
+          last_task: "Monitoring failed",
+          success_rate: 0,
+          error_log: [error.message],
+          uptime: 0,
+          last_activity: new Date().toLocaleTimeString(),
+        });
+      }
     }
-    
-    async initializeAgents() {
-        try {
-            console.log('🚀 Initializing AI Operations Dashboard...');
-            
-            // Initialize master orchestrator
-            this.masterOrchestrator = new MasterOrchestrator();
-            
-            // Initialize individual agents for monitoring
-            this.agents.set('sales_marketing', new SalesMarketingAgent());
-            this.agents.set('product_generator', new ProductGeneratorAgent());
-            this.agents.set('billing_order', new BillingOrderAgent());
-            this.agents.set('compliance_moderation', new ComplianceModerationAgent());
-            this.agents.set('opportunity_scout', new OpportunityScoutAgent());
-            
-            // Start real-time monitoring
-            this.startRealTimeMonitoring();
-            
-            console.log('✅ All agents initialized for monitoring');
-            
-        } catch (error) {
-            console.error('❌ Agent initialization failed:', error);
+
+    this.realTimeData.agentActivities = activities;
+  }
+
+  async updateResumeOrders() {
+    // Simulate resume order data
+    const orders = [];
+    const names = [
+      "John Smith",
+      "Sarah Johnson",
+      "Mike Wilson",
+      "Emily Davis",
+      "Alex Chen",
+    ];
+    const packages = [
+      "Basic Resume",
+      "Premium Resume",
+      "Executive Package",
+      "Tech Resume",
+      "Creative Resume",
+    ];
+    const statuses = [
+      "🔄 In Progress",
+      "✅ Completed",
+      "🛠️ Needs Review",
+      "📧 Delivered",
+    ];
+
+    for (let i = 0; i < 10; i++) {
+      orders.push({
+        id: `ORD-${Date.now()}-${i}`,
+        name: names[Math.floor(Math.random() * names.length)],
+        email: `customer${i}@example.com`,
+        package: packages[Math.floor(Math.random() * packages.length)],
+        status: statuses[Math.floor(Math.random() * statuses.length)],
+        feedback_score: Math.random() * 2 + 3, // 3-5 stars
+        created_at: new Date(Date.now() - Math.random() * 86400000), // Last 24 hours
+        completion_time: Math.floor(Math.random() * 120) + 30, // 30-150 minutes
+        assigned_prompt: `Template_v${Math.floor(Math.random() * 5) + 1}`,
+        price: [49.99, 149.99, 299.99, 199.99, 99.99][
+          Math.floor(Math.random() * 5)
+        ],
+      });
+    }
+
+    this.realTimeData.resumeOrders = orders;
+  }
+
+  generateSystemAlerts() {
+    const alerts = [];
+    const alertTypes = [
+      {
+        type: "info",
+        message: "High order volume detected - scaling resources",
+        icon: "📈",
+      },
+      {
+        type: "warning",
+        message: "API rate limit approaching for OpenAI",
+        icon: "⚠️",
+      },
+      {
+        type: "success",
+        message: "New optimization pattern discovered",
+        icon: "🎯",
+      },
+      {
+        type: "error",
+        message: "Payment gateway timeout - retrying",
+        icon: "🔄",
+      },
+    ];
+
+    // Randomly generate 0-3 alerts
+    const alertCount = Math.floor(Math.random() * 4);
+    for (let i = 0; i < alertCount; i++) {
+      const alert = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+      alerts.push({
+        ...alert,
+        timestamp: new Date().toLocaleTimeString(),
+        id: `alert_${Date.now()}_${i}`,
+      });
+    }
+
+    return alerts;
+  }
+
+  formatAgentName(name) {
+    return (
+      name
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ") + " Agent"
+    );
+  }
+
+  getAgentStatus(agent, report) {
+    if (!report) return "🔴 Offline";
+
+    const status = agent.status || "UNKNOWN";
+    switch (status) {
+      case "ACTIVE":
+        return "✅ Active";
+      case "BUSY":
+        return "🟡 Busy";
+      case "ERROR":
+        return "🔴 Error";
+      case "IDLE":
+        return "⚪ Idle";
+      default:
+        return "✅ Active";
+    }
+  }
+
+  getLastTask(report) {
+    if (!report) return "No data";
+
+    // Simulate different task types
+    const tasks = [
+      "Generated premium resume",
+      "Processed payment transaction",
+      "Created marketing campaign",
+      "Scanned market opportunities",
+      "Moderated content",
+      "Analyzed customer feedback",
+    ];
+
+    return tasks[Math.floor(Math.random() * tasks.length)];
+  }
+
+  calculateSuccessRate(report) {
+    if (!report || !report.performance_metrics) {
+      return Math.floor(Math.random() * 20) + 75; // 75-95%
+    }
+
+    // Try to calculate from actual metrics
+    return Math.floor(Math.random() * 15) + 85; // 85-100%
+  }
+
+  getRecentErrors(report) {
+    const errors = [];
+    const errorTypes = [
+      "API timeout",
+      "Rate limit exceeded",
+      "Template parsing error",
+      "Network connectivity",
+      "Memory optimization",
+    ];
+
+    // Randomly add 0-2 errors
+    const errorCount = Math.floor(Math.random() * 3);
+    for (let i = 0; i < errorCount; i++) {
+      errors.push(errorTypes[Math.floor(Math.random() * errorTypes.length)]);
+    }
+
+    return errors;
+  }
+
+  broadcastUpdate() {
+    if (this.wss) {
+      const data = JSON.stringify({
+        type: "real_time_update",
+        data: this.realTimeData,
+      });
+
+      this.wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
         }
+      });
     }
-    
-    startRealTimeMonitoring() {
-        // Update metrics every 5 seconds
-        setInterval(async () => {
-            await this.updateRealTimeMetrics();
-            this.broadcastUpdate();
-        }, 5000);
-        
-        // Update agent activities every 10 seconds
-        setInterval(async () => {
-            await this.updateAgentActivities();
-        }, 10000);
-        
-        // Update orders every 15 seconds
-        setInterval(async () => {
-            await this.updateResumeOrders();
-        }, 15000);
-    }
-    
-    async updateRealTimeMetrics() {
-        try {
-            // Get system status from orchestrator
-            const systemStatus = await this.masterOrchestrator.getSystemStatus();
-            
-            // Calculate revenue metrics (simulate for demo)
-            const today = new Date();
-            const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            
-            this.realTimeData.globalMetrics = {
-                revenue_today: Math.floor(Math.random() * 5000) + 1000,
-                revenue_week: Math.floor(Math.random() * 25000) + 15000,
-                revenue_month: Math.floor(Math.random() * 100000) + 50000,
-                conversion_rate: Math.random() * 20 + 75, // 75-95%
-                orders_today: Math.floor(Math.random() * 50) + 20,
-                automation_uptime: 99.9,
-                active_agents: systemStatus.active_workflows || 0,
-                system_alerts: this.generateSystemAlerts(),
-                total_agents: Object.keys(systemStatus.agents).length,
-                performance_score: Math.random() * 10 + 85 // 85-95
-            };
-            
-        } catch (error) {
-            console.error('Error updating real-time metrics:', error);
-        }
-    }
-    
-    async updateAgentActivities() {
-        const activities = [];
-        
+  }
+
+  setupRoutes() {
+    // Main dashboard
+    this.app.get("/", (req, res) => {
+      res.send(this.getAIOperationsDashboardHTML());
+    });
+
+    // API endpoints
+    this.app.get("/api/real-time-data", (req, res) => {
+      res.json(this.realTimeData);
+    });
+
+    this.app.get("/api/agent-performance", async (req, res) => {
+      try {
+        const performance = {};
         for (const [name, agent] of this.agents) {
-            try {
-                const report = await agent.getPerformanceReport();
-                
-                activities.push({
-                    name: this.formatAgentName(name),
-                    status: this.getAgentStatus(agent, report),
-                    last_task: this.getLastTask(report),
-                    success_rate: this.calculateSuccessRate(report),
-                    error_log: this.getRecentErrors(report),
-                    uptime: Math.random() * 5 + 95, // 95-100%
-                    last_activity: new Date().toLocaleTimeString()
-                });
-                
-            } catch (error) {
-                activities.push({
-                    name: this.formatAgentName(name),
-                    status: '🔴 Error',
-                    last_task: 'Monitoring failed',
-                    success_rate: 0,
-                    error_log: [error.message],
-                    uptime: 0,
-                    last_activity: new Date().toLocaleTimeString()
-                });
-            }
+          performance[name] = await agent.getPerformanceReport();
         }
-        
-        this.realTimeData.agentActivities = activities;
-    }
-    
-    async updateResumeOrders() {
-        // Simulate resume order data
-        const orders = [];
-        const names = ['John Smith', 'Sarah Johnson', 'Mike Wilson', 'Emily Davis', 'Alex Chen'];
-        const packages = ['Basic Resume', 'Premium Resume', 'Executive Package', 'Tech Resume', 'Creative Resume'];
-        const statuses = ['🔄 In Progress', '✅ Completed', '🛠️ Needs Review', '📧 Delivered'];
-        
-        for (let i = 0; i < 10; i++) {
-            orders.push({
-                id: `ORD-${Date.now()}-${i}`,
-                name: names[Math.floor(Math.random() * names.length)],
-                email: `customer${i}@example.com`,
-                package: packages[Math.floor(Math.random() * packages.length)],
-                status: statuses[Math.floor(Math.random() * statuses.length)],
-                feedback_score: Math.random() * 2 + 3, // 3-5 stars
-                created_at: new Date(Date.now() - Math.random() * 86400000), // Last 24 hours
-                completion_time: Math.floor(Math.random() * 120) + 30, // 30-150 minutes
-                assigned_prompt: `Template_v${Math.floor(Math.random() * 5) + 1}`,
-                price: [49.99, 149.99, 299.99, 199.99, 99.99][Math.floor(Math.random() * 5)]
-            });
-        }
-        
-        this.realTimeData.resumeOrders = orders;
-    }
-    
-    generateSystemAlerts() {
-        const alerts = [];
-        const alertTypes = [
-            { type: 'info', message: 'High order volume detected - scaling resources', icon: '📈' },
-            { type: 'warning', message: 'API rate limit approaching for OpenAI', icon: '⚠️' },
-            { type: 'success', message: 'New optimization pattern discovered', icon: '🎯' },
-            { type: 'error', message: 'Payment gateway timeout - retrying', icon: '🔄' }
-        ];
-        
-        // Randomly generate 0-3 alerts
-        const alertCount = Math.floor(Math.random() * 4);
-        for (let i = 0; i < alertCount; i++) {
-            const alert = alertTypes[Math.floor(Math.random() * alertTypes.length)];
-            alerts.push({
-                ...alert,
-                timestamp: new Date().toLocaleTimeString(),
-                id: `alert_${Date.now()}_${i}`
-            });
-        }
-        
-        return alerts;
-    }
-    
-    formatAgentName(name) {
-        return name.split('_').map(word => 
-            word.charAt(0).toUpperCase() + word.slice(1)
-        ).join(' ') + ' Agent';
-    }
-    
-    getAgentStatus(agent, report) {
-        if (!report) return '🔴 Offline';
-        
-        const status = agent.status || 'UNKNOWN';
-        switch (status) {
-            case 'ACTIVE': return '✅ Active';
-            case 'BUSY': return '🟡 Busy';
-            case 'ERROR': return '🔴 Error';
-            case 'IDLE': return '⚪ Idle';
-            default: return '✅ Active';
-        }
-    }
-    
-    getLastTask(report) {
-        if (!report) return 'No data';
-        
-        // Simulate different task types
-        const tasks = [
-            'Generated premium resume',
-            'Processed payment transaction', 
-            'Created marketing campaign',
-            'Scanned market opportunities',
-            'Moderated content',
-            'Analyzed customer feedback'
-        ];
-        
-        return tasks[Math.floor(Math.random() * tasks.length)];
-    }
-    
-    calculateSuccessRate(report) {
-        if (!report || !report.performance_metrics) {
-            return Math.floor(Math.random() * 20) + 75; // 75-95%
-        }
-        
-        // Try to calculate from actual metrics
-        return Math.floor(Math.random() * 15) + 85; // 85-100%
-    }
-    
-    getRecentErrors(report) {
-        const errors = [];
-        const errorTypes = [
-            'API timeout',
-            'Rate limit exceeded',
-            'Template parsing error',
-            'Network connectivity',
-            'Memory optimization'
-        ];
-        
-        // Randomly add 0-2 errors
-        const errorCount = Math.floor(Math.random() * 3);
-        for (let i = 0; i < errorCount; i++) {
-            errors.push(errorTypes[Math.floor(Math.random() * errorTypes.length)]);
-        }
-        
-        return errors;
-    }
-    
-    broadcastUpdate() {
-        if (this.wss) {
-            const data = JSON.stringify({
-                type: 'real_time_update',
-                data: this.realTimeData
-            });
-            
-            this.wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(data);
-                }
-            });
-        }
-    }
-    
-    setupRoutes() {
-        // Main dashboard
-        this.app.get('/', (req, res) => {
-            res.send(this.getAIOperationsDashboardHTML());
+        res.json(performance);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post("/api/agent/:agentName/restart", async (req, res) => {
+      try {
+        const { agentName } = req.params;
+        // Simulate agent restart
+        res.json({
+          success: true,
+          message: `${agentName} restarted successfully`,
         });
-        
-        // API endpoints
-        this.app.get('/api/real-time-data', (req, res) => {
-            res.json(this.realTimeData);
-        });
-        
-        this.app.get('/api/agent-performance', async (req, res) => {
-            try {
-                const performance = {};
-                for (const [name, agent] of this.agents) {
-                    performance[name] = await agent.getPerformanceReport();
-                }
-                res.json(performance);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        this.app.post('/api/agent/:agentName/restart', async (req, res) => {
-            try {
-                const { agentName } = req.params;
-                // Simulate agent restart
-                res.json({ success: true, message: `${agentName} restarted successfully` });
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        this.app.post('/api/order/:orderId/update', async (req, res) => {
-            try {
-                const { orderId } = req.params;
-                const { status, feedback } = req.body;
-                // Update order status
-                res.json({ success: true, orderId, status, feedback });
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        this.app.get('/api/feedback-analysis', (req, res) => {
-            // Generate feedback analysis data
-            const analysis = {
-                average_rating: 4.7,
-                total_reviews: 1247,
-                prompt_performance: {
-                    'Template_v1': { rating: 4.2, count: 234 },
-                    'Template_v2': { rating: 4.8, count: 456 },
-                    'Template_v3': { rating: 4.6, count: 345 },
-                    'Template_v4': { rating: 4.9, count: 212 }
-                },
-                improvement_suggestions: [
-                    'Increase technical skills emphasis',
-                    'Add more industry-specific keywords',
-                    'Improve formatting consistency'
-                ]
-            };
-            res.json(analysis);
-        });
-    }
-    
-    getAIOperationsDashboardHTML() {
-        return `
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.post("/api/order/:orderId/update", async (req, res) => {
+      try {
+        const { orderId } = req.params;
+        const { status, feedback } = req.body;
+        // Update order status
+        res.json({ success: true, orderId, status, feedback });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/feedback-analysis", (req, res) => {
+      // Generate feedback analysis data
+      const analysis = {
+        average_rating: 4.7,
+        total_reviews: 1247,
+        prompt_performance: {
+          Template_v1: { rating: 4.2, count: 234 },
+          Template_v2: { rating: 4.8, count: 456 },
+          Template_v3: { rating: 4.6, count: 345 },
+          Template_v4: { rating: 4.9, count: 212 },
+        },
+        improvement_suggestions: [
+          "Increase technical skills emphasis",
+          "Add more industry-specific keywords",
+          "Improve formatting consistency",
+        ],
+      };
+      res.json(analysis);
+    });
+  }
+
+  getAIOperationsDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1050,41 +1096,45 @@ class AIOperationsDashboard {
 </body>
 </html>
         `;
-    }
-    
-    setupWebSocket() {
-        const server = this.app.listen(this.port, () => {
-            console.log(`🧠 AI Operations Dashboard started on port ${this.port}`);
-            console.log(`📊 Dashboard URL: http://localhost:${this.port}`);
-            console.log(`🎮 Features: Real-time monitoring, agent management, performance analytics`);
-        });
-        
-        this.wss = new WebSocket.Server({ server });
-        
-        this.wss.on('connection', (ws) => {
-            console.log('📡 New dashboard client connected');
-            
-            // Send initial data
-            ws.send(JSON.stringify({
-                type: 'initial_data',
-                data: this.realTimeData
-            }));
-            
-            ws.on('close', () => {
-                console.log('📡 Dashboard client disconnected');
-            });
-        });
-    }
-    
-    start() {
-        this.setupWebSocket();
-    }
+  }
+
+  setupWebSocket() {
+    const server = this.app.listen(this.port, () => {
+      console.log(`🧠 AI Operations Dashboard started on port ${this.port}`);
+      console.log(`📊 Dashboard URL: http://localhost:${this.port}`);
+      console.log(
+        `🎮 Features: Real-time monitoring, agent management, performance analytics`,
+      );
+    });
+
+    this.wss = new WebSocket.Server({ server });
+
+    this.wss.on("connection", (ws) => {
+      console.log("📡 New dashboard client connected");
+
+      // Send initial data
+      ws.send(
+        JSON.stringify({
+          type: "initial_data",
+          data: this.realTimeData,
+        }),
+      );
+
+      ws.on("close", () => {
+        console.log("📡 Dashboard client disconnected");
+      });
+    });
+  }
+
+  start() {
+    this.setupWebSocket();
+  }
 }
 
 // Start the AI Operations Dashboard
 if (require.main === module) {
-    const dashboard = new AIOperationsDashboard();
-    dashboard.start();
+  const dashboard = new AIOperationsDashboard();
+  dashboard.start();
 }
 
 module.exports = AIOperationsDashboard;

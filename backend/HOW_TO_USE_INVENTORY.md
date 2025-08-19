@@ -33,7 +33,9 @@
 ## 2. How to Import Orders (CSV)
 
 ### Simple CSV Format (Recommended):
+
 Create a CSV file with just two columns:
+
 ```
 Ground Beef,150
 Milk,80
@@ -42,13 +44,16 @@ Chicken Breast,100
 ```
 
 ### Template CSV Format:
+
 Download the template using the "Download CSV Template" button, then fill it out:
+
 ```
 Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
 2024-03-15,Gordon Food Service,280,7,Ground Beef,150,Milk,80,Bread,120
 ```
 
 ### Troubleshooting CSV Import:
+
 - Make sure there are no extra spaces or special characters
 - Use simple item names without quotes
 - Quantities should be whole numbers
@@ -57,11 +62,13 @@ Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
 ## 3. Quick Tips
 
 ### For Daily Use:
+
 - Count items first thing in the morning
 - Enter your actual physical count (not what you think it should be)
 - Submit counts right away to keep the system updated
 
 ### Setting Up New Items:
+
 1. Go to the "Setup" tab
 2. Click "Add New Item"
 3. Enter:
@@ -72,6 +79,7 @@ Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
    - Reorder point
 
 ### Checking What to Order:
+
 1. Go to "Min/Max Report" tab
 2. Items in red need reordering
 3. Click "Generate Order" to create an order
@@ -79,13 +87,16 @@ Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
 ## Common Issues and Solutions
 
 **Problem: CSV won't import**
+
 - Solution: Use the simple format (item,quantity)
 - Make sure no headers or extra columns
 
 **Problem: Can't see items when counting**
+
 - Solution: Items must be assigned to locations in Setup tab
 
 **Problem: Count not saving**
+
 - Solution: Make sure you entered your name and at least one count
 
 ## Need More Help?

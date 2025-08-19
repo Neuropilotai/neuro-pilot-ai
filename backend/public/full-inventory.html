@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Full Inventory & Orders - Neuro.Pilot.AI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #111; color: #fff; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: #222; padding: 20px; border-radius: 8px; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #4CAF50; }
+        .downloads { background: #222; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .btn { background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #45a049; }
+        .btn-warning { background: #ff9800; }
+        .btn-info { background: #2196F3; }
+        table { width: 100%; border-collapse: collapse; background: #222; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #333; position: sticky; top: 0; }
+        .value { color: #4CAF50; font-weight: bold; }
+        .low-stock { color: #ff9800; }
+        .out-of-stock { color: #f44336; }
+        .search-box { width: 100%; padding: 10px; margin-bottom: 20px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; }
+        .pagination { text-align: center; margin: 20px 0; }
+        .page-btn { background: #555; color: white; border: none; padding: 8px 12px; margin: 0 2px; cursor: pointer; }
+        .page-btn.active { background: #4CAF50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏕️ Complete Inventory System</h1>
+        
+        <!-- Stats Section -->
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalItems">Loading...</div>
+                <div>Total Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalValue">Loading...</div>
+                <div>Total Value</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="lowStockCount">Loading...</div>
+                <div>Low Stock Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="orderCount">Loading...</div>
+                <div>Available Orders</div>
+            </div>
+        </div>
+
+        <!-- Downloads Section -->
+        <div class="downloads">
+            <h3>📥 Download Options</h3>
+            <button class="btn" onclick="downloadInventory('csv')">📊 Download Full Inventory (CSV)</button>
+            <button class="btn btn-info" onclick="downloadInventory('json')">📋 Download Inventory (JSON)</button>
+            <button class="btn btn-warning" onclick="downloadOrders()">📦 Download All Orders</button>
+            <button class="btn btn-info" onclick="showNewOrders()">🚨 Process New Orders</button>
+        </div>
+
+        <!-- Search and Filters -->
+        <input type="text" class="search-box" id="searchBox" placeholder="Search items by name, category, supplier..." onkeyup="filterInventory()">
+        
+        <!-- Inventory Table -->
+        <div style="overflow-x: auto; max-height: 600px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Total Value</th>
+                        <th>Location</th>
+                        <th>Supplier</th>
+                        <th>Orders</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTableBody">
+                    <tr><td colspan="10">Loading inventory...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+
+        <!-- Orders Summary -->
+        <div id="ordersSummary" style="margin-top: 30px; background: #222; padding: 20px; border-radius: 8px;">
+            <h3>📦 Recent Orders Summary</h3>
+            <div id="ordersContent">Loading orders...</div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8083/api';
+        let currentInventory = [];
+        let filteredInventory = [];
+        let currentPage = 1;
+        const itemsPerPage = 50;
+
+        // Load and display everything
+        async function loadAll() {
+            await loadInventory();
+            await loadOrders();
+        }
+
+        async function loadInventory() {
+            try {
+                const response = await fetch(`${BASE_URL}/inventory/items`);
+                const data = await response.json();
+                
+                if (data.success && data.items) {
+                    currentInventory = data.items;
+                    filteredInventory = [...currentInventory];
+                    
+                    updateStats();
+                    displayInventory();
+                } else {
+                    document.getElementById('inventoryTableBody').innerHTML = 
+                        '<tr><td colspan="10">Error loading inventory</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading inventory:', error);
+                document.getElementById('inventoryTableBody').innerHTML = 
+                    '<tr><td colspan="10">Failed to load inventory</td></tr>';
+            }
+        }
+
+        function updateStats() {
+            const totalItems = currentInventory.length;
+            const totalValue = currentInventory.reduce((sum, item) => sum + (item.totalValue || 0), 0);
+            const lowStockItems = currentInventory.filter(item => (item.quantity || 0) < (item.minQuantity || 5)).length;
+            
+            document.getElementById('totalItems').textContent = totalItems.toLocaleString();
+            document.getElementById('totalValue').textContent = '$' + totalValue.toLocaleString();
+            document.getElementById('lowStockCount').textContent = lowStockItems;
+        }
+
+        function displayInventory() {
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageItems = filteredInventory.slice(startIndex, endIndex);
+
+            const tbody = document.getElementById('inventoryTableBody');
+            
+            if (pageItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10">No items found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = pageItems.map(item => {
+                const name = item.name?.en || item.name || 'Unknown';
+                const qty = item.quantity || 0;
+                const unitPrice = item.unitPrice || 0;
+                const totalValue = item.totalValue || 0;
+                const location = Array.isArray(item.locations) ? item.locations.join(', ') : (item.location || '—');
+                const orders = item.orders || [];
+                const ordersDisplay = orders.length > 0 ? 
+                    `<span title="${orders.map(o => o.orderId).join(', ')}">${orders.length} order(s)</span>` : '—';
+                
+                let statusClass = '';
+                let status = 'In Stock';
+                if (qty === 0) {
+                    statusClass = 'out-of-stock';
+                    status = 'Out of Stock';
+                } else if (qty < (item.minQuantity || 5)) {
+                    statusClass = 'low-stock';
+                    status = 'Low Stock';
+                }
+
+                return `
+                    <tr>
+                        <td>${name}</td>
+                        <td>${item.category || '—'}</td>
+                        <td class="value">${qty}</td>
+                        <td class="value">$${unitPrice.toFixed(2)}</td>
+                        <td class="value">$${totalValue.toFixed(2)}</td>
+                        <td>${location}</td>
+                        <td>${item.supplier || '—'}</td>
+                        <td>${ordersDisplay}</td>
+                        <td class="${statusClass}">${status}</td>
+                        <td>
+                            <button class="btn" onclick="moveItem('${item.id}', '${name.replace(/'/g, "\\'")}')">Move</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updatePagination();
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
+            const pagination = document.getElementById('pagination');
+            
+            let paginationHTML = '';
+            for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+                const activeClass = i === currentPage ? 'active' : '';
+                paginationHTML += `<button class="page-btn ${activeClass}" onclick="changePage(${i})">${i}</button>`;
+            }
+            
+            if (totalPages > 10) {
+                paginationHTML += `<span>... ${totalPages} total pages</span>`;
+            }
+            
+            pagination.innerHTML = paginationHTML;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            displayInventory();
+        }
+
+        function filterInventory() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            filteredInventory = currentInventory.filter(item => {
+                const name = (item.name?.en || item.name || '').toLowerCase();
+                const category = (item.category || '').toLowerCase();
+                const supplier = (item.supplier || '').toLowerCase();
+                
+                return name.includes(searchTerm) || 
+                       category.includes(searchTerm) || 
+                       supplier.includes(searchTerm);
+            });
+            
+            currentPage = 1;
+            displayInventory();
+        }
+
+        async function loadOrders() {
+            try {
+                // Try to get orders info
+                const response = await fetch(`${BASE_URL}/orders`);
+                if (response.ok) {
+                    const orders = await response.json();
+                    document.getElementById('orderCount').textContent = orders.length || 0;
+                    
+                    const ordersContent = document.getElementById('ordersContent');
+                    if (orders.length > 0) {
+                        ordersContent.innerHTML = orders.slice(0, 5).map(order => `
+                            <div style="margin: 10px 0; padding: 10px; background: #333; border-radius: 4px;">
+                                <strong>${order.orderId || order.id}</strong> - ${order.supplier} 
+                                (${order.totalItems || order.items?.length || 0} items)
+                                <span style="float: right;">${new Date(order.orderDate).toLocaleDateString()}</span>
+                            </div>
+                        `).join('') + (orders.length > 5 ? `<p>... and ${orders.length - 5} more orders</p>` : '');
+                    } else {
+                        ordersContent.innerHTML = '<p>No orders found</p>';
+                    }
+                } else {
+                    document.getElementById('orderCount').textContent = '0';
+                    document.getElementById('ordersContent').innerHTML = '<p>Unable to load orders</p>';
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                document.getElementById('orderCount').textContent = '?';
+            }
+        }
+
+        function downloadInventory(format) {
+            const data = format === 'json' ? 
+                JSON.stringify(currentInventory, null, 2) :
+                convertToCSV(currentInventory);
+            
+            const blob = new Blob([data], { type: format === 'json' ? 'application/json' : 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inventory_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function convertToCSV(data) {
+            const headers = ['Name', 'Category', 'Quantity', 'Unit Price', 'Total Value', 'Location', 'Supplier', 'Stock Status'];
+            const rows = data.map(item => [
+                item.name?.en || item.name || '',
+                item.category || '',
+                item.quantity || 0,
+                item.unitPrice || 0,
+                item.totalValue || 0,
+                Array.isArray(item.locations) ? item.locations.join('; ') : (item.location || ''),
+                item.supplier || '',
+                (item.quantity || 0) === 0 ? 'Out of Stock' : 
+                (item.quantity || 0) < (item.minQuantity || 5) ? 'Low Stock' : 'In Stock'
+            ]);
+            
+            return [headers, ...rows].map(row => 
+                row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+            ).join('\n');
+        }
+
+        function downloadOrders() {
+            alert('Order download functionality - check the /api/orders endpoint or GFS orders folder');
+        }
+
+        function showNewOrders() {
+            alert('Navigate to the main inventory interface to process new orders with AI placement');
+        }
+
+        function moveItem(itemId, itemName) {
+            alert(`Move functionality for "${itemName}" - use the main inventory interface for full move capabilities`);
+        }
+
+        // Load everything when page loads
+        loadAll();
+    </script>
+</body>
+</html>

@@ -6,15 +6,15 @@
  * Generates professional marketing materials for the AI resume service
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 class ShowcaseGeneratorAgent {
   constructor() {
-    this.outputDir = path.join(__dirname, '../showcase_materials');
+    this.outputDir = path.join(__dirname, "../showcase_materials");
     this.ensureOutputDirectory();
-    
-    console.log('🎨 Showcase Generator Agent initialized');
+
+    console.log("🎨 Showcase Generator Agent initialized");
     console.log(`📁 Output directory: ${this.outputDir}`);
   }
 
@@ -22,10 +22,10 @@ class ShowcaseGeneratorAgent {
     if (!fs.existsSync(this.outputDir)) {
       fs.mkdirSync(this.outputDir, { recursive: true });
     }
-    
+
     // Create subdirectories
-    const subdirs = ['images', 'videos', 'documents', 'templates'];
-    subdirs.forEach(dir => {
+    const subdirs = ["images", "videos", "documents", "templates"];
+    subdirs.forEach((dir) => {
       const dirPath = path.join(this.outputDir, dir);
       if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath);
@@ -35,15 +35,15 @@ class ShowcaseGeneratorAgent {
 
   // Generate HTML-based gig images (can be screenshot for actual images)
   generateGigImages() {
-    console.log('🖼️ Generating Fiverr gig images...');
+    console.log("🖼️ Generating Fiverr gig images...");
 
     // Main Gig Image
     const mainImage = this.createImageHTML({
-      title: 'AI RESUME WRITING',
-      subtitle: 'From McDonald\'s to CEO',
-      stats: '95% Interview Success Rate',
-      background: 'gradient-ai',
-      type: 'main'
+      title: "AI RESUME WRITING",
+      subtitle: "From McDonald's to CEO",
+      stats: "95% Interview Success Rate",
+      background: "gradient-ai",
+      type: "main",
     });
 
     // Before/After Comparison Image
@@ -53,15 +53,24 @@ class ShowcaseGeneratorAgent {
     const processImage = this.createProcessDiagramHTML();
 
     // Save HTML files (can be converted to images using screenshot tools)
-    fs.writeFileSync(path.join(this.outputDir, 'images/main_gig_image.html'), mainImage);
-    fs.writeFileSync(path.join(this.outputDir, 'images/before_after_comparison.html'), beforeAfterImage);
-    fs.writeFileSync(path.join(this.outputDir, 'images/process_diagram.html'), processImage);
+    fs.writeFileSync(
+      path.join(this.outputDir, "images/main_gig_image.html"),
+      mainImage,
+    );
+    fs.writeFileSync(
+      path.join(this.outputDir, "images/before_after_comparison.html"),
+      beforeAfterImage,
+    );
+    fs.writeFileSync(
+      path.join(this.outputDir, "images/process_diagram.html"),
+      processImage,
+    );
 
-    console.log('✅ Gig images generated as HTML files');
+    console.log("✅ Gig images generated as HTML files");
     return {
-      main: 'main_gig_image.html',
-      beforeAfter: 'before_after_comparison.html',
-      process: 'process_diagram.html'
+      main: "main_gig_image.html",
+      beforeAfter: "before_after_comparison.html",
+      process: "process_diagram.html",
     };
   }
 
@@ -355,7 +364,7 @@ class ShowcaseGeneratorAgent {
 
   // Generate video script for Fiverr gig video
   generateVideoScript() {
-    console.log('🎬 Generating video script...');
+    console.log("🎬 Generating video script...");
 
     const videoScript = `
 # FIVERR GIG VIDEO SCRIPT (60 seconds)
@@ -418,19 +427,22 @@ class ShowcaseGeneratorAgent {
 "Click the green 'Continue' button below to order your AI-powered resume now!"
 `;
 
-    fs.writeFileSync(path.join(this.outputDir, 'videos/gig_video_script.md'), videoScript);
-    console.log('✅ Video script generated');
+    fs.writeFileSync(
+      path.join(this.outputDir, "videos/gig_video_script.md"),
+      videoScript,
+    );
+    console.log("✅ Video script generated");
 
-    return 'gig_video_script.md';
+    return "gig_video_script.md";
   }
 
   // Generate sample resume documents for showcase
   generateSampleDocuments() {
-    console.log('📄 Generating sample documents...');
+    console.log("📄 Generating sample documents...");
 
     // Sample "Before" Resume (Generic)
     const beforeResume = this.createGenericResume();
-    
+
     // Sample "After" Resume (AI-Optimized)
     const afterResume = this.createAIOptimizedResume();
 
@@ -438,16 +450,25 @@ class ShowcaseGeneratorAgent {
     const coverLetter = this.createCoverLetterSample();
 
     // Save documents
-    fs.writeFileSync(path.join(this.outputDir, 'documents/sample_before_resume.html'), beforeResume);
-    fs.writeFileSync(path.join(this.outputDir, 'documents/sample_after_resume.html'), afterResume);
-    fs.writeFileSync(path.join(this.outputDir, 'documents/sample_cover_letter.html'), coverLetter);
+    fs.writeFileSync(
+      path.join(this.outputDir, "documents/sample_before_resume.html"),
+      beforeResume,
+    );
+    fs.writeFileSync(
+      path.join(this.outputDir, "documents/sample_after_resume.html"),
+      afterResume,
+    );
+    fs.writeFileSync(
+      path.join(this.outputDir, "documents/sample_cover_letter.html"),
+      coverLetter,
+    );
 
-    console.log('✅ Sample documents generated');
+    console.log("✅ Sample documents generated");
 
     return {
-      before: 'sample_before_resume.html',
-      after: 'sample_after_resume.html',
-      coverLetter: 'sample_cover_letter.html'
+      before: "sample_before_resume.html",
+      after: "sample_after_resume.html",
+      coverLetter: "sample_cover_letter.html",
     };
   }
 
@@ -680,20 +701,24 @@ class ShowcaseGeneratorAgent {
 
   // Generate portfolio templates for different industries
   generatePortfolioTemplates() {
-    console.log('📁 Generating portfolio templates...');
+    console.log("📁 Generating portfolio templates...");
 
     const templates = {
-      'McDonald\'s Entry Level': this.createEntryLevelTemplate(),
-      'Google Tech Professional': this.createTechProfessionalTemplate(),
-      'Tesla CEO Executive': this.createExecutiveTemplate()
+      "McDonald's Entry Level": this.createEntryLevelTemplate(),
+      "Google Tech Professional": this.createTechProfessionalTemplate(),
+      "Tesla CEO Executive": this.createExecutiveTemplate(),
     };
 
     Object.entries(templates).forEach(([name, content]) => {
-      const filename = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() + '_template.html';
-      fs.writeFileSync(path.join(this.outputDir, 'templates', filename), content);
+      const filename =
+        name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase() + "_template.html";
+      fs.writeFileSync(
+        path.join(this.outputDir, "templates", filename),
+        content,
+      );
     });
 
-    console.log('✅ Portfolio templates generated');
+    console.log("✅ Portfolio templates generated");
     return Object.keys(templates);
   }
 
@@ -969,27 +994,30 @@ class ShowcaseGeneratorAgent {
 
   // Generate Instagram-style posts for social media marketing
   generateSocialMediaContent() {
-    console.log('📱 Generating social media content...');
+    console.log("📱 Generating social media content...");
 
     // Create social media subdirectory if it doesn't exist
-    const socialDir = path.join(this.outputDir, 'social_media');
+    const socialDir = path.join(this.outputDir, "social_media");
     if (!fs.existsSync(socialDir)) {
       fs.mkdirSync(socialDir);
     }
 
     const socialPosts = {
-      'LinkedIn Professional Post': this.createLinkedInPost(),
-      'Instagram Stories Content': this.createInstagramStories(),
-      'Twitter Thread Script': this.createTwitterThread(),
-      'Facebook Group Post': this.createFacebookPost()
+      "LinkedIn Professional Post": this.createLinkedInPost(),
+      "Instagram Stories Content": this.createInstagramStories(),
+      "Twitter Thread Script": this.createTwitterThread(),
+      "Facebook Group Post": this.createFacebookPost(),
     };
 
     Object.entries(socialPosts).forEach(([name, content]) => {
-      const filename = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() + '.md';
-      fs.writeFileSync(path.join(this.outputDir, 'social_media', filename), content);
+      const filename = name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase() + ".md";
+      fs.writeFileSync(
+        path.join(this.outputDir, "social_media", filename),
+        content,
+      );
     });
 
-    console.log('✅ Social media content generated');
+    console.log("✅ Social media content generated");
     return Object.keys(socialPosts);
   }
 
@@ -1367,8 +1395,8 @@ What career transition are you making? Drop it below and I'll suggest some posit
 
   // Main execution method
   async generateAllShowcaseMaterials() {
-    console.log('🚀 Starting Showcase Generator Agent...');
-    console.log('=======================================');
+    console.log("🚀 Starting Showcase Generator Agent...");
+    console.log("=======================================");
 
     const results = {};
 
@@ -1382,30 +1410,40 @@ What career transition are you making? Drop it below and I'll suggest some posit
 
       // Generate summary report
       const summary = this.generateSummaryReport(results);
-      fs.writeFileSync(path.join(this.outputDir, 'SHOWCASE_SUMMARY.md'), summary);
+      fs.writeFileSync(
+        path.join(this.outputDir, "SHOWCASE_SUMMARY.md"),
+        summary,
+      );
 
-      console.log('');
-      console.log('🎉 SHOWCASE MATERIALS GENERATED SUCCESSFULLY!');
-      console.log('============================================');
+      console.log("");
+      console.log("🎉 SHOWCASE MATERIALS GENERATED SUCCESSFULLY!");
+      console.log("============================================");
       console.log(`📁 All files saved to: ${this.outputDir}`);
-      console.log('');
-      console.log('📂 Generated Materials:');
-      console.log(`   🖼️  Gig Images: ${Object.keys(results.images).length} files`);
+      console.log("");
+      console.log("📂 Generated Materials:");
+      console.log(
+        `   🖼️  Gig Images: ${Object.keys(results.images).length} files`,
+      );
       console.log(`   🎬 Video Script: 1 file`);
-      console.log(`   📄 Sample Documents: ${Object.keys(results.documents).length} files`);
-      console.log(`   📁 Portfolio Templates: ${results.templates.length} files`);
-      console.log(`   📱 Social Media Content: ${results.socialMedia.length} files`);
-      console.log('');
-      console.log('🎯 NEXT STEPS:');
-      console.log('1. Screenshot HTML files for actual images');
-      console.log('2. Upload to Fiverr gig gallery');
-      console.log('3. Use social media content for promotion');
-      console.log('4. Show portfolio templates to clients');
+      console.log(
+        `   📄 Sample Documents: ${Object.keys(results.documents).length} files`,
+      );
+      console.log(
+        `   📁 Portfolio Templates: ${results.templates.length} files`,
+      );
+      console.log(
+        `   📱 Social Media Content: ${results.socialMedia.length} files`,
+      );
+      console.log("");
+      console.log("🎯 NEXT STEPS:");
+      console.log("1. Screenshot HTML files for actual images");
+      console.log("2. Upload to Fiverr gig gallery");
+      console.log("3. Use social media content for promotion");
+      console.log("4. Show portfolio templates to clients");
 
       return results;
-
     } catch (error) {
-      console.error('❌ Error generating showcase materials:', error);
+      console.error("❌ Error generating showcase materials:", error);
       throw error;
     }
   }

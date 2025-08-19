@@ -1,21 +1,21 @@
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
+const express = require("express");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
 });
 
 const port = 3011;
 
 // Basic route
-app.get('/', (req, res) => {
-    res.send(`
+app.get("/", (req, res) => {
+  res.send(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -60,34 +60,34 @@ app.get('/', (req, res) => {
 });
 
 // Socket.io connection
-io.on('connection', (socket) => {
-    console.log('👤 Client connected:', socket.id);
-    
-    socket.on('disconnect', () => {
-        console.log('👤 Client disconnected:', socket.id);
-    });
+io.on("connection", (socket) => {
+  console.log("👤 Client connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("👤 Client disconnected:", socket.id);
+  });
 });
 
 // Start server
 server.listen(port, (err) => {
-    if (err) {
-        console.error('❌ Failed to start server:', err);
-        process.exit(1);
-    }
-    console.log('🚀 Simple Monitor started successfully!');
-    console.log(`📱 Access at: http://localhost:${port}`);
-    console.log(`🌐 Server listening on port ${port}`);
+  if (err) {
+    console.error("❌ Failed to start server:", err);
+    process.exit(1);
+  }
+  console.log("🚀 Simple Monitor started successfully!");
+  console.log(`📱 Access at: http://localhost:${port}`);
+  console.log(`🌐 Server listening on port ${port}`);
 });
 
-server.on('error', (err) => {
-    console.error('❌ Server error:', err);
+server.on("error", (err) => {
+  console.error("❌ Server error:", err);
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-    console.log('\n🛑 Shutting down...');
-    server.close(() => {
-        console.log('✅ Server closed');
-        process.exit(0);
-    });
+process.on("SIGINT", () => {
+  console.log("\n🛑 Shutting down...");
+  server.close(() => {
+    console.log("✅ Server closed");
+    process.exit(0);
+  });
 });

@@ -1,369 +1,427 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fiverr Pro Enhanced Dashboard</title>
-    
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+      .gradient-bg {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+      }
+      .fiverr-green {
+        background-color: #1dbf73;
+      }
+      .fiverr-dark {
+        background-color: #404145;
+      }
+      .card-hover {
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+      }
+      .status-active {
+        background-color: #1dbf73;
+      }
+      .status-delivered {
+        background-color: #4fc3f7;
+      }
+      .status-completed {
+        background-color: #66bb6a;
+      }
+      .status-revision {
+        background-color: #ffb74d;
+      }
+      @keyframes pulse-green {
+        0%,
+        100% {
+          background-color: #1dbf73;
         }
-        .fiverr-green {
-            background-color: #1dbf73;
+        50% {
+          background-color: #17a869;
         }
-        .fiverr-dark {
-            background-color: #404145;
-        }
-        .card-hover {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .card-hover:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-        }
-        .status-active {
-            background-color: #1dbf73;
-        }
-        .status-delivered {
-            background-color: #4fc3f7;
-        }
-        .status-completed {
-            background-color: #66bb6a;
-        }
-        .status-revision {
-            background-color: #ffb74d;
-        }
-        @keyframes pulse-green {
-            0%, 100% { background-color: #1dbf73; }
-            50% { background-color: #17a869; }
-        }
-        .pulse-fiverr {
-            animation: pulse-green 2s infinite;
-        }
-        .fiverr-badge {
-            background: linear-gradient(45deg, #1dbf73, #17a869);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-        }
+      }
+      .pulse-fiverr {
+        animation: pulse-green 2s infinite;
+      }
+      .fiverr-badge {
+        background: linear-gradient(45deg, #1dbf73, #17a869);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+      }
     </style>
-</head>
-<body class="bg-gray-50 min-h-screen">
+  </head>
+  <body class="bg-gray-50 min-h-screen">
     <!-- Header -->
     <header class="fiverr-dark text-white shadow-lg">
-        <div class="container mx-auto px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="text-2xl font-bold mr-4">
-                        <i class="fas fa-star text-yellow-400 mr-2"></i>
-                        Fiverr Pro Enhanced
-                    </div>
-                    <div class="flex space-x-3">
-                        <span class="fiverr-badge">Level 2 Seller</span>
-                        <span class="fiverr-badge">Pro Verified</span>
-                        <span class="fiverr-badge">Top Rated</span>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-6">
-                    <div class="text-right">
-                        <div class="text-sm opacity-75">Active Orders</div>
-                        <div id="active-orders-count" class="text-xl font-bold">2</div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-sm opacity-75">Monthly Revenue</div>
-                        <div id="monthly-revenue" class="text-xl font-bold text-green-400">$3,247</div>
-                    </div>
-                    <button onclick="refreshDashboard()" class="fiverr-green hover:bg-green-600 px-4 py-2 rounded-lg transition duration-300">
-                        <i class="fas fa-sync-alt mr-2"></i>Refresh
-                    </button>
-                </div>
+      <div class="container mx-auto px-6 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="text-2xl font-bold mr-4">
+              <i class="fas fa-star text-yellow-400 mr-2"></i>
+              Fiverr Pro Enhanced
             </div>
+            <div class="flex space-x-3">
+              <span class="fiverr-badge">Level 2 Seller</span>
+              <span class="fiverr-badge">Pro Verified</span>
+              <span class="fiverr-badge">Top Rated</span>
+            </div>
+          </div>
+          <div class="flex items-center space-x-6">
+            <div class="text-right">
+              <div class="text-sm opacity-75">Active Orders</div>
+              <div id="active-orders-count" class="text-xl font-bold">2</div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm opacity-75">Monthly Revenue</div>
+              <div
+                id="monthly-revenue"
+                class="text-xl font-bold text-green-400"
+              >
+                $3,247
+              </div>
+            </div>
+            <button
+              onclick="refreshDashboard()"
+              class="fiverr-green hover:bg-green-600 px-4 py-2 rounded-lg transition duration-300"
+            >
+              <i class="fas fa-sync-alt mr-2"></i>Refresh
+            </button>
+          </div>
         </div>
+      </div>
     </header>
 
     <div class="container mx-auto px-6 py-8">
-        <!-- Stats Overview -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-lg shadow-md p-6 card-hover">
-                <div class="flex items-center">
-                    <div class="bg-green-100 p-3 rounded-full">
-                        <i class="fas fa-chart-line text-green-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Total Orders</h3>
-                        <p id="total-orders" class="text-2xl font-bold text-gray-900">147</p>
-                        <p class="text-xs text-green-600">+12 this week</p>
-                    </div>
-                </div>
+      <!-- Stats Overview -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+          <div class="flex items-center">
+            <div class="bg-green-100 p-3 rounded-full">
+              <i class="fas fa-chart-line text-green-600 text-xl"></i>
             </div>
-            
-            <div class="bg-white rounded-lg shadow-md p-6 card-hover">
-                <div class="flex items-center">
-                    <div class="bg-blue-100 p-3 rounded-full">
-                        <i class="fas fa-star text-blue-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Rating</h3>
-                        <p id="seller-rating" class="text-2xl font-bold text-gray-900">4.9</p>
-                        <p class="text-xs text-blue-600">98.6% completion</p>
-                    </div>
-                </div>
+            <div class="ml-4">
+              <h3 class="text-sm font-medium text-gray-500">Total Orders</h3>
+              <p id="total-orders" class="text-2xl font-bold text-gray-900">
+                147
+              </p>
+              <p class="text-xs text-green-600">+12 this week</p>
             </div>
-            
-            <div class="bg-white rounded-lg shadow-md p-6 card-hover">
-                <div class="flex items-center">
-                    <div class="bg-yellow-100 p-3 rounded-full">
-                        <i class="fas fa-clock text-yellow-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Response Time</h3>
-                        <p id="response-time" class="text-2xl font-bold text-gray-900">1hr</p>
-                        <p class="text-xs text-yellow-600">Average</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="bg-white rounded-lg shadow-md p-6 card-hover">
-                <div class="flex items-center">
-                    <div class="bg-purple-100 p-3 rounded-full">
-                        <i class="fas fa-users text-purple-600 text-xl"></i>
-                    </div>
-                    <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Repeat Clients</h3>
-                        <p id="repeat-clients" class="text-2xl font-bold text-gray-900">73</p>
-                        <p class="text-xs text-purple-600">49% return rate</p>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
 
-        <!-- Main Dashboard Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Active Orders -->
-            <div class="lg:col-span-2 bg-white rounded-lg shadow-md">
-                <div class="p-6 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-900 flex items-center">
-                        <i class="fas fa-list-alt mr-2 text-green-600"></i>
-                        Active Orders
-                        <span id="active-badge" class="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">2 Active</span>
-                    </h2>
-                </div>
-                <div class="p-6">
-                    <div id="orders-list" class="space-y-4">
-                        <!-- Orders will be populated here -->
-                    </div>
-                </div>
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+          <div class="flex items-center">
+            <div class="bg-blue-100 p-3 rounded-full">
+              <i class="fas fa-star text-blue-600 text-xl"></i>
             </div>
-
-            <!-- Quick Actions & Analytics -->
-            <div class="space-y-6">
-                <!-- Quick Actions -->
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                        <i class="fas fa-bolt mr-2 text-yellow-500"></i>Quick Actions
-                    </h3>
-                    <div class="space-y-3">
-                        <button onclick="createNewOrder()" class="w-full fiverr-green hover:bg-green-600 text-white py-2 px-4 rounded-lg transition duration-300">
-                            <i class="fas fa-plus mr-2"></i>New Order
-                        </button>
-                        <button onclick="sendBulkMessages()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition duration-300">
-                            <i class="fas fa-envelope mr-2"></i>Send Messages
-                        </button>
-                        <button onclick="generateReport()" class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg transition duration-300">
-                            <i class="fas fa-chart-bar mr-2"></i>Generate Report
-                        </button>
-                        <button onclick="optimizeGigs()" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition duration-300">
-                            <i class="fas fa-magic mr-2"></i>Optimize Gigs
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Performance Chart -->
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                        <i class="fas fa-chart-area mr-2 text-blue-500"></i>Revenue Trend
-                    </h3>
-                    <canvas id="revenue-chart" width="300" height="200"></canvas>
-                </div>
+            <div class="ml-4">
+              <h3 class="text-sm font-medium text-gray-500">Rating</h3>
+              <p id="seller-rating" class="text-2xl font-bold text-gray-900">
+                4.9
+              </p>
+              <p class="text-xs text-blue-600">98.6% completion</p>
             </div>
+          </div>
         </div>
 
-        <!-- Gigs Performance -->
-        <div class="mt-8 bg-white rounded-lg shadow-md">
-            <div class="p-6 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-900">
-                    <i class="fas fa-rocket mr-2 text-purple-600"></i>Gig Performance
-                </h2>
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+          <div class="flex items-center">
+            <div class="bg-yellow-100 p-3 rounded-full">
+              <i class="fas fa-clock text-yellow-600 text-xl"></i>
             </div>
-            <div class="p-6">
-                <div id="gigs-performance" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <!-- Gig cards will be populated here -->
-                </div>
+            <div class="ml-4">
+              <h3 class="text-sm font-medium text-gray-500">Response Time</h3>
+              <p id="response-time" class="text-2xl font-bold text-gray-900">
+                1hr
+              </p>
+              <p class="text-xs text-yellow-600">Average</p>
             </div>
+          </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="mt-8 bg-white rounded-lg shadow-md">
-            <div class="p-6 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-900">
-                    <i class="fas fa-history mr-2 text-gray-600"></i>Recent Activity
-                </h2>
+        <div class="bg-white rounded-lg shadow-md p-6 card-hover">
+          <div class="flex items-center">
+            <div class="bg-purple-100 p-3 rounded-full">
+              <i class="fas fa-users text-purple-600 text-xl"></i>
             </div>
-            <div class="p-6">
-                <div id="activity-feed" class="space-y-4">
-                    <!-- Activity items will be populated here -->
-                </div>
+            <div class="ml-4">
+              <h3 class="text-sm font-medium text-gray-500">Repeat Clients</h3>
+              <p id="repeat-clients" class="text-2xl font-bold text-gray-900">
+                73
+              </p>
+              <p class="text-xs text-purple-600">49% return rate</p>
             </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Main Dashboard Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Active Orders -->
+        <div class="lg:col-span-2 bg-white rounded-lg shadow-md">
+          <div class="p-6 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900 flex items-center">
+              <i class="fas fa-list-alt mr-2 text-green-600"></i>
+              Active Orders
+              <span
+                id="active-badge"
+                class="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full"
+                >2 Active</span
+              >
+            </h2>
+          </div>
+          <div class="p-6">
+            <div id="orders-list" class="space-y-4">
+              <!-- Orders will be populated here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions & Analytics -->
+        <div class="space-y-6">
+          <!-- Quick Actions -->
+          <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+              <i class="fas fa-bolt mr-2 text-yellow-500"></i>Quick Actions
+            </h3>
+            <div class="space-y-3">
+              <button
+                onclick="createNewOrder()"
+                class="w-full fiverr-green hover:bg-green-600 text-white py-2 px-4 rounded-lg transition duration-300"
+              >
+                <i class="fas fa-plus mr-2"></i>New Order
+              </button>
+              <button
+                onclick="sendBulkMessages()"
+                class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition duration-300"
+              >
+                <i class="fas fa-envelope mr-2"></i>Send Messages
+              </button>
+              <button
+                onclick="generateReport()"
+                class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg transition duration-300"
+              >
+                <i class="fas fa-chart-bar mr-2"></i>Generate Report
+              </button>
+              <button
+                onclick="optimizeGigs()"
+                class="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition duration-300"
+              >
+                <i class="fas fa-magic mr-2"></i>Optimize Gigs
+              </button>
+            </div>
+          </div>
+
+          <!-- Performance Chart -->
+          <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+              <i class="fas fa-chart-area mr-2 text-blue-500"></i>Revenue Trend
+            </h3>
+            <canvas id="revenue-chart" width="300" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gigs Performance -->
+      <div class="mt-8 bg-white rounded-lg shadow-md">
+        <div class="p-6 border-b border-gray-200">
+          <h2 class="text-lg font-semibold text-gray-900">
+            <i class="fas fa-rocket mr-2 text-purple-600"></i>Gig Performance
+          </h2>
+        </div>
+        <div class="p-6">
+          <div
+            id="gigs-performance"
+            class="grid grid-cols-1 md:grid-cols-3 gap-6"
+          >
+            <!-- Gig cards will be populated here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="mt-8 bg-white rounded-lg shadow-md">
+        <div class="p-6 border-b border-gray-200">
+          <h2 class="text-lg font-semibold text-gray-900">
+            <i class="fas fa-history mr-2 text-gray-600"></i>Recent Activity
+          </h2>
+        </div>
+        <div class="p-6">
+          <div id="activity-feed" class="space-y-4">
+            <!-- Activity items will be populated here -->
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Order Details Modal -->
-    <div id="order-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-90vh overflow-y-auto">
-            <div class="p-6 border-b border-gray-200">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xl font-semibold text-gray-900">Order Details</h3>
-                    <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-            </div>
-            <div id="order-modal-content" class="p-6">
-                <!-- Order details will be populated here -->
-            </div>
+    <div
+      id="order-modal"
+      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-90vh overflow-y-auto"
+      >
+        <div class="p-6 border-b border-gray-200">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xl font-semibold text-gray-900">Order Details</h3>
+            <button
+              onclick="closeOrderModal()"
+              class="text-gray-400 hover:text-gray-600"
+            >
+              <i class="fas fa-times text-xl"></i>
+            </button>
+          </div>
         </div>
+        <div id="order-modal-content" class="p-6">
+          <!-- Order details will be populated here -->
+        </div>
+      </div>
     </div>
 
     <script>
-        // Fiverr Pro Dashboard Management
-        class FiverrProDashboard {
-            constructor() {
-                this.orders = [];
-                this.gigs = [];
-                this.analytics = {};
-                this.charts = {};
-                
-                this.init();
-            }
+      // Fiverr Pro Dashboard Management
+      class FiverrProDashboard {
+        constructor() {
+          this.orders = [];
+          this.gigs = [];
+          this.analytics = {};
+          this.charts = {};
 
-            async init() {
-                await this.loadData();
-                this.renderDashboard();
-                this.initCharts();
-                this.startRealTimeUpdates();
-            }
+          this.init();
+        }
 
-            async loadData() {
-                try {
-                    // Load profile data
-                    const profileResponse = await fetch('/api/profile');
-                    const profileData = await profileResponse.json();
-                    
-                    // Load orders
-                    const ordersResponse = await fetch('/api/orders');
-                    const ordersData = await ordersResponse.json();
-                    this.orders = ordersData.orders || [];
-                    
-                    // Load gigs
-                    const gigsResponse = await fetch('/api/gigs');
-                    const gigsData = await gigsResponse.json();
-                    this.gigs = gigsData.gigs || [];
-                    
-                    // Load analytics
-                    const analyticsResponse = await fetch('/api/analytics');
-                    const analyticsData = await analyticsResponse.json();
-                    this.analytics = analyticsData.analytics || {};
-                    
-                } catch (error) {
-                    console.error('Failed to load data:', error);
-                    this.loadFallbackData();
-                }
-            }
+        async init() {
+          await this.loadData();
+          this.renderDashboard();
+          this.initCharts();
+          this.startRealTimeUpdates();
+        }
 
-            loadFallbackData() {
-                // Fallback data for demo
-                this.orders = [
-                    {
-                        id: 'FVR1750350002',
-                        buyerUsername: 'careerchange',
-                        gigId: 'ai-resume-executive',
-                        package: 'Premium',
-                        price: 149,
-                        status: 'active',
-                        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-                        deliveryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-                        requirements: {
-                            jobDescription: 'Executive Director position at Fortune 500 company',
-                            candidateInfo: { name: 'Sarah Johnson' }
-                        }
-                    },
-                    {
-                        id: 'FVR1750350001',
-                        buyerUsername: 'jobseeker2024',
-                        gigId: 'ai-resume-professional',
-                        package: 'Standard',
-                        price: 79,
-                        status: 'delivered',
-                        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-                        deliveryDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
-                    }
-                ];
+        async loadData() {
+          try {
+            // Load profile data
+            const profileResponse = await fetch("/api/profile");
+            const profileData = await profileResponse.json();
 
-                this.gigs = [
-                    {
-                        id: 'ai-resume-basic',
-                        title: 'AI-powered ATS resume that gets interviews',
-                        price: 39,
-                        category: 'Basic',
-                        orders: 23,
-                        impressions: 1547,
-                        clicks: 89
-                    },
-                    {
-                        id: 'ai-resume-professional',
-                        title: 'Professional AI resume with industry optimization',
-                        price: 79,
-                        category: 'Standard',
-                        orders: 67,
-                        impressions: 2341,
-                        clicks: 156
-                    },
-                    {
-                        id: 'ai-resume-executive',
-                        title: 'Executive AI resume for leadership positions',
-                        price: 149,
-                        category: 'Premium',
-                        orders: 34,
-                        impressions: 987,
-                        clicks: 87
-                    }
-                ];
-            }
+            // Load orders
+            const ordersResponse = await fetch("/api/orders");
+            const ordersData = await ordersResponse.json();
+            this.orders = ordersData.orders || [];
 
-            renderDashboard() {
-                this.renderOrders();
-                this.renderGigs();
-                this.renderActivity();
-                this.updateStats();
-            }
+            // Load gigs
+            const gigsResponse = await fetch("/api/gigs");
+            const gigsData = await gigsResponse.json();
+            this.gigs = gigsData.gigs || [];
 
-            renderOrders() {
-                const ordersList = document.getElementById('orders-list');
-                const activeOrders = this.orders.filter(order => order.status === 'active' || order.status === 'delivered');
-                
-                ordersList.innerHTML = activeOrders.map(order => `
+            // Load analytics
+            const analyticsResponse = await fetch("/api/analytics");
+            const analyticsData = await analyticsResponse.json();
+            this.analytics = analyticsData.analytics || {};
+          } catch (error) {
+            console.error("Failed to load data:", error);
+            this.loadFallbackData();
+          }
+        }
+
+        loadFallbackData() {
+          // Fallback data for demo
+          this.orders = [
+            {
+              id: "FVR1750350002",
+              buyerUsername: "careerchange",
+              gigId: "ai-resume-executive",
+              package: "Premium",
+              price: 149,
+              status: "active",
+              createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+              deliveryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
+              requirements: {
+                jobDescription:
+                  "Executive Director position at Fortune 500 company",
+                candidateInfo: { name: "Sarah Johnson" },
+              },
+            },
+            {
+              id: "FVR1750350001",
+              buyerUsername: "jobseeker2024",
+              gigId: "ai-resume-professional",
+              package: "Standard",
+              price: 79,
+              status: "delivered",
+              createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+              deliveryDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+            },
+          ];
+
+          this.gigs = [
+            {
+              id: "ai-resume-basic",
+              title: "AI-powered ATS resume that gets interviews",
+              price: 39,
+              category: "Basic",
+              orders: 23,
+              impressions: 1547,
+              clicks: 89,
+            },
+            {
+              id: "ai-resume-professional",
+              title: "Professional AI resume with industry optimization",
+              price: 79,
+              category: "Standard",
+              orders: 67,
+              impressions: 2341,
+              clicks: 156,
+            },
+            {
+              id: "ai-resume-executive",
+              title: "Executive AI resume for leadership positions",
+              price: 149,
+              category: "Premium",
+              orders: 34,
+              impressions: 987,
+              clicks: 87,
+            },
+          ];
+        }
+
+        renderDashboard() {
+          this.renderOrders();
+          this.renderGigs();
+          this.renderActivity();
+          this.updateStats();
+        }
+
+        renderOrders() {
+          const ordersList = document.getElementById("orders-list");
+          const activeOrders = this.orders.filter(
+            (order) =>
+              order.status === "active" || order.status === "delivered",
+          );
+
+          ordersList.innerHTML = activeOrders
+            .map(
+              (order) => `
                     <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-300 cursor-pointer" onclick="showOrderDetails('${order.id}')">
                         <div class="flex items-center justify-between">
                             <div class="flex-1">
@@ -375,7 +433,7 @@
                                     <span class="text-sm text-gray-500">by @${order.buyerUsername}</span>
                                 </div>
                                 <div class="mt-2 text-sm text-gray-600">
-                                    ${order.requirements?.jobDescription?.substring(0, 60) || 'Professional resume service'}...
+                                    ${order.requirements?.jobDescription?.substring(0, 60) || "Professional resume service"}...
                                 </div>
                                 <div class="mt-2 flex items-center space-x-4 text-xs text-gray-500">
                                     <span><i class="fas fa-clock mr-1"></i>Due: ${this.formatDate(order.deliveryDate)}</span>
@@ -391,17 +449,23 @@
                             </div>
                         </div>
                     </div>
-                `).join('');
+                `,
+            )
+            .join("");
 
-                // Update active orders count
-                document.getElementById('active-orders-count').textContent = activeOrders.length;
-                document.getElementById('active-badge').textContent = `${activeOrders.length} Active`;
-            }
+          // Update active orders count
+          document.getElementById("active-orders-count").textContent =
+            activeOrders.length;
+          document.getElementById("active-badge").textContent =
+            `${activeOrders.length} Active`;
+        }
 
-            renderGigs() {
-                const gigsContainer = document.getElementById('gigs-performance');
-                
-                gigsContainer.innerHTML = this.gigs.map(gig => `
+        renderGigs() {
+          const gigsContainer = document.getElementById("gigs-performance");
+
+          gigsContainer.innerHTML = this.gigs
+            .map(
+              (gig) => `
                     <div class="border border-gray-200 rounded-lg p-4 card-hover">
                         <div class="flex items-center justify-between mb-3">
                             <h4 class="font-medium text-gray-900">${gig.category} Package</h4>
@@ -430,20 +494,48 @@
                             </button>
                         </div>
                     </div>
-                `).join('');
-            }
+                `,
+            )
+            .join("");
+        }
 
-            renderActivity() {
-                const activityFeed = document.getElementById('activity-feed');
-                
-                const activities = [
-                    { type: 'order', message: 'New order received from @careerchange', time: '2 hours ago', icon: 'fa-shopping-cart', color: 'text-green-600' },
-                    { type: 'delivery', message: 'Delivered resume to @jobseeker2024', time: '5 hours ago', icon: 'fa-check-circle', color: 'text-blue-600' },
-                    { type: 'message', message: 'Sent revision to @techpro', time: '1 day ago', icon: 'fa-comment', color: 'text-purple-600' },
-                    { type: 'review', message: 'Received 5-star review from @startup_ceo', time: '2 days ago', icon: 'fa-star', color: 'text-yellow-600' }
-                ];
+        renderActivity() {
+          const activityFeed = document.getElementById("activity-feed");
 
-                activityFeed.innerHTML = activities.map(activity => `
+          const activities = [
+            {
+              type: "order",
+              message: "New order received from @careerchange",
+              time: "2 hours ago",
+              icon: "fa-shopping-cart",
+              color: "text-green-600",
+            },
+            {
+              type: "delivery",
+              message: "Delivered resume to @jobseeker2024",
+              time: "5 hours ago",
+              icon: "fa-check-circle",
+              color: "text-blue-600",
+            },
+            {
+              type: "message",
+              message: "Sent revision to @techpro",
+              time: "1 day ago",
+              icon: "fa-comment",
+              color: "text-purple-600",
+            },
+            {
+              type: "review",
+              message: "Received 5-star review from @startup_ceo",
+              time: "2 days ago",
+              icon: "fa-star",
+              color: "text-yellow-600",
+            },
+          ];
+
+          activityFeed.innerHTML = activities
+            .map(
+              (activity) => `
                     <div class="flex items-start space-x-3 p-3 border-l-4 border-gray-200 bg-gray-50 rounded">
                         <div class="flex-shrink-0">
                             <i class="fas ${activity.icon} ${activity.color}"></i>
@@ -453,60 +545,70 @@
                             <p class="text-xs text-gray-500 mt-1">${activity.time}</p>
                         </div>
                     </div>
-                `).join('');
-            }
+                `,
+            )
+            .join("");
+        }
 
-            updateStats() {
-                // Update dashboard stats
-                document.getElementById('total-orders').textContent = '147';
-                document.getElementById('seller-rating').textContent = '4.9';
-                document.getElementById('response-time').textContent = '1hr';
-                document.getElementById('repeat-clients').textContent = '73';
-                
-                // Calculate and update monthly revenue
-                const monthlyRevenue = this.gigs.reduce((total, gig) => total + (gig.orders * gig.price), 0);
-                document.getElementById('monthly-revenue').textContent = `$${monthlyRevenue.toLocaleString()}`;
-            }
+        updateStats() {
+          // Update dashboard stats
+          document.getElementById("total-orders").textContent = "147";
+          document.getElementById("seller-rating").textContent = "4.9";
+          document.getElementById("response-time").textContent = "1hr";
+          document.getElementById("repeat-clients").textContent = "73";
 
-            initCharts() {
-                // Revenue trend chart
-                const revenueCtx = document.getElementById('revenue-chart').getContext('2d');
-                this.charts.revenue = new Chart(revenueCtx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                        datasets: [{
-                            label: 'Revenue',
-                            data: [1200, 1900, 2100, 2800, 3100, 3247],
-                            borderColor: '#1dbf73',
-                            backgroundColor: 'rgba(29, 191, 115, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }]
+          // Calculate and update monthly revenue
+          const monthlyRevenue = this.gigs.reduce(
+            (total, gig) => total + gig.orders * gig.price,
+            0,
+          );
+          document.getElementById("monthly-revenue").textContent =
+            `$${monthlyRevenue.toLocaleString()}`;
+        }
+
+        initCharts() {
+          // Revenue trend chart
+          const revenueCtx = document
+            .getElementById("revenue-chart")
+            .getContext("2d");
+          this.charts.revenue = new Chart(revenueCtx, {
+            type: "line",
+            data: {
+              labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+              datasets: [
+                {
+                  label: "Revenue",
+                  data: [1200, 1900, 2100, 2800, 3100, 3247],
+                  borderColor: "#1dbf73",
+                  backgroundColor: "rgba(29, 191, 115, 0.1)",
+                  tension: 0.4,
+                  fill: true,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    callback: function (value) {
+                      return "$" + value;
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
+                  },
+                },
+              },
+            },
+          });
+        }
 
-            showOrderDetails(orderId) {
-                const order = this.orders.find(o => o.id === orderId);
-                if (!order) return;
+        showOrderDetails(orderId) {
+          const order = this.orders.find((o) => o.id === orderId);
+          if (!order) return;
 
-                const modalContent = document.getElementById('order-modal-content');
-                modalContent.innerHTML = `
+          const modalContent = document.getElementById("order-modal-content");
+          modalContent.innerHTML = `
                     <div class="space-y-6">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -530,7 +632,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Requirements</label>
                             <div class="bg-gray-50 p-4 rounded-lg">
-                                <p class="text-sm">${order.requirements?.jobDescription || 'No specific requirements provided'}</p>
+                                <p class="text-sm">${order.requirements?.jobDescription || "No specific requirements provided"}</p>
                             </div>
                         </div>
                         
@@ -548,76 +650,76 @@
                     </div>
                 `;
 
-                document.getElementById('order-modal').classList.remove('hidden');
-            }
-
-            formatDate(date) {
-                if (!date) return 'N/A';
-                return new Date(date).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            }
-
-            startRealTimeUpdates() {
-                // Update dashboard every 30 seconds
-                setInterval(() => {
-                    this.loadData().then(() => {
-                        this.renderDashboard();
-                    });
-                }, 30000);
-            }
+          document.getElementById("order-modal").classList.remove("hidden");
         }
 
-        // Global functions
-        let dashboard;
-
-        function refreshDashboard() {
-            if (dashboard) {
-                dashboard.loadData().then(() => {
-                    dashboard.renderDashboard();
-                });
-            }
+        formatDate(date) {
+          if (!date) return "N/A";
+          return new Date(date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
         }
 
-        function closeOrderModal() {
-            document.getElementById('order-modal').classList.add('hidden');
+        startRealTimeUpdates() {
+          // Update dashboard every 30 seconds
+          setInterval(() => {
+            this.loadData().then(() => {
+              this.renderDashboard();
+            });
+          }, 30000);
         }
+      }
 
-        function createNewOrder() {
-            alert('New order creation feature coming soon!');
+      // Global functions
+      let dashboard;
+
+      function refreshDashboard() {
+        if (dashboard) {
+          dashboard.loadData().then(() => {
+            dashboard.renderDashboard();
+          });
         }
+      }
 
-        function sendBulkMessages() {
-            alert('Bulk messaging feature coming soon!');
-        }
+      function closeOrderModal() {
+        document.getElementById("order-modal").classList.add("hidden");
+      }
 
-        function generateReport() {
-            alert('Report generation feature coming soon!');
-        }
+      function createNewOrder() {
+        alert("New order creation feature coming soon!");
+      }
 
-        function optimizeGigs() {
-            alert('Gig optimization feature coming soon!');
-        }
+      function sendBulkMessages() {
+        alert("Bulk messaging feature coming soon!");
+      }
 
-        function sendMessage(orderId) {
-            alert(`Sending message for order ${orderId}`);
-        }
+      function generateReport() {
+        alert("Report generation feature coming soon!");
+      }
 
-        function deliverOrder(orderId) {
-            alert(`Delivering order ${orderId}`);
-        }
+      function optimizeGigs() {
+        alert("Gig optimization feature coming soon!");
+      }
 
-        function requestRevision(orderId) {
-            alert(`Requesting revision for order ${orderId}`);
-        }
+      function sendMessage(orderId) {
+        alert(`Sending message for order ${orderId}`);
+      }
 
-        // Initialize dashboard when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            dashboard = new FiverrProDashboard();
-        });
+      function deliverOrder(orderId) {
+        alert(`Delivering order ${orderId}`);
+      }
+
+      function requestRevision(orderId) {
+        alert(`Requesting revision for order ${orderId}`);
+      }
+
+      // Initialize dashboard when page loads
+      document.addEventListener("DOMContentLoaded", () => {
+        dashboard = new FiverrProDashboard();
+      });
     </script>
-</body>
+  </body>
 </html>

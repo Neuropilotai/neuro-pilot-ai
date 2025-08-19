@@ -3,6 +3,7 @@ import CountSheet from './CountSheet';
 import MinMaxReport from './MinMaxReport';
 import OrderReview from './OrderReview';
 import UsageTracker from './UsageTracker';
+import MenuDisplay from './MenuDisplay';
 import './InventoryDashboard.css';
 
 const InventoryDashboard = () => {
@@ -12,7 +13,8 @@ const InventoryDashboard = () => {
     { id: 'count', label: 'Count Sheets', icon: '📋' },
     { id: 'usage', label: 'Usage Tracker', icon: '📤' },
     { id: 'report', label: 'Min/Max Report', icon: '📊' },
-    { id: 'orders', label: 'Order Review', icon: '📦' }
+    { id: 'orders', label: 'Order Review', icon: '📦' },
+    { id: 'menu', label: 'Weekly Menu', icon: '🍽️' }
   ];
 
   return (
@@ -43,6 +45,7 @@ const InventoryDashboard = () => {
         {activeTab === 'usage' && <UsageTracker />}
         {activeTab === 'report' && <MinMaxReport />}
         {activeTab === 'orders' && <OrderReview />}
+        {activeTab === 'menu' && <MenuDisplay />}
       </main>
     </div>
   );

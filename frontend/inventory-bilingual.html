@@ -7,24 +7,41 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
+        :root {
+            --primary: #0F172A;
+            --primary-light: #1E293B;
+            --accent: #3B82F6;
+            --accent-hover: #2563EB;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --text: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --border: #334155;
+            --surface: #1E293B;
+            --surface-light: #334155;
+        }
+
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+            color: var(--text);
+            min-height: 100vh;
             line-height: 1.6;
         }
         
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(20px);
             padding: 1rem 2rem;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         
         .logo {
@@ -34,7 +51,7 @@
         }
         
         .logo h1 {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-size: 1.8rem;
@@ -49,23 +66,27 @@
         
         .lang-btn {
             padding: 0.5rem 1rem;
-            border: 2px solid #667eea;
+            border: 1px solid var(--border);
             background: transparent;
-            color: #667eea;
-            border-radius: 6px;
+            color: var(--text-secondary);
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             font-weight: 500;
         }
         
         .lang-btn.active {
-            background: #667eea;
+            background: var(--accent);
             color: white;
+            border-color: var(--accent);
         }
         
         .lang-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
         
         .container {
@@ -82,10 +103,12 @@
         }
         
         .card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             transition: transform 0.3s ease;
         }
         
@@ -100,26 +123,28 @@
         .metric-value {
             font-size: 2.5rem;
             font-weight: 700;
-            color: #667eea;
+            color: var(--accent);
             margin-bottom: 0.5rem;
         }
         
         .metric-label {
-            color: #666;
+            color: var(--text-secondary);
             font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         
         .inventory-table {
-            background: white;
-            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
         }
         
         .table-header {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%);
             color: white;
             padding: 1.5rem;
             display: flex;
@@ -284,6 +309,121 @@
             margin: 1rem 0;
         }
         
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(30, 41, 59, 0.5);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-tab.active,
+        .nav-tab:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Section Management */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Orders Styling */
+        .order-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: rgba(30, 41, 59, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .order-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .order-id {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .order-date {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Location Cards */
+        .location-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            background: rgba(30, 41, 59, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .location-card:hover {
+            border-color: var(--success);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+        }
+
+        .location-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .location-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .location-stat {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
         @media (max-width: 768px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
@@ -297,6 +437,15 @@
             
             .container {
                 padding: 1rem;
+            }
+
+            .nav-tabs {
+                flex-wrap: wrap;
+            }
+
+            .nav-tab {
+                flex: 1;
+                min-width: 120px;
             }
         }
     </style>
@@ -313,8 +462,18 @@
     </div>
     
     <div class="container">
-        <!-- Dashboard Metrics -->
-        <div class="dashboard-grid">
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs" style="margin-bottom: 2rem;">
+            <button class="nav-tab active" onclick="showSection('dashboard')" data-translate="dashboard">Dashboard</button>
+            <button class="nav-tab" onclick="showSection('orders')" data-translate="orders">Orders</button>
+            <button class="nav-tab" onclick="showSection('locations')" data-translate="locations">Locations</button>
+            <button class="nav-tab" onclick="showSection('transfers')" data-translate="transfers">Transfers</button>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="section active">
+            <!-- Dashboard Metrics -->
+            <div class="dashboard-grid">
             <div class="card metric-card">
                 <div class="metric-value" id="totalItems">--</div>
                 <div class="metric-label" data-translate="total-items">Total Items</div>
@@ -347,6 +506,68 @@
                 </div>
             </div>
         </div>
+        </div>
+
+        <!-- Orders Section -->
+        <div id="orders-section" class="section" style="display: none;">
+            <div class="card">
+                <div class="table-header">
+                    <h2 class="table-title" data-translate="orders-management">Orders Management</h2>
+                    <div class="table-controls">
+                        <select id="orderFilter" onchange="filterOrders()" style="padding: 0.5rem; margin-right: 1rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px;">
+                            <option value="all" data-translate="all-orders">All Orders</option>
+                            <option value="gfs" data-translate="gfs-orders">GFS Orders</option>
+                            <option value="sysco" data-translate="sysco-orders">Sysco Orders</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="loadOrders()" data-translate="refresh">Refresh</button>
+                    </div>
+                </div>
+                <div id="ordersContainer" class="table-content">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span data-translate="loading-orders">Loading orders...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Locations Section -->
+        <div id="locations-section" class="section" style="display: none;">
+            <div class="card">
+                <div class="table-header">
+                    <h2 class="table-title" data-translate="location-management">Location Management</h2>
+                    <div class="table-controls">
+                        <button class="btn btn-primary" onclick="showAddLocationModal()" data-translate="add-location">Add Location</button>
+                        <button class="btn btn-secondary" onclick="loadLocations()" data-translate="refresh">Refresh</button>
+                    </div>
+                </div>
+                <div id="locationsContainer" class="table-content">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span data-translate="loading-locations">Loading locations...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transfers Section -->
+        <div id="transfers-section" class="section" style="display: none;">
+            <div class="card">
+                <div class="table-header">
+                    <h2 class="table-title" data-translate="inventory-transfers">Inventory Transfers</h2>
+                    <div class="table-controls">
+                        <button class="btn btn-primary" onclick="showTransferModal()" data-translate="new-transfer">New Transfer</button>
+                        <button class="btn btn-secondary" onclick="loadTransfers()" data-translate="refresh">Refresh</button>
+                    </div>
+                </div>
+                <div id="transfersContainer" class="table-content">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span data-translate="loading-transfers">Loading transfers...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -356,10 +577,25 @@
         const translations = {
             english: {
                 'title': 'Inventory Management',
+                'dashboard': 'Dashboard',
+                'orders': 'Orders',
+                'locations': 'Locations',
+                'transfers': 'Transfers',
                 'total-items': 'Total Items',
                 'critical-items': 'Critical Items',
                 'total-value': 'Total Value',
                 'inventory-items': 'Inventory Items',
+                'orders-management': 'Orders Management',
+                'location-management': 'Location Management',
+                'inventory-transfers': 'Inventory Transfers',
+                'all-orders': 'All Orders',
+                'gfs-orders': 'GFS Orders',
+                'sysco-orders': 'Sysco Orders',
+                'add-location': 'Add Location',
+                'new-transfer': 'New Transfer',
+                'loading-orders': 'Loading orders...',
+                'loading-locations': 'Loading locations...',
+                'loading-transfers': 'Loading transfers...',
                 'refresh': 'Refresh',
                 'export': 'Export CSV',
                 'loading': 'Loading inventory...',
@@ -375,14 +611,33 @@
                 'normal': 'Normal',
                 'high': 'High Stock',
                 'error-loading': 'Error loading inventory data',
-                'quantity-updated': 'Quantity updated successfully'
+                'quantity-updated': 'Quantity updated successfully',
+                'order-date': 'Order Date',
+                'order-id': 'Order ID',
+                'total-items-count': 'Total Items',
+                'location-capacity': 'Capacity'
             },
             french: {
                 'title': 'Gestion d\'Inventaire',
+                'dashboard': 'Tableau de Bord',
+                'orders': 'Commandes',
+                'locations': 'Emplacements',
+                'transfers': 'Transferts',
                 'total-items': 'Articles Totaux',
                 'critical-items': 'Articles Critiques',
                 'total-value': 'Valeur Totale',
                 'inventory-items': 'Articles d\'Inventaire',
+                'orders-management': 'Gestion des Commandes',
+                'location-management': 'Gestion des Emplacements',
+                'inventory-transfers': 'Transferts d\'Inventaire',
+                'all-orders': 'Toutes les Commandes',
+                'gfs-orders': 'Commandes GFS',
+                'sysco-orders': 'Commandes Sysco',
+                'add-location': 'Ajouter Emplacement',
+                'new-transfer': 'Nouveau Transfert',
+                'loading-orders': 'Chargement des commandes...',
+                'loading-locations': 'Chargement des emplacements...',
+                'loading-transfers': 'Chargement des transferts...',
                 'refresh': 'Actualiser',
                 'export': 'Exporter CSV',
                 'loading': 'Chargement de l\'inventaire...',
@@ -398,7 +653,11 @@
                 'normal': 'Normal',
                 'high': 'Stock Élevé',
                 'error-loading': 'Erreur lors du chargement des données d\'inventaire',
-                'quantity-updated': 'Quantité mise à jour avec succès'
+                'quantity-updated': 'Quantité mise à jour avec succès',
+                'order-date': 'Date de Commande',
+                'order-id': 'ID Commande',
+                'total-items-count': 'Articles Totaux',
+                'location-capacity': 'Capacité'
             }
         };
         
@@ -580,6 +839,250 @@
             setTimeout(() => {
                 document.body.removeChild(notification);
             }, 3000);
+        }
+
+        // Section Management
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+                section.style.display = 'none';
+            });
+            
+            // Remove active from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected section
+            const section = document.getElementById(sectionId + '-section');
+            if (section) {
+                section.classList.add('active');
+                section.style.display = 'block';
+            }
+            
+            // Activate selected tab
+            event.target.classList.add('active');
+            
+            // Load data for the section
+            switch(sectionId) {
+                case 'dashboard':
+                    loadInventoryData();
+                    break;
+                case 'orders':
+                    loadOrders();
+                    break;
+                case 'locations':
+                    loadLocations();
+                    break;
+                case 'transfers':
+                    loadTransfers();
+                    break;
+            }
+        }
+
+        // Orders Management
+        async function loadOrders() {
+            try {
+                const response = await fetch(`/api/orders?lang=${currentLanguage}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayOrders(data.orders);
+                } else {
+                    showError(getText('error-loading'));
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                showError(getText('error-loading'));
+            }
+        }
+
+        function displayOrders(orders) {
+            const container = document.getElementById('ordersContainer');
+            
+            if (orders.length === 0) {
+                container.innerHTML = `<div class="loading">${getText('no-orders')}</div>`;
+                return;
+            }
+
+            // Sort orders by date (newest first)
+            orders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
+            
+            const ordersHTML = orders.map(order => `
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-id">${order.supplier} - ${order.orderId}</div>
+                        <div class="order-date">${new Date(order.orderDate).toLocaleDateString()}</div>
+                    </div>
+                    <div class="order-details">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                            <div><strong>${getText('total-items-count')}:</strong> ${order.itemCount || 'N/A'}</div>
+                            <div><strong>${getText('total-value')}:</strong> $${order.totalValue || '0.00'}</div>
+                        </div>
+                        ${order.items ? `
+                            <div style="margin-top: 1rem;">
+                                <strong>Items:</strong><br>
+                                ${order.items.slice(0, 3).map(item => 
+                                    `<span style="display: inline-block; margin: 0.25rem; padding: 0.25rem 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 4px; font-size: 0.8rem;">${item.name}</span>`
+                                ).join('')}
+                                ${order.items.length > 3 ? `<span style="color: var(--text-secondary);">...and ${order.items.length - 3} more</span>` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = ordersHTML;
+        }
+
+        function filterOrders() {
+            const filter = document.getElementById('orderFilter').value;
+            // This would filter the displayed orders - implementation would depend on your needs
+            loadOrders(); // For now, just reload all orders
+        }
+
+        // Locations Management
+        async function loadLocations() {
+            try {
+                const response = await fetch(`/api/locations?lang=${currentLanguage}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLocations(data.locations);
+                } else {
+                    showError(getText('error-loading'));
+                }
+            } catch (error) {
+                console.error('Error loading locations:', error);
+                showError(getText('error-loading'));
+            }
+        }
+
+        function displayLocations(locations) {
+            const container = document.getElementById('locationsContainer');
+            
+            if (locations.length === 0) {
+                container.innerHTML = `<div class="loading">${getText('no-locations')}</div>`;
+                return;
+            }
+            
+            const locationsHTML = locations.map(location => `
+                <div class="location-card">
+                    <div class="location-name">${location.name}</div>
+                    <div style="color: var(--text-secondary); margin-bottom: 1rem;">${location.description || ''}</div>
+                    
+                    <div class="location-stats">
+                        <div class="location-stat">
+                            <div class="stat-value">${location.itemCount || 0}</div>
+                            <div class="stat-label">${getText('total-items-count')}</div>
+                        </div>
+                        <div class="location-stat">
+                            <div class="stat-value">${location.capacity || 'N/A'}</div>
+                            <div class="stat-label">${getText('location-capacity')}</div>
+                        </div>
+                        <div class="location-stat">
+                            <div class="stat-value">${((location.itemCount / location.capacity) * 100).toFixed(0) || 0}%</div>
+                            <div class="stat-label">Utilization</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-primary" onclick="viewLocationDetails('${location.id}')">View Items</button>
+                        <button class="btn btn-secondary" onclick="editLocation('${location.id}')">Edit</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = locationsHTML;
+        }
+
+        function showAddLocationModal() {
+            // This would show a modal for adding a new location
+            const name = prompt('Location Name:');
+            if (name) {
+                addLocation(name);
+            }
+        }
+
+        async function addLocation(name) {
+            try {
+                const response = await fetch('/api/locations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({ name })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('Location added successfully');
+                    loadLocations();
+                } else {
+                    showError(result.error || 'Failed to add location');
+                }
+            } catch (error) {
+                console.error('Error adding location:', error);
+                showError('Error adding location');
+            }
+        }
+
+        // Transfers Management
+        async function loadTransfers() {
+            try {
+                const response = await fetch(`/api/transfers?lang=${currentLanguage}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayTransfers(data.transfers || []);
+                } else {
+                    showError(getText('error-loading'));
+                }
+            } catch (error) {
+                console.error('Error loading transfers:', error);
+                showError(getText('error-loading'));
+            }
+        }
+
+        function displayTransfers(transfers) {
+            const container = document.getElementById('transfersContainer');
+            
+            if (transfers.length === 0) {
+                container.innerHTML = `<div class="loading">${getText('no-transfers')}</div>`;
+                return;
+            }
+            
+            const transfersHTML = transfers.map(transfer => `
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="order-id">Transfer #${transfer.id}</div>
+                        <div class="order-date">${new Date(transfer.date).toLocaleDateString()}</div>
+                    </div>
+                    <div class="order-details">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                            <div><strong>From:</strong> ${transfer.fromLocation}</div>
+                            <div><strong>To:</strong> ${transfer.toLocation}</div>
+                            <div><strong>Item:</strong> ${transfer.itemName}</div>
+                            <div><strong>Quantity:</strong> ${transfer.quantity}</div>
+                        </div>
+                        <div style="margin-top: 0.5rem;">
+                            <span style="padding: 0.25rem 0.5rem; background: ${transfer.status === 'completed' ? 'var(--success)' : 'var(--warning)'}; color: white; border-radius: 4px; font-size: 0.8rem;">
+                                ${transfer.status}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = transfersHTML;
+        }
+
+        function showTransferModal() {
+            // This would show a modal for creating a new transfer
+            alert('Transfer modal would appear here - implementation needed');
         }
         
         // Initialize

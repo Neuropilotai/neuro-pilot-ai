@@ -1,10 +1,10 @@
-require('dotenv').config();
-const EmailOrderSystem = require('./email_order_system');
+require("dotenv").config();
+const EmailOrderSystem = require("./email_order_system");
 
 async function sendSystemsOnlineNotification() {
-    const emailSystem = new EmailOrderSystem();
-    
-    const emailTemplate = `
+  const emailSystem = new EmailOrderSystem();
+
+  const emailTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -126,21 +126,20 @@ async function sendSystemsOnlineNotification() {
 </html>
     `;
 
-    try {
-        const result = await emailSystem.transporter.sendMail({
-            from: '"Neuro.Pilot.AI" <Neuro.Pilot.AI@gmail.com>',
-            to: 'neuro.pilot.ai@gmail.com',
-            subject: '🎉 ALL SYSTEMS ONLINE - Platform Ready for Customers!',
-            html: emailTemplate,
-            text: `ALL SYSTEMS ONLINE!\n\nNeuro.Pilot.AI Platform Status:\n✅ Frontend (Port 3000)\n✅ Web Server (Port 3001)\n✅ Backend API (Port 8080)\n✅ Admin Panel (Port 8081)\n✅ Fiverr Pro (Port 8082)\n✅ AI Agents (4 Online)\n\nCustomer Order Form:\nhttps://0122-23-233-176-252.ngrok-free.app/simple-order.html\n\nDemo Version:\nhttps://0122-23-233-176-252.ngrok-free.app/simple-order.html?demo=true\n\nThe platform is ready for customers!`
-        });
+  try {
+    const result = await emailSystem.transporter.sendMail({
+      from: '"Neuro.Pilot.AI" <Neuro.Pilot.AI@gmail.com>',
+      to: "neuro.pilot.ai@gmail.com",
+      subject: "🎉 ALL SYSTEMS ONLINE - Platform Ready for Customers!",
+      html: emailTemplate,
+      text: `ALL SYSTEMS ONLINE!\n\nNeuro.Pilot.AI Platform Status:\n✅ Frontend (Port 3000)\n✅ Web Server (Port 3001)\n✅ Backend API (Port 8080)\n✅ Admin Panel (Port 8081)\n✅ Fiverr Pro (Port 8082)\n✅ AI Agents (4 Online)\n\nCustomer Order Form:\nhttps://0122-23-233-176-252.ngrok-free.app/simple-order.html\n\nDemo Version:\nhttps://0122-23-233-176-252.ngrok-free.app/simple-order.html?demo=true\n\nThe platform is ready for customers!`,
+    });
 
-        console.log('✅ Systems online notification sent!');
-        console.log('📧 Message ID:', result.messageId);
-        
-    } catch (error) {
-        console.error('❌ Error:', error.message);
-    }
+    console.log("✅ Systems online notification sent!");
+    console.log("📧 Message ID:", result.messageId);
+  } catch (error) {
+    console.error("❌ Error:", error.message);
+  }
 }
 
 sendSystemsOnlineNotification();

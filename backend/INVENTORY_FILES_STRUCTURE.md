@@ -5,11 +5,13 @@ This document lists all files used by the full bilingual inventory system for fu
 ## Core System Files
 
 ### 1. Main Application File
+
 - **`inventory-complete-bilingual.js`** - The main server file containing all functionality
   - Port: 8083
   - Features: Bilingual UI, Sysco catalog, GFS orders, storage management, AI integration
 
 ### 2. Data Storage Directories
+
 - **`data/`** - Main data directory
   - **`data/catalog/`** - Sysco catalog files
     - `sysco_catalog_*.json` - Product catalog data
@@ -35,6 +37,7 @@ This document lists all files used by the full bilingual inventory system for fu
     - `exports/` - Export files
 
 ### 3. Dependencies (from package.json)
+
 ```json
 {
   "express": "^4.18.2",
@@ -48,10 +51,12 @@ This document lists all files used by the full bilingual inventory system for fu
 ```
 
 ### 4. User Authentication
+
 - Uses JWT tokens for authentication
 - Default credentials: david.mikulis@camp-inventory.com / inventory2025
 
 ### 5. API Endpoints (all require authentication)
+
 - `POST /api/auth/login` - User login
 - `GET /api/inventory/items` - Get all inventory items
 - `POST /api/inventory/items` - Add new item
@@ -68,6 +73,7 @@ This document lists all files used by the full bilingual inventory system for fu
 - `POST /api/inventory/import` - Import data
 
 ### 6. Frontend (Embedded in JS file)
+
 - Single-page application embedded in the main JS file
 - Bilingual support (English/French)
 - Temperature conversion (F/C)
@@ -77,6 +83,7 @@ This document lists all files used by the full bilingual inventory system for fu
 ## File Usage Guidelines
 
 ### When Making Updates:
+
 1. **Always edit**: `inventory-complete-bilingual.js`
 2. **Data persistence**: All data is stored in JSON files under `data/` directory
 3. **Backups**: System automatically creates backups in `data/inventory_backups/`
@@ -84,17 +91,20 @@ This document lists all files used by the full bilingual inventory system for fu
 5. **Security**: JWT authentication is required for all API calls
 
 ### Do NOT Use These Files:
+
 - `inventory-system.js` (old version)
 - `inventory-system-original.js` (backup)
 - `inventory-system-protected.js` (protected version)
 - `inventory-compact.js` (simplified version)
 
 ### To Start the System:
+
 ```bash
 node inventory-complete-bilingual.js
 ```
 
 ## Important Notes:
+
 - The system is self-contained in a single file for easy deployment
 - All data is persisted to JSON files
 - The system includes built-in security with JWT authentication
@@ -103,6 +113,7 @@ node inventory-complete-bilingual.js
 - The system loads Sysco catalog and GFS orders on startup
 
 ## Data File Locations:
+
 - Inventory items: `data/inventory/inventory_items.json`
 - Storage locations: `data/storage_locations/locations.json`
 - Sysco catalog: `data/catalog/sysco_catalog_*.json`

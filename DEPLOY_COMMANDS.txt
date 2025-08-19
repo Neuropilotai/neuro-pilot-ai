@@ -1,0 +1,48 @@
+# PRODUCTION DEPLOYMENT - COPY/PASTE COMMANDS
+
+## 1. One-time volume creation:
+fly volumes create data --size 10 --region yul
+
+## 2. Generate admin hash (replace YOUR-ADMIN-PASSWORD):
+node -e "require('bcrypt').hash('YOUR-ADMIN-PASSWORD', 12).then(h=>console.log(h))"
+
+## 3. Set production secrets (paste hash from step 2):
+fly secrets set \
+  NODE_ENV=production \
+  ALLOWED_ORIGINS="https://inventory.neuropilot.ai" \
+  ADMIN_EMAIL="admin@secure-inventory.com" \
+  ADMIN_HASH="$ADMIN_HASH_FROM_BCRYPT" \
+  JWT_SECRET="$(openssl rand -hex 64)" \
+  REFRESH_SECRET="$(openssl rand -hex 64)" \
+  ENCRYPTION_KEY="$(openssl rand -hex 32)"
+
+## 4. Deploy:
+fly deploy
+
+## 5. Post-deploy smoke tests:
+
+# A. CORS + cookies (expect 200 + Set-Cookie)
+curl -i -X POST https://inventory.neuropilot.ai/auth/login \
+  -H 'Origin: https://inventory.neuropilot.ai' \
+  -H 'Content-Type: application/json' \
+  --data '{"email":"admin@secure-inventory.com","password":"YOUR-ADMIN-PASSWORD"}'
+
+# B. Origin blocked (expect 403)
+curl -i -X POST https://inventory.neuropilot.ai/auth/login \
+  -H 'Origin: https://evil.example' \
+  -H 'Content-Type: application/json' \
+  --data '{"email":"x","password":"y"}'
+
+# C. Security headers
+curl -I https://inventory.neuropilot.ai | egrep 'strict-transport|content-security'
+
+# D. Rate limiting (expect 429 after 3 attempts)
+for i in {1..5}; do curl -X POST https://inventory.neuropilot.ai/auth/login \
+  -H 'Origin: https://inventory.neuropilot.ai' \
+  -H 'Content-Type: application/json' \
+  --data '{"email":"admin@secure-inventory.com","password":"wrong"}'; echo; done
+
+## 6. Cloudflare Setup:
+# - Orange-cloud CNAME to Fly
+# - TLS: Full (strict) + HSTS preload
+# - Add security rules from CLOUDFLARE_RULES.md

@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Enterprise Inventory Management System">
+    
+    <title>Secure Inventory Management System</title>
+    
+    <!-- Prevent caching of sensitive data -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <!-- Security headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
+    
+    <!-- Professional Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0F172A;
+            --primary-light: #1E293B;
+            --accent: #3B82F6;
+            --accent-hover: #2563EB;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --text: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --border: #334155;
+            --glass-bg: rgba(15, 23, 42, 0.8);
+            --glass-border: rgba(148, 163, 184, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+            color: var(--text);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+            z-index: -1;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-20px, -20px) rotate(1deg); }
+            66% { transform: translate(20px, -10px) rotate(-1deg); }
+        }
+
+        /* Glass morphism container */
+        .glass-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.25),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+        }
+
+        /* Login container */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 440px;
+            padding: 3rem;
+        }
+
+        .logo-section {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 10px 30px -5px rgba(59, 130, 246, 0.6); }
+        }
+
+        .logo-title {
+            font-size: 1.875rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        /* Form styling */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: rgba(148, 163, 184, 0.5);
+        }
+
+        /* Password strength indicator */
+        .password-strength {
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 0.5rem;
+            background: var(--border);
+            overflow: hidden;
+        }
+
+        .password-strength-bar {
+            height: 100%;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+
+        .strength-weak { width: 33%; background: var(--danger); }
+        .strength-medium { width: 66%; background: var(--warning); }
+        .strength-strong { width: 100%; background: var(--success); }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%);
+            color: white;
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px -5px rgba(59, 130, 246, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        /* Security badges */
+        .security-badges {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .security-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .security-icon {
+            width: 16px;
+            height: 16px;
+            color: var(--success);
+        }
+
+        /* Two-factor authentication */
+        .two-factor-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .otp-inputs {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+
+        .otp-input {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: rgba(30, 41, 59, 0.5);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            transition: all 0.3s ease;
+        }
+
+        .otp-input:focus {
+            border-color: var(--accent);
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .btn.loading .spinner {
+            display: inline-block;
+        }
+
+        .btn.loading .btn-text {
+            display: none;
+        }
+
+        /* Error messages */
+        .error-message {
+            padding: 0.75rem 1rem;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            color: #FCA5A5;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Dashboard (hidden by default) */
+        #dashboard {
+            display: none;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .dashboard-header {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.5rem 2rem;
+            margin: -2rem -2rem 2rem -2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dashboard-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+        }
+
+        /* Disable text selection for security */
+        .no-select {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* Disable right-click */
+        body {
+            -webkit-touch-callout: none;
+        }
+    </style>
+</head>
+<body class="no-select" oncontextmenu="return false;" ondragstart="return false;" onselectstart="return false;">
+    
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box glass-container">
+            <div class="logo-section">
+                <div class="logo">IM</div>
+                <h1 class="logo-title">Inventory Management</h1>
+                <p class="logo-subtitle">Enterprise Security Edition</p>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        class="form-input" 
+                        placeholder="admin@secure-inventory.com"
+                        required 
+                        autocomplete="username"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="form-input" 
+                        placeholder="Enter your password"
+                        required 
+                        autocomplete="current-password"
+                        oninput="checkPasswordStrength(this.value)"
+                    >
+                    <div class="password-strength">
+                        <div id="strengthBar" class="password-strength-bar"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <span class="btn-text">SECURE LOGIN</span>
+                    <span class="spinner"></span>
+                </button>
+            </form>
+
+            <!-- Two-Factor Authentication -->
+            <div id="twoFactorSection" class="two-factor-section">
+                <h3 style="text-align: center; margin-bottom: 1rem;">Enter 2FA Code</h3>
+                <div class="otp-inputs">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 0)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 1)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 2)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 3)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 4)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 5)">
+                </div>
+                <button onclick="verify2FA()" class="btn btn-primary">
+                    <span class="btn-text">VERIFY</span>
+                    <span class="spinner"></span>
+                </button>
+            </div>
+
+            <!-- Security Badges -->
+            <div class="security-badges">
+                <div class="security-badge">
+                    <svg class="security-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                    </svg>
+                    <span>256-bit Encryption</span>
+                </div>
+                <div class="security-badge">
+                    <svg class="security-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>2FA Protected</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard (Hidden Initially) -->
+    <div id="dashboard">
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">Secure Inventory Dashboard</h1>
+            <div class="user-menu">
+                <div class="user-avatar" id="userAvatar">DM</div>
+                <button onclick="logout()" class="btn" style="width: auto; padding: 0.5rem 1rem;">Logout</button>
+            </div>
+        </div>
+        
+        <div class="glass-container" style="padding: 2rem;">
+            <h2>Welcome to Secure Inventory System</h2>
+            <p style="color: var(--text-secondary); margin-top: 1rem;">
+                Your session is protected with enterprise-grade security.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Prevent developer tools (basic protection)
+        (function() {
+            'use strict';
+            
+            // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+            document.onkeydown = function(e) {
+                if(e.keyCode === 123 || 
+                   (e.ctrlKey && e.shiftKey && e.keyCode === 73) ||
+                   (e.ctrlKey && e.shiftKey && e.keyCode === 74) ||
+                   (e.ctrlKey && e.keyCode === 85)) {
+                    return false;
+                }
+            };
+            
+            // Detect DevTools
+            let devtools = {open: false, orientation: null};
+            const threshold = 160;
+            setInterval(function() {
+                if(window.outerHeight - window.innerHeight > threshold || 
+                   window.outerWidth - window.innerWidth > threshold) {
+                    if(!devtools.open) {
+                        devtools.open = true;
+                        console.clear();
+                        console.log('%cSECURITY WARNING', 'color: red; font-size: 50px; font-weight: bold;');
+                        console.log('%cThis browser feature is intended for developers only.', 'color: red; font-size: 16px;');
+                        document.body.innerHTML = '<h1 style="text-align:center; margin-top:20%;">Security Alert: Unauthorized Access Detected</h1>';
+                    }
+                }
+            }, 500);
+            
+            // Disable console methods
+            const disableMethod = (obj, method) => {
+                const original = obj[method];
+                obj[method] = function() {
+                    if (!window.DEBUG_MODE) return;
+                    return original.apply(this, arguments);
+                };
+            };
+            
+            ['log', 'debug', 'info', 'warn', 'error', 'table', 'trace', 'dir'].forEach(method => {
+                disableMethod(console, method);
+            });
+        })();
+
+        // Secure API class
+        class SecureAPI {
+            constructor() {
+                this.baseURL = window.location.origin + '/api';
+                this.token = null;
+                this.csrfToken = null;
+            }
+
+            async request(endpoint, options = {}) {
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                };
+
+                if (this.token) {
+                    headers['Authorization'] = `Bearer ${this.token}`;
+                }
+
+                if (this.csrfToken && ['POST', 'PUT', 'DELETE'].includes(options.method)) {
+                    headers['X-CSRF-Token'] = this.csrfToken;
+                }
+
+                const response = await fetch(`${this.baseURL}${endpoint}`, {
+                    ...options,
+                    headers,
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Request failed');
+                }
+
+                return response.json();
+            }
+
+            setToken(token) {
+                this.token = token;
+                sessionStorage.setItem('token', token);
+            }
+
+            setCSRFToken(token) {
+                this.csrfToken = token;
+            }
+
+            clearTokens() {
+                this.token = null;
+                this.csrfToken = null;
+                sessionStorage.clear();
+            }
+        }
+
+        const api = new SecureAPI();
+
+        // Password strength checker
+        function checkPasswordStrength(password) {
+            const bar = document.getElementById('strengthBar');
+            let strength = 0;
+
+            if (password.length >= 12) strength++;
+            if (/[a-z]/.test(password)) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+
+            bar.className = 'password-strength-bar';
+            
+            if (strength <= 2) {
+                bar.classList.add('strength-weak');
+            } else if (strength <= 4) {
+                bar.classList.add('strength-medium');
+            } else {
+                bar.classList.add('strength-strong');
+            }
+        }
+
+        // Handle login
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const button = event.target.querySelector('button');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            // Clear previous errors
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.style.display = 'none';
+            
+            // Show loading
+            button.classList.add('loading');
+            
+            try {
+                const response = await api.request('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.requiresTwoFactor) {
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.getElementById('twoFactorSection').style.display = 'block';
+                } else if (response.success) {
+                    api.setToken(response.accessToken);
+                    api.setCSRFToken(response.csrfToken);
+                    
+                    // Store refresh token securely
+                    sessionStorage.setItem('refreshToken', response.refreshToken);
+                    
+                    // Show dashboard
+                    showDashboard(response.user);
+                }
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                button.classList.remove('loading');
+            }
+        }
+
+        // Handle 2FA
+        function moveToNext(input, index) {
+            const inputs = document.querySelectorAll('.otp-input');
+            if (input.value && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+        }
+
+        async function verify2FA() {
+            const inputs = document.querySelectorAll('.otp-input');
+            const totpToken = Array.from(inputs).map(i => i.value).join('');
+            
+            const button = document.querySelector('#twoFactorSection button');
+            button.classList.add('loading');
+            
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const response = await api.request('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password, totpToken })
+                });
+
+                if (response.success) {
+                    api.setToken(response.accessToken);
+                    api.setCSRFToken(response.csrfToken);
+                    sessionStorage.setItem('refreshToken', response.refreshToken);
+                    showDashboard(response.user);
+                }
+            } catch (error) {
+                alert('Invalid 2FA code');
+            } finally {
+                button.classList.remove('loading');
+            }
+        }
+
+        // Show dashboard
+        function showDashboard(user) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            // Set user avatar
+            const initials = user.email.split('@')[0].substring(0, 2).toUpperCase();
+            document.getElementById('userAvatar').textContent = initials;
+            
+            // Start session monitoring
+            startSessionMonitoring();
+        }
+
+        // Session monitoring
+        let sessionTimeout;
+        let lastActivity = Date.now();
+
+        function startSessionMonitoring() {
+            // Monitor user activity
+            ['mousedown', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+                document.addEventListener(event, () => {
+                    lastActivity = Date.now();
+                    resetSessionTimeout();
+                });
+            });
+            
+            // Set initial timeout
+            resetSessionTimeout();
+            
+            // Check session every minute
+            setInterval(checkSession, 60000);
+        }
+
+        function resetSessionTimeout() {
+            clearTimeout(sessionTimeout);
+            sessionTimeout = setTimeout(() => {
+                alert('Session expired due to inactivity');
+                logout();
+            }, 15 * 60 * 1000); // 15 minutes
+        }
+
+        async function checkSession() {
+            try {
+                // Refresh token if needed
+                const refreshToken = sessionStorage.getItem('refreshToken');
+                if (refreshToken) {
+                    const response = await api.request('/auth/refresh', {
+                        method: 'POST',
+                        body: JSON.stringify({ refreshToken })
+                    });
+                    
+                    if (response.accessToken) {
+                        api.setToken(response.accessToken);
+                    }
+                }
+            } catch (error) {
+                console.error('Session refresh failed');
+                logout();
+            }
+        }
+
+        // Logout
+        async function logout() {
+            try {
+                await api.request('/auth/logout', { method: 'POST' });
+            } catch (error) {
+                // Continue with logout even if request fails
+            }
+            
+            api.clearTokens();
+            window.location.reload();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check for existing session
+            const token = sessionStorage.getItem('token');
+            if (token) {
+                api.setToken(token);
+                // Verify token and load dashboard
+                checkSession();
+            }
+        });
+    </script>
+</body>
+</html>

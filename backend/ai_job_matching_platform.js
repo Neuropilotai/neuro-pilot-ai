@@ -1,596 +1,683 @@
-require('dotenv').config();
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
 
 class AIJobMatchingPlatform {
-    constructor() {
-        this.app = express();
-        this.port = 3013;
-        this.setupMiddleware();
-        this.setupRoutes();
-        
-        // Core matching algorithms with weights
-        this.matchingAlgorithms = new Map([
-            ['skills_matching', { weight: 0.35, algorithm: this.calculateSkillsMatch }],
-            ['experience_level', { weight: 0.25, algorithm: this.calculateExperienceMatch }],
-            ['cultural_fit', { weight: 0.20, algorithm: this.calculateCulturalFit }],
-            ['location_preference', { weight: 0.10, algorithm: this.calculateLocationMatch }],
-            ['salary_expectation', { weight: 0.10, algorithm: this.calculateSalaryMatch }]
-        ]);
+  constructor() {
+    this.app = express();
+    this.port = 3013;
+    this.setupMiddleware();
+    this.setupRoutes();
 
-        // In-memory storage (in production, use a proper database)
-        this.candidates = new Map();
-        this.jobs = new Map();
-        this.matches = new Map();
-        this.employers = new Map();
-        
-        // Initialize with sample data
-        this.initializeSampleData();
-    }
+    // Core matching algorithms with weights
+    this.matchingAlgorithms = new Map([
+      [
+        "skills_matching",
+        { weight: 0.35, algorithm: this.calculateSkillsMatch },
+      ],
+      [
+        "experience_level",
+        { weight: 0.25, algorithm: this.calculateExperienceMatch },
+      ],
+      ["cultural_fit", { weight: 0.2, algorithm: this.calculateCulturalFit }],
+      [
+        "location_preference",
+        { weight: 0.1, algorithm: this.calculateLocationMatch },
+      ],
+      [
+        "salary_expectation",
+        { weight: 0.1, algorithm: this.calculateSalaryMatch },
+      ],
+    ]);
 
-    setupMiddleware() {
-        this.app.use(express.json({ limit: '10mb' }));
-        this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-        
-        // Cookie parser middleware for language preferences
-        this.app.use((req, res, next) => {
-            req.cookies = {};
-            const cookieHeader = req.headers.cookie;
-            if (cookieHeader) {
-                cookieHeader.split(';').forEach(cookie => {
-                    const parts = cookie.trim().split('=');
-                    if (parts.length === 2) {
-                        req.cookies[parts[0]] = parts[1];
-                    }
-                });
-            }
-            next();
+    // In-memory storage (in production, use a proper database)
+    this.candidates = new Map();
+    this.jobs = new Map();
+    this.matches = new Map();
+    this.employers = new Map();
+
+    // Initialize with sample data
+    this.initializeSampleData();
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json({ limit: "10mb" }));
+    this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+    // Cookie parser middleware for language preferences
+    this.app.use((req, res, next) => {
+      req.cookies = {};
+      const cookieHeader = req.headers.cookie;
+      if (cookieHeader) {
+        cookieHeader.split(";").forEach((cookie) => {
+          const parts = cookie.trim().split("=");
+          if (parts.length === 2) {
+            req.cookies[parts[0]] = parts[1];
+          }
         });
-        
-        // Language detection middleware
-        this.app.use((req, res, next) => {
-            const acceptLanguage = req.headers['accept-language'] || '';
-            const queryLang = req.query.lang;
-            const cookieLang = req.cookies?.language;
-            
-            let detectedLang = 'en'; // Default to English
-            
-            if (queryLang && ['en', 'fr'].includes(queryLang)) {
-                detectedLang = queryLang;
-            } else if (cookieLang && ['en', 'fr'].includes(cookieLang)) {
-                detectedLang = cookieLang;
-            } else if (acceptLanguage.includes('fr')) {
-                detectedLang = 'fr';
-            }
-            
-            req.language = detectedLang;
-            next();
+      }
+      next();
+    });
+
+    // Language detection middleware
+    this.app.use((req, res, next) => {
+      const acceptLanguage = req.headers["accept-language"] || "";
+      const queryLang = req.query.lang;
+      const cookieLang = req.cookies?.language;
+
+      let detectedLang = "en"; // Default to English
+
+      if (queryLang && ["en", "fr"].includes(queryLang)) {
+        detectedLang = queryLang;
+      } else if (cookieLang && ["en", "fr"].includes(cookieLang)) {
+        detectedLang = cookieLang;
+      } else if (acceptLanguage.includes("fr")) {
+        detectedLang = "fr";
+      }
+
+      req.language = detectedLang;
+      next();
+    });
+
+    // CORS for frontend
+    this.app.use((req, res, next) => {
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+      );
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS",
+      );
+      next();
+    });
+  }
+
+  setupRoutes() {
+    // Main job matching interface
+    this.app.get("/", (req, res) => {
+      res.send(this.getJobMatchingHTML(req.language || "en"));
+    });
+
+    // Platform health check
+    this.app.get("/api/status", (req, res) => {
+      res.json({
+        status: "AI Job Matching Platform Active",
+        port: this.port,
+        stats: {
+          candidates: this.candidates.size,
+          jobs: this.jobs.size,
+          matches: this.matches.size,
+          employers: this.employers.size,
+        },
+      });
+    });
+
+    // Candidate registration
+    this.app.post("/api/candidates/register", async (req, res) => {
+      try {
+        const candidate = await this.registerCandidate(req.body);
+        res.json({ success: true, candidate_id: candidate.id });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Job posting
+    this.app.post("/api/jobs/post", async (req, res) => {
+      try {
+        const job = await this.postJob(req.body);
+        res.json({ success: true, job_id: job.id });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Find matches for candidate
+    this.app.get("/api/candidates/:id/matches", async (req, res) => {
+      try {
+        const matches = await this.findJobsForCandidate(req.params.id);
+        res.json(matches);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Find matches for job
+    this.app.get("/api/jobs/:id/matches", async (req, res) => {
+      try {
+        const matches = await this.findCandidatesForJob(req.params.id);
+        res.json(matches);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // AI-powered smart matching
+    this.app.post("/api/smart-match", async (req, res) => {
+      try {
+        const { candidate_id, job_id } = req.body;
+        const matchResult = await this.performSmartMatch(candidate_id, job_id);
+        res.json(matchResult);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Get all available jobs with basic filtering
+    this.app.get("/api/jobs", async (req, res) => {
+      try {
+        const { location, skills, experience_level, salary_min } = req.query;
+        const jobs = await this.searchJobs({
+          location,
+          skills,
+          experience_level,
+          salary_min,
         });
-        
-        // CORS for frontend
-        this.app.use((req, res, next) => {
-            res.header('Access-Control-Allow-Origin', '*');
-            res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-            res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-            next();
+        res.json(jobs);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Employer dashboard data
+    this.app.get("/api/employer/:id/dashboard", async (req, res) => {
+      try {
+        const dashboard = await this.getEmployerDashboard(req.params.id);
+        res.json(dashboard);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Analytics endpoint
+    this.app.get("/api/analytics", async (req, res) => {
+      try {
+        const analytics = await this.getAnalytics();
+        res.json(analytics);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
+  async registerCandidate(candidateData) {
+    const candidate = {
+      id: `cand_${Date.now()}`,
+      ...candidateData,
+      registered_at: new Date().toISOString(),
+      profile_completion: this.calculateProfileCompletion(candidateData),
+      ai_scores: await this.calculateCandidateAIScores(candidateData),
+    };
+
+    this.candidates.set(candidate.id, candidate);
+    console.log(
+      `👤 New candidate registered: ${candidate.name} (${candidate.id})`,
+    );
+
+    return candidate;
+  }
+
+  async postJob(jobData) {
+    const job = {
+      id: `job_${Date.now()}`,
+      ...jobData,
+      posted_at: new Date().toISOString(),
+      status: "active",
+      applications: 0,
+      ai_requirements: await this.analyzeJobRequirements(jobData),
+    };
+
+    this.jobs.set(job.id, job);
+    console.log(
+      `💼 New job posted: ${job.title} at ${job.company} (${job.id})`,
+    );
+
+    return job;
+  }
+
+  async findJobsForCandidate(candidateId) {
+    const candidate = this.candidates.get(candidateId);
+    if (!candidate) throw new Error("Candidate not found");
+
+    const jobMatches = [];
+
+    for (const [jobId, job] of this.jobs) {
+      if (job.status !== "active") continue;
+
+      const matchScore = await this.calculateMatchScore(candidate, job);
+
+      if (matchScore.overallScore >= 60) {
+        // 60% threshold
+        jobMatches.push({
+          job,
+          matchScore: matchScore.overallScore,
+          matchBreakdown: matchScore.breakdown,
+          fitReasons: this.generateFitReasons(candidate, job, matchScore),
         });
+      }
     }
 
-    setupRoutes() {
-        // Main job matching interface
-        this.app.get('/', (req, res) => {
-            res.send(this.getJobMatchingHTML(req.language || 'en'));
+    // Sort by match score
+    jobMatches.sort((a, b) => b.matchScore - a.matchScore);
+
+    console.log(
+      `🎯 Found ${jobMatches.length} job matches for candidate ${candidateId}`,
+    );
+    return jobMatches.slice(0, 20); // Return top 20 matches
+  }
+
+  async findCandidatesForJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new Error("Job not found");
+
+    const candidateMatches = [];
+
+    for (const [candidateId, candidate] of this.candidates) {
+      const matchScore = await this.calculateMatchScore(candidate, job);
+
+      if (matchScore.overallScore >= 60) {
+        // 60% threshold
+        candidateMatches.push({
+          candidate: {
+            id: candidate.id,
+            name: candidate.name,
+            title: candidate.current_title,
+            experience: candidate.experience_years,
+            skills: candidate.skills,
+            location: candidate.location,
+          },
+          matchScore: matchScore.overallScore,
+          matchBreakdown: matchScore.breakdown,
+          fitReasons: this.generateFitReasons(candidate, job, matchScore),
         });
-        
-        // Platform health check
-        this.app.get('/api/status', (req, res) => {
-            res.json({ 
-                status: 'AI Job Matching Platform Active',
-                port: this.port,
-                stats: {
-                    candidates: this.candidates.size,
-                    jobs: this.jobs.size,
-                    matches: this.matches.size,
-                    employers: this.employers.size
-                }
-            });
-        });
-
-        // Candidate registration
-        this.app.post('/api/candidates/register', async (req, res) => {
-            try {
-                const candidate = await this.registerCandidate(req.body);
-                res.json({ success: true, candidate_id: candidate.id });
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // Job posting
-        this.app.post('/api/jobs/post', async (req, res) => {
-            try {
-                const job = await this.postJob(req.body);
-                res.json({ success: true, job_id: job.id });
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // Find matches for candidate
-        this.app.get('/api/candidates/:id/matches', async (req, res) => {
-            try {
-                const matches = await this.findJobsForCandidate(req.params.id);
-                res.json(matches);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // Find matches for job
-        this.app.get('/api/jobs/:id/matches', async (req, res) => {
-            try {
-                const matches = await this.findCandidatesForJob(req.params.id);
-                res.json(matches);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // AI-powered smart matching
-        this.app.post('/api/smart-match', async (req, res) => {
-            try {
-                const { candidate_id, job_id } = req.body;
-                const matchResult = await this.performSmartMatch(candidate_id, job_id);
-                res.json(matchResult);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // Get all available jobs with basic filtering
-        this.app.get('/api/jobs', async (req, res) => {
-            try {
-                const { location, skills, experience_level, salary_min } = req.query;
-                const jobs = await this.searchJobs({ location, skills, experience_level, salary_min });
-                res.json(jobs);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // Employer dashboard data
-        this.app.get('/api/employer/:id/dashboard', async (req, res) => {
-            try {
-                const dashboard = await this.getEmployerDashboard(req.params.id);
-                res.json(dashboard);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // Analytics endpoint
-        this.app.get('/api/analytics', async (req, res) => {
-            try {
-                const analytics = await this.getAnalytics();
-                res.json(analytics);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+      }
     }
 
-    async registerCandidate(candidateData) {
-        const candidate = {
-            id: `cand_${Date.now()}`,
-            ...candidateData,
-            registered_at: new Date().toISOString(),
-            profile_completion: this.calculateProfileCompletion(candidateData),
-            ai_scores: await this.calculateCandidateAIScores(candidateData)
-        };
+    // Sort by match score
+    candidateMatches.sort((a, b) => b.matchScore - a.matchScore);
 
-        this.candidates.set(candidate.id, candidate);
-        console.log(`👤 New candidate registered: ${candidate.name} (${candidate.id})`);
-        
-        return candidate;
+    console.log(
+      `🎯 Found ${candidateMatches.length} candidate matches for job ${jobId}`,
+    );
+    return candidateMatches.slice(0, 50); // Return top 50 matches
+  }
+
+  async calculateMatchScore(candidate, job) {
+    let totalScore = 0;
+    const breakdown = {};
+
+    for (const [algorithmName, config] of this.matchingAlgorithms) {
+      const algorithmScore = await config.algorithm.call(this, candidate, job);
+      const weightedScore = algorithmScore * config.weight;
+      totalScore += weightedScore;
+
+      breakdown[algorithmName] = {
+        score: algorithmScore,
+        weight: config.weight,
+        weightedScore: weightedScore,
+      };
     }
 
-    async postJob(jobData) {
-        const job = {
-            id: `job_${Date.now()}`,
-            ...jobData,
-            posted_at: new Date().toISOString(),
-            status: 'active',
-            applications: 0,
-            ai_requirements: await this.analyzeJobRequirements(jobData)
-        };
+    return {
+      overallScore: Math.round(totalScore),
+      breakdown,
+    };
+  }
 
-        this.jobs.set(job.id, job);
-        console.log(`💼 New job posted: ${job.title} at ${job.company} (${job.id})`);
-        
-        return job;
+  async calculateSkillsMatch(candidate, job) {
+    const candidateSkills = (candidate.skills || []).map((s) =>
+      s.toLowerCase(),
+    );
+    const requiredSkills = (job.required_skills || []).map((s) =>
+      s.toLowerCase(),
+    );
+    const preferredSkills = (job.preferred_skills || []).map((s) =>
+      s.toLowerCase(),
+    );
+
+    if (requiredSkills.length === 0) return 70; // Default if no requirements
+
+    const requiredMatches = requiredSkills.filter((skill) =>
+      candidateSkills.some(
+        (candSkill) => candSkill.includes(skill) || skill.includes(candSkill),
+      ),
+    ).length;
+
+    const preferredMatches = preferredSkills.filter((skill) =>
+      candidateSkills.some(
+        (candSkill) => candSkill.includes(skill) || skill.includes(candSkill),
+      ),
+    ).length;
+
+    const requiredScore = (requiredMatches / requiredSkills.length) * 80; // 80% weight for required
+    const preferredScore =
+      preferredSkills.length > 0
+        ? (preferredMatches / preferredSkills.length) * 20
+        : 0; // 20% weight for preferred
+
+    return Math.min(100, requiredScore + preferredScore);
+  }
+
+  async calculateExperienceMatch(candidate, job) {
+    const candidateYears = candidate.experience_years || 0;
+    const minRequired = job.min_experience || 0;
+    const maxRequired = job.max_experience || 20;
+
+    if (candidateYears >= minRequired && candidateYears <= maxRequired) {
+      return 100; // Perfect match
+    } else if (candidateYears >= minRequired * 0.8) {
+      return 80; // Close match
+    } else if (candidateYears >= minRequired * 0.6) {
+      return 60; // Acceptable match
+    } else {
+      return Math.max(20, 100 - Math.abs(candidateYears - minRequired) * 10);
+    }
+  }
+
+  async calculateCulturalFit(candidate, job) {
+    // Simplified cultural fit based on company size, work style, etc.
+    const companySize = job.company_size || "medium";
+    const workStyle = job.work_style || "hybrid";
+
+    let score = 70; // Base score
+
+    // Company size preference
+    if (candidate.preferred_company_size === companySize) score += 15;
+
+    // Work style preference
+    if (candidate.preferred_work_style === workStyle) score += 15;
+
+    return Math.min(100, score);
+  }
+
+  async calculateLocationMatch(candidate, job) {
+    const candidateLocation = candidate.location?.toLowerCase() || "";
+    const jobLocation = job.location?.toLowerCase() || "";
+
+    if (job.remote_friendly) return 95; // Remote work gets high score
+
+    if (
+      candidateLocation.includes(jobLocation) ||
+      jobLocation.includes(candidateLocation)
+    ) {
+      return 100; // Same location
     }
 
-    async findJobsForCandidate(candidateId) {
-        const candidate = this.candidates.get(candidateId);
-        if (!candidate) throw new Error('Candidate not found');
+    // Check for same state/region (simplified)
+    const candidateState = candidateLocation.split(",").pop()?.trim();
+    const jobState = jobLocation.split(",").pop()?.trim();
 
-        const jobMatches = [];
-        
-        for (const [jobId, job] of this.jobs) {
-            if (job.status !== 'active') continue;
-            
-            const matchScore = await this.calculateMatchScore(candidate, job);
-            
-            if (matchScore.overallScore >= 60) { // 60% threshold
-                jobMatches.push({
-                    job,
-                    matchScore: matchScore.overallScore,
-                    matchBreakdown: matchScore.breakdown,
-                    fitReasons: this.generateFitReasons(candidate, job, matchScore)
-                });
-            }
-        }
+    if (candidateState === jobState) return 70;
 
-        // Sort by match score
-        jobMatches.sort((a, b) => b.matchScore - a.matchScore);
-        
-        console.log(`🎯 Found ${jobMatches.length} job matches for candidate ${candidateId}`);
-        return jobMatches.slice(0, 20); // Return top 20 matches
+    return 30; // Different locations
+  }
+
+  async calculateSalaryMatch(candidate, job) {
+    const expectedSalary = candidate.expected_salary || 0;
+    const jobSalaryMin = job.salary_min || 0;
+    const jobSalaryMax = job.salary_max || jobSalaryMin * 1.3;
+
+    if (expectedSalary === 0 || jobSalaryMin === 0) return 70; // No data
+
+    if (expectedSalary >= jobSalaryMin && expectedSalary <= jobSalaryMax) {
+      return 100; // Perfect match
+    } else if (expectedSalary <= jobSalaryMax * 1.1) {
+      return 80; // Close match
+    } else {
+      const diff = Math.abs(expectedSalary - jobSalaryMax) / jobSalaryMax;
+      return Math.max(20, 100 - diff * 100);
+    }
+  }
+
+  generateFitReasons(candidate, job, matchScore) {
+    const reasons = [];
+
+    if (matchScore.breakdown.skills_matching?.score > 80) {
+      reasons.push("Strong skills alignment");
     }
 
-    async findCandidatesForJob(jobId) {
-        const job = this.jobs.get(jobId);
-        if (!job) throw new Error('Job not found');
-
-        const candidateMatches = [];
-        
-        for (const [candidateId, candidate] of this.candidates) {
-            const matchScore = await this.calculateMatchScore(candidate, job);
-            
-            if (matchScore.overallScore >= 60) { // 60% threshold
-                candidateMatches.push({
-                    candidate: {
-                        id: candidate.id,
-                        name: candidate.name,
-                        title: candidate.current_title,
-                        experience: candidate.experience_years,
-                        skills: candidate.skills,
-                        location: candidate.location
-                    },
-                    matchScore: matchScore.overallScore,
-                    matchBreakdown: matchScore.breakdown,
-                    fitReasons: this.generateFitReasons(candidate, job, matchScore)
-                });
-            }
-        }
-
-        // Sort by match score
-        candidateMatches.sort((a, b) => b.matchScore - a.matchScore);
-        
-        console.log(`🎯 Found ${candidateMatches.length} candidate matches for job ${jobId}`);
-        return candidateMatches.slice(0, 50); // Return top 50 matches
+    if (matchScore.breakdown.experience_level?.score > 80) {
+      reasons.push("Perfect experience level");
     }
 
-    async calculateMatchScore(candidate, job) {
-        let totalScore = 0;
-        const breakdown = {};
-
-        for (const [algorithmName, config] of this.matchingAlgorithms) {
-            const algorithmScore = await config.algorithm.call(this, candidate, job);
-            const weightedScore = algorithmScore * config.weight;
-            totalScore += weightedScore;
-            
-            breakdown[algorithmName] = {
-                score: algorithmScore,
-                weight: config.weight,
-                weightedScore: weightedScore
-            };
-        }
-
-        return {
-            overallScore: Math.round(totalScore),
-            breakdown
-        };
+    if (matchScore.breakdown.location_preference?.score > 90) {
+      reasons.push("Excellent location match");
     }
 
-    async calculateSkillsMatch(candidate, job) {
-        const candidateSkills = (candidate.skills || []).map(s => s.toLowerCase());
-        const requiredSkills = (job.required_skills || []).map(s => s.toLowerCase());
-        const preferredSkills = (job.preferred_skills || []).map(s => s.toLowerCase());
-
-        if (requiredSkills.length === 0) return 70; // Default if no requirements
-
-        const requiredMatches = requiredSkills.filter(skill => 
-            candidateSkills.some(candSkill => candSkill.includes(skill) || skill.includes(candSkill))
-        ).length;
-
-        const preferredMatches = preferredSkills.filter(skill =>
-            candidateSkills.some(candSkill => candSkill.includes(skill) || skill.includes(candSkill))
-        ).length;
-
-        const requiredScore = (requiredMatches / requiredSkills.length) * 80; // 80% weight for required
-        const preferredScore = preferredSkills.length > 0 ? (preferredMatches / preferredSkills.length) * 20 : 0; // 20% weight for preferred
-
-        return Math.min(100, requiredScore + preferredScore);
+    if (matchScore.breakdown.salary_expectation?.score > 80) {
+      reasons.push("Salary expectations aligned");
     }
 
-    async calculateExperienceMatch(candidate, job) {
-        const candidateYears = candidate.experience_years || 0;
-        const minRequired = job.min_experience || 0;
-        const maxRequired = job.max_experience || 20;
+    return reasons;
+  }
 
-        if (candidateYears >= minRequired && candidateYears <= maxRequired) {
-            return 100; // Perfect match
-        } else if (candidateYears >= minRequired * 0.8) {
-            return 80; // Close match
-        } else if (candidateYears >= minRequired * 0.6) {
-            return 60; // Acceptable match
-        } else {
-            return Math.max(20, 100 - (Math.abs(candidateYears - minRequired) * 10));
-        }
+  async initializeSampleData() {
+    // Sample candidates
+    const sampleCandidates = [
+      {
+        name: "Sarah Chen",
+        email: "sarah.chen@email.com",
+        current_title: "Senior Software Engineer",
+        experience_years: 7,
+        skills: ["JavaScript", "React", "Node.js", "Python", "AWS", "Docker"],
+        location: "San Francisco, CA",
+        expected_salary: 140000,
+        preferred_company_size: "medium",
+        preferred_work_style: "remote",
+      },
+      {
+        name: "Michael Rodriguez",
+        email: "m.rodriguez@email.com",
+        current_title: "DevOps Engineer",
+        experience_years: 5,
+        skills: ["Kubernetes", "AWS", "Terraform", "Python", "CI/CD", "Docker"],
+        location: "Austin, TX",
+        expected_salary: 120000,
+        preferred_company_size: "startup",
+        preferred_work_style: "hybrid",
+      },
+      {
+        name: "Emily Johnson",
+        email: "emily.j@email.com",
+        current_title: "Product Manager",
+        experience_years: 6,
+        skills: ["Product Strategy", "Agile", "Data Analysis", "SQL", "Figma"],
+        location: "New York, NY",
+        expected_salary: 130000,
+        preferred_company_size: "large",
+        preferred_work_style: "hybrid",
+      },
+    ];
+
+    // Sample jobs
+    const sampleJobs = [
+      {
+        title: "Senior Full Stack Developer",
+        company: "TechCorp Inc",
+        location: "San Francisco, CA",
+        remote_friendly: true,
+        required_skills: ["JavaScript", "React", "Node.js", "AWS"],
+        preferred_skills: ["TypeScript", "GraphQL"],
+        min_experience: 5,
+        max_experience: 10,
+        salary_min: 130000,
+        salary_max: 170000,
+        company_size: "medium",
+        work_style: "remote",
+        description: "Join our growing team building next-gen web applications",
+      },
+      {
+        title: "Cloud Infrastructure Engineer",
+        company: "CloudTech Solutions",
+        location: "Austin, TX",
+        remote_friendly: false,
+        required_skills: ["AWS", "Kubernetes", "Docker", "Terraform"],
+        preferred_skills: ["Python", "Monitoring"],
+        min_experience: 3,
+        max_experience: 8,
+        salary_min: 110000,
+        salary_max: 140000,
+        company_size: "startup",
+        work_style: "hybrid",
+        description: "Help us scale our cloud infrastructure",
+      },
+      {
+        title: "Senior Product Manager",
+        company: "Enterprise Solutions Ltd",
+        location: "New York, NY",
+        remote_friendly: true,
+        required_skills: ["Product Strategy", "Analytics", "Agile"],
+        preferred_skills: ["SQL", "A/B Testing"],
+        min_experience: 5,
+        max_experience: 12,
+        salary_min: 125000,
+        salary_max: 160000,
+        company_size: "large",
+        work_style: "hybrid",
+        description: "Lead product strategy for our enterprise platform",
+      },
+    ];
+
+    // Register sample data
+    for (const candidateData of sampleCandidates) {
+      await this.registerCandidate(candidateData);
     }
 
-    async calculateCulturalFit(candidate, job) {
-        // Simplified cultural fit based on company size, work style, etc.
-        const companySize = job.company_size || 'medium';
-        const workStyle = job.work_style || 'hybrid';
-        
-        let score = 70; // Base score
-        
-        // Company size preference
-        if (candidate.preferred_company_size === companySize) score += 15;
-        
-        // Work style preference  
-        if (candidate.preferred_work_style === workStyle) score += 15;
-        
-        return Math.min(100, score);
+    for (const jobData of sampleJobs) {
+      await this.postJob(jobData);
     }
 
-    async calculateLocationMatch(candidate, job) {
-        const candidateLocation = candidate.location?.toLowerCase() || '';
-        const jobLocation = job.location?.toLowerCase() || '';
-        
-        if (job.remote_friendly) return 95; // Remote work gets high score
-        
-        if (candidateLocation.includes(jobLocation) || jobLocation.includes(candidateLocation)) {
-            return 100; // Same location
-        }
-        
-        // Check for same state/region (simplified)
-        const candidateState = candidateLocation.split(',').pop()?.trim();
-        const jobState = jobLocation.split(',').pop()?.trim();
-        
-        if (candidateState === jobState) return 70;
-        
-        return 30; // Different locations
+    console.log(
+      `🚀 AI Job Matching Platform initialized with ${sampleCandidates.length} candidates and ${sampleJobs.length} jobs`,
+    );
+  }
+
+  calculateProfileCompletion(candidateData) {
+    const fields = [
+      "name",
+      "email",
+      "current_title",
+      "experience_years",
+      "skills",
+      "location",
+    ];
+    const completedFields = fields.filter(
+      (field) => candidateData[field] && candidateData[field].length > 0,
+    );
+    return Math.round((completedFields.length / fields.length) * 100);
+  }
+
+  async calculateCandidateAIScores(candidateData) {
+    return {
+      marketability: Math.floor(Math.random() * 30) + 70, // 70-100
+      skill_demand: Math.floor(Math.random() * 40) + 60, // 60-100
+      experience_value: Math.floor(Math.random() * 50) + 50, // 50-100
+    };
+  }
+
+  async analyzeJobRequirements(jobData) {
+    return {
+      difficulty_level: jobData.required_skills?.length > 5 ? "high" : "medium",
+      market_demand: Math.floor(Math.random() * 40) + 60,
+      competition_level: Math.floor(Math.random() * 50) + 50,
+    };
+  }
+
+  async searchJobs(filters) {
+    let jobs = Array.from(this.jobs.values()).filter(
+      (job) => job.status === "active",
+    );
+
+    if (filters.location) {
+      jobs = jobs.filter(
+        (job) =>
+          job.location.toLowerCase().includes(filters.location.toLowerCase()) ||
+          job.remote_friendly,
+      );
     }
 
-    async calculateSalaryMatch(candidate, job) {
-        const expectedSalary = candidate.expected_salary || 0;
-        const jobSalaryMin = job.salary_min || 0;
-        const jobSalaryMax = job.salary_max || jobSalaryMin * 1.3;
-
-        if (expectedSalary === 0 || jobSalaryMin === 0) return 70; // No data
-
-        if (expectedSalary >= jobSalaryMin && expectedSalary <= jobSalaryMax) {
-            return 100; // Perfect match
-        } else if (expectedSalary <= jobSalaryMax * 1.1) {
-            return 80; // Close match
-        } else {
-            const diff = Math.abs(expectedSalary - jobSalaryMax) / jobSalaryMax;
-            return Math.max(20, 100 - (diff * 100));
-        }
+    if (filters.skills) {
+      const searchSkills = filters.skills.toLowerCase().split(",");
+      jobs = jobs.filter((job) =>
+        searchSkills.some((skill) =>
+          job.required_skills?.some((reqSkill) =>
+            reqSkill.toLowerCase().includes(skill.trim()),
+          ),
+        ),
+      );
     }
 
-    generateFitReasons(candidate, job, matchScore) {
-        const reasons = [];
-        
-        if (matchScore.breakdown.skills_matching?.score > 80) {
-            reasons.push("Strong skills alignment");
-        }
-        
-        if (matchScore.breakdown.experience_level?.score > 80) {
-            reasons.push("Perfect experience level");
-        }
-        
-        if (matchScore.breakdown.location_preference?.score > 90) {
-            reasons.push("Excellent location match");
-        }
-        
-        if (matchScore.breakdown.salary_expectation?.score > 80) {
-            reasons.push("Salary expectations aligned");
-        }
-        
-        return reasons;
-    }
+    return jobs;
+  }
 
-    async initializeSampleData() {
-        // Sample candidates
-        const sampleCandidates = [
-            {
-                name: "Sarah Chen",
-                email: "sarah.chen@email.com",
-                current_title: "Senior Software Engineer",
-                experience_years: 7,
-                skills: ["JavaScript", "React", "Node.js", "Python", "AWS", "Docker"],
-                location: "San Francisco, CA",
-                expected_salary: 140000,
-                preferred_company_size: "medium",
-                preferred_work_style: "remote"
-            },
-            {
-                name: "Michael Rodriguez",
-                email: "m.rodriguez@email.com", 
-                current_title: "DevOps Engineer",
-                experience_years: 5,
-                skills: ["Kubernetes", "AWS", "Terraform", "Python", "CI/CD", "Docker"],
-                location: "Austin, TX",
-                expected_salary: 120000,
-                preferred_company_size: "startup",
-                preferred_work_style: "hybrid"
-            },
-            {
-                name: "Emily Johnson",
-                email: "emily.j@email.com",
-                current_title: "Product Manager", 
-                experience_years: 6,
-                skills: ["Product Strategy", "Agile", "Data Analysis", "SQL", "Figma"],
-                location: "New York, NY",
-                expected_salary: 130000,
-                preferred_company_size: "large",
-                preferred_work_style: "hybrid"
-            }
-        ];
+  async getEmployerDashboard(employerId) {
+    // Mock employer dashboard data
+    return {
+      total_jobs: Array.from(this.jobs.values()).length,
+      active_jobs: Array.from(this.jobs.values()).filter(
+        (j) => j.status === "active",
+      ).length,
+      total_applications: 45,
+      top_matches: 12,
+      avg_match_score: 78,
+    };
+  }
 
-        // Sample jobs
-        const sampleJobs = [
-            {
-                title: "Senior Full Stack Developer",
-                company: "TechCorp Inc",
-                location: "San Francisco, CA",
-                remote_friendly: true,
-                required_skills: ["JavaScript", "React", "Node.js", "AWS"],
-                preferred_skills: ["TypeScript", "GraphQL"],
-                min_experience: 5,
-                max_experience: 10,
-                salary_min: 130000,
-                salary_max: 170000,
-                company_size: "medium",
-                work_style: "remote",
-                description: "Join our growing team building next-gen web applications"
-            },
-            {
-                title: "Cloud Infrastructure Engineer",
-                company: "CloudTech Solutions",
-                location: "Austin, TX", 
-                remote_friendly: false,
-                required_skills: ["AWS", "Kubernetes", "Docker", "Terraform"],
-                preferred_skills: ["Python", "Monitoring"],
-                min_experience: 3,
-                max_experience: 8,
-                salary_min: 110000,
-                salary_max: 140000,
-                company_size: "startup",
-                work_style: "hybrid",
-                description: "Help us scale our cloud infrastructure"
-            },
-            {
-                title: "Senior Product Manager",
-                company: "Enterprise Solutions Ltd",
-                location: "New York, NY",
-                remote_friendly: true,
-                required_skills: ["Product Strategy", "Analytics", "Agile"],
-                preferred_skills: ["SQL", "A/B Testing"],
-                min_experience: 5,
-                max_experience: 12,
-                salary_min: 125000,
-                salary_max: 160000,
-                company_size: "large", 
-                work_style: "hybrid",
-                description: "Lead product strategy for our enterprise platform"
-            }
-        ];
+  async getAnalytics() {
+    return {
+      total_candidates: this.candidates.size,
+      total_jobs: this.jobs.size,
+      successful_matches: Math.floor(this.candidates.size * 0.3),
+      avg_match_accuracy: 82,
+      platform_growth: "+25% this month",
+    };
+  }
 
-        // Register sample data
-        for (const candidateData of sampleCandidates) {
-            await this.registerCandidate(candidateData);
-        }
+  getJobMatchingHTML(language = "en") {
+    const isEnglish = language === "en";
+    const translations = {
+      title: isEnglish
+        ? "🤖 AI Job Matching Platform"
+        : "🤖 Plateforme de correspondance d'emploi IA",
+      subtitle: isEnglish
+        ? "Find your perfect job with AI-powered matching technology"
+        : "Trouvez votre emploi parfait avec la technologie de correspondance alimentée par IA",
+      countries: isEnglish
+        ? "Canada & 🇺🇸 United States • English & French"
+        : "Canada & 🇺🇸 États-Unis • Anglais et français",
+      searchTitle: isEnglish
+        ? "🎯 Find Your Perfect Job Match"
+        : "🎯 Trouvez votre correspondance d'emploi parfaite",
+      jobTitle: isEnglish
+        ? "Job Title / Keywords"
+        : "Titre du poste / Mots-clés",
+      location: isEnglish ? "Location" : "Emplacement",
+      experience: isEnglish ? "Experience Level" : "Niveau d'expérience",
+      skills: isEnglish
+        ? "Skills (comma separated)"
+        : "Compétences (séparées par des virgules)",
+      salary: isEnglish
+        ? "Minimum Salary (CAD/USD)"
+        : "Salaire minimum (CAD/USD)",
+      workStyle: isEnglish ? "Work Style" : "Style de travail",
+      searchBtn: isEnglish
+        ? "🔍 Find Matching Jobs"
+        : "🔍 Trouver des emplois correspondants",
+      registerBtn: isEnglish
+        ? "👤 Register as Candidate"
+        : "👤 S'inscrire comme candidat",
+      analyzing: isEnglish
+        ? "🤖 AI is analyzing job matches..."
+        : "🤖 L'IA analyse les correspondances d'emplois...",
+      jobResults: isEnglish
+        ? "🎯 Your AI-Matched Jobs"
+        : "🎯 Vos emplois correspondants IA",
+    };
 
-        for (const jobData of sampleJobs) {
-            await this.postJob(jobData);
-        }
-
-        console.log(`🚀 AI Job Matching Platform initialized with ${sampleCandidates.length} candidates and ${sampleJobs.length} jobs`);
-    }
-
-    calculateProfileCompletion(candidateData) {
-        const fields = ['name', 'email', 'current_title', 'experience_years', 'skills', 'location'];
-        const completedFields = fields.filter(field => candidateData[field] && candidateData[field].length > 0);
-        return Math.round((completedFields.length / fields.length) * 100);
-    }
-
-    async calculateCandidateAIScores(candidateData) {
-        return {
-            marketability: Math.floor(Math.random() * 30) + 70, // 70-100
-            skill_demand: Math.floor(Math.random() * 40) + 60, // 60-100
-            experience_value: Math.floor(Math.random() * 50) + 50 // 50-100
-        };
-    }
-
-    async analyzeJobRequirements(jobData) {
-        return {
-            difficulty_level: jobData.required_skills?.length > 5 ? 'high' : 'medium',
-            market_demand: Math.floor(Math.random() * 40) + 60,
-            competition_level: Math.floor(Math.random() * 50) + 50
-        };
-    }
-
-    async searchJobs(filters) {
-        let jobs = Array.from(this.jobs.values()).filter(job => job.status === 'active');
-        
-        if (filters.location) {
-            jobs = jobs.filter(job => 
-                job.location.toLowerCase().includes(filters.location.toLowerCase()) ||
-                job.remote_friendly
-            );
-        }
-        
-        if (filters.skills) {
-            const searchSkills = filters.skills.toLowerCase().split(',');
-            jobs = jobs.filter(job =>
-                searchSkills.some(skill =>
-                    job.required_skills?.some(reqSkill => 
-                        reqSkill.toLowerCase().includes(skill.trim())
-                    )
-                )
-            );
-        }
-        
-        return jobs;
-    }
-
-    async getEmployerDashboard(employerId) {
-        // Mock employer dashboard data
-        return {
-            total_jobs: Array.from(this.jobs.values()).length,
-            active_jobs: Array.from(this.jobs.values()).filter(j => j.status === 'active').length,
-            total_applications: 45,
-            top_matches: 12,
-            avg_match_score: 78
-        };
-    }
-
-    async getAnalytics() {
-        return {
-            total_candidates: this.candidates.size,
-            total_jobs: this.jobs.size,
-            successful_matches: Math.floor(this.candidates.size * 0.3),
-            avg_match_accuracy: 82,
-            platform_growth: '+25% this month'
-        };
-    }
-    
-    getJobMatchingHTML(language = 'en') {
-        const isEnglish = language === 'en';
-        const translations = {
-            title: isEnglish ? '🤖 AI Job Matching Platform' : '🤖 Plateforme de correspondance d\'emploi IA',
-            subtitle: isEnglish ? 'Find your perfect job with AI-powered matching technology' : 'Trouvez votre emploi parfait avec la technologie de correspondance alimentée par IA',
-            countries: isEnglish ? 'Canada & 🇺🇸 United States • English & French' : 'Canada & 🇺🇸 États-Unis • Anglais et français',
-            searchTitle: isEnglish ? '🎯 Find Your Perfect Job Match' : '🎯 Trouvez votre correspondance d\'emploi parfaite',
-            jobTitle: isEnglish ? 'Job Title / Keywords' : 'Titre du poste / Mots-clés',
-            location: isEnglish ? 'Location' : 'Emplacement',
-            experience: isEnglish ? 'Experience Level' : 'Niveau d\'expérience',
-            skills: isEnglish ? 'Skills (comma separated)' : 'Compétences (séparées par des virgules)',
-            salary: isEnglish ? 'Minimum Salary (CAD/USD)' : 'Salaire minimum (CAD/USD)',
-            workStyle: isEnglish ? 'Work Style' : 'Style de travail',
-            searchBtn: isEnglish ? '🔍 Find Matching Jobs' : '🔍 Trouver des emplois correspondants',
-            registerBtn: isEnglish ? '👤 Register as Candidate' : '👤 S\'inscrire comme candidat',
-            analyzing: isEnglish ? '🤖 AI is analyzing job matches...' : '🤖 L\'IA analyse les correspondances d\'emplois...',
-            jobResults: isEnglish ? '🎯 Your AI-Matched Jobs' : '🎯 Vos emplois correspondants IA'
-        };
-        
-        return `
+    return `
         <!DOCTYPE html>
         <html lang="${language}">
         <head>
@@ -736,13 +823,13 @@ class AIJobMatchingPlatform {
                     <div class="search-grid">
                         <div class="form-group">
                             <label for="jobTitle">${translations.jobTitle}</label>
-                            <input type="text" id="jobTitle" placeholder="${isEnglish ? 'e.g. Software Engineer, Product Manager' : 'ex. Ingénieur logiciel, Chef de produit'}">
+                            <input type="text" id="jobTitle" placeholder="${isEnglish ? "e.g. Software Engineer, Product Manager" : "ex. Ingénieur logiciel, Chef de produit"}">
                         </div>
                         <div class="form-group">
                             <label for="location">${translations.location}</label>
                             <select id="location">
-                                <option value="">${isEnglish ? 'Any Location' : 'Tout emplacement'}</option>
-                                <option value="remote">${isEnglish ? 'Remote - North America' : 'À distance - Amérique du Nord'}</option>
+                                <option value="">${isEnglish ? "Any Location" : "Tout emplacement"}</option>
+                                <option value="remote">${isEnglish ? "Remote - North America" : "À distance - Amérique du Nord"}</option>
                                 <option value="toronto">Toronto, ON</option>
                                 <option value="montreal">Montréal, QC</option>
                                 <option value="vancouver">Vancouver, BC</option>
@@ -756,28 +843,28 @@ class AIJobMatchingPlatform {
                         <div class="form-group">
                             <label for="experience">${translations.experience}</label>
                             <select id="experience">
-                                <option value="">${isEnglish ? 'Any Experience' : 'Toute expérience'}</option>
-                                <option value="entry">${isEnglish ? 'Entry Level (0-2 years)' : 'Niveau débutant (0-2 ans)'}</option>
-                                <option value="mid">${isEnglish ? 'Mid-Level (3-5 years)' : 'Niveau intermédiaire (3-5 ans)'}</option>
-                                <option value="senior">${isEnglish ? 'Senior (6-10 years)' : 'Senior (6-10 ans)'}</option>
-                                <option value="lead">${isEnglish ? 'Lead/Principal (10+ years)' : 'Directeur/Principal (10+ ans)'}</option>
+                                <option value="">${isEnglish ? "Any Experience" : "Toute expérience"}</option>
+                                <option value="entry">${isEnglish ? "Entry Level (0-2 years)" : "Niveau débutant (0-2 ans)"}</option>
+                                <option value="mid">${isEnglish ? "Mid-Level (3-5 years)" : "Niveau intermédiaire (3-5 ans)"}</option>
+                                <option value="senior">${isEnglish ? "Senior (6-10 years)" : "Senior (6-10 ans)"}</option>
+                                <option value="lead">${isEnglish ? "Lead/Principal (10+ years)" : "Directeur/Principal (10+ ans)"}</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="skills">${translations.skills}</label>
-                            <input type="text" id="skills" placeholder="${isEnglish ? 'e.g. JavaScript, React, Python' : 'ex. JavaScript, React, Python'}">
+                            <input type="text" id="skills" placeholder="${isEnglish ? "e.g. JavaScript, React, Python" : "ex. JavaScript, React, Python"}">
                         </div>
                         <div class="form-group">
                             <label for="salaryMin">${translations.salary}</label>
-                            <input type="number" id="salaryMin" placeholder="${isEnglish ? 'e.g. 80000' : 'ex. 80000'}">
+                            <input type="number" id="salaryMin" placeholder="${isEnglish ? "e.g. 80000" : "ex. 80000"}">
                         </div>
                         <div class="form-group">
                             <label for="workStyle">${translations.workStyle}</label>
                             <select id="workStyle">
-                                <option value="">${isEnglish ? 'Any Work Style' : 'Tout style de travail'}</option>
-                                <option value="remote">${isEnglish ? 'Remote' : 'À distance'}</option>
-                                <option value="hybrid">${isEnglish ? 'Hybrid' : 'Hybride'}</option>
-                                <option value="onsite">${isEnglish ? 'On-site' : 'Sur site'}</option>
+                                <option value="">${isEnglish ? "Any Work Style" : "Tout style de travail"}</option>
+                                <option value="remote">${isEnglish ? "Remote" : "À distance"}</option>
+                                <option value="hybrid">${isEnglish ? "Hybrid" : "Hybride"}</option>
+                                <option value="onsite">${isEnglish ? "On-site" : "Sur site"}</option>
                             </select>
                         </div>
                     </div>
@@ -937,27 +1024,27 @@ class AIJobMatchingPlatform {
         </body>
         </html>
         `;
-    }
+  }
 
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🤖 AI Job Matching Platform running on port ${this.port}`);
-            console.log(`🔗 http://localhost:${this.port}`);
-            console.log('🎯 Ready to match candidates with perfect jobs!\n');
-            
-            console.log('📊 Platform Stats:');
-            console.log(`   👥 Candidates: ${this.candidates.size}`);
-            console.log(`   💼 Jobs: ${this.jobs.size}`);
-            console.log(`   🎯 Matching Algorithms: ${this.matchingAlgorithms.size}`);
-            console.log('');
-        });
-    }
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(`🤖 AI Job Matching Platform running on port ${this.port}`);
+      console.log(`🔗 http://localhost:${this.port}`);
+      console.log("🎯 Ready to match candidates with perfect jobs!\n");
+
+      console.log("📊 Platform Stats:");
+      console.log(`   👥 Candidates: ${this.candidates.size}`);
+      console.log(`   💼 Jobs: ${this.jobs.size}`);
+      console.log(`   🎯 Matching Algorithms: ${this.matchingAlgorithms.size}`);
+      console.log("");
+    });
+  }
 }
 
 // Start the platform
 if (require.main === module) {
-    const platform = new AIJobMatchingPlatform();
-    platform.start();
+  const platform = new AIJobMatchingPlatform();
+  platform.start();
 }
 
 module.exports = AIJobMatchingPlatform;

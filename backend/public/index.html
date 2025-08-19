@@ -1,0 +1,2591 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventory Management System - Enterprise Edition</title>
+
+    <!-- Professional Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --primary: #0f172a;
+        --primary-light: #1e293b;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --text: #f8fafc;
+        --text-secondary: #94a3b8;
+        --border: #334155;
+        --surface: #1e293b;
+        --surface-light: #334155;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: var(--text);
+        min-height: 100vh;
+        line-height: 1.6;
+      }
+
+      /* Container */
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
+
+      /* Glass Card */
+      .card {
+        background: rgba(30, 41, 59, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Header */
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .logo-icon {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.2rem;
+      }
+
+      .logo-text h1 {
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+
+      .logo-text p {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+      }
+
+      /* Navigation */
+      .nav {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .nav-item {
+        padding: 0.4rem 0.8rem;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-size: 0.875rem;
+      }
+
+      .nav-item:hover,
+      .nav-item.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+
+      /* Login Form */
+      .login-form {
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+      }
+
+      .form-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: var(--primary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 1rem;
+        transition: all 0.3s ease;
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      /* Buttons */
+      .btn {
+        width: 100%;
+        padding: 0.875rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+      }
+
+      .btn-secondary {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+      }
+
+      .btn-secondary:hover {
+        background: var(--surface);
+        color: var(--text);
+      }
+
+      /* Loading Spinner */
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        display: none;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .btn.loading .spinner {
+        display: block;
+      }
+
+      .btn.loading .btn-text {
+        display: none;
+      }
+
+      /* Dashboard */
+      #dashboard {
+        display: none;
+      }
+
+      .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+      }
+
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+      }
+
+      /* Stats Grid */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .stat-card {
+        background: var(--surface);
+        padding: 0.8rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+
+      .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      /* Table */
+      .table-container {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th {
+        text-align: left;
+        padding: 0.5rem;
+        background: var(--surface);
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border);
+        font-size: 0.875rem;
+      }
+
+      td {
+        padding: 0.5rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.875rem;
+      }
+
+      tr:hover {
+        background: rgba(59, 130, 246, 0.05);
+      }
+
+      /* Text alignment utilities */
+      .ta-right {
+        text-align: right;
+      }
+
+      /* Order tags styling */
+      .order-tag {
+        display: inline-block;
+        background: var(--accent);
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: help;
+      }
+
+      .order-count {
+        background: var(--warning);
+        color: var(--surface);
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.7rem;
+        margin-left: 0.25rem;
+      }
+
+      /* Alerts */
+      .alert {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        display: none;
+      }
+
+      .alert-error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #fca5a5;
+      }
+
+      .alert-success {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #86efac;
+      }
+
+      /* 2FA Input */
+      .otp-container {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin: 1.5rem 0;
+      }
+
+      .otp-input {
+        width: 45px;
+        height: 45px;
+        text-align: center;
+        font-size: 1.25rem;
+        font-weight: 600;
+        background: var(--primary);
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+      }
+
+      .otp-input:focus {
+        border-color: var(--accent);
+        outline: none;
+      }
+
+      /* Security Badge */
+      .security-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 8px;
+        color: #86efac;
+        font-size: 0.875rem;
+        margin-top: 1rem;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .container {
+          padding: 1rem;
+        }
+
+        .header {
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .nav {
+          width: 100%;
+          justify-content: center;
+        }
+
+        .stats-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      /* Auto-compact mode based on viewport */
+      @media (max-height: 800px) {
+        .container {
+          padding: 0.5rem;
+        }
+        .card {
+          padding: 0.75rem;
+          border-radius: 8px;
+        }
+        .header {
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.5rem;
+        }
+        .logo-icon {
+          width: 32px;
+          height: 32px;
+          font-size: 1rem;
+        }
+        .logo-text h1 {
+          font-size: 1rem;
+        }
+        .nav-item {
+          padding: 0.3rem 0.6rem;
+          font-size: 0.8rem;
+        }
+        .stat-card {
+          padding: 0.5rem;
+        }
+        .stat-value {
+          font-size: 1.2rem;
+        }
+        th,
+        td {
+          padding: 0.3rem;
+          font-size: 0.8rem;
+        }
+        .btn {
+          padding: 0.5rem;
+          font-size: 0.875rem;
+        }
+        .form-input {
+          padding: 0.5rem 0.75rem;
+        }
+      }
+
+      /* Ultra-compact for high-density displays */
+      @media (min-width: 1920px) {
+        .container {
+          max-width: 1800px;
+        }
+        .stats-grid {
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+        .dashboard-grid {
+          display: grid;
+          grid-template-columns: 1fr 2fr;
+          gap: 1rem;
+        }
+      }
+
+      /* Auto-adjust table density */
+      .compact-mode table {
+        font-size: 0.75rem;
+      }
+      .compact-mode th,
+      .compact-mode td {
+        padding: 0.25rem 0.4rem;
+      }
+      .compact-mode .stat-value {
+        font-size: 1.1rem;
+      }
+      .compact-mode .card {
+        padding: 0.5rem;
+      }
+
+      /* Modal Styles */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .modal {
+        background: var(--surface);
+        padding: 2rem;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        border: 1px solid var(--border);
+      }
+
+      .modal h3 {
+        margin-bottom: 1.5rem;
+        color: var(--text);
+      }
+
+      .form-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+      }
+
+      .form-buttons .btn {
+        flex: 1;
+      }
+
+      /* Location Cards */
+      .location-card {
+        background: var(--surface-light);
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        margin-bottom: 1rem;
+      }
+
+      .location-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .location-name {
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      .location-type {
+        padding: 0.2rem 0.5rem;
+        background: var(--accent);
+        color: white;
+        border-radius: 4px;
+        font-size: 0.75rem;
+      }
+
+      .location-actions {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .location-actions button {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+      }
+    </style>
+    <script>
+      // Auto-detect if compact mode should be enabled
+      function checkCompactMode() {
+        const screenHeight = window.innerHeight;
+        const screenWidth = window.innerWidth;
+        const itemCount = document.querySelectorAll("tbody tr").length;
+
+        // Enable compact if: small screen, or many items, or user preference
+        const shouldCompact =
+          screenHeight < 768 ||
+          itemCount > 20 ||
+          localStorage.getItem("compactMode") === "true";
+
+        document.body.classList.toggle("compact-mode", shouldCompact);
+      }
+
+      // Check on load and resize
+      window.addEventListener("DOMContentLoaded", checkCompactMode);
+      window.addEventListener("resize", checkCompactMode);
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <div class="logo">
+          <div class="logo-icon">IM</div>
+          <div class="logo-text">
+            <h1>Inventory Management</h1>
+            <p>Enterprise Security Edition</p>
+          </div>
+        </div>
+        <nav class="nav" id="mainNav" style="display: none">
+          <a href="#" class="nav-item active" onclick="showSection('inventory')"
+            >Inventory</a
+          >
+          <a href="#" class="nav-item" onclick="showSection('orders')"
+            >Orders</a
+          >
+          <a href="#" class="nav-item" onclick="showSection('locations')"
+            >Locations</a
+          >
+          <a href="#" class="nav-item" onclick="showSection('transfers')"
+            >Transfers</a
+          >
+          <a href="#" class="nav-item" onclick="showSection('reports')"
+            >Reports</a
+          >
+          <a href="#" class="nav-item" onclick="showSection('settings')"
+            >Settings</a
+          >
+          <button
+            class="nav-item"
+            onclick="toggleCompactMode()"
+            title="Toggle Compact Mode"
+          >
+            ⊞
+          </button>
+          <button class="nav-item" onclick="logout()">Logout</button>
+        </nav>
+      </div>
+
+      <!-- Alert Messages -->
+      <div id="alertMessage" class="alert"></div>
+
+      <!-- Login Screen -->
+      <div id="loginScreen" class="card">
+        <form
+          class="login-form"
+          id="loginForm"
+          onsubmit="return handleLogin(event)"
+        >
+          <h2 style="text-align: center; margin-bottom: 2rem">Secure Login</h2>
+
+          <div class="form-group">
+            <label class="form-label" for="email">Email Address</label>
+            <input
+              type="email"
+              id="email"
+              class="form-input"
+              placeholder="user@company.com"
+              required
+              autocomplete="username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              class="form-input"
+              placeholder="Enter your password"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            <span class="btn-text">Sign In</span>
+            <span class="spinner"></span>
+          </button>
+
+          <div class="security-badge">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+              />
+            </svg>
+            Secured with 256-bit encryption
+          </div>
+        </form>
+
+        <!-- 2FA Section -->
+        <div id="twoFactorSection" style="display: none">
+          <h3 style="text-align: center; margin-bottom: 1rem">
+            Enter 2FA Code
+          </h3>
+          <div class="otp-container">
+            <input
+              type="text"
+              class="otp-input"
+              maxlength="1"
+              onkeyup="moveToNext(this, 0)"
+            />
+            <input
+              type="text"
+              class="otp-input"
+              maxlength="1"
+              onkeyup="moveToNext(this, 1)"
+            />
+            <input
+              type="text"
+              class="otp-input"
+              maxlength="1"
+              onkeyup="moveToNext(this, 2)"
+            />
+            <input
+              type="text"
+              class="otp-input"
+              maxlength="1"
+              onkeyup="moveToNext(this, 3)"
+            />
+            <input
+              type="text"
+              class="otp-input"
+              maxlength="1"
+              onkeyup="moveToNext(this, 4)"
+            />
+            <input
+              type="text"
+              class="otp-input"
+              maxlength="1"
+              onkeyup="moveToNext(this, 5)"
+            />
+          </div>
+          <button onclick="verify2FA()" class="btn btn-primary">
+            <span class="btn-text">Verify</span>
+            <span class="spinner"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="dashboard" style="display: none">
+        <div class="dashboard-header">
+          <h2>Inventory Overview</h2>
+          <div class="user-info">
+            <div class="user-avatar" id="userAvatar">U</div>
+            <span id="userEmail"></span>
+          </div>
+        </div>
+        
+        <!-- Notifications Area -->
+        <div id="orderNotifications" style="margin-bottom: 1rem; display: none;">
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent); border-radius: 8px; padding: 1rem;">
+            <h4 style="color: var(--accent); margin-bottom: 0.5rem;">🚚 New Order Received!</h4>
+            <p id="notificationText" style="margin-bottom: 1rem; color: var(--text-secondary);"></p>
+            <div id="notificationActions" style="display: flex; gap: 0.5rem;">
+              <button onclick="processNewOrder()" style="background: var(--accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                🤖 Smart Process
+              </button>
+              <button onclick="hideOrderNotification()" style="background: var(--text-secondary); color: var(--surface); border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="margin-bottom: 1.5rem; text-align: right;">
+          <button onclick="simulateNewOrder()" 
+                  style="background: var(--warning); color: var(--surface); border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; margin-right: 0.5rem;">
+            🧪 Simulate New Order
+          </button>
+          <button onclick="showAddOrderModal()" 
+                  style="background: var(--success); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600;">
+            + Add Order
+          </button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Items</div>
+            <div class="stat-value">1,234</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Low Stock</div>
+            <div class="stat-value" style="color: var(--warning)">23</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Orders Pending</div>
+            <div class="stat-value">7</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Value</div>
+            <div class="stat-value">$45,678</div>
+          </div>
+        </div>
+
+        <!-- Inventory Table -->
+        <div class="card">
+          <h3 style="margin-bottom: 1.5rem">Inventory Items</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th style="text-align: right;">Quantity</th>
+                  <th style="text-align: right;">Unit Price</th>
+                  <th style="text-align: right;">Total Value</th>
+                  <th>Status</th>
+                  <th>Orders</th>
+                  <th>Last Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryTable">
+                <tr>
+                  <td
+                    colspan="5"
+                    style="text-align: center; color: var(--text-secondary)"
+                  >
+                    Loading inventory data...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders Section -->
+      <div id="ordersSection" style="display: none">
+        <div class="card">
+          <div class="dashboard-header">
+            <h2>Orders Management</h2>
+            <div class="user-info">
+              <select
+                id="orderFilter"
+                onchange="filterOrders()"
+                style="
+                  padding: 0.5rem;
+                  margin-right: 1rem;
+                  background: var(--surface);
+                  color: var(--text);
+                  border: 1px solid var(--border);
+                  border-radius: 6px;
+                "
+              >
+                <option value="all">All Orders</option>
+                <option value="gfs">GFS Orders</option>
+                <option value="sysco">Sysco Orders</option>
+              </select>
+              <button class="btn btn-secondary" onclick="loadOrders()">
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div id="ordersContainer">
+            <div
+              style="
+                text-align: center;
+                color: var(--text-secondary);
+                padding: 2rem;
+              "
+            >
+              Loading orders...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Locations Section -->
+      <div id="locationsSection" style="display: none">
+        <div class="card">
+          <div class="dashboard-header">
+            <h2>Location Management</h2>
+            <div class="user-info">
+              <button class="btn btn-primary" onclick="showAddLocationModal()">
+                Add Location
+              </button>
+              <button class="btn btn-secondary" onclick="loadLocations()">
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div id="locationsContainer">
+            <div
+              style="
+                text-align: center;
+                color: var(--text-secondary);
+                padding: 2rem;
+              "
+            >
+              Loading locations...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transfers Section -->
+      <div id="transfersSection" style="display: none">
+        <div class="card">
+          <div class="dashboard-header">
+            <h2>Inventory Transfers</h2>
+            <div class="user-info">
+              <button class="btn btn-primary" onclick="showTransferModal()">
+                New Transfer
+              </button>
+              <button class="btn btn-secondary" onclick="loadTransfers()">
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div id="transfersContainer">
+            <div
+              style="
+                text-align: center;
+                color: var(--text-secondary);
+                padding: 2rem;
+              "
+            >
+              Loading transfers...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reports Section -->
+      <div id="reportsSection" style="display: none">
+        <div class="card">
+          <h2 style="margin-bottom: 2rem">Reports & Analytics</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total GFS Orders</div>
+              <div class="stat-value" id="gfsOrderCount">10</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Sysco Catalog Items</div>
+              <div class="stat-value" id="syscoItemCount">50</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Inventory Value</div>
+              <div class="stat-value" id="totalValue">$0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Last Update</div>
+              <div class="stat-value" id="lastUpdate">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Section -->
+      <div id="settingsSection" style="display: none">
+        <div class="card">
+          <h2 style="margin-bottom: 2rem">Settings</h2>
+          <div class="form-group">
+            <label class="form-label">API Endpoint</label>
+            <input
+              type="text"
+              class="form-input"
+              value="http://localhost:3000"
+              readonly
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Auto-refresh Interval</label>
+            <select class="form-input">
+              <option>Every 5 minutes</option>
+              <option>Every 15 minutes</option>
+              <option>Every 30 minutes</option>
+              <option>Disabled</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data Sources</label>
+            <div
+              style="
+                padding: 1rem;
+                background: var(--primary);
+                border-radius: 8px;
+              "
+            >
+              <div style="margin-bottom: 0.5rem">✅ GFS Orders: Connected</div>
+              <div style="margin-bottom: 0.5rem">
+                ✅ Sysco Catalog: Connected
+              </div>
+              <div>📊 Total Items: <span id="totalItemsSettings">70</span></div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveSettings()">
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Pick the right origin/port, **no trailing `/api`**
+      const API_BASE = (() => {
+        const host = location.host;
+        if (host.includes("localhost:8083")) {
+          // Use the same port as the server
+          return "http://localhost:8083";
+        }
+        if (host.includes("localhost")) {
+          // Fallback to port 3000 for other localhost scenarios
+          return "http://localhost:3000";
+        }
+        if (host.includes("fly.dev")) {
+          return "https://neuro-pilot-inventory.fly.dev";
+        }
+        return "https://inventory.neuropilot.ai";
+      })();
+
+      // Optional: quick override: http://localhost:5500/professional-inventory.html?api=http://localhost:3000
+      const urlApi = new URLSearchParams(location.search).get("api");
+      const BASE = urlApi || API_BASE;
+
+      // Helper to avoid double slashes
+      const join = (base, path) =>
+        `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+
+      console.log("🌐 Using API base:", BASE);
+
+      let accessToken = null;
+      let refreshTimer = null;
+
+      // ----- Inventory display helpers -----
+      const CURRENCY = new Intl.NumberFormat('en-CA', {
+        style: 'currency',
+        currency: 'CAD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      function num(x) {
+        if (x == null) return 0;
+        if (typeof x === 'number') return Number.isFinite(x) ? x : 0;
+        // strip currency symbols/commas
+        const v = Number(String(x).replace(/[^0-9.-]/g, ''));
+        return Number.isFinite(v) ? v : 0;
+      }
+
+      function getItemName(it, langPref = 'en') {
+        // name may be string or { en, fr } or fallbacks from source data
+        if (!it) return '—';
+        if (typeof it.name === 'string') return it.name;
+        if (it.name && typeof it.name === 'object') {
+          return it.name[langPref] || it.name.en || it.name.fr || it.name.default || '';
+        }
+        return it.productName || it.itemDescription || it.description || it.title || it.supplierCode || '—';
+      }
+
+      function getUnitPrice(it) {
+        // accept different shapes/keys
+        return num(it.unitPrice ?? it.price ?? it.unit_price ?? it.cost);
+      }
+
+      function getQuantity(it) {
+        // some payloads use qty/quantity_on_hand
+        return num(it.quantity ?? it.qty ?? it.quantity_on_hand);
+      }
+
+      function getTotalValue(it) {
+        // prefer provided totalValue; otherwise compute live
+        const provided = num(it.totalValue ?? it.total_value);
+        if (provided > 0) return provided;
+        return getQuantity(it) * getUnitPrice(it);
+      }
+
+      function getOrdersForItem(item) {
+        // Get orders that contain this item
+        if (!item.orders || !Array.isArray(item.orders)) return [];
+        return item.orders;
+      }
+
+      function formatOrdersDisplay(orders) {
+        if (!orders || orders.length === 0) return '—';
+        
+        if (orders.length === 1) {
+          return `<span class="order-tag" title="${orders[0].supplier} - ${orders[0].orderDate}">${orders[0].orderId}</span>`;
+        }
+        
+        const firstOrder = orders[0];
+        const remaining = orders.length - 1;
+        return `<span class="order-tag" title="${firstOrder.supplier} - ${firstOrder.orderDate}">${firstOrder.orderId}</span>` +
+               (remaining > 0 ? ` <span class="order-count">+${remaining}</span>` : '');
+      }
+
+      // Section navigation function
+      function showSection(sectionId) {
+        console.log("Showing section:", sectionId);
+
+        // Hide all main sections
+        document.getElementById("dashboard").style.display = "none";
+        document.getElementById("ordersSection").style.display = "none";
+        document.getElementById("locationsSection").style.display = "none";
+        document.getElementById("transfersSection").style.display = "none";
+        document.getElementById("reportsSection").style.display = "none";
+        document.getElementById("settingsSection").style.display = "none";
+
+        // Show the requested section
+        if (sectionId === "inventory") {
+          document.getElementById("dashboard").style.display = "block";
+        } else if (sectionId === "orders") {
+          document.getElementById("ordersSection").style.display = "block";
+          loadOrders();
+        } else if (sectionId === "locations") {
+          document.getElementById("locationsSection").style.display = "block";
+          loadLocations();
+        } else if (sectionId === "transfers") {
+          document.getElementById("transfersSection").style.display = "block";
+          loadTransfers();
+        } else if (sectionId === "reports") {
+          document.getElementById("reportsSection").style.display = "block";
+          loadReportsData();
+        } else if (sectionId === "settings") {
+          document.getElementById("settingsSection").style.display = "block";
+        }
+
+        // Update nav active state
+        document.querySelectorAll(".nav-item").forEach((item) => {
+          item.classList.remove("active");
+          if (
+            item.getAttribute("onclick") &&
+            item.getAttribute("onclick").includes(sectionId)
+          ) {
+            item.classList.add("active");
+          }
+        });
+      }
+
+      // Load reports data
+      async function loadReportsData() {
+        try {
+          const response = await fetch(join(BASE, "/api/inventory/items"));
+          const data = await response.json();
+
+          if (data.summary) {
+            document.getElementById("gfsOrderCount").textContent =
+              data.summary.gfsOrders || 0;
+            document.getElementById("syscoItemCount").textContent =
+              data.summary.syscoProducts || 0;
+            document.getElementById("lastUpdate").textContent = new Date(
+              data.summary.lastUpdated,
+            ).toLocaleString();
+          }
+
+          // Calculate total value
+          let totalValue = 0;
+          if (data.items) {
+            data.items.forEach((item) => {
+              totalValue += (item.price || 0) * (item.quantity || 1);
+            });
+          }
+          document.getElementById("totalValue").textContent =
+            "$" + totalValue.toFixed(2);
+        } catch (error) {
+          console.error("Error loading reports data:", error);
+        }
+      }
+
+      // Save settings function
+      function saveSettings() {
+        showAlert("Settings saved successfully", "success");
+      }
+
+      // Show alert message
+      function showAlert(message, type = "error") {
+        const alert = document.getElementById("alertMessage");
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        alert.style.display = "block";
+
+        setTimeout(() => {
+          alert.style.display = "none";
+        }, 5000);
+      }
+
+      // Handle login
+      async function handleLogin(event) {
+        event.preventDefault();
+
+        const button = event.target.querySelector("button");
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        button.classList.add("loading");
+
+        try {
+          const response = await fetch(join(BASE, "/api/auth/login"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include", // Important for cookies
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Login failed");
+          }
+
+          if (data.requiresTwoFactor) {
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("twoFactorSection").style.display = "block";
+          } else if (data.success) {
+            handleLoginSuccess(data);
+          }
+        } catch (error) {
+          showAlert(error.message);
+        } finally {
+          button.classList.remove("loading");
+        }
+      }
+
+      // Handle 2FA
+      function moveToNext(input, index) {
+        const inputs = document.querySelectorAll(".otp-input");
+        if (input.value && index < inputs.length - 1) {
+          inputs[index + 1].focus();
+        }
+      }
+
+      async function verify2FA() {
+        const inputs = document.querySelectorAll(".otp-input");
+        const totpCode = Array.from(inputs)
+          .map((i) => i.value)
+          .join("");
+
+        if (totpCode.length !== 6) {
+          showAlert("Please enter all 6 digits");
+          return;
+        }
+
+        const button = document.querySelector("#twoFactorSection button");
+        button.classList.add("loading");
+
+        try {
+          const email = document.getElementById("email").value;
+          const password = document.getElementById("password").value;
+
+          const response = await fetch(join(BASE, "/api/auth/login"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ email, password, totpCode }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Invalid code");
+          }
+
+          if (data.success) {
+            handleLoginSuccess(data);
+          }
+        } catch (error) {
+          showAlert(error.message);
+        } finally {
+          button.classList.remove("loading");
+        }
+      }
+
+      // Handle successful login
+      function handleLoginSuccess(data) {
+        accessToken = data.accessToken;
+
+        // Show dashboard
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+        document.getElementById("mainNav").style.display = "flex";
+
+        // Set user info
+        const email = data.user.email;
+        document.getElementById("userEmail").textContent = email;
+        document.getElementById("userAvatar").textContent = email
+          .substring(0, 2)
+          .toUpperCase();
+
+        // Start token refresh timer
+        startTokenRefresh();
+
+        // Load inventory
+        loadInventory();
+
+        showAlert("Login successful", "success");
+      }
+
+      // Token refresh
+      function startTokenRefresh() {
+        // Refresh token 1 minute before expiry (14 minutes)
+        refreshTimer = setInterval(
+          async () => {
+            try {
+              const response = await fetch(join(BASE, "/api/auth/refresh"), {
+                method: "POST",
+                credentials: "include",
+              });
+
+              if (!response.ok) {
+                throw new Error("Session expired");
+              }
+
+              const data = await response.json();
+              accessToken = data.accessToken;
+            } catch (error) {
+              console.error("Token refresh failed:", error);
+              logout();
+            }
+          },
+          14 * 60 * 1000,
+        ); // 14 minutes
+      }
+
+      // Load inventory
+      async function loadInventory() {
+        try {
+          const response = await fetch(join(BASE, "/api/inventory/items"), {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to load inventory");
+          }
+
+          const data = await response.json();
+          displayInventory(data.items);
+        } catch (error) {
+          console.error("Error loading inventory:", error);
+          showAlert("Failed to load inventory");
+        }
+      }
+
+      // Toggle compact mode
+      function toggleCompactMode() {
+        const isCompact = document.body.classList.toggle("compact-mode");
+        localStorage.setItem("compactMode", isCompact);
+        showAlert(
+          isCompact ? "Compact mode enabled" : "Compact mode disabled",
+          "success",
+        );
+      }
+
+      // Display inventory
+      function displayInventory(items) {
+        const tbody = document.getElementById("inventoryTable");
+
+        if (items.length === 0) {
+          tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: var(--text-secondary);">
+                            No inventory items found
+                        </td>
+                    </tr>
+                `;
+          return;
+        }
+
+        tbody.innerHTML = items
+          .map(
+            (item) => {
+              const name = getItemName(item, 'en');
+              const qty = getQuantity(item);
+              const unitPrice = getUnitPrice(item);
+              const totalVal = getTotalValue(item);
+              const orders = getOrdersForItem(item);
+              const ordersDisplay = formatOrdersDisplay(orders);
+              
+              return `
+                <tr>
+                    <td>${name}</td>
+                    <td>${item.category || '—'}</td>
+                    <td class="ta-right">${qty}</td>
+                    <td class="ta-right">${CURRENCY.format(unitPrice)}</td>
+                    <td class="ta-right">${CURRENCY.format(totalVal)}</td>
+                    <td>
+                        <span style="color: ${qty > 10 ? "var(--success)" : qty > 0 ? "var(--warning)" : "var(--danger)"}">
+                            ${qty > 10 ? "In Stock" : qty > 0 ? "Low Stock" : "Out of Stock"}
+                        </span>
+                    </td>
+                    <td>${ordersDisplay}</td>
+                    <td>${item.lastUpdated ? new Date(item.lastUpdated).toLocaleDateString() : '—'}</td>
+                    <td style="white-space: nowrap;">
+                        <button onclick="showMoveModal('${item._id || item.id}', '${name.replace(/'/g, "\\'")}', ${qty}, ${JSON.stringify(orders).replace(/"/g, '&quot;')})" 
+                                class="btn btn-sm" 
+                                style="background: var(--accent); color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; margin-right: 4px;">
+                            Move
+                        </button>
+                        <button onclick="showQuantityModal('${item._id || item.id}', '${name.replace(/'/g, "\\'")}', ${qty}, ${item.minQuantity || 0}, ${item.maxQuantity || 0}, ${JSON.stringify(orders).replace(/"/g, '&quot;')})" 
+                                class="btn btn-sm" 
+                                style="background: #ff6b35; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">
+                            ${qty === 0 ? 'Restock' : 'Adjust'}
+                        </button>
+                    </td>
+                </tr>
+            `;
+            }
+          )
+          .join("");
+
+        // Check if we should auto-enable compact mode
+        setTimeout(checkCompactMode, 100);
+      }
+
+      // Orders Management
+      async function loadOrders() {
+        try {
+          const response = await fetch(join(BASE, "/api/orders/gfs"), {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (!response.ok) throw new Error("Failed to load orders");
+
+          const data = await response.json();
+          displayOrders(data.orders || []);
+        } catch (error) {
+          console.error("Error loading orders:", error);
+          document.getElementById("ordersContainer").innerHTML =
+            '<div style="text-align: center; color: var(--danger); padding: 2rem;">Failed to load orders</div>';
+        }
+      }
+
+      function displayOrders(orders) {
+        const container = document.getElementById("ordersContainer");
+
+        if (orders.length === 0) {
+          container.innerHTML =
+            '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">No orders found</div>';
+          return;
+        }
+
+        // Sort orders by date (newest first)
+        orders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
+
+        const ordersHTML = orders
+          .map(
+            (order) => `
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: rgba(30, 41, 59, 0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="font-weight: 600; color: var(--accent);">${order.supplier || "GFS"} - ${order.orderId}</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">${new Date(order.orderDate).toLocaleDateString()}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                        <div><strong>Items:</strong> ${order.itemCount || "N/A"}</div>
+                        <div><strong>Total:</strong> $${order.totalValue || "0.00"}</div>
+                    </div>
+                </div>
+            `,
+          )
+          .join("");
+
+        container.innerHTML = ordersHTML;
+      }
+
+      function filterOrders() {
+        loadOrders(); // Simple reload for now
+      }
+
+      // Locations Management
+      async function loadLocations() {
+        try {
+          const response = await fetch(join(BASE, "/api/storage/locations"), {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (!response.ok) throw new Error("Failed to load locations");
+
+          const data = await response.json();
+          displayLocations(data.locations || []);
+        } catch (error) {
+          console.error("Error loading locations:", error);
+          document.getElementById("locationsContainer").innerHTML =
+            '<div style="text-align: center; color: var(--danger); padding: 2rem;">Failed to load locations</div>';
+        }
+      }
+
+      function displayLocations(locations) {
+        const container = document.getElementById("locationsContainer");
+
+        if (locations.length === 0) {
+          container.innerHTML =
+            '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">No locations found</div>';
+          return;
+        }
+
+        const locationsHTML = locations
+          .map(
+            (location) => `
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; background: rgba(30, 41, 59, 0.5);">
+                    <div style="font-size: 1.2rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem;">${location.name}</div>
+                    <div style="color: var(--text-secondary); margin-bottom: 1rem;">${location.description || ""}</div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div style="text-align: center; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">${location.itemCount || 0}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Items</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">${location.capacity || "N/A"}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Capacity</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-primary" onclick="viewLocationDetails('${location.id}')">View Items</button>
+                        <button class="btn btn-secondary" onclick="editLocation('${location.id}')">Edit</button>
+                    </div>
+                </div>
+            `,
+          )
+          .join("");
+
+        container.innerHTML = locationsHTML;
+      }
+
+      function showAddLocationModal() {
+        const modal = document.createElement("div");
+        modal.className = "modal-overlay";
+        modal.innerHTML = `
+                <div class="modal">
+                    <h3>Add New Location</h3>
+                    <form id="addLocationForm">
+                        <div class="form-group">
+                            <label>Name *</label>
+                            <input type="text" id="locationName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Type *</label>
+                            <select id="locationType" required>
+                                <option value="frozen">Freezer</option>
+                                <option value="refrigerated">Refrigerated</option>
+                                <option value="dry">Dry Storage</option>
+                                <option value="general">General</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="locationDescription"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Capacity (lbs)</label>
+                            <input type="number" id="locationCapacity" placeholder="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Temperature</label>
+                            <input type="text" id="locationTemp" placeholder="Room temperature">
+                        </div>
+                        <div class="form-group">
+                            <label>Zone</label>
+                            <input type="text" id="locationZone" placeholder="Kitchen">
+                        </div>
+                        <div class="form-group">
+                            <label>Building</label>
+                            <input type="text" id="locationBuilding" placeholder="Main Lodge">
+                        </div>
+                        <div class="form-buttons">
+                            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Add Location</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+        document.body.appendChild(modal);
+
+        document.getElementById("addLocationForm").onsubmit = async (e) => {
+          e.preventDefault();
+          await addLocation({
+            name: document.getElementById("locationName").value,
+            type: document.getElementById("locationType").value,
+            description: document.getElementById("locationDescription").value,
+            capacity: document.getElementById("locationCapacity").value,
+            temp: document.getElementById("locationTemp").value,
+            zone: document.getElementById("locationZone").value,
+            building: document.getElementById("locationBuilding").value,
+          });
+          closeModal();
+        };
+      }
+
+      function closeModal() {
+        const modal = document.querySelector(".modal-overlay");
+        if (modal) modal.remove();
+      }
+
+      function showAddOrderModal() {
+        const modal = document.createElement("div");
+        modal.className = "modal-overlay";
+        modal.innerHTML = `
+          <div class="modal" style="max-width: 600px;">
+            <h3>Add Order</h3>
+            <div style="margin-bottom: 1.5rem;">
+              <label>
+                <input type="radio" name="orderMethod" value="manual" checked onclick="toggleOrderMethod('manual')">
+                Manual Entry
+              </label>
+              <label style="margin-left: 1rem;">
+                <input type="radio" name="orderMethod" value="csv" onclick="toggleOrderMethod('csv')">
+                CSV Import
+              </label>
+            </div>
+            
+            <!-- Manual Entry Form -->
+            <div id="manualEntry">
+              <form id="manualOrderForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                  <div>
+                    <label for="orderDate">Order Date:</label>
+                    <input type="date" id="orderDate" required 
+                           style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                  </div>
+                  <div>
+                    <label for="supplier">Supplier:</label>
+                    <input type="text" id="supplier" placeholder="GFS, Sysco, etc." required 
+                           style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                  </div>
+                  <div>
+                    <label for="peopleCount">👥 People on Camp:</label>
+                    <input type="number" id="peopleCount" min="1" placeholder="e.g. 45" required
+                           style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                  </div>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="orderId">Order ID:</label>
+                  <input type="text" id="orderId" required 
+                         style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label>Order Items:</label>
+                  <div id="orderItems">
+                    <div class="order-item" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                      <input type="text" placeholder="Item name" required class="item-name"
+                             style="padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                      <input type="number" placeholder="Quantity" min="1" required class="item-quantity"
+                             style="padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                      <input type="number" placeholder="Unit Price" min="0" step="0.01" class="item-price"
+                             style="padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                      <button type="button" onclick="removeOrderItem(this)" style="padding: 0.5rem; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;">×</button>
+                    </div>
+                  </div>
+                  <button type="button" onclick="addOrderItem()" 
+                          style="padding: 0.5rem 1rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 0.5rem;">
+                    + Add Item
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- CSV Import -->
+            <div id="csvEntry" style="display: none;">
+              <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                  <label for="csvFile">CSV File:</label>
+                  <input type="file" id="csvFile" accept=".csv" 
+                         style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                  <small style="color: var(--text-secondary); display: block; margin-top: 0.25rem;">
+                    CSV format: orderDate,supplier,orderId,itemName,quantity,unitPrice
+                  </small>
+                </div>
+                <div>
+                  <label for="csvPeopleCount">👥 People on Camp:</label>
+                  <input type="number" id="csvPeopleCount" min="1" placeholder="45" required
+                         style="width: 100px; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                </div>
+              </div>
+              <div style="margin-bottom: 1rem;">
+                <label for="csvPreview">Preview:</label>
+                <textarea id="csvPreview" readonly rows="6" 
+                          style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: monospace; font-size: 0.85rem;">
+                </textarea>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+              <button type="button" onclick="closeModal()" 
+                      style="padding: 0.5rem 1rem; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Cancel
+              </button>
+              <button id="submitOrderBtn" onclick="submitOrder()" 
+                      style="padding: 0.5rem 1rem; background: var(--success); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Add Order
+              </button>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Set today's date as default
+        document.getElementById("orderDate").value = new Date().toISOString().split('T')[0];
+        
+        // Setup CSV file handler
+        document.getElementById("csvFile").addEventListener('change', handleCsvFile);
+      }
+
+      function toggleOrderMethod(method) {
+        const manualEntry = document.getElementById("manualEntry");
+        const csvEntry = document.getElementById("csvEntry");
+        const submitBtn = document.getElementById("submitOrderBtn");
+        
+        if (method === 'manual') {
+          manualEntry.style.display = 'block';
+          csvEntry.style.display = 'none';
+          submitBtn.onclick = submitOrder;
+          submitBtn.textContent = 'Add Order';
+        } else {
+          manualEntry.style.display = 'none';
+          csvEntry.style.display = 'block';
+          submitBtn.onclick = importCsvOrder;
+          submitBtn.textContent = 'Import CSV';
+        }
+      }
+
+      function addOrderItem() {
+        const container = document.getElementById("orderItems");
+        const itemDiv = document.createElement("div");
+        itemDiv.className = "order-item";
+        itemDiv.style.cssText = "display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;";
+        itemDiv.innerHTML = `
+          <input type="text" placeholder="Item name" required class="item-name"
+                 style="padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+          <input type="number" placeholder="Quantity" min="1" required class="item-quantity"
+                 style="padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+          <input type="number" placeholder="Unit Price" min="0" step="0.01" class="item-price"
+                 style="padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+          <button type="button" onclick="removeOrderItem(this)" style="padding: 0.5rem; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;">×</button>
+        `;
+        container.appendChild(itemDiv);
+      }
+
+      function removeOrderItem(btn) {
+        btn.parentElement.remove();
+      }
+
+      function handleCsvFile(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const csvContent = e.target.result;
+            document.getElementById("csvPreview").value = csvContent;
+          };
+          reader.readAsText(file);
+        }
+      }
+
+      async function submitOrder() {
+        try {
+          const orderDate = document.getElementById("orderDate").value;
+          const supplier = document.getElementById("supplier").value;
+          const orderId = document.getElementById("orderId").value;
+          const peopleCount = parseInt(document.getElementById("peopleCount").value);
+          
+          const items = [];
+          document.querySelectorAll(".order-item").forEach(itemDiv => {
+            const name = itemDiv.querySelector(".item-name").value;
+            const qty = parseInt(itemDiv.querySelector(".item-quantity").value);
+            const unitPrice = parseFloat(itemDiv.querySelector(".item-price").value) || 0;
+            
+            if (name && qty) {
+              items.push({ 
+                stockNumber: name.replace(/\s+/g, '-').toUpperCase(),
+                name: name,
+                qty: qty,
+                unit: 'ea',
+                category: 'General'
+              });
+            }
+          });
+          
+          if (items.length === 0) {
+            showAlert("Please add at least one item", "error");
+            return;
+          }
+          
+          const response = await fetch(join(BASE, "/api/orders/manual"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              orderDate,
+              supplier,
+              orderId,
+              items,
+              peopleCount
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to add order");
+          }
+          
+          showAlert("Order added successfully!", "success");
+          closeModal();
+          
+        } catch (error) {
+          showAlert("Failed to add order: " + error.message, "error");
+        }
+      }
+
+      async function importCsvOrder() {
+        try {
+          const csvContent = document.getElementById("csvPreview").value;
+          const peopleCount = parseInt(document.getElementById("csvPeopleCount").value);
+          
+          if (!csvContent.trim()) {
+            showAlert("Please select a CSV file", "error");
+            return;
+          }
+          
+          if (!peopleCount || peopleCount < 1) {
+            showAlert("Please enter the number of people on camp", "error");
+            return;
+          }
+          
+          const response = await fetch(join(BASE, "/api/orders/import"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ 
+              csv: csvContent,
+              peopleCount: peopleCount
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to import CSV");
+          }
+          
+          const result = await response.json();
+          showAlert(`Successfully imported ${result.ordersCount} orders with ${result.itemsCount} items`, "success");
+          closeModal();
+          
+        } catch (error) {
+          showAlert("Failed to import CSV: " + error.message, "error");
+        }
+      }
+
+      // New Order Processing Functions
+      let currentNewOrder = null;
+
+      function simulateNewOrder() {
+        // Simulate receiving a new order
+        const sampleOrder = {
+          orderId: `SIM-${Date.now()}`,
+          supplier: 'GFS',
+          items: [
+            { productName: 'Whole Milk', quantity: 12, unit: 'gallon' },
+            { productName: 'Apple Golden Delicious', quantity: 24, unit: 'lb' },
+            { productName: 'Frozen Pizza', quantity: 6, unit: 'box' },
+            { productName: 'Flour All-Purpose', quantity: 5, unit: 'bag' }
+          ]
+        };
+        
+        showNewOrderNotification(sampleOrder);
+      }
+
+      function showNewOrderNotification(order) {
+        currentNewOrder = order;
+        const notification = document.getElementById("orderNotifications");
+        const text = document.getElementById("notificationText");
+        
+        text.innerHTML = `Order ${order.orderId} from ${order.supplier} with ${order.items.length} items needs processing.<br>AI will auto-place items where possible and ask for confirmation on ambiguous items.`;
+        
+        notification.style.display = 'block';
+        
+        // Auto-hide after 30 seconds
+        setTimeout(() => {
+          if (notification.style.display !== 'none') {
+            hideOrderNotification();
+          }
+        }, 30000);
+      }
+
+      function hideOrderNotification() {
+        document.getElementById("orderNotifications").style.display = 'none';
+        currentNewOrder = null;
+      }
+
+      async function processNewOrder() {
+        if (!currentNewOrder) return;
+        
+        try {
+          showAlert("🤖 Processing new order with AI placement...", "info");
+          
+          const response = await fetch(join(BASE, "/api/orders/process-new"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(currentNewOrder),
+          });
+          
+          if (!response.ok) {
+            throw new Error("Failed to process order");
+          }
+          
+          const result = await response.json();
+          hideOrderNotification();
+          
+          showOrderProcessingResults(result);
+          
+        } catch (error) {
+          showAlert("Failed to process order: " + error.message, "error");
+        }
+      }
+
+      function showOrderProcessingResults(result) {
+        const modal = document.createElement("div");
+        modal.className = "modal-overlay";
+        
+        const autoPlaced = result.placementResults.filter(r => r.action === 'auto_place');
+        const needsInput = result.placementResults.filter(r => r.action === 'ask_user');
+        
+        modal.innerHTML = `
+          <div class="modal" style="max-width: 800px;">
+            <h3>🤖 AI Order Processing Results</h3>
+            <p><strong>Order:</strong> ${result.orderId}</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0;">
+              <div style="background: rgba(34, 197, 94, 0.1); padding: 1rem; border-radius: 6px;">
+                <h4 style="color: var(--success); margin-bottom: 0.5rem;">✅ Auto-Placed (${autoPlaced.length})</h4>
+                ${autoPlaced.map(item => `
+                  <div style="margin-bottom: 0.5rem; font-size: 0.9rem;">
+                    <strong>${item.itemName}</strong> (${item.orderQuantity})<br>
+                    📍 ${item.selectedLocation}<br>
+                    <em style="color: var(--text-secondary);">${item.reason}</em>
+                  </div>
+                `).join('')}
+              </div>
+              
+              <div style="background: rgba(234, 179, 8, 0.1); padding: 1rem; border-radius: 6px;">
+                <h4 style="color: var(--warning); margin-bottom: 0.5rem;">❓ Needs Your Input (${needsInput.length})</h4>
+                ${needsInput.map((item, index) => `
+                  <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.05); border-radius: 4px;">
+                    <strong>${item.itemName}</strong> (${item.orderQuantity})<br>
+                    <em style="color: var(--text-secondary);">${item.reason}</em><br>
+                    <select id="locationChoice_${index}" style="width: 100%; margin-top: 0.5rem; padding: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                      ${(item.suggestions || []).map(sug => 
+                        `<option value="${sug.location}">${sug.location} - ${sug.reason} (${Math.round(sug.confidence * 100)}%)</option>`
+                      ).join('')}
+                    </select>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+              <button onclick="closeModal()" style="padding: 0.5rem 1rem; background: var(--text-secondary); color: var(--surface); border: none; border-radius: 4px; cursor: pointer;">
+                Close
+              </button>
+              ${needsInput.length > 0 ? `
+                <button onclick="confirmPlacements(${JSON.stringify(needsInput).replace(/"/g, '&quot;')})" 
+                        style="padding: 0.5rem 1rem; background: var(--success); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                  Confirm Placements
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Refresh inventory to show changes
+        loadInventory();
+      }
+
+      async function confirmPlacements(itemsNeedingInput) {
+        try {
+          const placements = [];
+          
+          itemsNeedingInput.forEach((item, index) => {
+            const selectedLocation = document.getElementById(`locationChoice_${index}`).value;
+            placements.push({
+              itemId: item.itemId,
+              itemName: item.itemName,
+              quantity: item.orderQuantity,
+              location: selectedLocation
+            });
+          });
+          
+          // Here you would make API calls to actually place the items
+          // For now, just show success
+          showAlert(`Successfully placed ${placements.length} items in their selected locations!`, "success");
+          closeModal();
+          loadInventory();
+          
+        } catch (error) {
+          showAlert("Failed to confirm placements: " + error.message, "error");
+        }
+      }
+
+      async function editLocation(locationId) {
+        try {
+          // Get location details
+          const response = await fetch(join(BASE, "/api/storage/locations"), {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          
+          if (!response.ok) throw new Error("Failed to load locations");
+          
+          const data = await response.json();
+          const location = data.locations.find(loc => (loc.id || loc._id) === locationId);
+          
+          if (!location) {
+            showAlert("Location not found", "error");
+            return;
+          }
+          
+          const modal = document.createElement("div");
+          modal.className = "modal-overlay";
+          modal.innerHTML = `
+            <div class="modal">
+              <h3>Edit Location</h3>
+              <form id="editLocationForm">
+                <div style="margin-bottom: 1rem;">
+                  <label for="editLocationName">Location Name:</label>
+                  <input type="text" id="editLocationName" required value="${location.name}"
+                         style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="editLocationType">Type:</label>
+                  <select id="editLocationType" required style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                    <option value="refrigerated" ${location.type === 'refrigerated' ? 'selected' : ''}>Refrigerated</option>
+                    <option value="frozen" ${location.type === 'frozen' ? 'selected' : ''}>Frozen</option>
+                    <option value="dry" ${location.type === 'dry' ? 'selected' : ''}>Dry Storage</option>
+                    <option value="ambient" ${location.type === 'ambient' ? 'selected' : ''}>Ambient</option>
+                  </select>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="editLocationTemp">Temperature:</label>
+                  <input type="text" id="editLocationTemp" value="${location.temp || ''}" placeholder="e.g. 4°C"
+                         style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="editLocationCapacity">Capacity:</label>
+                  <input type="number" id="editLocationCapacity" value="${location.capacity || ''}" placeholder="e.g. 1000"
+                         style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="editLocationDescription">Description:</label>
+                  <textarea id="editLocationDescription" rows="3" placeholder="Describe this location..."
+                            style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">${location.description || ''}</textarea>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                  <button type="button" onclick="closeModal()" style="padding: 0.5rem 1rem; background: var(--text-secondary); color: var(--surface); border: none; border-radius: 4px; cursor: pointer;">
+                    Cancel
+                  </button>
+                  <button type="submit" style="padding: 0.5rem 1rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          `;
+          
+          document.body.appendChild(modal);
+          
+          document.getElementById("editLocationForm").onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const updatedLocation = {
+              name: document.getElementById("editLocationName").value,
+              type: document.getElementById("editLocationType").value,
+              temp: document.getElementById("editLocationTemp").value,
+              capacity: parseInt(document.getElementById("editLocationCapacity").value) || location.capacity,
+              description: document.getElementById("editLocationDescription").value,
+            };
+            
+            try {
+              const updateResponse = await fetch(join(BASE, `/api/storage/locations/${location.name}`), {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify(updatedLocation),
+              });
+              
+              if (!updateResponse.ok) {
+                const errorData = await updateResponse.json();
+                throw new Error(errorData.error || "Failed to update location");
+              }
+              
+              showAlert("Location updated successfully!", "success");
+              closeModal();
+              loadLocations(); // Refresh the locations list
+              
+            } catch (error) {
+              showAlert("Failed to update location: " + error.message, "error");
+            }
+          };
+          
+        } catch (error) {
+          showAlert("Failed to load location details: " + error.message, "error");
+        }
+      }
+
+      async function addLocation(locationData) {
+        try {
+          const response = await fetch(join(BASE, "/api/storage/locations"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(locationData),
+          });
+
+          if (!response.ok) throw new Error("Failed to add location");
+
+          showAlert("Location added successfully", "success");
+          loadLocations();
+        } catch (error) {
+          console.error("Error adding location:", error);
+          showAlert("Failed to add location", "error");
+        }
+      }
+
+      // Transfers Management
+      async function loadTransfers() {
+        try {
+          const response = await fetch(join(BASE, "/api/transfers"), {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (!response.ok) throw new Error("Failed to load transfers");
+
+          const data = await response.json();
+          displayTransfers(data.transfers || []);
+        } catch (error) {
+          console.error("Error loading transfers:", error);
+          document.getElementById("transfersContainer").innerHTML =
+            '<div style="text-align: center; color: var(--danger); padding: 2rem;">Failed to load transfers</div>';
+        }
+      }
+
+      function displayTransfers(transfers) {
+        const container = document.getElementById("transfersContainer");
+
+        if (transfers.length === 0) {
+          container.innerHTML =
+            '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">No transfers found</div>';
+          return;
+        }
+
+        const transfersHTML = transfers
+          .map(
+            (transfer) => `
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: rgba(30, 41, 59, 0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="font-weight: 600; color: var(--accent);">Transfer #${transfer.id}</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">${new Date(transfer.date).toLocaleDateString()}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                        <div><strong>From:</strong> ${transfer.fromLocation}</div>
+                        <div><strong>To:</strong> ${transfer.toLocation}</div>
+                        <div><strong>Item:</strong> ${transfer.itemName}</div>
+                        <div><strong>Quantity:</strong> ${transfer.quantity}</div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <span style="padding: 0.25rem 0.5rem; background: ${transfer.status === "completed" ? "var(--success)" : "var(--warning)"}; color: white; border-radius: 4px; font-size: 0.8rem;">
+                            ${transfer.status}
+                        </span>
+                    </div>
+                </div>
+            `,
+          )
+          .join("");
+
+        container.innerHTML = transfersHTML;
+      }
+
+      async function showMoveModal(itemId, itemName, currentQty, ordersData = []) {
+        try {
+          // Load available locations
+          const response = await fetch(join(BASE, "/api/storage/locations"), {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          
+          if (!response.ok) throw new Error("Failed to load locations");
+          
+          const data = await response.json();
+          const locations = data.locations || [];
+          
+          const modal = document.createElement("div");
+          modal.className = "modal-overlay";
+          
+          // Parse orders data if it's a string
+          let orders = [];
+          if (typeof ordersData === 'string') {
+            try {
+              orders = JSON.parse(ordersData.replace(/&quot;/g, '"'));
+            } catch (e) {
+              orders = [];
+            }
+          } else if (Array.isArray(ordersData)) {
+            orders = ordersData;
+          }
+          
+          const ordersInfo = orders.length > 0 ? 
+            `<div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+              <strong>📋 Orders containing this item:</strong><br>
+              ${orders.map(order => `• ${order.orderId} (${order.supplier}) - ${new Date(order.orderDate).toLocaleDateString()}`).join('<br>')}
+            </div>` : '';
+          
+          modal.innerHTML = `
+            <div class="modal">
+              <h3>Move Stock: ${itemName}</h3>
+              <p>Current quantity: ${currentQty}</p>
+              ${ordersInfo}
+              <form id="moveStockForm">
+                <div style="margin-bottom: 1rem;">
+                  <label for="fromLocation">From Location:</label>
+                  <select id="fromLocation" required style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                    <option value="">Select source location</option>
+                    ${locations.map(loc => `<option value="${loc._id || loc.id}">${loc.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="toLocation">To Location:</label>
+                  <select id="toLocation" required style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                    <option value="">Select destination location</option>
+                    ${locations.map(loc => `<option value="${loc._id || loc.id}">${loc.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="quantity">Quantity to Move:</label>
+                  <input type="number" id="quantity" min="1" max="${currentQty}" required 
+                         style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                  <label for="reason">Reason (optional):</label>
+                  <input type="text" id="reason" placeholder="e.g. Stock rotation, reorganization..." 
+                         style="width: 100%; padding: 0.5rem; margin-top: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text);">
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                  <button type="button" onclick="closeModal()" style="padding: 0.5rem 1rem; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Cancel
+                  </button>
+                  <button type="submit" style="padding: 0.5rem 1rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Move Stock
+                  </button>
+                </div>
+              </form>
+            </div>
+          `;
+          
+          document.body.appendChild(modal);
+          
+          document.getElementById("moveStockForm").onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const fromLocation = document.getElementById("fromLocation").value;
+            const toLocation = document.getElementById("toLocation").value;
+            const quantity = parseInt(document.getElementById("quantity").value);
+            const reason = document.getElementById("reason").value;
+            
+            if (fromLocation === toLocation) {
+              showAlert("Source and destination locations cannot be the same", "error");
+              return;
+            }
+            
+            try {
+              const response = await fetch(join(BASE, "/api/inventory/transfer"), {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  itemId,
+                  fromLocation,
+                  toLocation,
+                  quantity,
+                  reason,
+                  ordersContext: orders, // Include order context for AI learning
+                  learningData: {
+                    itemName: itemName,
+                    hasOrders: orders.length > 0,
+                    orderCount: orders.length,
+                    suppliers: [...new Set(orders.map(o => o.supplier))],
+                    isManualMove: true,
+                    timestamp: new Date().toISOString()
+                  }
+                }),
+              });
+              
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Transfer failed");
+              }
+              
+              showAlert("Stock transfer completed successfully!", "success");
+              closeModal();
+              loadInventory(); // Refresh inventory display
+              
+            } catch (error) {
+              showAlert("Transfer failed: " + error.message, "error");
+            }
+          };
+          
+        } catch (error) {
+          showAlert("Failed to open move modal: " + error.message, "error");
+        }
+      }
+
+      // Smart Quantity Adjustment Modal with AI Learning
+      async function showQuantityModal(itemId, itemName, currentQty, currentMin, currentMax, ordersData = []) {
+        try {
+          // Get AI suggestions for min/max adjustments
+          const aiSuggestions = await getMinMaxSuggestions(itemId, itemName, currentQty, currentMin, currentMax, ordersData);
+          
+          const modal = document.getElementById("modal");
+          modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+              <div class="modal-header">
+                <h3>📊 Adjust Quantity: ${itemName}</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+              </div>
+              <div class="modal-body">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                  <div style="background: #2a2a2a; padding: 15px; border-radius: 8px;">
+                    <h4>📈 Current Status</h4>
+                    <p><strong>Current Quantity:</strong> ${currentQty}</p>
+                    <p><strong>Min Quantity:</strong> ${currentMin || 'Not set'}</p>
+                    <p><strong>Max Quantity:</strong> ${currentMax || 'Not set'}</p>
+                    <p><strong>Recent Orders:</strong> ${ordersData.length} orders</p>
+                  </div>
+                  <div style="background: #2a2a2a; padding: 15px; border-radius: 8px;">
+                    <h4>🤖 AI Insights</h4>
+                    <div id="aiInsights">${aiSuggestions.insights}</div>
+                  </div>
+                </div>
+                
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                  <h4>🎯 Quick Actions</h4>
+                  <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn" onclick="setQuantity(0)" style="background: #ff4444;">
+                      🚫 Mark as Out of Stock (0)
+                    </button>
+                    <button class="btn" onclick="setQuantity(${aiSuggestions.suggestedMin})" style="background: #44aa44;">
+                      📦 Restock to Min (${aiSuggestions.suggestedMin})
+                    </button>
+                    <button class="btn" onclick="setQuantity(${Math.floor(aiSuggestions.suggestedMax / 2)})" style="background: #4488aa;">
+                      📊 Half Capacity (${Math.floor(aiSuggestions.suggestedMax / 2)})
+                    </button>
+                  </div>
+                </div>
+                
+                <form id="quantityForm">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                      <label for="newQuantity">New Quantity:</label>
+                      <input type="number" id="newQuantity" value="${currentQty}" min="0" required
+                             style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+                    </div>
+                    <div>
+                      <label for="reason">Reason for Change:</label>
+                      <select id="reason" style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+                        <option value="stockout">Ran out of stock</option>
+                        <option value="restock">Received new stock</option>
+                        <option value="waste">Waste/spoilage</option>
+                        <option value="inventory_count">Inventory count</option>
+                        <option value="transfer">Moved to another location</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div style="margin: 20px 0; padding: 15px; background: #2a2a2a; border-radius: 8px;">
+                    <h4>🎛️ Min/Max Settings</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                      <div>
+                        <label for="newMin">New Min Quantity:</label>
+                        <input type="number" id="newMin" value="${aiSuggestions.suggestedMin}" min="0"
+                               style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+                        <small style="color: #888;">AI suggests: ${aiSuggestions.suggestedMin}</small>
+                      </div>
+                      <div>
+                        <label for="newMax">New Max Quantity:</label>
+                        <input type="number" id="newMax" value="${aiSuggestions.suggestedMax}" min="0"
+                               style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+                        <small style="color: #888;">AI suggests: ${aiSuggestions.suggestedMax}</small>
+                      </div>
+                      <div>
+                        <label for="includeInReordering">Include in Auto-Reordering:</label>
+                        <select id="includeInReordering" style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+                          <option value="yes" ${aiSuggestions.shouldAutoReorder ? 'selected' : ''}>Yes - Auto track</option>
+                          <option value="no" ${!aiSuggestions.shouldAutoReorder ? 'selected' : ''}>No - Manual only</option>
+                          <option value="ask">Ask me each time</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                      Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" style="background: #44aa44;">
+                      💾 Apply Changes
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          `;
+          
+          modal.style.display = "block";
+          
+          // Set quantity helper function
+          window.setQuantity = function(qty) {
+            document.getElementById('newQuantity').value = qty;
+            if (qty === 0) {
+              document.getElementById('reason').value = 'stockout';
+            }
+          };
+          
+          // Handle form submission
+          document.getElementById("quantityForm").onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const newQuantity = parseInt(document.getElementById("newQuantity").value);
+            const reason = document.getElementById("reason").value;
+            const newMin = parseInt(document.getElementById("newMin").value) || 0;
+            const newMax = parseInt(document.getElementById("newMax").value) || 0;
+            const includeInReordering = document.getElementById("includeInReordering").value;
+            
+            try {
+              // Update quantity
+              const response = await fetch(join(BASE, "/api/inventory/update-quantity"), {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  itemId: itemId,
+                  newQuantity: newQuantity,
+                  reason: reason,
+                  newMin: newMin,
+                  newMax: newMax,
+                  includeInReordering: includeInReordering,
+                  previousQuantity: currentQty,
+                  aiLearningData: {
+                    action: newQuantity === 0 ? 'zero_out' : 'quantity_adjustment',
+                    ordersContext: ordersData,
+                    userDecision: {
+                      acceptedMinSuggestion: newMin === aiSuggestions.suggestedMin,
+                      acceptedMaxSuggestion: newMax === aiSuggestions.suggestedMax,
+                      acceptedAutoReorder: includeInReordering === (aiSuggestions.shouldAutoReorder ? 'yes' : 'no')
+                    }
+                  }
+                })
+              });
+              
+              if (!response.ok) {
+                throw new Error("Failed to update quantity");
+              }
+              
+              showAlert(`✅ ${itemName} updated successfully! ${newQuantity === 0 ? '🤖 AI will learn from this stockout.' : '📊 Min/max settings updated.'}`, "success");
+              closeModal();
+              loadInventory(); // Refresh inventory display
+              
+            } catch (error) {
+              showAlert("Update failed: " + error.message, "error");
+            }
+          };
+          
+        } catch (error) {
+          showAlert("Failed to open quantity modal: " + error.message, "error");
+        }
+      }
+      
+      // AI Min/Max Suggestions Engine
+      async function getMinMaxSuggestions(itemId, itemName, currentQty, currentMin, currentMax, ordersData) {
+        // Analyze order patterns
+        const orderFrequency = ordersData.length;
+        const avgOrdersPerMonth = orderFrequency > 0 ? Math.ceil(orderFrequency / 6) : 0; // Assuming 6 months of data
+        
+        // Smart min/max calculations
+        let suggestedMin = Math.max(2, Math.ceil(avgOrdersPerMonth * 0.5)); // Half month supply as minimum
+        let suggestedMax = Math.max(10, Math.ceil(avgOrdersPerMonth * 3)); // 3 months as maximum
+        
+        // Special handling for different categories
+        const isPerishable = itemName.toLowerCase().includes('milk') || 
+                           itemName.toLowerCase().includes('bread') || 
+                           itemName.toLowerCase().includes('produce');
+                           
+        const isBulkItem = currentQty > 100 || (currentMax && currentMax > 100);
+        
+        if (isPerishable) {
+          suggestedMax = Math.min(suggestedMax, 20); // Lower max for perishables
+          suggestedMin = Math.max(2, suggestedMin);
+        }
+        
+        if (isBulkItem) {
+          suggestedMin = Math.max(10, suggestedMin);
+          suggestedMax = Math.max(50, suggestedMax);
+        }
+        
+        // Determine if item should be auto-reordered
+        const shouldAutoReorder = orderFrequency >= 2; // Items with 2+ orders should be auto-tracked
+        
+        // Generate insights
+        let insights = `<div style="font-size: 0.9em;">`;
+        
+        if (currentQty === 0) {
+          insights += `🚨 <strong>Stock Out Detected!</strong><br>`;
+          insights += `📊 Based on ${orderFrequency} recent orders, I suggest:<br>`;
+          insights += `• Restock to at least ${suggestedMin} units<br>`;
+        } else if (currentQty < suggestedMin) {
+          insights += `⚠️ <strong>Below Recommended Minimum</strong><br>`;
+          insights += `📈 Consider restocking soon<br>`;
+        } else {
+          insights += `✅ <strong>Stock Level Good</strong><br>`;
+        }
+        
+        if (orderFrequency > 3) {
+          insights += `🔥 High-demand item (${orderFrequency} orders)<br>`;
+        } else if (orderFrequency === 0) {
+          insights += `⚠️ No recent orders - consider if min/max needed<br>`;
+        }
+        
+        if (isPerishable) {
+          insights += `🥛 Perishable item - lower max suggested<br>`;
+        }
+        
+        insights += `</div>`;
+        
+        return {
+          suggestedMin,
+          suggestedMax,
+          shouldAutoReorder,
+          insights,
+          confidence: orderFrequency > 0 ? Math.min(0.9, 0.5 + (orderFrequency * 0.1)) : 0.3
+        };
+      }
+
+      // Logout
+      async function logout() {
+        if (refreshTimer) {
+          clearInterval(refreshTimer);
+        }
+
+        try {
+          await fetch(join(BASE, "/api/auth/logout"), {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            credentials: "include",
+          });
+        } catch (error) {
+          // Continue with logout even if request fails
+        }
+
+        accessToken = null;
+        window.location.reload();
+      }
+
+      // Check for existing session on load
+      document.addEventListener("DOMContentLoaded", async () => {
+        // Try to refresh token if cookie exists
+        try {
+          const response = await fetch(join(BASE, "/api/auth/refresh"), {
+            method: "POST",
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            accessToken = data.accessToken;
+            // Auto-login if we have a valid refresh token
+            // You'd need to fetch user info here
+          }
+        } catch (error) {
+          // No valid session
+        }
+      });
+    </script>
+  </body>
+</html>

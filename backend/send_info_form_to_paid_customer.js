@@ -1,21 +1,21 @@
-require('dotenv').config();
-const EmailOrderSystem = require('./email_order_system');
-const fs = require('fs').promises;
+require("dotenv").config();
+const EmailOrderSystem = require("./email_order_system");
+const fs = require("fs").promises;
 
 async function sendInfoFormToPaidCustomer() {
-    const emailSystem = new EmailOrderSystem();
-    
-    console.log('🎯 Sending info collection form to paid customer...\n');
-    
-    // Get customer email
-    const customerEmail = process.argv[2] || 'customer@example.com';
-    const customerName = process.argv[3] || 'Valued Customer';
-    
-    console.log(`📧 Sending to: ${customerEmail}`);
-    console.log(`👤 Customer: ${customerName}\n`);
-    
-    // Create info collection email template
-    const infoFormTemplate = `
+  const emailSystem = new EmailOrderSystem();
+
+  console.log("🎯 Sending info collection form to paid customer...\n");
+
+  // Get customer email
+  const customerEmail = process.argv[2] || "customer@example.com";
+  const customerName = process.argv[3] || "Valued Customer";
+
+  console.log(`📧 Sending to: ${customerEmail}`);
+  console.log(`👤 Customer: ${customerName}\n`);
+
+  // Create info collection email template
+  const infoFormTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -87,59 +87,62 @@ async function sendInfoFormToPaidCustomer() {
 </html>
     `;
 
-    try {
-        // Send the info collection email
-        const result = await emailSystem.transporter.sendMail({
-            from: '"Neuro.Pilot.AI" <Neuro.Pilot.AI@gmail.com>',
-            to: customerEmail,
-            subject: '📝 Complete Your Resume Details - Payment Received!',
-            html: infoFormTemplate,
-            text: `Hi ${customerName}!\n\nYour payment has been received! To create your perfect resume, please complete your job details at:\nhttps://a373-23-233-176-252.ngrok-free.app/order-form.html?email=${encodeURIComponent(customerEmail)}&paid=true\n\nOr reply to this email with:\n- Target job title\n- Industry\n- Years of experience\n- Current resume (attached)\n\nThank you!\n- Neuro.Pilot.AI Team`
-        });
+  try {
+    // Send the info collection email
+    const result = await emailSystem.transporter.sendMail({
+      from: '"Neuro.Pilot.AI" <Neuro.Pilot.AI@gmail.com>',
+      to: customerEmail,
+      subject: "📝 Complete Your Resume Details - Payment Received!",
+      html: infoFormTemplate,
+      text: `Hi ${customerName}!\n\nYour payment has been received! To create your perfect resume, please complete your job details at:\nhttps://a373-23-233-176-252.ngrok-free.app/order-form.html?email=${encodeURIComponent(customerEmail)}&paid=true\n\nOr reply to this email with:\n- Target job title\n- Industry\n- Years of experience\n- Current resume (attached)\n\nThank you!\n- Neuro.Pilot.AI Team`,
+    });
 
-        console.log('✅ Info collection email sent successfully!');
-        console.log('📧 Message ID:', result.messageId);
-        
-        // Create order tracking record for paid customer
-        const orderData = {
-            orderId: 'PAID-' + Date.now(),
-            email: customerEmail,
-            name: customerName,
-            status: 'awaiting_info',
-            paymentReceived: true,
-            createdAt: new Date().toISOString(),
-            messageId: result.messageId
-        };
-        
-        // Save to pending orders
-        const ordersDir = './orders';
-        await fs.mkdir(ordersDir, { recursive: true });
-        const orderPath = `${ordersDir}/order_${orderData.orderId}.json`;
-        await fs.writeFile(orderPath, JSON.stringify(orderData, null, 2));
-        
-        console.log('📋 Order tracking created:', orderPath);
-        console.log('\n🤖 The automated system will process their resume when they respond!');
-        
-        return { success: true, orderId: orderData.orderId };
-        
-    } catch (error) {
-        console.error('❌ Error sending email:', error.message);
-        return { success: false, error: error.message };
-    }
+    console.log("✅ Info collection email sent successfully!");
+    console.log("📧 Message ID:", result.messageId);
+
+    // Create order tracking record for paid customer
+    const orderData = {
+      orderId: "PAID-" + Date.now(),
+      email: customerEmail,
+      name: customerName,
+      status: "awaiting_info",
+      paymentReceived: true,
+      createdAt: new Date().toISOString(),
+      messageId: result.messageId,
+    };
+
+    // Save to pending orders
+    const ordersDir = "./orders";
+    await fs.mkdir(ordersDir, { recursive: true });
+    const orderPath = `${ordersDir}/order_${orderData.orderId}.json`;
+    await fs.writeFile(orderPath, JSON.stringify(orderData, null, 2));
+
+    console.log("📋 Order tracking created:", orderPath);
+    console.log(
+      "\n🤖 The automated system will process their resume when they respond!",
+    );
+
+    return { success: true, orderId: orderData.orderId };
+  } catch (error) {
+    console.error("❌ Error sending email:", error.message);
+    return { success: false, error: error.message };
+  }
 }
 
 // Usage: node send_info_form_to_paid_customer.js customer@email.com "Customer Name"
 if (require.main === module) {
-    sendInfoFormToPaidCustomer()
-        .then(result => {
-            if (result.success) {
-                console.log('\n🎯 Mission accomplished! Customer will receive the info form.');
-            } else {
-                console.log('\n❌ Failed:', result.error);
-            }
-            process.exit(0);
-        })
-        .catch(console.error);
+  sendInfoFormToPaidCustomer()
+    .then((result) => {
+      if (result.success) {
+        console.log(
+          "\n🎯 Mission accomplished! Customer will receive the info form.",
+        );
+      } else {
+        console.log("\n❌ Failed:", result.error);
+      }
+      process.exit(0);
+    })
+    .catch(console.error);
 }
 
 module.exports = sendInfoFormToPaidCustomer;

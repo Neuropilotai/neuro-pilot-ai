@@ -8,7 +8,7 @@ services:
     rootDir: backend
     buildCommand: npm ci --only=production
     startCommand: node inventory-complete-bilingual.js
-    
+
     # Environment Configuration
     envVars:
       - key: NODE_ENV
@@ -21,18 +21,18 @@ services:
         value: david.mikulis@camp-inventory.com
       - key: ADMIN_PASSWORD
         value: inventory2025
-        
+
     # Health and Performance
     healthCheckPath: /
     plan: starter # Use starter for always-on availability
-    
+
     # Resource Configuration
     scaling:
       minInstances: 1
       maxInstances: 3
       targetCPUPercent: 80
       targetMemoryPercent: 80
-    
+
     # Disk Storage for Inventory Data
     disk:
       name: inventory-data

@@ -1,0 +1,1046 @@
+{
+  "sessions": [
+    {
+      "id": "session_1753017852507",
+      "startTime": "2025-07-20T13:24:12.507Z",
+      "orderFile": "GFS_Order_July4_2025.csv",
+      "options": {
+        "supplier": "Gordon Food Service",
+        "orderDate": "2025-07-04",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 17425,
+          "fileType": ".csv",
+          "estimatedRows": 13,
+          "detectedSupplier": "Gordon Food Service",
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 7,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": true,
+          "processed": 210,
+          "validationResults": {
+            "isValid": true,
+            "errors": [],
+            "warnings": [
+              "Row 6: Total price mismatch (expected: 21.42, got: 219.98)",
+              "Row 7: Total price mismatch (expected: 85.06, got: 2975.40)",
+              "Row 9: Total price mismatch (expected: 193.80, got: 6855.48)",
+              "Row 10: Total price mismatch (expected: 21.96, got: 189.73)",
+              "Row 14: Total price mismatch (expected: 26.50, got: 126.67)",
+              "Row 22: Total price mismatch (expected: 19.98, got: 564.77)",
+              "Row 34: Total price mismatch (expected: 20.24, got: 144.51)",
+              "Row 35: Total price mismatch (expected: 25.95, got: 555.24)",
+              "Row 36: Total price mismatch (expected: 30.39, got: 395.78)",
+              "Row 47: Total price mismatch (expected: 14.00, got: 50.68)",
+              "Row 57: Total price mismatch (expected: 29.20, got: 826.83)",
+              "Row 65: Total price mismatch (expected: 53.52, got: 349.13)",
+              "Row 125: Total price mismatch (expected: 60.70, got: 879.06)"
+            ],
+            "totalItems": 210,
+            "validItems": 210
+          },
+          "processingTime": 26
+        },
+        "verification": {
+          "isValid": true,
+          "errors": [],
+          "warnings": [],
+          "qualityScore": 100,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T13:24:12.535Z",
+      "success": true
+    },
+    {
+      "id": "session_1753020097414",
+      "startTime": "2025-07-20T14:01:37.415Z",
+      "orderFile": "gfs_2025_07.csv",
+      "options": {
+        "supplier": "Gordon Food Service",
+        "orderDate": "2025-02-01",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 17425,
+          "fileType": ".csv",
+          "estimatedRows": 13,
+          "detectedSupplier": "Gordon Food Service",
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 7,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": true,
+          "processed": 210,
+          "validationResults": {
+            "isValid": true,
+            "errors": [],
+            "warnings": [
+              "Row 6: Total price mismatch (expected: 21.42, got: 219.98)",
+              "Row 7: Total price mismatch (expected: 85.06, got: 2975.40)",
+              "Row 9: Total price mismatch (expected: 193.80, got: 6855.48)",
+              "Row 10: Total price mismatch (expected: 21.96, got: 189.73)",
+              "Row 14: Total price mismatch (expected: 26.50, got: 126.67)",
+              "Row 22: Total price mismatch (expected: 19.98, got: 564.77)",
+              "Row 34: Total price mismatch (expected: 20.24, got: 144.51)",
+              "Row 35: Total price mismatch (expected: 25.95, got: 555.24)",
+              "Row 36: Total price mismatch (expected: 30.39, got: 395.78)",
+              "Row 47: Total price mismatch (expected: 14.00, got: 50.68)",
+              "Row 57: Total price mismatch (expected: 29.20, got: 826.83)",
+              "Row 65: Total price mismatch (expected: 53.52, got: 349.13)",
+              "Row 125: Total price mismatch (expected: 60.70, got: 879.06)"
+            ],
+            "totalItems": 210,
+            "validItems": 210
+          },
+          "processingTime": 24
+        },
+        "verification": {
+          "isValid": true,
+          "errors": [],
+          "warnings": [],
+          "qualityScore": 100,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T14:01:37.441Z",
+      "success": true
+    },
+    {
+      "id": "session_1753020117370",
+      "startTime": "2025-07-20T14:01:57.370Z",
+      "orderFile": "GFS_Order_July4_2025.csv",
+      "options": {
+        "supplier": "Gordon Food Service",
+        "orderDate": "2025-07-01",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 17425,
+          "fileType": ".csv",
+          "estimatedRows": 13,
+          "detectedSupplier": "Gordon Food Service",
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 7,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": true,
+          "processed": 210,
+          "validationResults": {
+            "isValid": true,
+            "errors": [],
+            "warnings": [
+              "Row 6: Total price mismatch (expected: 21.42, got: 219.98)",
+              "Row 7: Total price mismatch (expected: 85.06, got: 2975.40)",
+              "Row 9: Total price mismatch (expected: 193.80, got: 6855.48)",
+              "Row 10: Total price mismatch (expected: 21.96, got: 189.73)",
+              "Row 14: Total price mismatch (expected: 26.50, got: 126.67)",
+              "Row 22: Total price mismatch (expected: 19.98, got: 564.77)",
+              "Row 34: Total price mismatch (expected: 20.24, got: 144.51)",
+              "Row 35: Total price mismatch (expected: 25.95, got: 555.24)",
+              "Row 36: Total price mismatch (expected: 30.39, got: 395.78)",
+              "Row 47: Total price mismatch (expected: 14.00, got: 50.68)",
+              "Row 57: Total price mismatch (expected: 29.20, got: 826.83)",
+              "Row 65: Total price mismatch (expected: 53.52, got: 349.13)",
+              "Row 125: Total price mismatch (expected: 60.70, got: 879.06)"
+            ],
+            "totalItems": 210,
+            "validItems": 210
+          },
+          "processingTime": 24
+        },
+        "verification": {
+          "isValid": true,
+          "errors": [],
+          "warnings": [],
+          "qualityScore": 100,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T14:01:57.396Z",
+      "success": true
+    },
+    {
+      "id": "session_1753023396347",
+      "startTime": "2025-07-20T14:56:36.347Z",
+      "orderFile": "gfs_2025_07.csv",
+      "options": {
+        "supplier": "Gordon Food Service",
+        "orderDate": "2025-02-01",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 17425,
+          "fileType": ".csv",
+          "estimatedRows": 13,
+          "detectedSupplier": "Gordon Food Service",
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 7,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": true,
+          "processed": 210,
+          "validationResults": {
+            "isValid": true,
+            "errors": [],
+            "warnings": [
+              "Row 6: Total price mismatch (expected: 21.42, got: 219.98)",
+              "Row 7: Total price mismatch (expected: 85.06, got: 2975.40)",
+              "Row 9: Total price mismatch (expected: 193.80, got: 6855.48)",
+              "Row 10: Total price mismatch (expected: 21.96, got: 189.73)",
+              "Row 14: Total price mismatch (expected: 26.50, got: 126.67)",
+              "Row 22: Total price mismatch (expected: 19.98, got: 564.77)",
+              "Row 34: Total price mismatch (expected: 20.24, got: 144.51)",
+              "Row 35: Total price mismatch (expected: 25.95, got: 555.24)",
+              "Row 36: Total price mismatch (expected: 30.39, got: 395.78)",
+              "Row 47: Total price mismatch (expected: 14.00, got: 50.68)",
+              "Row 57: Total price mismatch (expected: 29.20, got: 826.83)",
+              "Row 65: Total price mismatch (expected: 53.52, got: 349.13)",
+              "Row 125: Total price mismatch (expected: 60.70, got: 879.06)"
+            ],
+            "totalItems": 210,
+            "validItems": 210
+          },
+          "processingTime": 24
+        },
+        "verification": {
+          "isValid": true,
+          "errors": [],
+          "warnings": [],
+          "qualityScore": 100,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T14:56:36.373Z",
+      "success": true
+    },
+    {
+      "id": "session_1753026046646",
+      "startTime": "2025-07-20T15:40:46.646Z",
+      "orderFile": "test_sysco_order.csv",
+      "options": {
+        "supplier": "Sysco Corporation",
+        "orderDate": "2025-07-20",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 714,
+          "fileType": ".csv",
+          "estimatedRows": 9,
+          "detectedSupplier": "Sysco Corporation",
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 9,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": true,
+          "processed": 8,
+          "validationResults": {
+            "isValid": true,
+            "errors": [],
+            "warnings": [],
+            "totalItems": 8,
+            "validItems": 8
+          },
+          "processingTime": 15
+        },
+        "verification": {
+          "isValid": true,
+          "errors": [],
+          "warnings": [],
+          "qualityScore": 100,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T15:40:46.663Z",
+      "success": true
+    },
+    {
+      "id": "session_1753026158117",
+      "startTime": "2025-07-20T15:42:38.118Z",
+      "orderFile": "sysco_test_2025_01_20.csv",
+      "options": {
+        "supplier": "Sysco Corporation",
+        "orderDate": "2025-02-01",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 714,
+          "fileType": ".csv",
+          "estimatedRows": 9,
+          "detectedSupplier": "Sysco Corporation",
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 9,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": true,
+          "processed": 8,
+          "validationResults": {
+            "isValid": true,
+            "errors": [],
+            "warnings": [],
+            "totalItems": 8,
+            "validItems": 8
+          },
+          "processingTime": 15
+        },
+        "verification": {
+          "isValid": true,
+          "errors": [],
+          "warnings": [],
+          "qualityScore": 100,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T15:42:38.135Z",
+      "success": true
+    },
+    {
+      "id": "session_1753026880978",
+      "startTime": "2025-07-20T15:54:40.978Z",
+      "orderFile": "GFS_Order_July4_2025.csv",
+      "options": {
+        "supplier": "Gordon Food Service",
+        "orderDate": "2025-07-01",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 17425,
+          "fileType": ".csv",
+          "estimatedRows": 13,
+          "detectedSupplier": "Gordon Food Service",
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 7,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": true,
+          "processed": 210,
+          "validationResults": {
+            "isValid": true,
+            "errors": [],
+            "warnings": [
+              "Row 6: Total price mismatch (expected: 21.42, got: 219.98)",
+              "Row 7: Total price mismatch (expected: 85.06, got: 2975.40)",
+              "Row 9: Total price mismatch (expected: 193.80, got: 6855.48)",
+              "Row 10: Total price mismatch (expected: 21.96, got: 189.73)",
+              "Row 14: Total price mismatch (expected: 26.50, got: 126.67)",
+              "Row 22: Total price mismatch (expected: 19.98, got: 564.77)",
+              "Row 34: Total price mismatch (expected: 20.24, got: 144.51)",
+              "Row 35: Total price mismatch (expected: 25.95, got: 555.24)",
+              "Row 36: Total price mismatch (expected: 30.39, got: 395.78)",
+              "Row 47: Total price mismatch (expected: 14.00, got: 50.68)",
+              "Row 57: Total price mismatch (expected: 29.20, got: 826.83)",
+              "Row 65: Total price mismatch (expected: 53.52, got: 349.13)",
+              "Row 125: Total price mismatch (expected: 60.70, got: 879.06)"
+            ],
+            "totalItems": 210,
+            "validItems": 210
+          },
+          "processingTime": 36
+        },
+        "verification": {
+          "isValid": true,
+          "errors": [],
+          "warnings": [],
+          "qualityScore": 100,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T15:54:41.016Z",
+      "success": true
+    },
+    {
+      "id": "session_1753026892236",
+      "startTime": "2025-07-20T15:54:52.236Z",
+      "orderFile": "Order 05042025.csv",
+      "options": {
+        "supplier": "Unknown Supplier",
+        "orderDate": "2025-05-01",
+        "inventoryApiUrl": "http://localhost:3001/api/inventory"
+      },
+      "phases": {
+        "preprocessing": {
+          "fileSize": 24264,
+          "fileType": ".csv",
+          "estimatedRows": 8,
+          "detectedSupplier": null,
+          "dataQuality": {
+            "hasHeaders": true,
+            "columnCount": 15,
+            "encoding": "utf8"
+          }
+        },
+        "processing": {
+          "success": false,
+          "errors": [
+            "Row 1: Missing or invalid product name",
+            "Row 1: Invalid quantity",
+            "Row 2: Missing or invalid product name",
+            "Row 2: Invalid quantity",
+            "Row 3: Missing or invalid product name",
+            "Row 3: Invalid quantity",
+            "Row 4: Missing or invalid product name",
+            "Row 4: Invalid quantity",
+            "Row 5: Missing or invalid product name",
+            "Row 5: Invalid quantity",
+            "Row 6: Missing or invalid product name",
+            "Row 6: Invalid quantity",
+            "Row 7: Missing or invalid product name",
+            "Row 7: Invalid quantity",
+            "Row 8: Missing or invalid product name",
+            "Row 8: Invalid quantity",
+            "Row 9: Missing or invalid product name",
+            "Row 9: Invalid quantity",
+            "Row 10: Missing or invalid product name",
+            "Row 10: Invalid quantity",
+            "Row 11: Missing or invalid product name",
+            "Row 11: Invalid quantity",
+            "Row 12: Missing or invalid product name",
+            "Row 12: Invalid quantity",
+            "Row 13: Missing or invalid product name",
+            "Row 13: Invalid quantity",
+            "Row 14: Missing or invalid product name",
+            "Row 14: Invalid quantity",
+            "Row 15: Missing or invalid product name",
+            "Row 15: Invalid quantity",
+            "Row 16: Missing or invalid product name",
+            "Row 16: Invalid quantity",
+            "Row 17: Missing or invalid product name",
+            "Row 17: Invalid quantity",
+            "Row 18: Missing or invalid product name",
+            "Row 18: Invalid quantity",
+            "Row 19: Missing or invalid product name",
+            "Row 19: Invalid quantity",
+            "Row 20: Missing or invalid product name",
+            "Row 20: Invalid quantity",
+            "Row 21: Missing or invalid product name",
+            "Row 21: Invalid quantity",
+            "Row 22: Missing or invalid product name",
+            "Row 22: Invalid quantity",
+            "Row 23: Missing or invalid product name",
+            "Row 23: Invalid quantity",
+            "Row 24: Missing or invalid product name",
+            "Row 24: Invalid quantity",
+            "Row 25: Missing or invalid product name",
+            "Row 25: Invalid quantity",
+            "Row 26: Missing or invalid product name",
+            "Row 26: Invalid quantity",
+            "Row 27: Missing or invalid product name",
+            "Row 27: Invalid quantity",
+            "Row 28: Missing or invalid product name",
+            "Row 28: Invalid quantity",
+            "Row 29: Missing or invalid product name",
+            "Row 29: Invalid quantity",
+            "Row 30: Missing or invalid product name",
+            "Row 30: Invalid quantity",
+            "Row 31: Missing or invalid product name",
+            "Row 31: Invalid quantity",
+            "Row 32: Missing or invalid product name",
+            "Row 32: Invalid quantity",
+            "Row 33: Missing or invalid product name",
+            "Row 33: Invalid quantity",
+            "Row 34: Missing or invalid product name",
+            "Row 34: Invalid quantity",
+            "Row 35: Missing or invalid product name",
+            "Row 35: Invalid quantity",
+            "Row 36: Missing or invalid product name",
+            "Row 36: Invalid quantity",
+            "Row 37: Missing or invalid product name",
+            "Row 37: Invalid quantity",
+            "Row 38: Missing or invalid product name",
+            "Row 38: Invalid quantity",
+            "Row 39: Missing or invalid product name",
+            "Row 39: Invalid quantity",
+            "Row 40: Missing or invalid product name",
+            "Row 40: Invalid quantity",
+            "Row 41: Missing or invalid product name",
+            "Row 41: Invalid quantity",
+            "Row 42: Missing or invalid product name",
+            "Row 42: Invalid quantity",
+            "Row 43: Missing or invalid product name",
+            "Row 43: Invalid quantity",
+            "Row 44: Missing or invalid product name",
+            "Row 44: Invalid quantity",
+            "Row 45: Missing or invalid product name",
+            "Row 45: Invalid quantity",
+            "Row 46: Missing or invalid product name",
+            "Row 46: Invalid quantity",
+            "Row 47: Missing or invalid product name",
+            "Row 47: Invalid quantity",
+            "Row 48: Missing or invalid product name",
+            "Row 48: Invalid quantity",
+            "Row 49: Missing or invalid product name",
+            "Row 49: Invalid quantity",
+            "Row 50: Missing or invalid product name",
+            "Row 50: Invalid quantity",
+            "Row 51: Missing or invalid product name",
+            "Row 51: Invalid quantity",
+            "Row 52: Missing or invalid product name",
+            "Row 52: Invalid quantity",
+            "Row 53: Missing or invalid product name",
+            "Row 53: Invalid quantity",
+            "Row 54: Missing or invalid product name",
+            "Row 54: Invalid quantity",
+            "Row 55: Missing or invalid product name",
+            "Row 55: Invalid quantity",
+            "Row 56: Missing or invalid product name",
+            "Row 56: Invalid quantity",
+            "Row 57: Missing or invalid product name",
+            "Row 57: Invalid quantity",
+            "Row 58: Missing or invalid product name",
+            "Row 58: Invalid quantity",
+            "Row 59: Missing or invalid product name",
+            "Row 59: Invalid quantity",
+            "Row 60: Missing or invalid product name",
+            "Row 60: Invalid quantity",
+            "Row 61: Missing or invalid product name",
+            "Row 61: Invalid quantity",
+            "Row 62: Missing or invalid product name",
+            "Row 62: Invalid quantity",
+            "Row 63: Missing or invalid product name",
+            "Row 63: Invalid quantity",
+            "Row 64: Missing or invalid product name",
+            "Row 64: Invalid quantity",
+            "Row 65: Missing or invalid product name",
+            "Row 65: Invalid quantity",
+            "Row 66: Missing or invalid product name",
+            "Row 66: Invalid quantity",
+            "Row 67: Missing or invalid product name",
+            "Row 67: Invalid quantity",
+            "Row 68: Missing or invalid product name",
+            "Row 68: Invalid quantity",
+            "Row 69: Missing or invalid product name",
+            "Row 69: Invalid quantity",
+            "Row 70: Missing or invalid product name",
+            "Row 70: Invalid quantity",
+            "Row 71: Missing or invalid product name",
+            "Row 71: Invalid quantity",
+            "Row 72: Missing or invalid product name",
+            "Row 72: Invalid quantity",
+            "Row 73: Missing or invalid product name",
+            "Row 73: Invalid quantity",
+            "Row 74: Missing or invalid product name",
+            "Row 74: Invalid quantity",
+            "Row 75: Missing or invalid product name",
+            "Row 75: Invalid quantity",
+            "Row 76: Missing or invalid product name",
+            "Row 76: Invalid quantity",
+            "Row 77: Missing or invalid product name",
+            "Row 77: Invalid quantity",
+            "Row 78: Missing or invalid product name",
+            "Row 78: Invalid quantity",
+            "Row 79: Missing or invalid product name",
+            "Row 79: Invalid quantity",
+            "Row 80: Missing or invalid product name",
+            "Row 80: Invalid quantity",
+            "Row 81: Missing or invalid product name",
+            "Row 81: Invalid quantity",
+            "Row 82: Missing or invalid product name",
+            "Row 82: Invalid quantity",
+            "Row 83: Missing or invalid product name",
+            "Row 83: Invalid quantity",
+            "Row 84: Missing or invalid product name",
+            "Row 84: Invalid quantity",
+            "Row 85: Missing or invalid product name",
+            "Row 85: Invalid quantity",
+            "Row 86: Missing or invalid product name",
+            "Row 86: Invalid quantity",
+            "Row 87: Missing or invalid product name",
+            "Row 87: Invalid quantity",
+            "Row 88: Missing or invalid product name",
+            "Row 88: Invalid quantity",
+            "Row 89: Missing or invalid product name",
+            "Row 89: Invalid quantity",
+            "Row 90: Missing or invalid product name",
+            "Row 90: Invalid quantity",
+            "Row 91: Missing or invalid product name",
+            "Row 91: Invalid quantity",
+            "Row 92: Missing or invalid product name",
+            "Row 92: Invalid quantity",
+            "Row 93: Missing or invalid product name",
+            "Row 93: Invalid quantity",
+            "Row 94: Missing or invalid product name",
+            "Row 94: Invalid quantity",
+            "Row 95: Missing or invalid product name",
+            "Row 95: Invalid quantity",
+            "Row 96: Missing or invalid product name",
+            "Row 96: Invalid quantity",
+            "Row 97: Missing or invalid product name",
+            "Row 97: Invalid quantity",
+            "Row 98: Missing or invalid product name",
+            "Row 98: Invalid quantity",
+            "Row 99: Missing or invalid product name",
+            "Row 99: Invalid quantity",
+            "Row 100: Missing or invalid product name",
+            "Row 100: Invalid quantity",
+            "Row 101: Missing or invalid product name",
+            "Row 101: Invalid quantity",
+            "Row 102: Missing or invalid product name",
+            "Row 102: Invalid quantity",
+            "Row 103: Missing or invalid product name",
+            "Row 103: Invalid quantity",
+            "Row 104: Missing or invalid product name",
+            "Row 104: Invalid quantity",
+            "Row 105: Missing or invalid product name",
+            "Row 105: Invalid quantity",
+            "Row 106: Missing or invalid product name",
+            "Row 106: Invalid quantity",
+            "Row 107: Missing or invalid product name",
+            "Row 107: Invalid quantity",
+            "Row 108: Missing or invalid product name",
+            "Row 108: Invalid quantity",
+            "Row 109: Missing or invalid product name",
+            "Row 109: Invalid quantity",
+            "Row 110: Missing or invalid product name",
+            "Row 110: Invalid quantity",
+            "Row 111: Missing or invalid product name",
+            "Row 111: Invalid quantity",
+            "Row 112: Missing or invalid product name",
+            "Row 112: Invalid quantity",
+            "Row 113: Missing or invalid product name",
+            "Row 113: Invalid quantity",
+            "Row 114: Missing or invalid product name",
+            "Row 114: Invalid quantity",
+            "Row 115: Missing or invalid product name",
+            "Row 115: Invalid quantity",
+            "Row 116: Missing or invalid product name",
+            "Row 116: Invalid quantity",
+            "Row 117: Missing or invalid product name",
+            "Row 117: Invalid quantity",
+            "Row 118: Missing or invalid product name",
+            "Row 118: Invalid quantity",
+            "Row 119: Missing or invalid product name",
+            "Row 119: Invalid quantity",
+            "Row 120: Missing or invalid product name",
+            "Row 120: Invalid quantity",
+            "Row 121: Missing or invalid product name",
+            "Row 121: Invalid quantity",
+            "Row 122: Missing or invalid product name",
+            "Row 122: Invalid quantity",
+            "Row 123: Missing or invalid product name",
+            "Row 123: Invalid quantity",
+            "Row 124: Missing or invalid product name",
+            "Row 124: Invalid quantity",
+            "Row 125: Missing or invalid product name",
+            "Row 125: Invalid quantity",
+            "Row 126: Missing or invalid product name",
+            "Row 126: Invalid quantity",
+            "Row 127: Missing or invalid product name",
+            "Row 127: Invalid quantity",
+            "Row 128: Missing or invalid product name",
+            "Row 128: Invalid quantity",
+            "Row 129: Missing or invalid product name",
+            "Row 129: Invalid quantity",
+            "Row 130: Missing or invalid product name",
+            "Row 130: Invalid quantity",
+            "Row 131: Missing or invalid product name",
+            "Row 131: Invalid quantity",
+            "Row 132: Missing or invalid product name",
+            "Row 132: Invalid quantity",
+            "Row 133: Missing or invalid product name",
+            "Row 133: Invalid quantity",
+            "Row 134: Missing or invalid product name",
+            "Row 134: Invalid quantity",
+            "Row 135: Missing or invalid product name",
+            "Row 135: Invalid quantity",
+            "Row 136: Missing or invalid product name",
+            "Row 136: Invalid quantity",
+            "Row 137: Missing or invalid product name",
+            "Row 137: Invalid quantity",
+            "Row 138: Missing or invalid product name",
+            "Row 138: Invalid quantity",
+            "Row 139: Missing or invalid product name",
+            "Row 139: Invalid quantity",
+            "Row 140: Missing or invalid product name",
+            "Row 140: Invalid quantity",
+            "Row 141: Missing or invalid product name",
+            "Row 141: Invalid quantity",
+            "Row 142: Missing or invalid product name",
+            "Row 142: Invalid quantity",
+            "Row 143: Missing or invalid product name",
+            "Row 143: Invalid quantity",
+            "Row 144: Missing or invalid product name",
+            "Row 144: Invalid quantity",
+            "Row 145: Missing or invalid product name",
+            "Row 145: Invalid quantity",
+            "Row 146: Missing or invalid product name",
+            "Row 146: Invalid quantity",
+            "Row 147: Missing or invalid product name",
+            "Row 147: Invalid quantity",
+            "Row 148: Missing or invalid product name",
+            "Row 148: Invalid quantity",
+            "Row 149: Missing or invalid product name",
+            "Row 149: Invalid quantity",
+            "Row 150: Missing or invalid product name",
+            "Row 150: Invalid quantity",
+            "Row 151: Missing or invalid product name",
+            "Row 151: Invalid quantity",
+            "Row 152: Missing or invalid product name",
+            "Row 152: Invalid quantity",
+            "Row 153: Missing or invalid product name",
+            "Row 153: Invalid quantity",
+            "Row 154: Missing or invalid product name",
+            "Row 154: Invalid quantity",
+            "Row 155: Missing or invalid product name",
+            "Row 155: Invalid quantity",
+            "Row 156: Missing or invalid product name",
+            "Row 156: Invalid quantity",
+            "Row 157: Missing or invalid product name",
+            "Row 157: Invalid quantity",
+            "Row 158: Missing or invalid product name",
+            "Row 158: Invalid quantity",
+            "Row 159: Missing or invalid product name",
+            "Row 159: Invalid quantity",
+            "Row 160: Missing or invalid product name",
+            "Row 160: Invalid quantity",
+            "Row 161: Missing or invalid product name",
+            "Row 161: Invalid quantity",
+            "Row 162: Missing or invalid product name",
+            "Row 162: Invalid quantity",
+            "Row 163: Missing or invalid product name",
+            "Row 163: Invalid quantity",
+            "Row 164: Missing or invalid product name",
+            "Row 164: Invalid quantity",
+            "Row 165: Missing or invalid product name",
+            "Row 165: Invalid quantity",
+            "Row 166: Missing or invalid product name",
+            "Row 166: Invalid quantity",
+            "Row 167: Missing or invalid product name",
+            "Row 167: Invalid quantity",
+            "Row 168: Missing or invalid product name",
+            "Row 168: Invalid quantity",
+            "Row 169: Missing or invalid product name",
+            "Row 169: Invalid quantity",
+            "Row 170: Missing or invalid product name",
+            "Row 170: Invalid quantity",
+            "Row 171: Missing or invalid product name",
+            "Row 171: Invalid quantity",
+            "Row 172: Missing or invalid product name",
+            "Row 172: Invalid quantity",
+            "Row 173: Missing or invalid product name",
+            "Row 173: Invalid quantity",
+            "Row 174: Missing or invalid product name",
+            "Row 174: Invalid quantity",
+            "Row 175: Missing or invalid product name",
+            "Row 175: Invalid quantity",
+            "Row 176: Missing or invalid product name",
+            "Row 176: Invalid quantity",
+            "Row 177: Missing or invalid product name",
+            "Row 177: Invalid quantity",
+            "Row 178: Missing or invalid product name",
+            "Row 178: Invalid quantity",
+            "Row 179: Missing or invalid product name",
+            "Row 179: Invalid quantity",
+            "Row 180: Missing or invalid product name",
+            "Row 180: Invalid quantity",
+            "Row 181: Missing or invalid product name",
+            "Row 181: Invalid quantity",
+            "Row 182: Missing or invalid product name",
+            "Row 182: Invalid quantity",
+            "Row 183: Missing or invalid product name",
+            "Row 183: Invalid quantity",
+            "Row 184: Missing or invalid product name",
+            "Row 184: Invalid quantity",
+            "Row 185: Missing or invalid product name",
+            "Row 185: Invalid quantity",
+            "Row 186: Missing or invalid product name",
+            "Row 186: Invalid quantity",
+            "Row 187: Missing or invalid product name",
+            "Row 187: Invalid quantity",
+            "Row 188: Missing or invalid product name",
+            "Row 188: Invalid quantity",
+            "Row 189: Missing or invalid product name",
+            "Row 189: Invalid quantity",
+            "Row 190: Missing or invalid product name",
+            "Row 190: Invalid quantity",
+            "Row 191: Missing or invalid product name",
+            "Row 191: Invalid quantity",
+            "Row 192: Missing or invalid product name",
+            "Row 192: Invalid quantity",
+            "Row 193: Missing or invalid product name",
+            "Row 193: Invalid quantity",
+            "Row 194: Missing or invalid product name",
+            "Row 194: Invalid quantity",
+            "Row 195: Missing or invalid product name",
+            "Row 195: Invalid quantity",
+            "Row 196: Missing or invalid product name",
+            "Row 196: Invalid quantity",
+            "Row 197: Missing or invalid product name",
+            "Row 197: Invalid quantity",
+            "Row 198: Missing or invalid product name",
+            "Row 198: Invalid quantity",
+            "Row 199: Missing or invalid product name",
+            "Row 199: Invalid quantity",
+            "Row 200: Missing or invalid product name",
+            "Row 200: Invalid quantity",
+            "Row 201: Missing or invalid product name",
+            "Row 201: Invalid quantity",
+            "Row 202: Missing or invalid product name",
+            "Row 202: Invalid quantity",
+            "Row 203: Missing or invalid product name",
+            "Row 203: Invalid quantity",
+            "Row 204: Missing or invalid product name",
+            "Row 204: Invalid quantity",
+            "Row 205: Missing or invalid product name",
+            "Row 205: Invalid quantity",
+            "Row 206: Missing or invalid product name",
+            "Row 206: Invalid quantity",
+            "Row 207: Missing or invalid product name",
+            "Row 207: Invalid quantity",
+            "Row 208: Missing or invalid product name",
+            "Row 208: Invalid quantity",
+            "Row 209: Missing or invalid product name",
+            "Row 209: Invalid quantity",
+            "Row 210: Missing or invalid product name",
+            "Row 210: Invalid quantity"
+          ],
+          "processingTime": 11
+        },
+        "verification": {
+          "isValid": false,
+          "errors": [
+            "Processing failed completely"
+          ],
+          "warnings": [],
+          "qualityScore": 0,
+          "recommendations": []
+        },
+        "learning": {
+          "patterns": [],
+          "improvements": [],
+          "newRules": [
+            {
+              "type": "PRODUCT_VALIDATION",
+              "rule": "Auto-categorize \"unknown product\" as frequent item",
+              "confidence": 0.9
+            }
+          ],
+          "confidence": 0.9
+        },
+        "feedback": {
+          "summary": "Processing failed - needs manual review",
+          "recommendations": [
+            "Review error details and adjust processing parameters"
+          ],
+          "nextSteps": [
+            "Continue monitoring for similar order patterns"
+          ],
+          "confidence": 0.2
+        }
+      },
+      "insights": [],
+      "improvements": [],
+      "errors": [],
+      "endTime": "2025-07-20T15:54:52.248Z",
+      "success": false
+    }
+  ],
+  "improvements": [],
+  "verifiedOrders": [],
+  "errorPatterns": {},
+  "feedbackLoops": []
+}

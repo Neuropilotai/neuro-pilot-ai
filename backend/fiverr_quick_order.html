@@ -1,201 +1,269 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>Fiverr Order Processor</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100">
+  </head>
+  <body class="bg-gray-100">
     <div class="container mx-auto p-8 max-w-2xl">
-        <div class="bg-white rounded-lg shadow-lg p-8">
-            <h1 class="text-3xl font-bold text-center mb-8 text-green-600">
-                🎯 Fiverr Order Processor
-            </h1>
-            
-            <form id="fiverr-order-form" class="space-y-4">
-                <div class="bg-blue-50 p-4 rounded-lg mb-6">
-                    <h3 class="font-bold text-blue-800">Quick Instructions:</h3>
-                    <ol class="list-decimal ml-5 text-sm text-blue-700">
-                        <li>Copy customer info from Fiverr messages</li>
-                        <li>Paste into this form</li>
-                        <li>Click "Process Order"</li>
-                        <li>Get AI-generated resume instantly!</li>
-                    </ol>
-                </div>
+      <div class="bg-white rounded-lg shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-center mb-8 text-green-600">
+          🎯 Fiverr Order Processor
+        </h1>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Fiverr Order ID</label>
-                    <input type="text" name="orderId" required class="w-full p-2 border rounded-lg" 
-                           placeholder="FO123456">
-                </div>
+        <form id="fiverr-order-form" class="space-y-4">
+          <div class="bg-blue-50 p-4 rounded-lg mb-6">
+            <h3 class="font-bold text-blue-800">Quick Instructions:</h3>
+            <ol class="list-decimal ml-5 text-sm text-blue-700">
+              <li>Copy customer info from Fiverr messages</li>
+              <li>Paste into this form</li>
+              <li>Click "Process Order"</li>
+              <li>Get AI-generated resume instantly!</li>
+            </ol>
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Customer Name</label>
-                    <input type="text" name="name" required class="w-full p-2 border rounded-lg" 
-                           placeholder="John Smith">
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2"
+              >Fiverr Order ID</label
+            >
+            <input
+              type="text"
+              name="orderId"
+              required
+              class="w-full p-2 border rounded-lg"
+              placeholder="FO123456"
+            />
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Customer Email</label>
-                    <input type="email" name="email" required class="w-full p-2 border rounded-lg" 
-                           placeholder="customer@email.com">
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Customer Name</label>
+            <input
+              type="text"
+              name="name"
+              required
+              class="w-full p-2 border rounded-lg"
+              placeholder="John Smith"
+            />
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Package</label>
-                    <select name="package" class="w-full p-2 border rounded-lg">
-                        <option value="basic">Basic ($25)</option>
-                        <option value="professional" selected>Professional ($45)</option>
-                        <option value="executive">Executive ($85)</option>
-                    </select>
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Customer Email</label>
+            <input
+              type="email"
+              name="email"
+              required
+              class="w-full p-2 border rounded-lg"
+              placeholder="customer@email.com"
+            />
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Job Description</label>
-                    <textarea name="jobDescription" rows="6" required class="w-full p-2 border rounded-lg" 
-                              placeholder="Paste the job description from Fiverr here..."></textarea>
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Package</label>
+            <select name="package" class="w-full p-2 border rounded-lg">
+              <option value="basic">Basic ($25)</option>
+              <option value="professional" selected>Professional ($45)</option>
+              <option value="executive">Executive ($85)</option>
+            </select>
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Company Name (Optional)</label>
-                    <input type="text" name="companyName" class="w-full p-2 border rounded-lg" 
-                           placeholder="McDonald's, Google, etc.">
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2"
+              >Job Description</label
+            >
+            <textarea
+              name="jobDescription"
+              rows="6"
+              required
+              class="w-full p-2 border rounded-lg"
+              placeholder="Paste the job description from Fiverr here..."
+            ></textarea>
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Experience Summary</label>
-                    <textarea name="experience" rows="3" required class="w-full p-2 border rounded-lg" 
-                              placeholder="5 years in customer service..."></textarea>
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2"
+              >Company Name (Optional)</label
+            >
+            <input
+              type="text"
+              name="companyName"
+              class="w-full p-2 border rounded-lg"
+              placeholder="McDonald's, Google, etc."
+            />
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Skills</label>
-                    <input type="text" name="skills" required class="w-full p-2 border rounded-lg" 
-                           placeholder="Customer service, teamwork, Microsoft Office">
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2"
+              >Experience Summary</label
+            >
+            <textarea
+              name="experience"
+              rows="3"
+              required
+              class="w-full p-2 border rounded-lg"
+              placeholder="5 years in customer service..."
+            ></textarea>
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Location</label>
-                    <input type="text" name="location" class="w-full p-2 border rounded-lg" 
-                           placeholder="Chicago, IL">
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Skills</label>
+            <input
+              type="text"
+              name="skills"
+              required
+              class="w-full p-2 border rounded-lg"
+              placeholder="Customer service, teamwork, Microsoft Office"
+            />
+          </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2">Phone (Optional)</label>
-                    <input type="tel" name="phone" class="w-full p-2 border rounded-lg" 
-                           placeholder="555-123-4567">
-                </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">Location</label>
+            <input
+              type="text"
+              name="location"
+              class="w-full p-2 border rounded-lg"
+              placeholder="Chicago, IL"
+            />
+          </div>
 
-                <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition">
-                    🤖 Process Order with AI
-                </button>
-            </form>
+          <div>
+            <label class="block text-sm font-medium mb-2"
+              >Phone (Optional)</label
+            >
+            <input
+              type="tel"
+              name="phone"
+              class="w-full p-2 border rounded-lg"
+              placeholder="555-123-4567"
+            />
+          </div>
 
-            <div id="result" class="mt-8 hidden">
-                <div class="bg-green-50 p-6 rounded-lg">
-                    <h3 class="text-xl font-bold text-green-800 mb-4">✅ Order Processed Successfully!</h3>
-                    <div id="result-content" class="space-y-2 text-sm"></div>
-                    
-                    <div class="mt-6 p-4 bg-white rounded border">
-                        <h4 class="font-bold mb-2">📧 Fiverr Delivery Message:</h4>
-                        <pre id="delivery-message" class="text-xs whitespace-pre-wrap"></pre>
-                        <button onclick="copyMessage()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm">
-                            📋 Copy Message
-                        </button>
-                    </div>
-                </div>
+          <button
+            type="submit"
+            class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition"
+          >
+            🤖 Process Order with AI
+          </button>
+        </form>
+
+        <div id="result" class="mt-8 hidden">
+          <div class="bg-green-50 p-6 rounded-lg">
+            <h3 class="text-xl font-bold text-green-800 mb-4">
+              ✅ Order Processed Successfully!
+            </h3>
+            <div id="result-content" class="space-y-2 text-sm"></div>
+
+            <div class="mt-6 p-4 bg-white rounded border">
+              <h4 class="font-bold mb-2">📧 Fiverr Delivery Message:</h4>
+              <pre
+                id="delivery-message"
+                class="text-xs whitespace-pre-wrap"
+              ></pre>
+              <button
+                onclick="copyMessage()"
+                class="mt-4 bg-blue-600 text-white px-4 py-2 rounded text-sm"
+              >
+                📋 Copy Message
+              </button>
             </div>
-
-            <div id="error" class="mt-8 hidden">
-                <div class="bg-red-50 p-6 rounded-lg">
-                    <h3 class="text-xl font-bold text-red-800">❌ Error</h3>
-                    <p id="error-message" class="text-red-700"></p>
-                </div>
-            </div>
+          </div>
         </div>
+
+        <div id="error" class="mt-8 hidden">
+          <div class="bg-red-50 p-6 rounded-lg">
+            <h3 class="text-xl font-bold text-red-800">❌ Error</h3>
+            <p id="error-message" class="text-red-700"></p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        document.getElementById('fiverr-order-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = new FormData(e.target);
-            const orderData = {
-                jobDescription: formData.get('jobDescription'),
-                companyName: formData.get('companyName'),
-                candidateInfo: {
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    phone: formData.get('phone'),
-                    location: formData.get('location'),
-                    experience: formData.get('experience'),
-                    skills: formData.get('skills')
-                },
-                package: formData.get('package'),
-                language: 'english',
-                customerEmail: formData.get('email')
-            };
+      document
+        .getElementById("fiverr-order-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
 
-            try {
-                // Use environment variable for production URL, fallback to Railway for development
-                const apiUrl = window.location.hostname === 'localhost' ? 
-                    'http://localhost:8000/api/resume/generate' : 
-                    window.location.hostname.includes('railway.app') ? 
-                    `${window.location.protocol}//${window.location.hostname}/api/resume/generate` :
-                    'https://resourceful-achievement-production.up.railway.app/api/resume/generate';
-                
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(orderData)
-                });
+          const formData = new FormData(e.target);
+          const orderData = {
+            jobDescription: formData.get("jobDescription"),
+            companyName: formData.get("companyName"),
+            candidateInfo: {
+              name: formData.get("name"),
+              email: formData.get("email"),
+              phone: formData.get("phone"),
+              location: formData.get("location"),
+              experience: formData.get("experience"),
+              skills: formData.get("skills"),
+            },
+            package: formData.get("package"),
+            language: "english",
+            customerEmail: formData.get("email"),
+          };
 
-                const result = await response.json();
+          try {
+            // Use environment variable for production URL, fallback to Railway for development
+            const apiUrl =
+              window.location.hostname === "localhost"
+                ? "http://localhost:8000/api/resume/generate"
+                : window.location.hostname.includes("railway.app")
+                  ? `${window.location.protocol}//${window.location.hostname}/api/resume/generate`
+                  : "https://resourceful-achievement-production.up.railway.app/api/resume/generate";
 
-                if (result.success) {
-                    showResult(result, formData);
-                } else {
-                    showError(result.error);
-                }
-            } catch (error) {
-                showError('Failed to connect to AI server. Please check your connection.');
+            const response = await fetch(apiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(orderData),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              showResult(result, formData);
+            } else {
+              showError(result.error);
             }
+          } catch (error) {
+            showError(
+              "Failed to connect to AI server. Please check your connection.",
+            );
+          }
         });
 
-        function showResult(result, formData) {
-            document.getElementById('result').classList.remove('hidden');
-            document.getElementById('error').classList.add('hidden');
-            
-            const content = `
+      function showResult(result, formData) {
+        document.getElementById("result").classList.remove("hidden");
+        document.getElementById("error").classList.add("hidden");
+
+        const content = `
                 <p><strong>Order ID:</strong> ${result.order_id}</p>
-                <p><strong>Job Category:</strong> ${result.job_analysis?.category || 'N/A'}</p>
-                <p><strong>Industry:</strong> ${result.job_analysis?.industry || 'N/A'}</p>
+                <p><strong>Job Category:</strong> ${result.job_analysis?.category || "N/A"}</p>
+                <p><strong>Industry:</strong> ${result.job_analysis?.industry || "N/A"}</p>
                 <p><strong>Quality Score:</strong> ${result.quality_score}%</p>
                 <p><strong>Package:</strong> ${result.package_type}</p>
             `;
-            document.getElementById('result-content').innerHTML = content;
-            
-            const message = generateDeliveryMessage(formData, result);
-            document.getElementById('delivery-message').textContent = message;
-        }
+        document.getElementById("result-content").innerHTML = content;
 
-        function showError(message) {
-            document.getElementById('error').classList.remove('hidden');
-            document.getElementById('result').classList.add('hidden');
-            document.getElementById('error-message').textContent = message;
-        }
+        const message = generateDeliveryMessage(formData, result);
+        document.getElementById("delivery-message").textContent = message;
+      }
 
-        function generateDeliveryMessage(formData, result) {
-            const buyerName = formData.get('name').split(' ')[0];
-            return `Hi ${buyerName}!
+      function showError(message) {
+        document.getElementById("error").classList.remove("hidden");
+        document.getElementById("result").classList.add("hidden");
+        document.getElementById("error-message").textContent = message;
+      }
+
+      function generateDeliveryMessage(formData, result) {
+        const buyerName = formData.get("name").split(" ")[0];
+        return `Hi ${buyerName}!
 
 Your AI-powered resume is ready! 🎉
 
 Here's what I've created for you:
-✅ Custom resume optimized for the ${formData.get('companyName') || 'position'} role
+✅ Custom resume optimized for the ${formData.get("companyName") || "position"} role
 ✅ ATS-optimized with a ${result.quality_score}% quality score
-✅ Job-specific content adapted to ${result.job_analysis?.category || 'your target'} level
+✅ Job-specific content adapted to ${result.job_analysis?.category || "your target"} level
 ✅ Professional design that stands out
 
 The AI analyzed your job description and created content specifically tailored to what employers are looking for.
@@ -203,20 +271,20 @@ The AI analyzed your job description and created content specifically tailored t
 📎 Files attached:
 - Resume (PDF) - Ready to submit
 - Resume (Word) - For future edits
-${formData.get('package') !== 'basic' ? '- Cover Letter template - Customized for this role' : ''}
+${formData.get("package") !== "basic" ? "- Cover Letter template - Customized for this role" : ""}
 
 💡 Pro tip: This resume is optimized for ATS systems and includes industry-specific keywords.
 
 If you need any adjustments, please let me know. I'm here to ensure you're 100% satisfied!
 
 Best of luck with your application! 🚀`;
-        }
+      }
 
-        function copyMessage() {
-            const message = document.getElementById('delivery-message').textContent;
-            navigator.clipboard.writeText(message);
-            alert('Message copied to clipboard!');
-        }
+      function copyMessage() {
+        const message = document.getElementById("delivery-message").textContent;
+        navigator.clipboard.writeText(message);
+        alert("Message copied to clipboard!");
+      }
     </script>
-</body>
+  </body>
 </html>

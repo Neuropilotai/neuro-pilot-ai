@@ -1,106 +1,122 @@
-const fs = require('fs').promises;
-const path = require('path');
+const fs = require("fs").promises;
+const path = require("path");
 
 async function generateRealMonitor() {
-    console.log('🔍 Generating real agent monitor with actual data...');
-    
-    const agents = [
-        'super_agent.js',
-        'enhanced_super_agent.js', 
-        'customer_service_agent.js',
-        'email_agent.js',
-        'real_trading_agent.js',
-        'super_trading_agent.js',
-        'inventory_super_agent.js',
-        'platform_integration_super_agent.js',
-        'super_learning_ai_agent.js'
-    ];
-    
-    const agentData = [];
-    
-    // Get real agent file information
-    for (const agentFile of agents) {
-        try {
-            const filePath = path.join(__dirname, agentFile);
-            const stats = await fs.stat(filePath);
-            const content = await fs.readFile(filePath, 'utf8');
-            
-            const lines = content.split('\n');
-            const functions = (content.match(/function\s+\w+/g) || []).length;
-            const classes = (content.match(/class\s+\w+/g) || []).length;
-            const consoleLogsLines = content.split('\n').filter(line => line.includes('console.log'));
-            
-            agentData.push({
-                name: agentFile.replace('.js', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                file: agentFile,
-                size: Math.round(stats.size / 1024) + ' KB',
-                lastModified: stats.mtime.toLocaleString(),
-                linesOfCode: lines.length,
-                functions: functions,
-                classes: classes,
-                hasLogging: consoleLogsLines.length,
-                recentlyModified: (new Date() - stats.mtime) < (24 * 60 * 60 * 1000),
-                exists: true
-            });
-        } catch (error) {
-            agentData.push({
-                name: agentFile.replace('.js', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                file: agentFile,
-                exists: false,
-                error: 'File not found'
-            });
-        }
+  console.log("🔍 Generating real agent monitor with actual data...");
+
+  const agents = [
+    "super_agent.js",
+    "enhanced_super_agent.js",
+    "customer_service_agent.js",
+    "email_agent.js",
+    "real_trading_agent.js",
+    "super_trading_agent.js",
+    "inventory_super_agent.js",
+    "platform_integration_super_agent.js",
+    "super_learning_ai_agent.js",
+  ];
+
+  const agentData = [];
+
+  // Get real agent file information
+  for (const agentFile of agents) {
+    try {
+      const filePath = path.join(__dirname, agentFile);
+      const stats = await fs.stat(filePath);
+      const content = await fs.readFile(filePath, "utf8");
+
+      const lines = content.split("\n");
+      const functions = (content.match(/function\s+\w+/g) || []).length;
+      const classes = (content.match(/class\s+\w+/g) || []).length;
+      const consoleLogsLines = content
+        .split("\n")
+        .filter((line) => line.includes("console.log"));
+
+      agentData.push({
+        name: agentFile
+          .replace(".js", "")
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+        file: agentFile,
+        size: Math.round(stats.size / 1024) + " KB",
+        lastModified: stats.mtime.toLocaleString(),
+        linesOfCode: lines.length,
+        functions: functions,
+        classes: classes,
+        hasLogging: consoleLogsLines.length,
+        recentlyModified: new Date() - stats.mtime < 24 * 60 * 60 * 1000,
+        exists: true,
+      });
+    } catch (error) {
+      agentData.push({
+        name: agentFile
+          .replace(".js", "")
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+        file: agentFile,
+        exists: false,
+        error: "File not found",
+      });
     }
-    
-    // Get recent files
-    const allFiles = await fs.readdir(__dirname);
-    const recentFiles = [];
-    
-    for (const file of allFiles) {
-        if (file.endsWith('.js') || file.endsWith('.json') || file.endsWith('.log')) {
-            try {
-                const stats = await fs.stat(path.join(__dirname, file));
-                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-                
-                if (stats.mtime > oneHourAgo) {
-                    recentFiles.push({
-                        name: file,
-                        size: Math.round(stats.size / 1024) + ' KB',
-                        modified: stats.mtime.toLocaleString()
-                    });
-                }
-            } catch (error) {
-                // Skip files we can't read
-            }
+  }
+
+  // Get recent files
+  const allFiles = await fs.readdir(__dirname);
+  const recentFiles = [];
+
+  for (const file of allFiles) {
+    if (
+      file.endsWith(".js") ||
+      file.endsWith(".json") ||
+      file.endsWith(".log")
+    ) {
+      try {
+        const stats = await fs.stat(path.join(__dirname, file));
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+        if (stats.mtime > oneHourAgo) {
+          recentFiles.push({
+            name: file,
+            size: Math.round(stats.size / 1024) + " KB",
+            modified: stats.mtime.toLocaleString(),
+          });
         }
+      } catch (error) {
+        // Skip files we can't read
+      }
     }
-    
-    // Get log data
-    const logData = [];
-    const logFiles = ['email_agent.log', 'server_8080.log', 'processed_orders_log.json'];
-    
-    for (const logFile of logFiles) {
-        try {
-            const logPath = path.join(__dirname, logFile);
-            const stats = await fs.stat(logPath);
-            const content = await fs.readFile(logPath, 'utf8');
-            
-            logData.push({
-                file: logFile,
-                size: Math.round(stats.size / 1024) + ' KB',
-                lastModified: stats.mtime.toLocaleString(),
-                lineCount: content.split('\n').length,
-                exists: true
-            });
-        } catch (error) {
-            logData.push({
-                file: logFile,
-                exists: false
-            });
-        }
+  }
+
+  // Get log data
+  const logData = [];
+  const logFiles = [
+    "email_agent.log",
+    "server_8080.log",
+    "processed_orders_log.json",
+  ];
+
+  for (const logFile of logFiles) {
+    try {
+      const logPath = path.join(__dirname, logFile);
+      const stats = await fs.stat(logPath);
+      const content = await fs.readFile(logPath, "utf8");
+
+      logData.push({
+        file: logFile,
+        size: Math.round(stats.size / 1024) + " KB",
+        lastModified: stats.mtime.toLocaleString(),
+        lineCount: content.split("\n").length,
+        exists: true,
+      });
+    } catch (error) {
+      logData.push({
+        file: logFile,
+        exists: false,
+      });
     }
-    
-    const html = `
+  }
+
+  const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -309,11 +325,11 @@ async function generateRealMonitor() {
     <!-- Stats Overview -->
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-number">${agentData.filter(a => a.exists).length}</div>
+            <div class="stat-number">${agentData.filter((a) => a.exists).length}</div>
             <div class="stat-label">Agent Files Found</div>
         </div>
         <div class="stat-card">
-            <div class="stat-number">${agentData.filter(a => a.recentlyModified).length}</div>
+            <div class="stat-number">${agentData.filter((a) => a.recentlyModified).length}</div>
             <div class="stat-label">Recently Modified</div>
         </div>
         <div class="stat-card">
@@ -321,7 +337,7 @@ async function generateRealMonitor() {
             <div class="stat-label">Files Changed (1h)</div>
         </div>
         <div class="stat-card">
-            <div class="stat-number">${logData.filter(l => l.exists).length}</div>
+            <div class="stat-number">${logData.filter((l) => l.exists).length}</div>
             <div class="stat-label">Active Log Files</div>
         </div>
     </div>
@@ -330,9 +346,10 @@ async function generateRealMonitor() {
         <!-- Agent Files Status -->
         <div class="card">
             <h3>🤖 Agent Files</h3>
-            ${agentData.map(agent => {
+            ${agentData
+              .map((agent) => {
                 if (!agent.exists) {
-                    return `
+                  return `
                         <div class="agent-item agent-missing">
                             <div class="agent-name">
                                 ${agent.name}
@@ -342,11 +359,17 @@ async function generateRealMonitor() {
                         </div>
                     `;
                 }
-                
-                const statusClass = agent.recentlyModified ? 'agent-recent' : 'agent-exists';
-                const badgeClass = agent.recentlyModified ? 'badge-recent' : 'badge-exists';
-                const statusText = agent.recentlyModified ? 'Recently Active' : 'Exists';
-                
+
+                const statusClass = agent.recentlyModified
+                  ? "agent-recent"
+                  : "agent-exists";
+                const badgeClass = agent.recentlyModified
+                  ? "badge-recent"
+                  : "badge-exists";
+                const statusText = agent.recentlyModified
+                  ? "Recently Active"
+                  : "Exists";
+
                 return `
                     <div class="agent-item ${statusClass}">
                         <div class="agent-name">
@@ -376,25 +399,28 @@ async function generateRealMonitor() {
                         </div>
                     </div>
                 `;
-            }).join('')}
+              })
+              .join("")}
         </div>
         
         <!-- Log Files Status -->
         <div class="card">
             <h3>📝 Log Files Status</h3>
-            ${logData.length === 0 ? 
-                '<div class="empty-state">No log files found</div>' :
-                logData.map(log => {
-                    if (!log.exists) {
+            ${
+              logData.length === 0
+                ? '<div class="empty-state">No log files found</div>'
+                : logData
+                    .map((log) => {
+                      if (!log.exists) {
                         return `
                             <div class="file-item" style="border-left: 4px solid #ef4444;">
                                 <div class="file-name">${log.file}</div>
                                 <div style="color: #fca5a5;">File not found</div>
                             </div>
                         `;
-                    }
-                    
-                    return `
+                      }
+
+                      return `
                         <div class="file-item" style="border-left: 4px solid #10b981;">
                             <div class="file-name">${log.file}</div>
                             <div class="file-meta">
@@ -403,16 +429,21 @@ async function generateRealMonitor() {
                             </div>
                         </div>
                     `;
-                }).join('')
+                    })
+                    .join("")
             }
         </div>
         
         <!-- Recent File Changes -->
         <div class="card">
             <h3>📁 Recent Changes (1 hour)</h3>
-            ${recentFiles.length === 0 ? 
-                '<div class="empty-state">No recent file changes</div>' :
-                recentFiles.slice(0, 10).map(file => `
+            ${
+              recentFiles.length === 0
+                ? '<div class="empty-state">No recent file changes</div>'
+                : recentFiles
+                    .slice(0, 10)
+                    .map(
+                      (file) => `
                     <div class="file-item">
                         <div class="file-name">${file.name}</div>
                         <div class="file-meta">
@@ -420,7 +451,9 @@ async function generateRealMonitor() {
                             <span>${file.modified}</span>
                         </div>
                     </div>
-                `).join('')
+                `,
+                    )
+                    .join("")
             }
         </div>
     </div>
@@ -432,27 +465,33 @@ async function generateRealMonitor() {
 </body>
 </html>
     `;
-    
-    // Write to file
-    const outputPath = path.join(__dirname, 'public', 'real_agent_monitor.html');
-    await fs.writeFile(outputPath, html);
-    
-    console.log('✅ Real agent monitor generated successfully!');
-    console.log(`📁 File saved to: ${outputPath}`);
-    console.log(`🌐 Open in browser: file://${outputPath}`);
-    console.log('');
-    console.log('📊 Summary:');
-    console.log(`   • Agent files found: ${agentData.filter(a => a.exists).length}/${agentData.length}`);
-    console.log(`   • Recently modified: ${agentData.filter(a => a.recentlyModified).length}`);
-    console.log(`   • Recent file changes: ${recentFiles.length}`);
-    console.log(`   • Active log files: ${logData.filter(l => l.exists).length}`);
-    
-    return outputPath;
+
+  // Write to file
+  const outputPath = path.join(__dirname, "public", "real_agent_monitor.html");
+  await fs.writeFile(outputPath, html);
+
+  console.log("✅ Real agent monitor generated successfully!");
+  console.log(`📁 File saved to: ${outputPath}`);
+  console.log(`🌐 Open in browser: file://${outputPath}`);
+  console.log("");
+  console.log("📊 Summary:");
+  console.log(
+    `   • Agent files found: ${agentData.filter((a) => a.exists).length}/${agentData.length}`,
+  );
+  console.log(
+    `   • Recently modified: ${agentData.filter((a) => a.recentlyModified).length}`,
+  );
+  console.log(`   • Recent file changes: ${recentFiles.length}`);
+  console.log(
+    `   • Active log files: ${logData.filter((l) => l.exists).length}`,
+  );
+
+  return outputPath;
 }
 
 // Run if called directly
 if (require.main === module) {
-    generateRealMonitor().catch(console.error);
+  generateRealMonitor().catch(console.error);
 }
 
 module.exports = generateRealMonitor;

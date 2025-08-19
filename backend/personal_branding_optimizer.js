@@ -1,707 +1,938 @@
-require('dotenv').config();
-const express = require('express');
-const multer = require('multer');
-const fs = require('fs').promises;
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const multer = require("multer");
+const fs = require("fs").promises;
+const path = require("path");
 
 class PersonalBrandingOptimizer {
-    constructor() {
-        this.app = express();
-        this.port = 3019;
-        this.setupMiddleware();
-        this.setupRoutes();
-        
-        // Brand Intelligence Database
-        this.brandingElements = {
-            headlines: {
-                leadership: [
-                    'Transforming teams through strategic vision and innovation',
-                    'Driving organizational growth through data-driven leadership',
-                    'Building high-performing teams in dynamic environments'
-                ],
-                technical: [
-                    'Engineering scalable solutions for complex challenges',
-                    'Bridging technology and business impact',
-                    'Full-stack developer passionate about clean, efficient code'
-                ],
-                marketing: [
-                    'Growth hacker turning insights into revenue',
-                    'Brand storyteller driving customer engagement',
-                    'Performance marketer with a track record of 10x growth'
-                ],
-                sales: [
-                    'Revenue generator with a consultative approach',
-                    'Building lasting client relationships that drive results',
-                    'Sales strategist specializing in enterprise solutions'
-                ]
-            },
-            
-            contentThemes: {
-                leadership: [
-                    'Team development strategies',
-                    'Industry trend analysis',
-                    'Change management insights',
-                    'Performance optimization',
-                    'Strategic decision making'
-                ],
-                technical: [
-                    'Code tutorials and best practices',
-                    'Technology trend discussions',
-                    'Open source contributions',
-                    'Architecture deep dives',
-                    'Developer productivity tips'
-                ],
-                marketing: [
-                    'Growth experiment results',
-                    'Campaign performance insights',
-                    'Customer success stories',
-                    'Market research findings',
-                    'Brand building strategies'
-                ],
-                sales: [
-                    'Sales methodology tips',
-                    'Client relationship strategies',
-                    'Industry insights',
-                    'Deal closing techniques',
-                    'Customer pain point solutions'
-                ]
-            },
-            
-            keywords: {
-                leadership: ['strategic', 'vision', 'transformation', 'team building', 'innovation'],
-                technical: ['scalable', 'architecture', 'optimization', 'automation', 'integration'],
-                marketing: ['growth', 'conversion', 'engagement', 'analytics', 'ROI'],
-                sales: ['revenue', 'relationships', 'consultative', 'solutions', 'performance']
-            }
-        };
-        
-        // Profile Analysis Engine
-        this.analysisMetrics = {
-            headline: { weight: 0.25, factors: ['keywords', 'clarity', 'uniqueness', 'action_words'] },
-            summary: { weight: 0.20, factors: ['storytelling', 'achievements', 'personality', 'call_to_action'] },
-            experience: { weight: 0.20, factors: ['quantified_results', 'skill_keywords', 'progression'] },
-            skills: { weight: 0.15, factors: ['relevance', 'endorsements', 'trending_skills'] },
-            content: { weight: 0.10, factors: ['frequency', 'engagement', 'thought_leadership'] },
-            network: { weight: 0.10, factors: ['connections', 'engagement_rate', 'industry_relevance'] }
-        };
-        
-        // Content Strategy Templates
-        this.contentTemplates = {
-            thought_leadership: {
-                structure: ['Hook', 'Personal Experience', 'Industry Insight', 'Actionable Advice', 'Call to Action'],
-                examples: [
-                    'What I learned from failing at {topic}',
-                    'The {number} mistakes everyone makes with {topic}',
-                    'Why {industry} is about to change forever'
-                ]
-            },
-            behind_scenes: {
-                structure: ['Context Setup', 'Challenge Description', 'Solution Process', 'Lessons Learned'],
-                examples: [
-                    'Building {project} from scratch',
-                    'How we increased {metric} by {percentage}',
-                    'The real story behind {achievement}'
-                ]
-            },
-            industry_insights: {
-                structure: ['Trend Observation', 'Market Analysis', 'Personal Take', 'Future Predictions'],
-                examples: [
-                    '{Number} trends reshaping {industry}',
-                    'Why {technology} will dominate {year}',
-                    'The future of {industry} in {timeframe}'
-                ]
-            }
-        };
-        
-        // Optimization Database
-        this.optimizationSessions = new Map();
-        this.userProfiles = new Map();
-        
-        console.log('🌟 Personal Branding Optimizer Starting...');
-        this.startServer();
-    }
-    
-    setupMiddleware() {
-        this.app.use(express.json({ limit: '10mb' }));
-        this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-        
-        // Image upload configuration for headshots
-        const storage = multer.diskStorage({
-            destination: (req, file, cb) => {
-                cb(null, 'headshots/');
-            },
-            filename: (req, file, cb) => {
-                const timestamp = Date.now();
-                cb(null, `headshot_${timestamp}_${file.originalname}`);
-            }
-        });
-        
-        this.upload = multer({ 
-            storage,
-            limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-            fileFilter: (req, file, cb) => {
-                const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-                if (allowedTypes.includes(file.mimetype)) {
-                    cb(null, true);
-                } else {
-                    cb(new Error('Invalid file type. Only JPEG and PNG allowed.'));
-                }
-            }
-        });
-    }
-    
-    setupRoutes() {
-        // Main branding interface
-        this.app.get('/', (req, res) => {
-            res.send(this.getBrandingHTML());
-        });
-        
-        // Profile analysis API
-        this.app.post('/api/analyze-profile', async (req, res) => {
-            try {
-                const { profileData, targetRole, industry } = req.body;
-                const analysis = await this.analyzeProfile(profileData, targetRole, industry);
-                res.json(analysis);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // LinkedIn optimization suggestions
-        this.app.post('/api/optimize-linkedin', async (req, res) => {
-            try {
-                const { currentProfile, targetRole, goals } = req.body;
-                const optimizations = await this.generateLinkedInOptimizations(currentProfile, targetRole, goals);
-                res.json(optimizations);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Content strategy generator
-        this.app.post('/api/content-strategy', async (req, res) => {
-            try {
-                const { role, industry, goals, audience } = req.body;
-                const strategy = await this.generateContentStrategy(role, industry, goals, audience);
-                res.json(strategy);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Headshot analysis
-        this.app.post('/api/analyze-headshot', this.upload.single('headshot'), async (req, res) => {
-            try {
-                const { industry, role } = req.body;
-                const headshotFile = req.file;
-                
-                if (!headshotFile) {
-                    return res.status(400).json({ error: 'No headshot file uploaded' });
-                }
-                
-                const analysis = await this.analyzeHeadshot(headshotFile.path, industry, role);
-                res.json(analysis);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Brand consistency checker
-        this.app.post('/api/brand-consistency', async (req, res) => {
-            try {
-                const { platforms, brandElements } = req.body;
-                const consistency = await this.checkBrandConsistency(platforms, brandElements);
-                res.json(consistency);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Personal brand score
-        this.app.post('/api/brand-score', async (req, res) => {
-            try {
-                const { profileData } = req.body;
-                const score = await this.calculateBrandScore(profileData);
-                res.json(score);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Content idea generator
-        this.app.post('/api/content-ideas', async (req, res) => {
-            try {
-                const { role, industry, recentPosts } = req.body;
-                const ideas = await this.generateContentIdeas(role, industry, recentPosts);
-                res.json(ideas);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Revenue tracking
-        this.app.get('/api/revenue', (req, res) => {
-            const totalOptimizations = this.optimizationSessions.size;
-            const activeUsers = new Set([...this.optimizationSessions.values()].map(s => s.userId)).size;
-            
-            res.json({
-                totalOptimizations,
-                activeUsers,
-                revenuePerOptimization: 179, // $179 per optimization session
-                monthlyRevenue: totalOptimizations * 179,
-                projectedMonthly: Math.min(totalOptimizations * 179 * 3.0, 22000) // Growth projection
-            });
-        });
-    }
-    
-    async analyzeProfile(profileData, targetRole, industry) {
-        // Simulate comprehensive profile analysis
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const roleKeywords = this.brandingElements.keywords[targetRole.toLowerCase()] || this.brandingElements.keywords.leadership;
-        
-        const analysis = {
-            overallScore: Math.floor(Math.random() * 25) + 75,
-            sections: {
-                headline: {
-                    score: Math.floor(Math.random() * 30) + 70,
-                    issues: this.identifyHeadlineIssues(profileData.headline, roleKeywords),
-                    suggestions: this.generateHeadlineSuggestions(targetRole, industry)
-                },
-                summary: {
-                    score: Math.floor(Math.random() * 35) + 65,
-                    wordCount: profileData.summary ? profileData.summary.split(' ').length : 0,
-                    suggestions: this.generateSummarySuggestions(targetRole, industry)
-                },
-                experience: {
-                    score: Math.floor(Math.random() * 25) + 75,
-                    missingKeywords: this.findMissingKeywords(profileData.experience, roleKeywords),
-                    suggestions: this.generateExperienceSuggestions(targetRole)
-                },
-                skills: {
-                    score: Math.floor(Math.random() * 20) + 80,
-                    relevantSkills: this.analyzeSkillRelevance(profileData.skills, targetRole),
-                    suggestions: this.generateSkillSuggestions(targetRole, industry)
-                }
-            },
-            keyImprovements: this.identifyKeyImprovements(profileData, targetRole),
-            competitorAnalysis: this.generateCompetitorInsights(targetRole, industry),
-            actionPlan: this.createActionPlan(targetRole, industry)
-        };
-        
-        return analysis;
-    }
-    
-    identifyHeadlineIssues(headline, keywords) {
-        const issues = [];
-        if (!headline || headline.length < 50) issues.push('Headline too short');
-        if (!keywords.some(kw => headline.toLowerCase().includes(kw))) issues.push('Missing relevant keywords');
-        if (!headline.includes('|') && !headline.includes('•')) issues.push('Could use better formatting');
-        return issues;
-    }
-    
-    generateHeadlineSuggestions(role, industry) {
-        const suggestions = this.brandingElements.headlines[role.toLowerCase()] || this.brandingElements.headlines.leadership;
-        return suggestions.map(suggestion => suggestion.replace('{industry}', industry));
-    }
-    
-    generateSummarySuggestions(role, industry) {
-        return [
-            'Start with a compelling hook that grabs attention',
-            'Include specific, quantifiable achievements',
-            'Tell your professional story with personality',
-            'End with a clear call-to-action',
-            `Incorporate ${role} keywords throughout naturally`
-        ];
-    }
-    
-    findMissingKeywords(experience, keywords) {
-        const experienceText = experience.map(exp => exp.description).join(' ').toLowerCase();
-        return keywords.filter(keyword => !experienceText.includes(keyword.toLowerCase()));
-    }
-    
-    generateExperienceSuggestions(role) {
-        return [
-            'Use action verbs to start each bullet point',
-            'Quantify achievements with numbers and percentages',
-            'Include relevant technologies and methodologies',
-            'Show progression and increased responsibility',
-            'Highlight impact and business outcomes'
-        ];
-    }
-    
-    analyzeSkillRelevance(skills, role) {
-        const relevantKeywords = this.brandingElements.keywords[role.toLowerCase()] || [];
-        return skills.filter(skill => 
-            relevantKeywords.some(keyword => 
-                skill.toLowerCase().includes(keyword.toLowerCase())
-            )
-        );
-    }
-    
-    generateSkillSuggestions(role, industry) {
-        const baseSkills = this.brandingElements.keywords[role.toLowerCase()] || [];
-        const industrySkills = {
-            'Technology': ['AI/ML', 'Cloud Computing', 'DevOps', 'Agile'],
-            'Finance': ['Financial Modeling', 'Risk Management', 'Compliance', 'Analytics'],
-            'Healthcare': ['Healthcare IT', 'Regulatory Affairs', 'Patient Care', 'Quality Management'],
-            'Marketing': ['Digital Marketing', 'Content Strategy', 'SEO/SEM', 'Analytics']
-        };
-        
-        return [...baseSkills, ...(industrySkills[industry] || [])];
-    }
-    
-    identifyKeyImprovements(profileData, role) {
-        const improvements = [
-            'Optimize headline with target role keywords',
-            'Expand summary with quantified achievements',
-            'Add industry-relevant skills',
-            'Update experience descriptions with impact metrics'
-        ];
-        
-        return improvements.slice(0, 3);
-    }
-    
-    generateCompetitorInsights(role, industry) {
-        return {
-            topPerformers: [`${role} leaders in ${industry} average 5000+ connections`, 'Post 2-3 times per week', 'Use industry hashtags consistently'],
-            contentTrends: ['Behind-the-scenes content performs well', 'Data-driven posts get high engagement', 'Personal stories resonate with audience'],
-            differentiators: ['Unique perspective on industry challenges', 'Specific methodology or framework', 'Thought leadership in emerging trends']
-        };
-    }
-    
-    createActionPlan(role, industry) {
-        return {
-            immediate: [
-                'Update headline with target keywords',
-                'Revise summary with compelling hook',
-                'Add missing relevant skills'
-            ],
-            thisWeek: [
-                'Optimize all experience descriptions',
-                'Create content calendar',
-                'Engage with industry leaders'
-            ],
-            thisMonth: [
-                'Publish 8-12 thought leadership posts',
-                'Build strategic connections',
-                'Join relevant industry groups'
-            ]
-        };
-    }
-    
-    async generateLinkedInOptimizations(currentProfile, targetRole, goals) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        return {
-            headline: {
-                current: currentProfile.headline,
-                optimized: this.optimizeHeadline(currentProfile.headline, targetRole),
-                reasoning: 'Added industry keywords and value proposition'
-            },
-            summary: {
-                structure: this.generateSummaryStructure(targetRole, goals),
-                keyElements: ['Compelling hook', 'Quantified achievements', 'Personal story', 'Call to action'],
-                wordCount: 'Target: 1200-1500 words'
-            },
-            experience: {
-                optimization: this.optimizeExperience(currentProfile.experience, targetRole),
-                template: 'Action verb + What you did + How you did it + Results achieved'
-            },
-            skills: {
-                recommended: this.generateSkillSuggestions(targetRole, currentProfile.industry),
-                priorityOrder: 'Most relevant to target role first',
-                endorsementStrategy: 'Request endorsements from colleagues and clients'
-            },
-            contentStrategy: this.generateContentCalendar(targetRole, goals),
-            networkingPlan: this.createNetworkingPlan(targetRole, currentProfile.industry)
-        };
-    }
-    
-    optimizeHeadline(currentHeadline, targetRole) {
-        const templates = {
-            'Software Engineer': 'Full-Stack Software Engineer | Building Scalable Solutions | React, Node.js, Cloud Architecture',
-            'Product Manager': 'Senior Product Manager | Driving Growth Through Data-Driven Innovation | B2B SaaS Expert',
-            'Marketing Manager': 'Growth Marketing Manager | 10x Revenue Through Performance Marketing | B2B Lead Generation',
-            'Sales Manager': 'Enterprise Sales Leader | $10M+ Revenue Generated | Building Strategic Partnerships'
-        };
-        
-        return templates[targetRole] || `${targetRole} | Industry Expert | Growth-Focused Leader`;
-    }
-    
-    generateSummaryStructure(targetRole, goals) {
-        return {
-            paragraph1: 'Hook + Current role and impact',
-            paragraph2: 'Professional journey and key achievements',
-            paragraph3: 'Skills, expertise, and unique value',
-            paragraph4: 'Personal interests and call to action'
-        };
-    }
-    
-    optimizeExperience(experience, targetRole) {
-        return experience.map(exp => ({
-            role: exp.role,
-            company: exp.company,
-            optimizedDescription: [
-                `Led ${targetRole.toLowerCase()} initiatives resulting in X% improvement`,
-                'Implemented strategic solutions that achieved Y outcome',
-                'Collaborated with cross-functional teams to deliver Z results',
-                'Developed and executed plans that generated $X revenue'
-            ]
-        }));
-    }
-    
-    async generateContentStrategy(role, industry, goals, audience) {
-        await new Promise(resolve => setTimeout(resolve, 1800));
-        
-        const themes = this.brandingElements.contentThemes[role.toLowerCase()] || this.brandingElements.contentThemes.leadership;
-        
-        return {
-            contentPillars: themes.slice(0, 3),
-            postingFrequency: '3-4 posts per week',
-            contentMix: {
-                thoughtLeadership: '40%',
-                behindTheScenes: '30%',
-                industryInsights: '20%',
-                personal: '10%'
-            },
-            weeklyCalendar: this.generateWeeklyCalendar(themes),
-            engagementStrategy: {
-                hashtags: this.generateHashtags(role, industry),
-                bestTimes: 'Tuesday-Thursday, 8-10 AM and 1-3 PM',
-                engagementTactics: ['Ask questions', 'Share personal experiences', 'Comment on industry leaders\' posts']
-            },
-            contentIdeas: this.generateMonthlyContentIdeas(role, industry),
-            metrics: {
-                trackViews: 'Aim for 1000+ views per post',
-                trackEngagement: 'Target 5%+ engagement rate',
-                trackConnections: 'Grow network by 100+ monthly'
-            }
-        };
-    }
-    
-    generateWeeklyCalendar(themes) {
-        return {
-            Monday: `${themes[0]} - Industry insight or trend analysis`,
-            Wednesday: `${themes[1]} - Personal experience or behind-the-scenes`,
-            Friday: `${themes[2]} - Thought leadership or advice`,
-            Weekend: 'Engage with others\' content and network'
-        };
-    }
-    
-    generateHashtags(role, industry) {
-        const roleHashtags = {
-            'Software Engineer': ['#SoftwareDevelopment', '#TechLeadership', '#Coding', '#Innovation'],
-            'Product Manager': ['#ProductManagement', '#Innovation', '#Strategy', '#Growth'],
-            'Marketing Manager': ['#MarketingStrategy', '#GrowthHacking', '#DigitalMarketing', '#ROI'],
-            'Sales Manager': ['#Sales', '#Revenue', '#ClientSuccess', '#BusinessDevelopment']
-        };
-        
-        const industryHashtags = {
-            'Technology': ['#TechInnovation', '#DigitalTransformation', '#AI', '#CloudComputing'],
-            'Finance': ['#FinTech', '#Finance', '#Investment', '#RiskManagement'],
-            'Healthcare': ['#HealthTech', '#Healthcare', '#MedicalInnovation', '#PatientCare']
-        };
-        
-        return [
-            ...(roleHashtags[role] || []),
-            ...(industryHashtags[industry] || []),
-            '#Leadership', '#ProfessionalGrowth'
-        ];
-    }
-    
-    generateMonthlyContentIdeas(role, industry) {
-        const templates = this.contentTemplates;
-        return Object.keys(templates).map(type => ({
-            type,
-            ideas: templates[type].examples.map(example => 
-                example.replace('{industry}', industry).replace('{topic}', role)
-            )
-        }));
-    }
-    
-    async analyzeHeadshot(imagePath, industry, role) {
-        // Simulate AI image analysis
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        return {
-            overallScore: Math.floor(Math.random() * 20) + 80,
-            technicalAspects: {
-                lighting: Math.floor(Math.random() * 25) + 75,
-                composition: Math.floor(Math.random() * 20) + 80,
-                resolution: Math.floor(Math.random() * 15) + 85,
-                background: Math.floor(Math.random() * 30) + 70
-            },
-            professionalAspects: {
-                attire: Math.floor(Math.random() * 25) + 75,
-                expression: Math.floor(Math.random() * 20) + 80,
-                eyeContact: Math.floor(Math.random() * 15) + 85,
-                trustworthiness: Math.floor(Math.random() * 25) + 75
-            },
-            recommendations: [
-                'Consider using a neutral background',
-                'Ensure professional attire appropriate for industry',
-                'Maintain genuine, confident expression',
-                'Use high-resolution image (400x400 minimum)'
-            ],
-            industryBenchmark: {
-                comparison: `Above average for ${industry} professionals`,
-                topPercentile: Math.floor(Math.random() * 30) + 70
-            }
-        };
-    }
-    
-    async checkBrandConsistency(platforms, brandElements) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        return {
-            consistencyScore: Math.floor(Math.random() * 25) + 75,
-            platformAnalysis: platforms.map(platform => ({
-                platform: platform.name,
-                score: Math.floor(Math.random() * 30) + 70,
-                issues: this.identifyConsistencyIssues(platform, brandElements),
-                recommendations: this.generateConsistencyRecommendations(platform.name)
-            })),
-            brandElements: {
-                messaging: Math.floor(Math.random() * 25) + 75,
-                visualIdentity: Math.floor(Math.random() * 30) + 70,
-                toneOfVoice: Math.floor(Math.random() * 20) + 80,
-                valueProposition: Math.floor(Math.random() * 25) + 75
-            },
-            actionItems: [
-                'Standardize profile photos across platforms',
-                'Align messaging with core value proposition',
-                'Ensure consistent tone of voice',
-                'Update outdated platform information'
-            ]
-        };
-    }
-    
-    identifyConsistencyIssues(platform, brandElements) {
-        const issues = [
-            'Profile photo differs from other platforms',
-            'Bio messaging not aligned with brand',
-            'Missing key brand keywords',
-            'Outdated information'
-        ];
-        return issues.slice(0, Math.floor(Math.random() * 3) + 1);
-    }
-    
-    generateConsistencyRecommendations(platformName) {
-        const recommendations = {
-            LinkedIn: ['Optimize for professional networking', 'Use industry keywords', 'Share thought leadership content'],
-            Twitter: ['Engage in industry conversations', 'Share quick insights', 'Use relevant hashtags'],
-            Instagram: ['Show personality behind the professional', 'Use visual storytelling', 'Share behind-the-scenes content']
-        };
-        
-        return recommendations[platformName] || ['Maintain consistent messaging', 'Regular content updates', 'Engage with audience'];
-    }
-    
-    async calculateBrandScore(profileData) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const scores = {};
-        let totalScore = 0;
-        
-        for (const [metric, config] of Object.entries(this.analysisMetrics)) {
-            const score = Math.floor(Math.random() * 30) + 70;
-            scores[metric] = { score, weight: config.weight };
-            totalScore += score * config.weight;
-        }
-        
-        return {
-            overallScore: Math.round(totalScore),
-            breakdown: scores,
-            grade: this.getBrandGrade(totalScore),
-            benchmark: {
-                industryAverage: 72,
-                topPercentile: 85,
-                yourPosition: totalScore > 85 ? 'Top 10%' : totalScore > 75 ? 'Top 25%' : 'Average'
-            },
-            nextSteps: this.getScoreImprovementPlan(totalScore)
-        };
-    }
-    
-    getBrandGrade(score) {
-        if (score >= 90) return 'A+';
-        if (score >= 85) return 'A';
-        if (score >= 80) return 'B+';
-        if (score >= 75) return 'B';
-        if (score >= 70) return 'C+';
-        return 'C';
-    }
-    
-    getScoreImprovementPlan(score) {
-        if (score >= 85) {
-            return ['Maintain consistency', 'Experiment with new content formats', 'Mentor others in personal branding'];
-        } else if (score >= 75) {
-            return ['Focus on content quality', 'Increase posting frequency', 'Engage more with network'];
+  constructor() {
+    this.app = express();
+    this.port = 3019;
+    this.setupMiddleware();
+    this.setupRoutes();
+
+    // Brand Intelligence Database
+    this.brandingElements = {
+      headlines: {
+        leadership: [
+          "Transforming teams through strategic vision and innovation",
+          "Driving organizational growth through data-driven leadership",
+          "Building high-performing teams in dynamic environments",
+        ],
+        technical: [
+          "Engineering scalable solutions for complex challenges",
+          "Bridging technology and business impact",
+          "Full-stack developer passionate about clean, efficient code",
+        ],
+        marketing: [
+          "Growth hacker turning insights into revenue",
+          "Brand storyteller driving customer engagement",
+          "Performance marketer with a track record of 10x growth",
+        ],
+        sales: [
+          "Revenue generator with a consultative approach",
+          "Building lasting client relationships that drive results",
+          "Sales strategist specializing in enterprise solutions",
+        ],
+      },
+
+      contentThemes: {
+        leadership: [
+          "Team development strategies",
+          "Industry trend analysis",
+          "Change management insights",
+          "Performance optimization",
+          "Strategic decision making",
+        ],
+        technical: [
+          "Code tutorials and best practices",
+          "Technology trend discussions",
+          "Open source contributions",
+          "Architecture deep dives",
+          "Developer productivity tips",
+        ],
+        marketing: [
+          "Growth experiment results",
+          "Campaign performance insights",
+          "Customer success stories",
+          "Market research findings",
+          "Brand building strategies",
+        ],
+        sales: [
+          "Sales methodology tips",
+          "Client relationship strategies",
+          "Industry insights",
+          "Deal closing techniques",
+          "Customer pain point solutions",
+        ],
+      },
+
+      keywords: {
+        leadership: [
+          "strategic",
+          "vision",
+          "transformation",
+          "team building",
+          "innovation",
+        ],
+        technical: [
+          "scalable",
+          "architecture",
+          "optimization",
+          "automation",
+          "integration",
+        ],
+        marketing: ["growth", "conversion", "engagement", "analytics", "ROI"],
+        sales: [
+          "revenue",
+          "relationships",
+          "consultative",
+          "solutions",
+          "performance",
+        ],
+      },
+    };
+
+    // Profile Analysis Engine
+    this.analysisMetrics = {
+      headline: {
+        weight: 0.25,
+        factors: ["keywords", "clarity", "uniqueness", "action_words"],
+      },
+      summary: {
+        weight: 0.2,
+        factors: [
+          "storytelling",
+          "achievements",
+          "personality",
+          "call_to_action",
+        ],
+      },
+      experience: {
+        weight: 0.2,
+        factors: ["quantified_results", "skill_keywords", "progression"],
+      },
+      skills: {
+        weight: 0.15,
+        factors: ["relevance", "endorsements", "trending_skills"],
+      },
+      content: {
+        weight: 0.1,
+        factors: ["frequency", "engagement", "thought_leadership"],
+      },
+      network: {
+        weight: 0.1,
+        factors: ["connections", "engagement_rate", "industry_relevance"],
+      },
+    };
+
+    // Content Strategy Templates
+    this.contentTemplates = {
+      thought_leadership: {
+        structure: [
+          "Hook",
+          "Personal Experience",
+          "Industry Insight",
+          "Actionable Advice",
+          "Call to Action",
+        ],
+        examples: [
+          "What I learned from failing at {topic}",
+          "The {number} mistakes everyone makes with {topic}",
+          "Why {industry} is about to change forever",
+        ],
+      },
+      behind_scenes: {
+        structure: [
+          "Context Setup",
+          "Challenge Description",
+          "Solution Process",
+          "Lessons Learned",
+        ],
+        examples: [
+          "Building {project} from scratch",
+          "How we increased {metric} by {percentage}",
+          "The real story behind {achievement}",
+        ],
+      },
+      industry_insights: {
+        structure: [
+          "Trend Observation",
+          "Market Analysis",
+          "Personal Take",
+          "Future Predictions",
+        ],
+        examples: [
+          "{Number} trends reshaping {industry}",
+          "Why {technology} will dominate {year}",
+          "The future of {industry} in {timeframe}",
+        ],
+      },
+    };
+
+    // Optimization Database
+    this.optimizationSessions = new Map();
+    this.userProfiles = new Map();
+
+    console.log("🌟 Personal Branding Optimizer Starting...");
+    this.startServer();
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json({ limit: "10mb" }));
+    this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+    // Image upload configuration for headshots
+    const storage = multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, "headshots/");
+      },
+      filename: (req, file, cb) => {
+        const timestamp = Date.now();
+        cb(null, `headshot_${timestamp}_${file.originalname}`);
+      },
+    });
+
+    this.upload = multer({
+      storage,
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+        if (allowedTypes.includes(file.mimetype)) {
+          cb(null, true);
         } else {
-            return ['Complete profile optimization', 'Develop content strategy', 'Build strategic connections'];
+          cb(new Error("Invalid file type. Only JPEG and PNG allowed."));
         }
+      },
+    });
+  }
+
+  setupRoutes() {
+    // Main branding interface
+    this.app.get("/", (req, res) => {
+      res.send(this.getBrandingHTML());
+    });
+
+    // Profile analysis API
+    this.app.post("/api/analyze-profile", async (req, res) => {
+      try {
+        const { profileData, targetRole, industry } = req.body;
+        const analysis = await this.analyzeProfile(
+          profileData,
+          targetRole,
+          industry,
+        );
+        res.json(analysis);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // LinkedIn optimization suggestions
+    this.app.post("/api/optimize-linkedin", async (req, res) => {
+      try {
+        const { currentProfile, targetRole, goals } = req.body;
+        const optimizations = await this.generateLinkedInOptimizations(
+          currentProfile,
+          targetRole,
+          goals,
+        );
+        res.json(optimizations);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Content strategy generator
+    this.app.post("/api/content-strategy", async (req, res) => {
+      try {
+        const { role, industry, goals, audience } = req.body;
+        const strategy = await this.generateContentStrategy(
+          role,
+          industry,
+          goals,
+          audience,
+        );
+        res.json(strategy);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Headshot analysis
+    this.app.post(
+      "/api/analyze-headshot",
+      this.upload.single("headshot"),
+      async (req, res) => {
+        try {
+          const { industry, role } = req.body;
+          const headshotFile = req.file;
+
+          if (!headshotFile) {
+            return res.status(400).json({ error: "No headshot file uploaded" });
+          }
+
+          const analysis = await this.analyzeHeadshot(
+            headshotFile.path,
+            industry,
+            role,
+          );
+          res.json(analysis);
+        } catch (error) {
+          res.status(500).json({ error: error.message });
+        }
+      },
+    );
+
+    // Brand consistency checker
+    this.app.post("/api/brand-consistency", async (req, res) => {
+      try {
+        const { platforms, brandElements } = req.body;
+        const consistency = await this.checkBrandConsistency(
+          platforms,
+          brandElements,
+        );
+        res.json(consistency);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Personal brand score
+    this.app.post("/api/brand-score", async (req, res) => {
+      try {
+        const { profileData } = req.body;
+        const score = await this.calculateBrandScore(profileData);
+        res.json(score);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Content idea generator
+    this.app.post("/api/content-ideas", async (req, res) => {
+      try {
+        const { role, industry, recentPosts } = req.body;
+        const ideas = await this.generateContentIdeas(
+          role,
+          industry,
+          recentPosts,
+        );
+        res.json(ideas);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Revenue tracking
+    this.app.get("/api/revenue", (req, res) => {
+      const totalOptimizations = this.optimizationSessions.size;
+      const activeUsers = new Set(
+        [...this.optimizationSessions.values()].map((s) => s.userId),
+      ).size;
+
+      res.json({
+        totalOptimizations,
+        activeUsers,
+        revenuePerOptimization: 179, // $179 per optimization session
+        monthlyRevenue: totalOptimizations * 179,
+        projectedMonthly: Math.min(totalOptimizations * 179 * 3.0, 22000), // Growth projection
+      });
+    });
+  }
+
+  async analyzeProfile(profileData, targetRole, industry) {
+    // Simulate comprehensive profile analysis
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const roleKeywords =
+      this.brandingElements.keywords[targetRole.toLowerCase()] ||
+      this.brandingElements.keywords.leadership;
+
+    const analysis = {
+      overallScore: Math.floor(Math.random() * 25) + 75,
+      sections: {
+        headline: {
+          score: Math.floor(Math.random() * 30) + 70,
+          issues: this.identifyHeadlineIssues(
+            profileData.headline,
+            roleKeywords,
+          ),
+          suggestions: this.generateHeadlineSuggestions(targetRole, industry),
+        },
+        summary: {
+          score: Math.floor(Math.random() * 35) + 65,
+          wordCount: profileData.summary
+            ? profileData.summary.split(" ").length
+            : 0,
+          suggestions: this.generateSummarySuggestions(targetRole, industry),
+        },
+        experience: {
+          score: Math.floor(Math.random() * 25) + 75,
+          missingKeywords: this.findMissingKeywords(
+            profileData.experience,
+            roleKeywords,
+          ),
+          suggestions: this.generateExperienceSuggestions(targetRole),
+        },
+        skills: {
+          score: Math.floor(Math.random() * 20) + 80,
+          relevantSkills: this.analyzeSkillRelevance(
+            profileData.skills,
+            targetRole,
+          ),
+          suggestions: this.generateSkillSuggestions(targetRole, industry),
+        },
+      },
+      keyImprovements: this.identifyKeyImprovements(profileData, targetRole),
+      competitorAnalysis: this.generateCompetitorInsights(targetRole, industry),
+      actionPlan: this.createActionPlan(targetRole, industry),
+    };
+
+    return analysis;
+  }
+
+  identifyHeadlineIssues(headline, keywords) {
+    const issues = [];
+    if (!headline || headline.length < 50) issues.push("Headline too short");
+    if (!keywords.some((kw) => headline.toLowerCase().includes(kw)))
+      issues.push("Missing relevant keywords");
+    if (!headline.includes("|") && !headline.includes("•"))
+      issues.push("Could use better formatting");
+    return issues;
+  }
+
+  generateHeadlineSuggestions(role, industry) {
+    const suggestions =
+      this.brandingElements.headlines[role.toLowerCase()] ||
+      this.brandingElements.headlines.leadership;
+    return suggestions.map((suggestion) =>
+      suggestion.replace("{industry}", industry),
+    );
+  }
+
+  generateSummarySuggestions(role, industry) {
+    return [
+      "Start with a compelling hook that grabs attention",
+      "Include specific, quantifiable achievements",
+      "Tell your professional story with personality",
+      "End with a clear call-to-action",
+      `Incorporate ${role} keywords throughout naturally`,
+    ];
+  }
+
+  findMissingKeywords(experience, keywords) {
+    const experienceText = experience
+      .map((exp) => exp.description)
+      .join(" ")
+      .toLowerCase();
+    return keywords.filter(
+      (keyword) => !experienceText.includes(keyword.toLowerCase()),
+    );
+  }
+
+  generateExperienceSuggestions(role) {
+    return [
+      "Use action verbs to start each bullet point",
+      "Quantify achievements with numbers and percentages",
+      "Include relevant technologies and methodologies",
+      "Show progression and increased responsibility",
+      "Highlight impact and business outcomes",
+    ];
+  }
+
+  analyzeSkillRelevance(skills, role) {
+    const relevantKeywords =
+      this.brandingElements.keywords[role.toLowerCase()] || [];
+    return skills.filter((skill) =>
+      relevantKeywords.some((keyword) =>
+        skill.toLowerCase().includes(keyword.toLowerCase()),
+      ),
+    );
+  }
+
+  generateSkillSuggestions(role, industry) {
+    const baseSkills = this.brandingElements.keywords[role.toLowerCase()] || [];
+    const industrySkills = {
+      Technology: ["AI/ML", "Cloud Computing", "DevOps", "Agile"],
+      Finance: [
+        "Financial Modeling",
+        "Risk Management",
+        "Compliance",
+        "Analytics",
+      ],
+      Healthcare: [
+        "Healthcare IT",
+        "Regulatory Affairs",
+        "Patient Care",
+        "Quality Management",
+      ],
+      Marketing: [
+        "Digital Marketing",
+        "Content Strategy",
+        "SEO/SEM",
+        "Analytics",
+      ],
+    };
+
+    return [...baseSkills, ...(industrySkills[industry] || [])];
+  }
+
+  identifyKeyImprovements(profileData, role) {
+    const improvements = [
+      "Optimize headline with target role keywords",
+      "Expand summary with quantified achievements",
+      "Add industry-relevant skills",
+      "Update experience descriptions with impact metrics",
+    ];
+
+    return improvements.slice(0, 3);
+  }
+
+  generateCompetitorInsights(role, industry) {
+    return {
+      topPerformers: [
+        `${role} leaders in ${industry} average 5000+ connections`,
+        "Post 2-3 times per week",
+        "Use industry hashtags consistently",
+      ],
+      contentTrends: [
+        "Behind-the-scenes content performs well",
+        "Data-driven posts get high engagement",
+        "Personal stories resonate with audience",
+      ],
+      differentiators: [
+        "Unique perspective on industry challenges",
+        "Specific methodology or framework",
+        "Thought leadership in emerging trends",
+      ],
+    };
+  }
+
+  createActionPlan(role, industry) {
+    return {
+      immediate: [
+        "Update headline with target keywords",
+        "Revise summary with compelling hook",
+        "Add missing relevant skills",
+      ],
+      thisWeek: [
+        "Optimize all experience descriptions",
+        "Create content calendar",
+        "Engage with industry leaders",
+      ],
+      thisMonth: [
+        "Publish 8-12 thought leadership posts",
+        "Build strategic connections",
+        "Join relevant industry groups",
+      ],
+    };
+  }
+
+  async generateLinkedInOptimizations(currentProfile, targetRole, goals) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    return {
+      headline: {
+        current: currentProfile.headline,
+        optimized: this.optimizeHeadline(currentProfile.headline, targetRole),
+        reasoning: "Added industry keywords and value proposition",
+      },
+      summary: {
+        structure: this.generateSummaryStructure(targetRole, goals),
+        keyElements: [
+          "Compelling hook",
+          "Quantified achievements",
+          "Personal story",
+          "Call to action",
+        ],
+        wordCount: "Target: 1200-1500 words",
+      },
+      experience: {
+        optimization: this.optimizeExperience(
+          currentProfile.experience,
+          targetRole,
+        ),
+        template:
+          "Action verb + What you did + How you did it + Results achieved",
+      },
+      skills: {
+        recommended: this.generateSkillSuggestions(
+          targetRole,
+          currentProfile.industry,
+        ),
+        priorityOrder: "Most relevant to target role first",
+        endorsementStrategy: "Request endorsements from colleagues and clients",
+      },
+      contentStrategy: this.generateContentCalendar(targetRole, goals),
+      networkingPlan: this.createNetworkingPlan(
+        targetRole,
+        currentProfile.industry,
+      ),
+    };
+  }
+
+  optimizeHeadline(currentHeadline, targetRole) {
+    const templates = {
+      "Software Engineer":
+        "Full-Stack Software Engineer | Building Scalable Solutions | React, Node.js, Cloud Architecture",
+      "Product Manager":
+        "Senior Product Manager | Driving Growth Through Data-Driven Innovation | B2B SaaS Expert",
+      "Marketing Manager":
+        "Growth Marketing Manager | 10x Revenue Through Performance Marketing | B2B Lead Generation",
+      "Sales Manager":
+        "Enterprise Sales Leader | $10M+ Revenue Generated | Building Strategic Partnerships",
+    };
+
+    return (
+      templates[targetRole] ||
+      `${targetRole} | Industry Expert | Growth-Focused Leader`
+    );
+  }
+
+  generateSummaryStructure(targetRole, goals) {
+    return {
+      paragraph1: "Hook + Current role and impact",
+      paragraph2: "Professional journey and key achievements",
+      paragraph3: "Skills, expertise, and unique value",
+      paragraph4: "Personal interests and call to action",
+    };
+  }
+
+  optimizeExperience(experience, targetRole) {
+    return experience.map((exp) => ({
+      role: exp.role,
+      company: exp.company,
+      optimizedDescription: [
+        `Led ${targetRole.toLowerCase()} initiatives resulting in X% improvement`,
+        "Implemented strategic solutions that achieved Y outcome",
+        "Collaborated with cross-functional teams to deliver Z results",
+        "Developed and executed plans that generated $X revenue",
+      ],
+    }));
+  }
+
+  async generateContentStrategy(role, industry, goals, audience) {
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+
+    const themes =
+      this.brandingElements.contentThemes[role.toLowerCase()] ||
+      this.brandingElements.contentThemes.leadership;
+
+    return {
+      contentPillars: themes.slice(0, 3),
+      postingFrequency: "3-4 posts per week",
+      contentMix: {
+        thoughtLeadership: "40%",
+        behindTheScenes: "30%",
+        industryInsights: "20%",
+        personal: "10%",
+      },
+      weeklyCalendar: this.generateWeeklyCalendar(themes),
+      engagementStrategy: {
+        hashtags: this.generateHashtags(role, industry),
+        bestTimes: "Tuesday-Thursday, 8-10 AM and 1-3 PM",
+        engagementTactics: [
+          "Ask questions",
+          "Share personal experiences",
+          "Comment on industry leaders' posts",
+        ],
+      },
+      contentIdeas: this.generateMonthlyContentIdeas(role, industry),
+      metrics: {
+        trackViews: "Aim for 1000+ views per post",
+        trackEngagement: "Target 5%+ engagement rate",
+        trackConnections: "Grow network by 100+ monthly",
+      },
+    };
+  }
+
+  generateWeeklyCalendar(themes) {
+    return {
+      Monday: `${themes[0]} - Industry insight or trend analysis`,
+      Wednesday: `${themes[1]} - Personal experience or behind-the-scenes`,
+      Friday: `${themes[2]} - Thought leadership or advice`,
+      Weekend: "Engage with others' content and network",
+    };
+  }
+
+  generateHashtags(role, industry) {
+    const roleHashtags = {
+      "Software Engineer": [
+        "#SoftwareDevelopment",
+        "#TechLeadership",
+        "#Coding",
+        "#Innovation",
+      ],
+      "Product Manager": [
+        "#ProductManagement",
+        "#Innovation",
+        "#Strategy",
+        "#Growth",
+      ],
+      "Marketing Manager": [
+        "#MarketingStrategy",
+        "#GrowthHacking",
+        "#DigitalMarketing",
+        "#ROI",
+      ],
+      "Sales Manager": [
+        "#Sales",
+        "#Revenue",
+        "#ClientSuccess",
+        "#BusinessDevelopment",
+      ],
+    };
+
+    const industryHashtags = {
+      Technology: [
+        "#TechInnovation",
+        "#DigitalTransformation",
+        "#AI",
+        "#CloudComputing",
+      ],
+      Finance: ["#FinTech", "#Finance", "#Investment", "#RiskManagement"],
+      Healthcare: [
+        "#HealthTech",
+        "#Healthcare",
+        "#MedicalInnovation",
+        "#PatientCare",
+      ],
+    };
+
+    return [
+      ...(roleHashtags[role] || []),
+      ...(industryHashtags[industry] || []),
+      "#Leadership",
+      "#ProfessionalGrowth",
+    ];
+  }
+
+  generateMonthlyContentIdeas(role, industry) {
+    const templates = this.contentTemplates;
+    return Object.keys(templates).map((type) => ({
+      type,
+      ideas: templates[type].examples.map((example) =>
+        example.replace("{industry}", industry).replace("{topic}", role),
+      ),
+    }));
+  }
+
+  async analyzeHeadshot(imagePath, industry, role) {
+    // Simulate AI image analysis
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    return {
+      overallScore: Math.floor(Math.random() * 20) + 80,
+      technicalAspects: {
+        lighting: Math.floor(Math.random() * 25) + 75,
+        composition: Math.floor(Math.random() * 20) + 80,
+        resolution: Math.floor(Math.random() * 15) + 85,
+        background: Math.floor(Math.random() * 30) + 70,
+      },
+      professionalAspects: {
+        attire: Math.floor(Math.random() * 25) + 75,
+        expression: Math.floor(Math.random() * 20) + 80,
+        eyeContact: Math.floor(Math.random() * 15) + 85,
+        trustworthiness: Math.floor(Math.random() * 25) + 75,
+      },
+      recommendations: [
+        "Consider using a neutral background",
+        "Ensure professional attire appropriate for industry",
+        "Maintain genuine, confident expression",
+        "Use high-resolution image (400x400 minimum)",
+      ],
+      industryBenchmark: {
+        comparison: `Above average for ${industry} professionals`,
+        topPercentile: Math.floor(Math.random() * 30) + 70,
+      },
+    };
+  }
+
+  async checkBrandConsistency(platforms, brandElements) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    return {
+      consistencyScore: Math.floor(Math.random() * 25) + 75,
+      platformAnalysis: platforms.map((platform) => ({
+        platform: platform.name,
+        score: Math.floor(Math.random() * 30) + 70,
+        issues: this.identifyConsistencyIssues(platform, brandElements),
+        recommendations: this.generateConsistencyRecommendations(platform.name),
+      })),
+      brandElements: {
+        messaging: Math.floor(Math.random() * 25) + 75,
+        visualIdentity: Math.floor(Math.random() * 30) + 70,
+        toneOfVoice: Math.floor(Math.random() * 20) + 80,
+        valueProposition: Math.floor(Math.random() * 25) + 75,
+      },
+      actionItems: [
+        "Standardize profile photos across platforms",
+        "Align messaging with core value proposition",
+        "Ensure consistent tone of voice",
+        "Update outdated platform information",
+      ],
+    };
+  }
+
+  identifyConsistencyIssues(platform, brandElements) {
+    const issues = [
+      "Profile photo differs from other platforms",
+      "Bio messaging not aligned with brand",
+      "Missing key brand keywords",
+      "Outdated information",
+    ];
+    return issues.slice(0, Math.floor(Math.random() * 3) + 1);
+  }
+
+  generateConsistencyRecommendations(platformName) {
+    const recommendations = {
+      LinkedIn: [
+        "Optimize for professional networking",
+        "Use industry keywords",
+        "Share thought leadership content",
+      ],
+      Twitter: [
+        "Engage in industry conversations",
+        "Share quick insights",
+        "Use relevant hashtags",
+      ],
+      Instagram: [
+        "Show personality behind the professional",
+        "Use visual storytelling",
+        "Share behind-the-scenes content",
+      ],
+    };
+
+    return (
+      recommendations[platformName] || [
+        "Maintain consistent messaging",
+        "Regular content updates",
+        "Engage with audience",
+      ]
+    );
+  }
+
+  async calculateBrandScore(profileData) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const scores = {};
+    let totalScore = 0;
+
+    for (const [metric, config] of Object.entries(this.analysisMetrics)) {
+      const score = Math.floor(Math.random() * 30) + 70;
+      scores[metric] = { score, weight: config.weight };
+      totalScore += score * config.weight;
     }
-    
-    async generateContentIdeas(role, industry, recentPosts) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-        
-        const themes = this.brandingElements.contentThemes[role.toLowerCase()] || this.brandingElements.contentThemes.leadership;
-        
-        return {
-            thisWeek: [
-                `5 lessons I learned about ${themes[0].toLowerCase()}`,
-                `The biggest mistake I see in ${industry}`,
-                `Behind the scenes: How we solved ${themes[1].toLowerCase()}`
-            ],
-            thisMonth: [
-                `The future of ${industry} in 2024`,
-                `My framework for ${themes[2].toLowerCase()}`,
-                `What I wish I knew when starting in ${role}`,
-                `${industry} trends that will impact your career`
-            ],
-            trending: [
-                'AI impact on your industry',
-                'Remote work best practices',
-                'Professional development in 2024',
-                'Building meaningful professional relationships'
-            ],
-            personalized: this.generatePersonalizedIdeas(role, industry, recentPosts)
-        };
+
+    return {
+      overallScore: Math.round(totalScore),
+      breakdown: scores,
+      grade: this.getBrandGrade(totalScore),
+      benchmark: {
+        industryAverage: 72,
+        topPercentile: 85,
+        yourPosition:
+          totalScore > 85 ? "Top 10%" : totalScore > 75 ? "Top 25%" : "Average",
+      },
+      nextSteps: this.getScoreImprovementPlan(totalScore),
+    };
+  }
+
+  getBrandGrade(score) {
+    if (score >= 90) return "A+";
+    if (score >= 85) return "A";
+    if (score >= 80) return "B+";
+    if (score >= 75) return "B";
+    if (score >= 70) return "C+";
+    return "C";
+  }
+
+  getScoreImprovementPlan(score) {
+    if (score >= 85) {
+      return [
+        "Maintain consistency",
+        "Experiment with new content formats",
+        "Mentor others in personal branding",
+      ];
+    } else if (score >= 75) {
+      return [
+        "Focus on content quality",
+        "Increase posting frequency",
+        "Engage more with network",
+      ];
+    } else {
+      return [
+        "Complete profile optimization",
+        "Develop content strategy",
+        "Build strategic connections",
+      ];
     }
-    
-    generatePersonalizedIdeas(role, industry, recentPosts) {
-        // Analyze recent posts to avoid repetition and suggest complementary content
-        return [
-            `Expanding on your recent post about ${industry}`,
-            'Share a contrarian view on industry trends',
-            'Personal story that illustrates professional growth',
-            'Lessons learned from recent project or achievement'
-        ];
-    }
-    
-    createNetworkingPlan(targetRole, industry) {
-        return {
-            targetConnections: {
-                industry_leaders: 'Connect with 5-10 thought leaders monthly',
-                peers: 'Build relationships with fellow professionals',
-                potential_clients: 'Strategic connections in target companies',
-                mentors: 'Seek guidance from senior professionals'
-            },
-            engagementStrategy: {
-                daily: 'Comment thoughtfully on 3-5 posts',
-                weekly: 'Share and add insights to industry content',
-                monthly: 'Reach out to 10-15 new strategic connections'
-            },
-            groups: [
-                `${targetRole} Professionals`,
-                `${industry} Leaders`,
-                'Professional Development',
-                'Career Growth Network'
-            ]
-        };
-    }
-    
-    getBrandingHTML() {
-        return `
+  }
+
+  async generateContentIdeas(role, industry, recentPosts) {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    const themes =
+      this.brandingElements.contentThemes[role.toLowerCase()] ||
+      this.brandingElements.contentThemes.leadership;
+
+    return {
+      thisWeek: [
+        `5 lessons I learned about ${themes[0].toLowerCase()}`,
+        `The biggest mistake I see in ${industry}`,
+        `Behind the scenes: How we solved ${themes[1].toLowerCase()}`,
+      ],
+      thisMonth: [
+        `The future of ${industry} in 2024`,
+        `My framework for ${themes[2].toLowerCase()}`,
+        `What I wish I knew when starting in ${role}`,
+        `${industry} trends that will impact your career`,
+      ],
+      trending: [
+        "AI impact on your industry",
+        "Remote work best practices",
+        "Professional development in 2024",
+        "Building meaningful professional relationships",
+      ],
+      personalized: this.generatePersonalizedIdeas(role, industry, recentPosts),
+    };
+  }
+
+  generatePersonalizedIdeas(role, industry, recentPosts) {
+    // Analyze recent posts to avoid repetition and suggest complementary content
+    return [
+      `Expanding on your recent post about ${industry}`,
+      "Share a contrarian view on industry trends",
+      "Personal story that illustrates professional growth",
+      "Lessons learned from recent project or achievement",
+    ];
+  }
+
+  createNetworkingPlan(targetRole, industry) {
+    return {
+      targetConnections: {
+        industry_leaders: "Connect with 5-10 thought leaders monthly",
+        peers: "Build relationships with fellow professionals",
+        potential_clients: "Strategic connections in target companies",
+        mentors: "Seek guidance from senior professionals",
+      },
+      engagementStrategy: {
+        daily: "Comment thoughtfully on 3-5 posts",
+        weekly: "Share and add insights to industry content",
+        monthly: "Reach out to 10-15 new strategic connections",
+      },
+      groups: [
+        `${targetRole} Professionals`,
+        `${industry} Leaders`,
+        "Professional Development",
+        "Career Growth Network",
+      ],
+    };
+  }
+
+  getBrandingHTML() {
+    return `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -1494,27 +1725,29 @@ class PersonalBrandingOptimizer {
         </body>
         </html>
         `;
+  }
+
+  async startServer() {
+    // Ensure upload directory exists
+    try {
+      await fs.mkdir("headshots", { recursive: true });
+    } catch (error) {
+      // Directory might already exist
     }
-    
-    async startServer() {
-        // Ensure upload directory exists
-        try {
-            await fs.mkdir('headshots', { recursive: true });
-        } catch (error) {
-            // Directory might already exist
-        }
-        
-        this.app.listen(this.port, () => {
-            console.log(`🌟 Personal Branding Optimizer running on port ${this.port}`);
-            console.log(`🔗 http://localhost:${this.port}`);
-            console.log(`💎 Premium optimization: $179 per session`);
-            console.log(`🎯 Revenue target: $22K/month`);
-            this.logStartup();
-        });
-    }
-    
-    async logStartup() {
-        const logEntry = `
+
+    this.app.listen(this.port, () => {
+      console.log(
+        `🌟 Personal Branding Optimizer running on port ${this.port}`,
+      );
+      console.log(`🔗 http://localhost:${this.port}`);
+      console.log(`💎 Premium optimization: $179 per session`);
+      console.log(`🎯 Revenue target: $22K/month`);
+      this.logStartup();
+    });
+  }
+
+  async logStartup() {
+    const logEntry = `
 🌟 Personal Branding Optimizer LAUNCHED!
 🎯 AI-powered personal brand optimization and strategy
 📊 LinkedIn profile analysis and recommendations
@@ -1526,13 +1759,13 @@ class PersonalBrandingOptimizer {
 ⚡ READY TO TRANSFORM PROFESSIONAL PRESENCE!
 
 `;
-        
-        try {
-            await fs.appendFile('branding_optimizer.log', logEntry);
-        } catch (error) {
-            console.log('Logging note:', error.message);
-        }
+
+    try {
+      await fs.appendFile("branding_optimizer.log", logEntry);
+    } catch (error) {
+      console.log("Logging note:", error.message);
     }
+  }
 }
 
 // Start the Personal Branding Optimizer

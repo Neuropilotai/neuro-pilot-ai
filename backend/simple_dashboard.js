@@ -1,17 +1,17 @@
-const express = require('express');
+const express = require("express");
 const app = express();
 const port = 3008;
 
 app.use(express.json());
 
 // Test API endpoint
-app.get('/api/test', (req, res) => {
-    res.json({ message: 'Working!', data: [1,2,3] });
+app.get("/api/test", (req, res) => {
+  res.json({ message: "Working!", data: [1, 2, 3] });
 });
 
 // Simple dashboard page
-app.get('/', (req, res) => {
-    res.send(`
+app.get("/", (req, res) => {
+  res.send(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -82,5 +82,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`🧪 Simple test dashboard: http://localhost:${port}`);
+  console.log(`🧪 Simple test dashboard: http://localhost:${port}`);
 });

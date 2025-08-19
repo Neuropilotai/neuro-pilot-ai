@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management System - Enterprise Edition</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <!-- Professional Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- External Styles -->
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">IM</div>
+                <div class="logo-text">
+                    <h1>Inventory Management</h1>
+                    <p>Enterprise Security Edition</p>
+                </div>
+            </div>
+            <nav class="nav hidden" id="mainNav">
+                <a href="#" class="nav-item active" data-section="inventory">Inventory</a>
+                <a href="#" class="nav-item" data-section="orders">Orders</a>
+                <a href="#" class="nav-item" data-section="receiving">Receiving</a>
+                <a href="#" class="nav-item" data-section="locations">Locations</a>
+                <a href="#" class="nav-item" data-section="transfers">Transfers</a>
+                <a href="#" class="nav-item" data-section="reports">Reports</a>
+                <a href="#" class="nav-item" data-section="agent">AI Agent</a>
+                <a href="#" class="nav-item" data-section="settings">Settings</a>
+                <button class="nav-item" data-action="logout">Logout</button>
+            </nav>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertMessage" class="alert"></div>
+
+        <!-- Login Screen -->
+        <div id="loginScreen" class="card">
+            <form class="login-form" id="loginForm">
+                <h2 class="text-center mb-4">Secure Login</h2>
+                
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        class="form-input" 
+                        placeholder="user@company.com"
+                        required 
+                        autocomplete="username"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="form-input" 
+                        placeholder="Enter your password"
+                        required 
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <span class="btn-text">Sign In</span>
+                    <span class="spinner"></span>
+                </button>
+
+                <div class="security-badge">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                    </svg>
+                    Secured with 256-bit encryption
+                </div>
+            </form>
+
+            <!-- 2FA Section -->
+            <div id="twoFactorSection" class="hidden">
+                <h3 class="text-center mb-3">Enter 2FA Code</h3>
+                <div class="otp-container">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 0)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 1)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 2)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 3)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 4)">
+                    <input type="text" class="otp-input" maxlength="1" onkeyup="moveToNext(this, 5)">
+                </div>
+                <button data-action="verify-2fa" class="btn btn-primary">
+                    <span class="btn-text">Verify</span>
+                    <span class="spinner"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="hidden section">
+            <div class="dashboard-header">
+                <h2>Inventory Overview</h2>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <span id="userEmail"></span>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Items</div>
+                    <div class="stat-value" id="totalItems">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Low Stock</div>
+                    <div class="stat-value warning-text" id="lowStockCount">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Orders Pending</div>
+                    <div class="stat-value" id="ordersPending">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Value</div>
+                    <div class="stat-value" id="dashboardTotalValue">-</div>
+                </div>
+            </div>
+
+            <!-- Inventory Table -->
+            <div class="card">
+                <h3 class="mb-4">Inventory Items</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Category</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                                <th>Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTable">
+                            <tr>
+                                <td colspan="5" class="text-center text-secondary">
+                                    Loading inventory data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Section -->
+        <div id="ordersSection" class="hidden section">
+            <div class="card">
+                <div class="dashboard-header">
+                    <h2>Orders Management</h2>
+                    <div class="user-info">
+                        <select id="orderFilter" class="form-select inline-select">
+                            <option value="all">All Orders</option>
+                            <option value="gfs">GFS Orders</option>
+                            <option value="sysco">Sysco Orders</option>
+                        </select>
+                        <button class="btn btn-secondary" data-action="load-orders">Refresh</button>
+                    </div>
+                </div>
+                <div id="ordersContainer">
+                    <div class="text-center text-secondary p-4">
+                        Loading orders...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Locations Section -->
+        <div id="locationsSection" class="hidden section">
+            <div class="card">
+                <div class="dashboard-header">
+                    <h2>Location Management</h2>
+                    <div class="user-info">
+                        <button class="btn btn-primary" data-action="add-location">Add Location</button>
+                        <button class="btn btn-secondary" data-action="load-locations">Refresh</button>
+                    </div>
+                </div>
+                <div id="locationsContainer">
+                    <div class="text-center text-secondary p-4">
+                        Loading locations...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transfers Section -->
+        <div id="transfersSection" class="hidden section">
+            <div class="card">
+                <div class="dashboard-header">
+                    <h2>Inventory Transfers</h2>
+                    <div class="user-info">
+                        <button class="btn btn-primary" data-action="new-transfer">New Transfer</button>
+                        <button class="btn btn-secondary" data-action="load-transfers">Refresh</button>
+                    </div>
+                </div>
+                <div id="transfersContainer">
+                    <div class="text-center text-secondary p-4">
+                        Loading transfers...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reports Section -->
+        <div id="reportsSection" class="hidden section">
+            <div class="card">
+                <h2 class="mb-4">Reports & Analytics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total GFS Orders</div>
+                        <div class="stat-value" id="gfsOrderCount">10</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Sysco Catalog Items</div>
+                        <div class="stat-value" id="syscoItemCount">50</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Inventory Value</div>
+                        <div class="stat-value" id="totalValue">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Last Update</div>
+                        <div class="stat-value" id="lastUpdate">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Receiving (minimal) -->
+        <div id="receivingSection" class="hidden section">
+          <div class="card p-4">
+            <h2 class="mb-3">📦 Receive & Split Items</h2>
+
+            <!-- Step 1: pick an order -->
+            <div class="mb-4">
+              <label for="rx-order-select" class="mb-2 block">Select GFS Order</label>
+              <div class="flex items-center gap-2">
+                <select id="rx-order-select" class="form-input wide-select"></select>
+                <button class="btn btn-primary" data-action="rx-start">Load Suggestions</button>
+              </div>
+              <small id="rx-order-meta" class="order-meta"></small>
+            </div>
+
+            <!-- Step 2: items + suggested splits -->
+            <div id="rx-ui" class="hidden">
+              <div class="mb-3">
+                <button class="btn" data-action="rx-fill-all" style="margin-right: 8px;">Use All Suggestions</button>
+                <button class="btn btn-primary" data-action="rx-apply">Apply Splits</button>
+              </div>
+
+              <table class="table" id="rx-items-table" style="width: 100%; margin-top: 16px;">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Stock #</th>
+                    <th>Total Qty</th>
+                    <th>Allocations (Location → Qty)</th>
+                  </tr>
+                </thead>
+                <tbody id="rx-items-body"></tbody>
+              </table>
+            </div>
+
+            <!-- Result -->
+            <div id="rx-result" class="mt-4 hidden" style="margin-top: 16px; display: none;"></div>
+          </div>
+        </div>
+
+        <!-- AI Agent -->
+        <div id="agentSection" style="display: none;" class="section">
+          <div class="card p-4">
+            <h2 class="mb-3">🤖 AI Inventory Agent</h2>
+
+            <!-- Quick prompts -->
+            <div class="mb-3 flex gap-2" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+              <button class="btn" data-action="agent-quick" data-message="Move products to proper locations" style="margin-right: 8px;">Suggest moves</button>
+              <button class="btn" data-action="agent-quick" data-message="Generate count sheets" style="margin-right: 8px;">Count sheets</button>
+              <button class="btn" data-action="agent-quick" data-message="Show storage capacity overview" style="margin-right: 8px;">Capacity</button>
+              <button class="btn" data-action="agent-quick" data-message="Where is chicken breast stored?">Where is…</button>
+            </div>
+
+            <!-- Chat log -->
+            <div id="agent-log" class="card" style="max-height: 420px; overflow: auto; padding: 16px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px;">
+              <!-- messages render here -->
+            </div>
+
+            <!-- Composer -->
+            <form class="mt-3 flex items-center gap-2" style="margin-top: 16px; display: flex; gap: 8px;" onsubmit="return agentSend(event)">
+              <input id="agent-input" class="form-input" style="flex: 1;" placeholder="Ask the inventory agent… (Enter to send)" autocomplete="off">
+              <button class="btn btn-primary">Send</button>
+            </form>
+
+            <small class="block mt-2 text-xs" style="display: block; margin-top: 8px; font-size: 12px; color: #666;">
+              Tips: "receive and split order GFS_…", "what's low in Cooler B2?", "show items missing min/max"
+            </small>
+          </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="settingsSection" style="display: none;">
+            <div class="card">
+                <h2 style="margin-bottom: 2rem;">Settings</h2>
+                <div class="form-group">
+                    <label class="form-label">API Endpoint</label>
+                    <input type="text" class="form-input" value="http://localhost:3000" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Auto-refresh Interval</label>
+                    <select class="form-input">
+                        <option>Every 5 minutes</option>
+                        <option>Every 15 minutes</option>
+                        <option>Every 30 minutes</option>
+                        <option>Disabled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Data Sources</label>
+                    <div style="padding: 1rem; background: var(--primary); border-radius: 8px;">
+                        <div style="margin-bottom: 0.5rem;">✅ GFS Orders: Connected</div>
+                        <div style="margin-bottom: 0.5rem;">✅ Sysco Catalog: Connected</div>
+                        <div>📊 Total Items: <span id="totalItemsSettings">70</span></div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" data-action="save-settings">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ---- API base + helpers (robust for localhost) ----
+        const API_BASE = (() => {
+          // Force HTTP for localhost to avoid SSL errors
+          const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+          const proto = isLocal ? 'http' : (location.protocol.replace(':','') || 'https');
+          const host = isLocal ? 'localhost:8083' : location.host;
+          return `${proto}://${host === location.host ? host : 'localhost:8083'}`;
+        })();
+
+        function api(path) {
+          // ensure path begins with /api/
+          const clean = path.startsWith('/api/') ? path : `/api/${path.replace(/^\/+/, '')}`;
+          return `${API_BASE}${clean}`;
+        }
+
+        console.log('🌐 Using API base:', API_BASE);
+        console.log('📱 Frontend version: v2.1 - Auth refresh fully disabled');
+        
+        // Debug fetch calls
+        const _fetch = window.fetch;
+        window.fetch = (u, o) => { console.log('➡️ fetch:', u); return _fetch(u, o); };
+        
+        let accessToken = null;
+        let refreshTimer = null;
+
+        // Section navigation function
+        function showSection(sectionId) {
+            console.log('Showing section:', sectionId);
+            
+            // Hide all main sections
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('ordersSection').style.display = 'none';
+            document.getElementById('receivingSection').style.display = 'none';
+            document.getElementById('locationsSection').style.display = 'none';
+            document.getElementById('transfersSection').style.display = 'none';
+            document.getElementById('reportsSection').style.display = 'none';
+            document.getElementById('agentSection').style.display = 'none';
+            document.getElementById('settingsSection').style.display = 'none';
+            
+            // Show the requested section
+            if (sectionId === 'inventory') {
+                document.getElementById('dashboard').style.display = 'block';
+            } else if (sectionId === 'orders') {
+                document.getElementById('ordersSection').style.display = 'block';
+                loadOrders();
+            } else if (sectionId === 'receiving') {
+                document.getElementById('receivingSection').style.display = 'block';
+                rxInit();
+            } else if (sectionId === 'locations') {
+                document.getElementById('locationsSection').style.display = 'block';
+                loadLocations();
+            } else if (sectionId === 'transfers') {
+                document.getElementById('transfersSection').style.display = 'block';
+                loadTransfers();
+            } else if (sectionId === 'reports') {
+                document.getElementById('reportsSection').style.display = 'block';
+                loadReportsData();
+            } else if (sectionId === 'agent') {
+                document.getElementById('agentSection').style.display = 'block';
+            } else if (sectionId === 'settings') {
+                document.getElementById('settingsSection').style.display = 'block';
+            }
+            
+            // Update nav active state
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(sectionId)) {
+                    item.classList.add('active');
+                }
+            });
+        }
+        
+        // Load reports data
+        async function loadReportsData() {
+            try {
+                const response = await fetch(api('/api/inventory/items?lang=english'));
+                const data = await response.json();
+                
+                if (data.summary) {
+                    document.getElementById('gfsOrderCount').textContent = data.summary.gfsOrders || 0;
+                    document.getElementById('syscoItemCount').textContent = data.summary.syscoProducts || 0;
+                    document.getElementById('lastUpdate').textContent = new Date(data.summary.lastUpdated).toLocaleString();
+                }
+                
+                // Calculate total value
+                let totalValue = 0;
+                if (data.items) {
+                    data.items.forEach(item => {
+                        totalValue += (item.price || 0) * (item.quantity || 1);
+                    });
+                }
+                document.getElementById('totalValue').textContent = '$' + totalValue.toFixed(2);
+            } catch (error) {
+                console.error('Error loading reports data:', error);
+            }
+        }
+        
+        // Save settings function
+        function saveSettings() {
+            showAlert('Settings saved successfully', 'success');
+        }
+
+        // Show alert message
+        function showAlert(message, type = 'error') {
+            const alert = document.getElementById('alertMessage');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+            
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        // Handle login
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const button = event.target.querySelector('button');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            button.classList.add('loading');
+            
+            try {
+                const response = await fetch(api('/api/auth/login'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include', // Important for cookies
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Login failed');
+                }
+
+                if (data.requiresTwoFactor) {
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.getElementById('twoFactorSection').style.display = 'block';
+                } else if (data.success) {
+                    handleLoginSuccess(data);
+                }
+            } catch (error) {
+                showAlert(error.message);
+            } finally {
+                button.classList.remove('loading');
+            }
+        }
+
+        // Handle 2FA
+        function moveToNext(input, index) {
+            const inputs = document.querySelectorAll('.otp-input');
+            if (input.value && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+        }
+
+        async function verify2FA() {
+            const inputs = document.querySelectorAll('.otp-input');
+            const totpCode = Array.from(inputs).map(i => i.value).join('');
+            
+            if (totpCode.length !== 6) {
+                showAlert('Please enter all 6 digits');
+                return;
+            }
+            
+            const button = document.querySelector('#twoFactorSection button');
+            button.classList.add('loading');
+            
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const response = await fetch(api('/api/auth/login'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password, totpCode })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Invalid code');
+                }
+
+                if (data.success) {
+                    handleLoginSuccess(data);
+                }
+            } catch (error) {
+                showAlert(error.message);
+            } finally {
+                button.classList.remove('loading');
+            }
+        }
+
+        // Handle successful login
+        function handleLoginSuccess(data) {
+            accessToken = data.token;
+            window.ACCESS_TOKEN = data.token;
+            
+            // Show dashboard
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('mainNav').style.display = 'flex';
+            
+            // Set user info
+            const email = data.user.email;
+            document.getElementById('userEmail').textContent = email;
+            document.getElementById('userAvatar').textContent = email.substring(0, 2).toUpperCase();
+            
+            // Token refresh disabled - endpoint not implemented
+            
+            // Load inventory
+            loadInventory();
+            
+            showAlert('Login successful', 'success');
+        }
+
+        // Token refresh - disabled until endpoint is implemented
+        function startTokenRefresh() {
+            // No refresh logic for now - endpoint not implemented
+            console.log('Token refresh is disabled - endpoint not implemented');
+        }
+
+        // Load dashboard statistics
+        async function loadDashboardStats() {
+            try {
+                const [itemsResponse, ordersResponse] = await Promise.all([
+                    fetch(api('/api/inventory/items')),
+                    fetch(api('/api/orders/gfs'))
+                ]);
+                
+                const itemsData = await itemsResponse.json();
+                const ordersData = await ordersResponse.json();
+                
+                // Normalize items to array - same logic as loadInventory()
+                let items = [];
+                if (Array.isArray(itemsData)) {
+                    items = itemsData;
+                } else if (itemsData && Array.isArray(itemsData.items)) {
+                    items = itemsData.items;
+                } else if (itemsData && Array.isArray(itemsData.inventory)) {
+                    items = itemsData.inventory;
+                } else if (itemsData && itemsData.data && Array.isArray(itemsData.data.items)) {
+                    items = itemsData.data.items;
+                }
+                
+                // Calculate statistics
+                const totalItems = items.length;
+                const lowStockItems = items.filter(item => (item.quantity || 0) <= (item.reorderPoint || 10)).length;
+                const totalValue = items.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
+                const pendingOrders = ordersData.orders ? ordersData.orders.length : 0;
+                
+                // Update display safely
+                const totalItemsEl = document.getElementById('totalItems');
+                if (totalItemsEl) totalItemsEl.textContent = totalItems.toLocaleString();
+                
+                const lowStockEl = document.getElementById('lowStockCount');
+                if (lowStockEl) lowStockEl.textContent = lowStockItems;
+                
+                const ordersEl = document.getElementById('ordersPending');
+                if (ordersEl) ordersEl.textContent = pendingOrders;
+                
+                const valueEl = document.getElementById('dashboardTotalValue');
+                if (valueEl) valueEl.textContent = '$' + totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+                // Set default values on error
+                const els = ['totalItems', 'lowStockCount', 'ordersPending'];
+                els.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '0';
+                });
+                const valueEl = document.getElementById('dashboardTotalValue');
+                if (valueEl) valueEl.textContent = '$0.00';
+            }
+        }
+
+        // Load inventory
+        async function loadInventory(lang = '') {
+            try {
+                const url = lang ? api(`/inventory/items?lang=${encodeURIComponent(lang)}`) : api('/inventory/items');
+                const res = await fetch(url, {
+                    headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}
+                });
+
+                // If the server returns 401, bounce to login UI
+                if (res.status === 401) {
+                    console.warn('Inventory fetch unauthorized; please log in.');
+                    showSection('login');
+                    return;
+                }
+
+                const data = await res.json();
+                console.debug('inventory payload:', data);
+
+                // Normalize to an array for the renderer:
+                // Accept any of these shapes: {items:[...]}, {inventory:[...]}, or [...]
+                let items = [];
+                if (Array.isArray(data)) {
+                    items = data;
+                } else if (data && Array.isArray(data.items)) {
+                    items = data.items;
+                } else if (data && Array.isArray(data.inventory)) {
+                    items = data.inventory;
+                } else if (data && data.data && Array.isArray(data.data.items)) {
+                    items = data.data.items;
+                }
+
+                displayInventory(items);
+                
+                // Also load dashboard stats when inventory is loaded
+                loadDashboardStats();
+            } catch (err) {
+                console.error('Error loading inventory:', err);
+                // Fail safe to empty list so UI stays functional
+                displayInventory([]);
+            }
+        }
+
+        // Display inventory - null-safe version
+        function displayInventory(items) {
+            const list = Array.isArray(items) ? items : [];
+            
+            // Update count safely
+            const countEl = document.getElementById('inventory-count');
+            if (countEl) countEl.textContent = String(list.length);
+            
+            const tbody = document.getElementById('inventoryTable');
+            if (!tbody) {
+                console.warn('inventoryTable element not found');
+                return;
+            }
+            
+            if (list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-secondary);">
+                            No inventory items found
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Render table rows for each item in the list
+            tbody.innerHTML = list.map(item => {
+                // Safely access item properties with defaults
+                const name = item.name || 'Unknown Item';
+                const category = item.category || 'Uncategorized';
+                const quantity = item.quantity || 0;
+                const lastUpdated = item.lastUpdated || new Date().toISOString();
+                const status = quantity > 10 ? 'In Stock' : 'Low Stock';
+                const statusColor = quantity > 10 ? 'var(--success)' : 'var(--warning)';
+                
+                return `
+                    <tr>
+                        <td>${name}</td>
+                        <td>${category}</td>
+                        <td>${quantity}</td>
+                        <td>
+                            <span style="color: ${statusColor}">
+                                ${status}
+                            </span>
+                        </td>
+                        <td>${new Date(lastUpdated).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Orders Management
+        async function loadOrders() {
+            try {
+                const response = await fetch(api('/api/orders/gfs'), {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load orders');
+                
+                const data = await response.json();
+                displayOrders(data.orders || []);
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                document.getElementById('ordersContainer').innerHTML = 
+                    '<div class="text-center text-danger p-4">Failed to load orders</div>';
+            }
+        }
+
+        function displayOrders(orders) {
+            const container = document.getElementById('ordersContainer');
+            
+            if (orders.length === 0) {
+                container.innerHTML = '<div class="text-center text-secondary p-4">No orders found</div>';
+                return;
+            }
+
+            // Sort orders by date (newest first)
+            orders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate));
+            
+            const ordersHTML = orders.map(order => `
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: rgba(30, 41, 59, 0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="font-weight: 600; color: var(--accent);">${order.supplier || 'GFS'} - ${order.orderId}</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">${new Date(order.orderDate).toLocaleDateString()}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                        <div><strong>Items:</strong> ${order.itemCount || 'N/A'}</div>
+                        <div><strong>Total:</strong> $${order.totalValue || '0.00'}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = ordersHTML;
+        }
+
+        function filterOrders() {
+            loadOrders(); // Simple reload for now
+        }
+
+        // Locations Management
+        async function loadLocations() {
+            try {
+                const response = await fetch(api('/api/storage/locations'), {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load locations');
+                
+                const data = await response.json();
+                displayLocations(data.locations || []);
+            } catch (error) {
+                console.error('Error loading locations:', error);
+                document.getElementById('locationsContainer').innerHTML = 
+                    '<div class="text-center text-danger p-4">Failed to load locations</div>';
+            }
+        }
+
+        function displayLocations(locations) {
+            const container = document.getElementById('locationsContainer');
+            
+            if (locations.length === 0) {
+                container.innerHTML = '<div class="text-center text-secondary p-4">No locations found</div>';
+                return;
+            }
+            
+            const locationsHTML = locations.map(location => `
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; background: rgba(30, 41, 59, 0.5);">
+                    <div style="font-size: 1.2rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem;">${location.name}</div>
+                    <div style="color: var(--text-secondary); margin-bottom: 1rem;">${location.description || ''}</div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div style="text-align: center; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">${location.itemCount || 0}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Items</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">${location.capacity || 'N/A'}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Capacity</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-primary" data-action="view-location" data-location-id="${location.id}">View Items</button>
+                        <button class="btn btn-secondary" data-action="edit-location" data-location-id="${location.id}">Edit</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = locationsHTML;
+        }
+
+        function showAddLocationModal() {
+            const name = prompt('Location Name:');
+            if (name) {
+                addLocation(name);
+            }
+        }
+
+        async function addLocation(name) {
+            try {
+                const response = await fetch(api('/api/storage/locations'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ name })
+                });
+                
+                if (!response.ok) throw new Error('Failed to add location');
+                
+                showAlert('Location added successfully', 'success');
+                loadLocations();
+            } catch (error) {
+                console.error('Error adding location:', error);
+                showAlert('Failed to add location', 'error');
+            }
+        }
+
+        // Transfers Management
+        async function loadTransfers() {
+            try {
+                const response = await fetch(api('/api/transfers'), {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                
+                if (!response.ok) throw new Error('Failed to load transfers');
+                
+                const data = await response.json();
+                displayTransfers(data.transfers || []);
+            } catch (error) {
+                console.error('Error loading transfers:', error);
+                document.getElementById('transfersContainer').innerHTML = 
+                    '<div class="text-center text-danger p-4">Failed to load transfers</div>';
+            }
+        }
+
+        function displayTransfers(transfers) {
+            const container = document.getElementById('transfersContainer');
+            
+            if (transfers.length === 0) {
+                container.innerHTML = '<div class="text-center text-secondary p-4">No transfers found</div>';
+                return;
+            }
+            
+            const transfersHTML = transfers.map(transfer => `
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: rgba(30, 41, 59, 0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="font-weight: 600; color: var(--accent);">Transfer #${transfer.id}</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">${new Date(transfer.date).toLocaleDateString()}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                        <div><strong>From:</strong> ${transfer.fromLocation}</div>
+                        <div><strong>To:</strong> ${transfer.toLocation}</div>
+                        <div><strong>Item:</strong> ${transfer.itemName}</div>
+                        <div><strong>Quantity:</strong> ${transfer.quantity}</div>
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <span style="padding: 0.25rem 0.5rem; background: ${transfer.status === 'completed' ? 'var(--success)' : 'var(--warning)'}; color: white; border-radius: 4px; font-size: 0.8rem;">
+                            ${transfer.status}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = transfersHTML;
+        }
+
+        function showTransferModal() {
+            showAlert('Transfer creation modal would open here - implementation needed');
+        }
+
+        // Logout
+        async function logout() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+            }
+            
+            try {
+                await fetch(api('/api/auth/logout'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    credentials: 'include'
+                });
+            } catch (error) {
+                // Continue with logout even if request fails
+            }
+            
+            accessToken = null;
+            window.location.reload();
+        }
+
+        // ---- Receiving functionality ----
+        const join = (b,p)=>`${b.replace(/\/+$/,'')}/${p.replace(/^\/+/,'')}`;
+
+        // Render a single item row with editable allocations
+        function renderReceiveItemRow(item){
+            // item: { stockNumber, name, qty, suggested:[{location,qty}] }
+            const id = `rx-${item.stockNumber}`;
+            const locOptions = Object.keys(window.KNOWN_LOCATIONS || {}).map(
+                l=>`<option value="${l}">${l}</option>`
+            ).join('');
+            const rows = (item.suggested && item.suggested.length ? item.suggested : [{location:'', qty:item.qty}])
+                .map((s,idx)=>`
+                    <div class="alloc-row" data-row="${idx}" style="margin: 5px 0; padding: 8px; background: var(--surface); border-radius: 6px;">
+                        <select class="alloc-loc" style="margin-right: 10px; padding: 4px;">${locOptions}</select>
+                        <input class="alloc-qty" type="number" min="0" value="${s.qty||0}" style="width:90px; margin-right: 10px;">
+                        <button type="button" data-action="remove-alloc" data-container-id="${id}" data-row-idx="${idx}" style="background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">✖</button>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="rx-item card" id="${id}" data-stock="${item.stockNumber}" data-total="${item.qty}" style="margin: 10px 0; padding: 15px;">
+                    <div style="margin-bottom: 10px;"><strong>${item.name}</strong> <small>(${item.stockNumber})</small> — Ordered: <strong>${item.qty}</strong></div>
+                    <div class="alloc-list" style="margin:6px 0;">
+                        ${rows}
+                    </div>
+                    <button type="button" data-action="add-alloc" data-container-id="${id}" class="btn btn-secondary" style="width: auto; padding: 0.5rem 1rem; margin-top: 8px;">+ Add Location</button>
+                    <div class="rx-hint" style="font-size:12px;color: var(--warning);margin-top:8px;"></div>
+                </div>
+            `;
+        }
+
+        function addAllocRow(containerId){
+            const box = document.getElementById(containerId).querySelector('.alloc-list');
+            const idx = box.querySelectorAll('.alloc-row').length;
+            const locOptions = Object.keys(window.KNOWN_LOCATIONS || {}).map(
+                l=>`<option value="${l}">${l}</option>`
+            ).join('');
+            box.insertAdjacentHTML('beforeend', `
+                <div class="alloc-row" data-row="${idx}" style="margin: 5px 0; padding: 8px; background: var(--surface); border-radius: 6px;">
+                    <select class="alloc-loc" style="margin-right: 10px; padding: 4px;">${locOptions}</select>
+                    <input class="alloc-qty" type="number" min="0" value="0" style="width:90px; margin-right: 10px;">
+                    <button type="button" data-action="remove-alloc" data-container-id="${containerId}" data-row-idx="${idx}" style="background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">✖</button>
+                </div>
+            `);
+        }
+
+        function removeAllocRow(containerId, idx){
+            const box = document.getElementById(containerId).querySelector('.alloc-list');
+            const row = box.querySelector(`.alloc-row[data-row="${idx}"]`);
+            if (row) row.remove();
+        }
+
+        async function ensureKnownLocations(){
+            // cache available locations for selects
+            if (!window.KNOWN_LOCATIONS) {
+                const r = await fetch(api('/api/storage/locations'));
+                const data = await r.json();
+                window.KNOWN_LOCATIONS = {};
+                (data.locations||[]).forEach(l=> window.KNOWN_LOCATIONS[l.name]=true );
+            }
+        }
+
+        // Load suggestions for a given orderId
+        async function loadReceiveSuggestions(){
+            try{
+                await ensureKnownLocations();
+                const orderId = document.getElementById('rx-order-id').value.trim();
+                if (!orderId) return alert('Enter an Order ID');
+                const r = await fetch(api(`/api/orders/receive/${encodeURIComponent(orderId)}`), {
+                    method:'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+                    },
+                    body: JSON.stringify({}) // no decisions: just get suggestions
+                });
+                if (!r.ok) throw new Error(`Suggestions failed: ${r.status}`);
+                const data = await r.json();
+                const list = data.items || [];
+                const html = list.map(renderReceiveItemRow).join('');
+                document.getElementById('receive-items').innerHTML = html;
+                document.getElementById('apply-receive').disabled = list.length===0;
+                
+                // Set initial selected values for location dropdowns
+                list.forEach(item => {
+                    const container = document.getElementById(`rx-${item.stockNumber}`);
+                    const rows = container.querySelectorAll('.alloc-row');
+                    item.suggested.forEach((sug, idx) => {
+                        if (rows[idx]) {
+                            const select = rows[idx].querySelector('.alloc-loc');
+                            select.value = sug.location;
+                        }
+                    });
+                });
+                
+            } catch(e){
+                console.error(e);
+                alert('Failed to load suggestions: ' + e.message);
+            }
+        }
+
+        // Collect decisions from the UI and submit
+        async function applyReceiving(){
+            try{
+                const orderId = document.getElementById('rx-order-id').value.trim();
+                const nodes = [...document.querySelectorAll('.rx-item')];
+                const decisions = nodes.map(n=>{
+                    const stockNumber = n.dataset.stock;
+                    const total = +n.dataset.total;
+                    const rows = [...n.querySelectorAll('.alloc-row')];
+                    const allocations = rows.map(r=>{
+                        const loc = r.querySelector('.alloc-loc').value;
+                        const qty = +r.querySelector('.alloc-qty').value || 0;
+                        return { location: loc, qty };
+                    }).filter(a=>a.location);
+                    const sum = allocations.reduce((s,a)=>s+a.qty,0);
+                    const hint = n.querySelector('.rx-hint');
+                    if (sum !== total) {
+                        hint.textContent = `⚠ Sum ${sum} must equal ordered ${total}`;
+                    } else {
+                        hint.textContent = '';
+                    }
+                    return { stockNumber, allocations, _sum: sum, _total: total };
+                });
+
+                // Validate all sums
+                const bad = decisions.find(d => d._sum !== d._total);
+                if (bad) { return alert(`Fix split for ${bad.stockNumber}: sum ${bad._sum} ≠ ${bad._total}`); }
+
+                const r = await fetch(api(`/api/orders/receive/${encodeURIComponent(orderId)}`), {
+                    method:'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+                    },
+                    body: JSON.stringify({ decisions: decisions.map(({stockNumber, allocations})=>({stockNumber, allocations})) })
+                });
+                if (!r.ok) throw new Error(`Apply failed: ${r.status}`);
+                const data = await r.json();
+                showAlert(`Received ${data.applied?.length || 0} items. Inventory updated.`, 'success');
+                // Optionally reload inventory UI:
+                if (typeof loadInventory === 'function') loadInventory().catch(()=>{});
+            } catch(e){
+                console.error(e);
+                alert('Failed to apply receiving: ' + e.message);
+            }
+        }
+
+        /* ========= Receiving: minimal hooks ========= */
+
+        let RX_STATE = {
+          orderId: null,
+          items: [],           // from POST /api/orders/receive/:orderId (suggest mode)
+          locations: [],       // from GET /api/storage/locations
+        };
+
+        async function rxInit() {
+          await rxLoadOrders();
+        }
+
+        async function rxLoadOrders() {
+          try {
+            const res = await fetch(api('/api/orders/gfs'));
+            const data = await res.json();
+            const sel = document.getElementById('rx-order-select');
+
+            sel.innerHTML = '';
+            (data.orders || []).forEach(o => {
+              const opt = document.createElement('option');
+              opt.value = o.orderId;
+              const total = (o.totalItems ?? (o.items?.length || 0));
+              opt.textContent = `${o.orderId} — ${new Date(o.orderDate).toLocaleString()} (${total} items)`;
+              sel.appendChild(opt);
+            });
+
+            // set some meta text
+            const meta = document.getElementById('rx-order-meta');
+            meta.textContent = `${data.totalOrders || (data.orders||[]).length} total orders loaded.`;
+          } catch (e) {
+            console.error('Load GFS orders failed', e);
+            alert('Failed to load orders.');
+          }
+        }
+
+        async function rxStartReceiving() {
+          const sel = document.getElementById('rx-order-select');
+          const orderId = sel.value;
+          if (!orderId) { alert('Pick an order first.'); return; }
+          RX_STATE.orderId = orderId;
+
+          try {
+            // 1) load location options
+            const locRes = await fetch(api('/api/storage/locations'));
+            const locData = await locRes.json();
+            RX_STATE.locations = (locData.locations || []).map(l => l.name);
+
+            // 2) get suggestions (empty decisions)
+            const sugRes = await fetch(api(`/api/orders/receive/${encodeURIComponent(orderId)}`), {
+              method: 'POST',
+              headers: {
+                'Content-Type':'application/json',
+                'Authorization': `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({}) // suggestions only
+            });
+            const sugData = await sugRes.json();
+            if (!sugData.success) throw new Error(sugData.error || 'Suggestion error');
+
+            RX_STATE.items = sugData.items || [];
+            renderReceivingTable();
+            document.getElementById('rx-ui').style.display = 'block';
+
+          } catch (e) {
+            console.error('Start receiving failed', e);
+            alert('Failed to load suggestions for this order.');
+          }
+        }
+
+        function renderReceivingTable() {
+          const tbody = document.getElementById('rx-items-body');
+          tbody.innerHTML = '';
+
+          RX_STATE.items.forEach((it, idx) => {
+            const tr = document.createElement('tr');
+
+            const tdName = document.createElement('td');
+            tdName.textContent = it.name;
+            tr.appendChild(tdName);
+
+            const tdCode = document.createElement('td');
+            tdCode.textContent = it.stockNumber;
+            tr.appendChild(tdCode);
+
+            const tdQty = document.createElement('td');
+            tdQty.textContent = it.qty;
+            tr.appendChild(tdQty);
+
+            // allocations editor
+            const tdAlloc = document.createElement('td');
+            tdAlloc.appendChild(buildAllocEditor(idx, it));
+            tr.appendChild(tdAlloc);
+
+            tbody.appendChild(tr);
+          });
+        }
+
+        /* Build a small allocations editor:
+           rows of: [location select] [qty input] [+ add row] [– remove row]
+        */
+        function buildAllocEditor(idx, item) {
+          const wrap = document.createElement('div');
+          wrap.style.display = 'flex';
+          wrap.style.flexDirection = 'column';
+          wrap.style.gap = '8px';
+
+          // allocations container
+          const container = document.createElement('div');
+          container.style.display = 'flex';
+          container.style.flexDirection = 'column';
+          container.style.gap = '8px';
+          container.id = `rx-alloc-${idx}`;
+          wrap.appendChild(container);
+
+          // seed with suggestions (or one empty row)
+          const suggestions = Array.isArray(item.suggested) && item.suggested.length ? item.suggested : [{location:'', qty:item.qty}];
+          suggestions.forEach(s => container.appendChild(buildAllocRow(idx, s.location, s.qty)));
+
+          // total helper
+          const total = document.createElement('small');
+          total.id = `rx-total-${idx}`;
+          total.style.fontSize = '12px';
+          wrap.appendChild(total);
+          updateAllocTotals(idx, item.qty);
+
+          // add-row button
+          const addBtn = document.createElement('button');
+          addBtn.className = 'btn';
+          addBtn.style.width = '120px';
+          addBtn.textContent = '+ Add split';
+          addBtn.onclick = () => {
+            container.appendChild(buildAllocRow(idx, '', 0));
+            updateAllocTotals(idx, item.qty);
+          };
+          wrap.appendChild(addBtn);
+
+          return wrap;
+        }
+
+        function buildAllocRow(idx, location, qty) {
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.gap = '8px';
+
+          // location select
+          const sel = document.createElement('select');
+          sel.className = 'form-input';
+          sel.style.width = '200px';
+          sel.innerHTML = `<option value="">— choose location —</option>` + RX_STATE.locations.map(n => `<option value="${n}">${n}</option>`).join('');
+          if (location) sel.value = location;
+          sel.onchange = () => updateAllocTotals(idx);
+
+          // qty input
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.className = 'form-input';
+          input.style.width = '80px';
+          input.min = '0';
+          input.step = '1';
+          input.value = isFinite(qty) ? qty : 0;
+          input.oninput = () => updateAllocTotals(idx);
+
+          // remove button
+          const rm = document.createElement('button');
+          rm.className = 'btn';
+          rm.textContent = '–';
+          rm.title = 'Remove split';
+          rm.style.width = '30px';
+          rm.onclick = () => {
+            row.remove();
+            updateAllocTotals(idx);
+          };
+
+          row.appendChild(sel);
+          row.appendChild(input);
+          row.appendChild(rm);
+          return row;
+        }
+
+        function updateAllocTotals(idx, targetQty=null) {
+          const container = document.getElementById(`rx-alloc-${idx}`);
+          const totalEl = document.getElementById(`rx-total-${idx}`);
+          const rows = [...container.children];
+          const sum = rows.reduce((s, r) => {
+            const val = parseInt(r.querySelector('input').value || '0', 10);
+            return s + (isFinite(val) ? val : 0);
+          }, 0);
+          if (targetQty == null) {
+            // look up item qty
+            targetQty = RX_STATE.items[idx]?.qty || 0;
+          }
+          const diff = targetQty - sum;
+          totalEl.textContent = `Allocated: ${sum} / ${targetQty}  ${diff === 0 ? '✓' : diff > 0 ? `(${diff} remaining)` : `(${Math.abs(diff)} over)`}`;
+          totalEl.style.color = diff === 0 ? 'green' : (diff > 0 ? '#b45309' : '#b91c1c');
+        }
+
+        function rxFillAllSuggestions() {
+          // just re-render, suggestions are already seeded; this button is here for clarity
+          renderReceivingTable();
+        }
+
+        function collectDecisions() {
+          const decisions = [];
+          RX_STATE.items.forEach((it, idx) => {
+            const container = document.getElementById(`rx-alloc-${idx}`);
+            const rows = [...container.children];
+            const allocations = rows.map(r => {
+              const loc = r.querySelector('select').value;
+              const qty = parseInt(r.querySelector('input').value || '0', 10);
+              return { location: loc, qty: isFinite(qty) ? qty : 0 };
+            }).filter(a => a.location && a.qty > 0);
+
+            if (allocations.length) {
+              decisions.push({
+                stockNumber: it.stockNumber,
+                allocations
+              });
+            }
+          });
+          return decisions;
+        }
+
+        async function rxApplyDecisions() {
+          const decisions = collectDecisions();
+          if (!decisions.length) {
+            alert('Nothing to apply — add at least one allocation.');
+            return;
+          }
+
+          try {
+            const res = await fetch(api(`/api/orders/receive/${encodeURIComponent(RX_STATE.orderId)}`), {
+              method: 'POST',
+              headers: {
+                'Content-Type':'application/json',
+                'Authorization': `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({ decisions })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Apply failed');
+
+            const out = document.getElementById('rx-result');
+            out.style.display = 'block';
+            out.innerHTML = `
+              <div class="card" style="padding: 16px;">
+                <div><strong>Applied ${data.applied?.length || 0} item(s)</strong></div>
+                <pre style="margin-top: 8px; white-space: pre-wrap; font-size: 12px; background: #f5f5f5; padding: 8px; border-radius: 4px;">${JSON.stringify(data.applied, null, 2)}</pre>
+              </div>
+            `;
+
+            // Optional: refresh inventory summary elsewhere in your UI after apply
+            // await loadInventory();
+
+            alert('Allocations applied!');
+
+          } catch (e) {
+            console.error('Apply decisions failed', e);
+            alert('Failed to apply allocations — check console for details.');
+          }
+        }
+
+        /* If you auto-initialize sections after login, call rxInit() when showing the Receiving tab */
+
+        /* ===== AI Agent wiring ===== */
+        let AGENT_STATE = {
+          log: [] // {role:'user'|'assistant', text:string, ts:string}
+        };
+
+        function agentInit() {
+          // Restore last 25 messages from localStorage (optional)
+          try {
+            const saved = JSON.parse(localStorage.getItem('agentLog') || '[]');
+            AGENT_STATE.log = saved.slice(-25);
+          } catch {}
+          agentRender();
+          // Focus input
+          const inp = document.getElementById('agent-input');
+          if (inp) inp.focus();
+        }
+
+        function agentQuick(text) {
+          const input = document.getElementById('agent-input');
+          input.value = text;
+          input.form.requestSubmit();
+        }
+
+        function agentRender() {
+          const box = document.getElementById('agent-log');
+          if (!box) return;
+
+          box.innerHTML = AGENT_STATE.log.map(m => {
+            const who = m.role === 'assistant' ? '🤖' : '🧑';
+            return `
+              <div class="mb-2" style="margin-bottom: 12px;">
+                <div class="text-sm" style="opacity:.7; font-size: 12px;">${who} <span>${new Date(m.ts).toLocaleString()}</span></div>
+                <div style="white-space:pre-wrap">${escapeHtml(m.text)}</div>
+              </div>
+            `;
+          }).join('');
+          box.scrollTop = box.scrollHeight;
+
+          // persist
+          try { localStorage.setItem('agentLog', JSON.stringify(AGENT_STATE.log)); } catch {}
+        }
+
+        function agentTyping(on=true){
+          const box = document.getElementById('agent-log');
+          if (!box) return;
+          const id = 'agent-typing';
+          let el = document.getElementById(id);
+          if (on) {
+            if (!el) {
+              el = document.createElement('div');
+              el.id = id;
+              el.style.marginBottom = '12px';
+              el.innerHTML = `<div class="thinking-icon">🤖</div><div>…thinking…</div>`;
+              box.appendChild(el);
+            }
+            box.scrollTop = box.scrollHeight;
+          } else {
+            if (el) el.remove();
+          }
+        }
+
+        function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+        async function agentSend(e) {
+          if (e) e.preventDefault();
+          const inp = document.getElementById('agent-input');
+          const msg = (inp.value || '').trim();
+          if (!msg) return false;
+
+          // push user msg
+          AGENT_STATE.log.push({ role:'user', text: msg, ts: new Date().toISOString() });
+          agentRender();
+          inp.value = '';
+
+          // call backend
+          try {
+            agentTyping(true);
+            const res = await fetch(api('/api/ai/chat'), {
+              method: 'POST',
+              headers: {
+                'Content-Type':'application/json',
+                'Authorization': `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({ message: msg })
+            });
+            const data = await res.json();
+            agentTyping(false);
+
+            if (!res.ok || !data.success) {
+              throw new Error(data.error || `HTTP ${res.status}`);
+            }
+
+            const reply = data.response || '(no response)';
+            AGENT_STATE.log.push({ role:'assistant', text: reply, ts: new Date().toISOString() });
+            agentRender();
+
+          } catch (err) {
+            agentTyping(false);
+            const t = `Error: ${err.message || err}`;
+            AGENT_STATE.log.push({ role:'assistant', text: t, ts: new Date().toISOString() });
+            agentRender();
+          }
+
+          return false;
+        }
+
+        // Apply agent suggestions function
+        async function agentApplySuggestions(orderId, items) {
+          try {
+            // Convert suggestions -> decisions
+            const decisions = (items || []).map(it => {
+              const allocations = (it.suggested || [])
+                .filter(s => s && s.location && Number(s.qty) > 0)
+                .map(s => ({ location: s.location, qty: Number(s.qty) }));
+              return {
+                stockNumber: it.stockNumber || it.code || it.supplierCode,
+                allocations
+              };
+            }).filter(d => d.stockNumber && d.allocations && d.allocations.length > 0);
+
+            if (!decisions.length) {
+              AGENT_STATE.log.push({
+                role: 'assistant',
+                text: `No non-zero suggestions to apply for **${orderId}**. You can open the Receiving tab to edit allocations before applying.`,
+                ts: new Date().toISOString()
+              });
+              agentRender();
+              return;
+            }
+
+            // Call backend to apply
+            agentTyping(true);
+            const res = await fetch(api(`/orders/receive/${encodeURIComponent(orderId)}`), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({ decisions })
+            });
+            const data = await res.json();
+            agentTyping(false);
+
+            if (!res.ok || !data.success) {
+              throw new Error(data.error || `HTTP ${res.status}`);
+            }
+
+            // Build a compact receipt
+            if (data.mode === 'applied') {
+              const applied = data.applied || [];
+              const totalLines = applied.length;
+              const totalUnits = applied.reduce((s, a) => s + (a.added || 0), 0);
+              const preview = applied.slice(0, 10).map(row => {
+                const lines = (row.allocations || []).map(a => `${a.location}→${a.qty}`).join(', ');
+                return `• ${row.name} (${row.stockNumber}) +${row.added}  [${lines}]`;
+              }).join('\n');
+              const more = totalLines > 10 ? `\n… and ${totalLines - 10} more line(s)` : '';
+
+              AGENT_STATE.log.push({
+                role: 'assistant',
+                text:
+                  `✅ Applied suggestions for **${orderId}**\n\n` +
+                  `${preview}${more}\n\n` +
+                  `**Totals:** ${totalLines} lines, ${totalUnits} units added.\n` +
+                  `Inventory & location memory updated.`,
+                ts: new Date().toISOString()
+              });
+              agentRender();
+
+              // Optional: refresh visible data if your page has these
+              try {
+                if (typeof loadInventory === 'function') await loadInventory();
+                if (typeof loadLocations === 'function') await loadLocations();
+              } catch {}
+
+            } else {
+              // Unexpected mode (e.g., suggest) — show guard message
+              AGENT_STATE.log.push({
+                role: 'assistant',
+                text: `Got a non-applied response for **${orderId}** (mode: ${data.mode}). Try again or open the Receiving tab to edit manually.`,
+                ts: new Date().toISOString()
+              });
+              agentRender();
+            }
+
+          } catch (err) {
+            agentTyping(false);
+            AGENT_STATE.log.push({
+              role: 'assistant',
+              text: `❌ Failed to apply suggestions for **${orderId}**: ${err.message || err}`,
+              ts: new Date().toISOString()
+            });
+            agentRender();
+          }
+        }
+
+        // Optional: send on Enter without submitting when composing
+        document.addEventListener('keydown', (ev) => {
+          const el = document.activeElement;
+          if (el && el.id === 'agent-input' && ev.key === 'Enter' && !ev.shiftKey) {
+            ev.preventDefault();
+            el.form.requestSubmit();
+          }
+        });
+
+        // CSP-safe event delegation
+        document.addEventListener('submit', (e) => {
+            // Handle form submissions
+            if (e.target.id === 'loginForm') {
+                e.preventDefault();
+                handleLogin(e);
+            }
+        });
+        
+        document.addEventListener('change', (e) => {
+            // Handle form changes
+            if (e.target.id === 'orderFilter') {
+                filterOrders();
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            // Navigation handling
+            const navItem = e.target.closest('a[data-section]');
+            if (navItem) {
+                e.preventDefault();
+                const section = navItem.dataset.section;
+                showSection(section);
+                if (section === 'agent' && typeof agentInit === 'function') agentInit();
+                return;
+            }
+            
+            // Action handling
+            const actionElement = e.target.closest('[data-action]');
+            if (!actionElement) return;
+            
+            e.preventDefault();
+            const action = actionElement.dataset.action;
+            
+            // Action mappings
+            const actionMap = {
+                'logout': () => logout(),
+                'verify-2fa': () => verify2FA(),
+                'load-orders': () => loadOrders(),
+                'add-location': () => showAddLocationModal(),
+                'load-locations': () => loadLocations(),
+                'new-transfer': () => showTransferModal(),
+                'load-transfers': () => loadTransfers(),
+                'rx-start': () => rxStartReceiving(),
+                'rx-fill-all': () => rxFillAllSuggestions(),
+                'rx-apply': () => rxApplyDecisions(),
+                'save-settings': () => saveSettings(),
+                'view-location': () => {
+                    const locationId = actionElement.dataset.locationId;
+                    if (locationId) viewLocationDetails(locationId);
+                },
+                'edit-location': () => {
+                    const locationId = actionElement.dataset.locationId;
+                    if (locationId) editLocation(locationId);
+                },
+                'remove-alloc': () => {
+                    const containerId = actionElement.dataset.containerId;
+                    const rowIdx = actionElement.dataset.rowIdx;
+                    if (containerId && rowIdx !== undefined) removeAllocRow(containerId, parseInt(rowIdx));
+                },
+                'add-alloc': () => {
+                    const containerId = actionElement.dataset.containerId;
+                    if (containerId) addAllocRow(containerId);
+                },
+                'agent-quick': () => {
+                    const message = actionElement.dataset.message;
+                    if (message) agentQuick(message);
+                }
+            };
+            
+            if (actionMap[action]) {
+                actionMap[action]();
+            }
+        });
+
+        // Check for existing session on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            // No session restoration for now - refresh endpoint not implemented
+            console.log('Session restoration disabled - refresh endpoint not implemented');
+            
+            // Load dashboard statistics when page loads
+            try {
+                await loadDashboardStats();
+            } catch (error) {
+                console.error('Error loading initial dashboard stats:', error);
+            }
+        });
+    </script>
+</body>
+</html>

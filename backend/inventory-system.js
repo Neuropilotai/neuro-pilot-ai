@@ -20,80 +20,89 @@
  */
 
 // Anti-tampering and license validation
-(function() {
-    'use strict';
-    
-    // Proprietary license check
-    const _0x1234 = 'david.mikulis.inventory.system.2025';
-    const _0x5678 = 'camp.inventory.proprietary.license';
-    
-    // Runtime protection against code theft
-    if (typeof process === 'undefined' || !process.env) {
-        throw new Error('PROPRIETARY SOFTWARE: Unauthorized execution environment detected');
-    }
-    
-    // Anti-debugging protection
-    const startTime = Date.now();
-    debugger;
-    if (Date.now() - startTime > 100) {
-        throw new Error('PROPRIETARY SOFTWARE: Debugging tools detected - Access denied');
-    }
-    
-    // License validation
-    const validateLicense = () => {
-        const expected = Buffer.from(_0x1234).toString('base64');
-        const license = Buffer.from(_0x5678).toString('base64');
-        return expected && license;
-    };
-    
-    if (!validateLicense()) {
-        throw new Error('PROPRIETARY SOFTWARE: Invalid license - Contact david.mikulis@camp-inventory.com');
-    }
-    
-    // Source code protection notice
-    console.log('🔒 PROPRIETARY SOFTWARE LOADED - © 2025 David Mikulis');
-    console.log('⚠️  UNAUTHORIZED USE IS PROHIBITED AND MONITORED');
+(function () {
+  "use strict";
+
+  // Proprietary license check
+  const _0x1234 = "david.mikulis.inventory.system.2025";
+  const _0x5678 = "camp.inventory.proprietary.license";
+
+  // Runtime protection against code theft
+  if (typeof process === "undefined" || !process.env) {
+    throw new Error(
+      "PROPRIETARY SOFTWARE: Unauthorized execution environment detected",
+    );
+  }
+
+  // Anti-debugging protection
+  const startTime = Date.now();
+  debugger;
+  if (Date.now() - startTime > 100) {
+    throw new Error(
+      "PROPRIETARY SOFTWARE: Debugging tools detected - Access denied",
+    );
+  }
+
+  // License validation
+  const validateLicense = () => {
+    const expected = Buffer.from(_0x1234).toString("base64");
+    const license = Buffer.from(_0x5678).toString("base64");
+    return expected && license;
+  };
+
+  if (!validateLicense()) {
+    throw new Error(
+      "PROPRIETARY SOFTWARE: Invalid license - Contact david.mikulis@camp-inventory.com",
+    );
+  }
+
+  // Source code protection notice
+  console.log("🔒 PROPRIETARY SOFTWARE LOADED - © 2025 David Mikulis");
+  console.log("⚠️  UNAUTHORIZED USE IS PROHIBITED AND MONITORED");
 })();
 
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs').promises;
-const multer = require('multer');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+const fs = require("fs").promises;
+const multer = require("multer");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = 8083;
 
 // Security Configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'camp-inventory-secret-2025-david-mikulis';
+const JWT_SECRET =
+  process.env.JWT_SECRET || "camp-inventory-secret-2025-david-mikulis";
 const BCRYPT_ROUNDS = 12;
 
 // Security Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  }
-}));
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }),
+);
 
 // Rate Limiting
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // 5 attempts per window
-  message: 'Too many login attempts, please try again later.',
+  message: "Too many login attempts, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -101,47 +110,53 @@ const loginLimiter = rateLimit({
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 requests per window
-  message: 'Too many API requests, please try again later.',
+  message: "Too many API requests, please try again later.",
 });
 
 // Apply rate limiting
-app.use('/api/auth/login', loginLimiter);
-app.use('/api/', apiLimiter);
+app.use("/api/auth/login", loginLimiter);
+app.use("/api/", apiLimiter);
 
 // CORS with security
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? ['https://yourdomain.com'] : ['http://localhost:8083'],
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
+app.use(
+  cors({
+    origin:
+      process.env.NODE_ENV === "production"
+        ? ["https://yourdomain.com"]
+        : ["http://localhost:8083"],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  }),
+);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.static(path.join(__dirname, "public")));
 
 // Secure user storage (in production, use proper database)
 const users = [
   {
     id: 1,
-    email: 'david.mikulis@camp-inventory.com',
+    email: "david.mikulis@camp-inventory.com",
     // Hashed version of 'inventory2025'
-    passwordHash: '$2b$12$8K1p2V3B.nQ7mF9xJ6tY8eGH2pQ5rT9xM4nL6vZ8wC1yS3dF7gH9i',
-    role: 'admin',
-    name: 'David Mikulis'
-  }
+    passwordHash:
+      "$2b$12$8K1p2V3B.nQ7mF9xJ6tY8eGH2pQ5rT9xM4nL6vZ8wC1yS3dF7gH9i",
+    role: "admin",
+    name: "David Mikulis",
+  },
 ];
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    return res.status(401).json({ error: "Access token required" });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+      return res.status(403).json({ error: "Invalid or expired token" });
     }
     req.user = user;
     next();
@@ -151,71 +166,201 @@ const authenticateToken = (req, res, next) => {
 // Input validation middleware
 const validateInventoryInput = (req, res, next) => {
   const { quantity } = req.body;
-  
+
   if (quantity !== undefined) {
     const qty = parseInt(quantity);
     if (isNaN(qty) || qty < 0 || qty > 999999) {
-      return res.status(400).json({ error: 'Invalid quantity value' });
+      return res.status(400).json({ error: "Invalid quantity value" });
     }
     req.body.quantity = qty;
   }
-  
+
   next();
 };
 
 // Basic middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, "public")));
 
 // File upload configuration
-const upload = multer({ 
-  dest: path.join(__dirname, 'data', 'inventory_imports'),
-  limits: { fileSize: 10 * 1024 * 1024 }
+const upload = multer({
+  dest: path.join(__dirname, "data", "inventory_imports"),
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 // Complete inventory data with Sysco, GFS suppliers
 let inventory = [
-  { id: 1, name: 'Ground Beef', quantity: 75, minQuantity: 50, maxQuantity: 200, category: 'Meat', unit: 'Pound', supplier: 'Sysco', unitPrice: 4.99, location: 'Freezer A1', supplierCode: 'SYS-001', lastOrderDate: '2025-01-20' },
-  { id: 2, name: 'Milk', quantity: 35, minQuantity: 20, maxQuantity: 100, category: 'Dairy', unit: 'Gallon', supplier: 'GFS (Gordon Food Service)', unitPrice: 3.99, location: 'Cooler B2', supplierCode: 'GFS-002', lastOrderDate: '2025-01-18' },
-  { id: 3, name: 'Bread', quantity: 15, minQuantity: 25, maxQuantity: 120, category: 'Bakery', unit: 'Loaf', supplier: 'Sysco', unitPrice: 2.99, location: 'Dry Storage C1', supplierCode: 'SYS-003', lastOrderDate: '2025-01-15' },
-  { id: 4, name: 'Chicken Breast', quantity: 120, minQuantity: 80, maxQuantity: 300, category: 'Meat', unit: 'Pound', supplier: 'Sysco', unitPrice: 5.49, location: 'Freezer A2', supplierCode: 'SYS-004', lastOrderDate: '2025-01-22' },
-  { id: 5, name: 'Eggs', quantity: 48, minQuantity: 60, maxQuantity: 240, category: 'Dairy', unit: 'Dozen', supplier: 'GFS (Gordon Food Service)', unitPrice: 3.29, location: 'Cooler B1', supplierCode: 'GFS-005', lastOrderDate: '2025-01-19' },
-  { id: 6, name: 'Rice', quantity: 200, minQuantity: 100, maxQuantity: 500, category: 'Dry Goods', unit: 'Pound', supplier: 'US Foods', unitPrice: 1.49, location: 'Dry Storage C2', supplierCode: 'USF-006', lastOrderDate: '2025-01-16' },
-  { id: 7, name: 'Tomatoes', quantity: 5, minQuantity: 40, maxQuantity: 100, category: 'Produce', unit: 'Pound', supplier: 'Sysco', unitPrice: 2.99, location: 'Cooler B3', supplierCode: 'SYS-007', lastOrderDate: '2025-01-14' },
-  { id: 8, name: 'Cheese', quantity: 25, minQuantity: 30, maxQuantity: 80, category: 'Dairy', unit: 'Pound', supplier: 'GFS (Gordon Food Service)', unitPrice: 6.99, location: 'Cooler B2', supplierCode: 'GFS-008', lastOrderDate: '2025-01-21' },
-  { id: 9, name: 'French Fries', quantity: 10, minQuantity: 40, maxQuantity: 150, category: 'Frozen', unit: 'Bag', supplier: 'Sysco', unitPrice: 3.49, location: 'Freezer B1', supplierCode: 'SYS-009', lastOrderDate: '2025-01-17' },
-  { id: 10, name: 'Onions', quantity: 25, minQuantity: 30, maxQuantity: 100, category: 'Produce', unit: 'Bag', supplier: 'US Foods', unitPrice: 2.19, location: 'Dry Storage C3', supplierCode: 'USF-010', lastOrderDate: '2025-01-20' }
+  {
+    id: 1,
+    name: "Ground Beef",
+    quantity: 75,
+    minQuantity: 50,
+    maxQuantity: 200,
+    category: "Meat",
+    unit: "Pound",
+    supplier: "Sysco",
+    unitPrice: 4.99,
+    location: "Freezer A1",
+    supplierCode: "SYS-001",
+    lastOrderDate: "2025-01-20",
+  },
+  {
+    id: 2,
+    name: "Milk",
+    quantity: 35,
+    minQuantity: 20,
+    maxQuantity: 100,
+    category: "Dairy",
+    unit: "Gallon",
+    supplier: "GFS (Gordon Food Service)",
+    unitPrice: 3.99,
+    location: "Cooler B2",
+    supplierCode: "GFS-002",
+    lastOrderDate: "2025-01-18",
+  },
+  {
+    id: 3,
+    name: "Bread",
+    quantity: 15,
+    minQuantity: 25,
+    maxQuantity: 120,
+    category: "Bakery",
+    unit: "Loaf",
+    supplier: "Sysco",
+    unitPrice: 2.99,
+    location: "Dry Storage C1",
+    supplierCode: "SYS-003",
+    lastOrderDate: "2025-01-15",
+  },
+  {
+    id: 4,
+    name: "Chicken Breast",
+    quantity: 120,
+    minQuantity: 80,
+    maxQuantity: 300,
+    category: "Meat",
+    unit: "Pound",
+    supplier: "Sysco",
+    unitPrice: 5.49,
+    location: "Freezer A2",
+    supplierCode: "SYS-004",
+    lastOrderDate: "2025-01-22",
+  },
+  {
+    id: 5,
+    name: "Eggs",
+    quantity: 48,
+    minQuantity: 60,
+    maxQuantity: 240,
+    category: "Dairy",
+    unit: "Dozen",
+    supplier: "GFS (Gordon Food Service)",
+    unitPrice: 3.29,
+    location: "Cooler B1",
+    supplierCode: "GFS-005",
+    lastOrderDate: "2025-01-19",
+  },
+  {
+    id: 6,
+    name: "Rice",
+    quantity: 200,
+    minQuantity: 100,
+    maxQuantity: 500,
+    category: "Dry Goods",
+    unit: "Pound",
+    supplier: "US Foods",
+    unitPrice: 1.49,
+    location: "Dry Storage C2",
+    supplierCode: "USF-006",
+    lastOrderDate: "2025-01-16",
+  },
+  {
+    id: 7,
+    name: "Tomatoes",
+    quantity: 5,
+    minQuantity: 40,
+    maxQuantity: 100,
+    category: "Produce",
+    unit: "Pound",
+    supplier: "Sysco",
+    unitPrice: 2.99,
+    location: "Cooler B3",
+    supplierCode: "SYS-007",
+    lastOrderDate: "2025-01-14",
+  },
+  {
+    id: 8,
+    name: "Cheese",
+    quantity: 25,
+    minQuantity: 30,
+    maxQuantity: 80,
+    category: "Dairy",
+    unit: "Pound",
+    supplier: "GFS (Gordon Food Service)",
+    unitPrice: 6.99,
+    location: "Cooler B2",
+    supplierCode: "GFS-008",
+    lastOrderDate: "2025-01-21",
+  },
+  {
+    id: 9,
+    name: "French Fries",
+    quantity: 10,
+    minQuantity: 40,
+    maxQuantity: 150,
+    category: "Frozen",
+    unit: "Bag",
+    supplier: "Sysco",
+    unitPrice: 3.49,
+    location: "Freezer B1",
+    supplierCode: "SYS-009",
+    lastOrderDate: "2025-01-17",
+  },
+  {
+    id: 10,
+    name: "Onions",
+    quantity: 25,
+    minQuantity: 30,
+    maxQuantity: 100,
+    category: "Produce",
+    unit: "Bag",
+    supplier: "US Foods",
+    unitPrice: 2.19,
+    location: "Dry Storage C3",
+    supplierCode: "USF-010",
+    lastOrderDate: "2025-01-20",
+  },
 ];
 
 // Suppliers
 let suppliers = {
-  'Sysco': {
-    name: 'Sysco Corporation',
-    contact: '1-800-SYSCO01',
-    email: 'orders@sysco.com',
-    website: 'www.sysco.com',
+  Sysco: {
+    name: "Sysco Corporation",
+    contact: "1-800-SYSCO01",
+    email: "orders@sysco.com",
+    website: "www.sysco.com",
     minimumOrder: 150,
-    deliveryDays: ['Monday', 'Wednesday', 'Friday'],
-    paymentTerms: 'Net 30'
+    deliveryDays: ["Monday", "Wednesday", "Friday"],
+    paymentTerms: "Net 30",
   },
-  'GFS (Gordon Food Service)': {
-    name: 'Gordon Food Service',
-    contact: '1-800-968-4164',
-    email: 'customerservice@gfs.com',
-    website: 'www.gfs.com',
+  "GFS (Gordon Food Service)": {
+    name: "Gordon Food Service",
+    contact: "1-800-968-4164",
+    email: "customerservice@gfs.com",
+    website: "www.gfs.com",
     minimumOrder: 100,
-    deliveryDays: ['Tuesday', 'Thursday', 'Saturday'],
-    paymentTerms: 'Net 30'
+    deliveryDays: ["Tuesday", "Thursday", "Saturday"],
+    paymentTerms: "Net 30",
   },
-  'US Foods': {
-    name: 'US Foods',
-    contact: '1-800-388-8638',
-    email: 'orders@usfoods.com',
-    website: 'www.usfoods.com',
+  "US Foods": {
+    name: "US Foods",
+    contact: "1-800-388-8638",
+    email: "orders@usfoods.com",
+    website: "www.usfoods.com",
     minimumOrder: 125,
-    deliveryDays: ['Monday', 'Tuesday', 'Thursday'],
-    paymentTerms: 'Net 30'
-  }
+    deliveryDays: ["Monday", "Tuesday", "Thursday"],
+    paymentTerms: "Net 30",
+  },
 };
 
 // Orders system
@@ -224,50 +369,52 @@ let orderCounter = 1;
 
 // AI Agent
 let aiAgent = {
-  name: 'Inventory AI Assistant',
-  version: '2.0',
-  status: 'active',
+  name: "Inventory AI Assistant",
+  version: "2.0",
+  status: "active",
   confidence: 0.92,
-  patternsLearned: 47
+  patternsLearned: 47,
 };
 
 // Authentication API Routes
 
 // Login endpoint
-app.post('/api/auth/login', async (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     // Input validation
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
+      return res.status(400).json({ error: "Email and password required" });
     }
-    
+
     // Find user
-    const user = users.find(u => u.email === email);
+    const user = users.find((u) => u.email === email);
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
-    
+
     // For demo purposes, accept the original password or check hash
-    const isValidPassword = password === 'inventory2025' || await bcrypt.compare(password, user.passwordHash);
-    
+    const isValidPassword =
+      password === "inventory2025" ||
+      (await bcrypt.compare(password, user.passwordHash));
+
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Invalid credentials" });
     }
-    
+
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email, 
+      {
+        id: user.id,
+        email: user.email,
         role: user.role,
-        name: user.name 
+        name: user.name,
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" },
     );
-    
+
     res.json({
       success: true,
       token,
@@ -275,106 +422,121 @@ app.post('/api/auth/login', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
-    
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // Token validation endpoint
-app.get('/api/auth/validate', authenticateToken, (req, res) => {
+app.get("/api/auth/validate", authenticateToken, (req, res) => {
   res.json({
     valid: true,
-    user: req.user
+    user: req.user,
   });
 });
 
 // Logout endpoint (client-side token removal)
-app.post('/api/auth/logout', (req, res) => {
-  res.json({ success: true, message: 'Logged out successfully' });
+app.post("/api/auth/logout", (req, res) => {
+  res.json({ success: true, message: "Logged out successfully" });
 });
 
 // Protected API Routes
 
 // Get inventory items
-app.get('/api/inventory/items', (req, res) => {
-  const itemsWithInsights = inventory.map(item => {
+app.get("/api/inventory/items", (req, res) => {
+  const itemsWithInsights = inventory.map((item) => {
     const stockLevel = (item.quantity / item.maxQuantity) * 100;
     const daysUntilEmpty = Math.floor(item.quantity / 5);
-    
+
     return {
       ...item,
       stockLevel: stockLevel.toFixed(1),
       aiInsights: {
-        trend: stockLevel > 60 ? 'Stable' : stockLevel > 30 ? 'Declining' : 'Critical',
+        trend:
+          stockLevel > 60
+            ? "Stable"
+            : stockLevel > 30
+              ? "Declining"
+              : "Critical",
         daysUntilEmpty: daysUntilEmpty,
-        recommendedAction: item.quantity <= item.minQuantity ? 'Order Now' : 'Monitor',
+        recommendedAction:
+          item.quantity <= item.minQuantity ? "Order Now" : "Monitor",
         confidence: aiAgent.confidence,
-        riskLevel: item.quantity === 0 ? 'high' : item.quantity <= item.minQuantity ? 'medium' : 'low'
-      }
+        riskLevel:
+          item.quantity === 0
+            ? "high"
+            : item.quantity <= item.minQuantity
+              ? "medium"
+              : "low",
+      },
     };
   });
-  
+
   res.json(itemsWithInsights);
 });
 
 // Update item quantity
-app.put('/api/inventory/items/:id', authenticateToken, validateInventoryInput, (req, res) => {
-  const itemId = parseInt(req.params.id);
-  const { quantity } = req.body;
-  
-  const item = inventory.find(i => i.id === itemId);
-  if (!item) {
-    return res.status(404).json({ error: 'Item not found' });
-  }
-  
-  item.quantity = parseInt(quantity);
-  item.lastUpdate = new Date();
-  
-  res.json({
-    success: true,
-    message: 'Quantity updated successfully',
-    item: item
-  });
-});
+app.put(
+  "/api/inventory/items/:id",
+  authenticateToken,
+  validateInventoryInput,
+  (req, res) => {
+    const itemId = parseInt(req.params.id);
+    const { quantity } = req.body;
+
+    const item = inventory.find((i) => i.id === itemId);
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    item.quantity = parseInt(quantity);
+    item.lastUpdate = new Date();
+
+    res.json({
+      success: true,
+      message: "Quantity updated successfully",
+      item: item,
+    });
+  },
+);
 
 // Get suppliers
-app.get('/api/inventory/suppliers', (req, res) => {
+app.get("/api/inventory/suppliers", (req, res) => {
   res.json(suppliers);
 });
 
 // Create order
-app.post('/api/inventory/orders', authenticateToken, (req, res) => {
+app.post("/api/inventory/orders", authenticateToken, (req, res) => {
   const { supplierId, items: orderItems, notes } = req.body;
-  
+
   if (!suppliers[supplierId]) {
-    return res.status(400).json({ error: 'Invalid supplier' });
+    return res.status(400).json({ error: "Invalid supplier" });
   }
-  
+
   let totalAmount = 0;
-  const validatedItems = orderItems.map(orderItem => {
-    const inventoryItem = inventory.find(i => i.id === orderItem.itemId);
+  const validatedItems = orderItems.map((orderItem) => {
+    const inventoryItem = inventory.find((i) => i.id === orderItem.itemId);
     if (!inventoryItem) {
       throw new Error(`Item ${orderItem.itemId} not found`);
     }
-    
+
     const itemTotal = orderItem.quantity * inventoryItem.unitPrice;
     totalAmount += itemTotal;
-    
+
     return {
       itemId: orderItem.itemId,
       name: inventoryItem.name,
       quantity: orderItem.quantity,
       unitPrice: inventoryItem.unitPrice,
       total: itemTotal,
-      unit: inventoryItem.unit
+      unit: inventoryItem.unit,
     };
   });
-  
+
   const newOrder = {
     id: orderCounter++,
     orderNumber: `ORD-${Date.now()}`,
@@ -382,40 +544,42 @@ app.post('/api/inventory/orders', authenticateToken, (req, res) => {
     supplierInfo: suppliers[supplierId],
     items: validatedItems,
     totalAmount: totalAmount.toFixed(2),
-    status: 'pending',
+    status: "pending",
     orderDate: new Date().toISOString(),
-    notes: notes || '',
-    createdBy: 'David Mikulis'
+    notes: notes || "",
+    createdBy: "David Mikulis",
   };
-  
+
   orders.push(newOrder);
-  
+
   res.json({
     success: true,
     order: newOrder,
-    message: 'Order created successfully'
+    message: "Order created successfully",
   });
 });
 
 // Get orders
-app.get('/api/inventory/orders', (req, res) => {
+app.get("/api/inventory/orders", (req, res) => {
   res.json({
-    orders: orders.sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate)),
-    totalOrders: orders.length
+    orders: orders.sort(
+      (a, b) => new Date(b.orderDate) - new Date(a.orderDate),
+    ),
+    totalOrders: orders.length,
   });
 });
 
 // Reorder suggestions
-app.get('/api/inventory/reorder-suggestions', (req, res) => {
+app.get("/api/inventory/reorder-suggestions", (req, res) => {
   const suggestions = [];
   const itemsBySupplier = {};
-  
-  inventory.forEach(item => {
+
+  inventory.forEach((item) => {
     if (item.quantity <= item.minQuantity) {
       if (!itemsBySupplier[item.supplier]) {
         itemsBySupplier[item.supplier] = [];
       }
-      
+
       const suggestedQuantity = item.maxQuantity - item.quantity;
       itemsBySupplier[item.supplier].push({
         itemId: item.id,
@@ -423,61 +587,70 @@ app.get('/api/inventory/reorder-suggestions', (req, res) => {
         currentQuantity: item.quantity,
         suggestedQuantity: suggestedQuantity,
         unitPrice: item.unitPrice,
-        estimatedCost: suggestedQuantity * item.unitPrice
+        estimatedCost: suggestedQuantity * item.unitPrice,
       });
     }
   });
-  
+
   Object.entries(itemsBySupplier).forEach(([supplier, items]) => {
     const totalCost = items.reduce((sum, item) => sum + item.estimatedCost, 0);
     const supplierInfo = suppliers[supplier];
-    
+
     suggestions.push({
       supplier: supplier,
       supplierInfo: supplierInfo,
       items: items,
       estimatedTotal: totalCost.toFixed(2),
-      priority: items.some(item => item.currentQuantity === 0) ? 'high' : 'medium'
+      priority: items.some((item) => item.currentQuantity === 0)
+        ? "high"
+        : "medium",
     });
   });
-  
+
   res.json({ suggestions });
 });
 
 // File upload for orders
-app.post('/api/inventory/upload-order', authenticateToken, upload.single('orderFile'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+app.post(
+  "/api/inventory/upload-order",
+  authenticateToken,
+  upload.single("orderFile"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Process PDF or other file types here
+      res.json({
+        success: true,
+        message: "Order file uploaded successfully",
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ error: "Failed to process file: " + error.message });
     }
-    
-    // Process PDF or other file types here
-    res.json({
-      success: true,
-      message: 'Order file uploaded successfully',
-      filename: req.file.originalname,
-      size: req.file.size
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to process file: ' + error.message });
-  }
-});
+  },
+);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
-    status: 'healthy',
-    service: 'Complete Working Inventory System',
-    version: '2.0',
+    status: "healthy",
+    service: "Complete Working Inventory System",
+    version: "2.0",
     items: inventory.length,
     suppliers: Object.keys(suppliers).length,
     orders: orders.length,
-    aiAgent: aiAgent
+    aiAgent: aiAgent,
   });
 });
 
 // LOGIN AND COMPLETE DASHBOARD - ALL IN ONE
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1288,41 +1461,43 @@ app.get('/', (req, res) => {
 
 // Proprietary runtime protection
 const _0xABCD = {
-  _owner: 'David Mikulis',
+  _owner: "David Mikulis",
   _year: 2025,
-  _product: 'Inventory Management System',
-  _validate: function() {
-    const _stamp = Buffer.from(this._owner + this._year + this._product).toString('hex');
+  _product: "Inventory Management System",
+  _validate: function () {
+    const _stamp = Buffer.from(
+      this._owner + this._year + this._product,
+    ).toString("hex");
     return _stamp.length > 0;
-  }
+  },
 };
 
 // Anti-theft monitoring
 setInterval(() => {
   if (!_0xABCD._validate()) {
-    console.error('🚨 SECURITY BREACH: Unauthorized modification detected');
+    console.error("🚨 SECURITY BREACH: Unauthorized modification detected");
     process.exit(1);
   }
 }, 300000); // Check every 5 minutes
 
 // Start server with protection
 const server = app.listen(PORT, () => {
-  console.log('\\n🔒 PROPRIETARY SOFTWARE INITIALIZED');
-  console.log('\\n🏕️  COMPLETE WORKING INVENTORY SYSTEM STARTED');
-  console.log('📦 Server: http://localhost:' + PORT);
-  console.log('🔐 Login: david.mikulis@camp-inventory.com / inventory2025');
-  console.log('🏢 Suppliers: Sysco, GFS, US Foods');
-  console.log('📋 Orders: Full order management');
-  console.log('📄 Upload: PDF file support');
-  console.log('\\n✅ THE SYSTEM THAT WAS WORKING YESTERDAY!');
-  console.log('\\n🔒 COPYRIGHT © 2025 David Mikulis - All Rights Reserved');
-  console.log('⚠️  UNAUTHORIZED COPYING OR DISTRIBUTION IS PROHIBITED\\n');
+  console.log("\\n🔒 PROPRIETARY SOFTWARE INITIALIZED");
+  console.log("\\n🏕️  COMPLETE WORKING INVENTORY SYSTEM STARTED");
+  console.log("📦 Server: http://localhost:" + PORT);
+  console.log("🔐 Login: david.mikulis@camp-inventory.com / inventory2025");
+  console.log("🏢 Suppliers: Sysco, GFS, US Foods");
+  console.log("📋 Orders: Full order management");
+  console.log("📄 Upload: PDF file support");
+  console.log("\\n✅ THE SYSTEM THAT WAS WORKING YESTERDAY!");
+  console.log("\\n🔒 COPYRIGHT © 2025 David Mikulis - All Rights Reserved");
+  console.log("⚠️  UNAUTHORIZED COPYING OR DISTRIBUTION IS PROHIBITED\\n");
 });
 
-process.on('SIGINT', () => {
-  console.log('\\n🛑 Shutting down...');
+process.on("SIGINT", () => {
+  console.log("\\n🛑 Shutting down...");
   server.close(() => {
-    console.log('✅ System stopped');
+    console.log("✅ System stopped");
     process.exit(0);
   });
 });

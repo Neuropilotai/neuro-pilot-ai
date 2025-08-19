@@ -1,360 +1,410 @@
-require('dotenv').config();
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
-const ProjectApprovalSystem = require('./project_approval_system');
-const DevelopmentProgressTracker = require('./development_progress_tracker');
-const IntelligentRecommendationSystem = require('./intelligent_recommendation_system');
+require("dotenv").config();
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
+const ProjectApprovalSystem = require("./project_approval_system");
+const DevelopmentProgressTracker = require("./development_progress_tracker");
+const IntelligentRecommendationSystem = require("./intelligent_recommendation_system");
 
 class ManagementDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3007;
-        this.projectSystem = new ProjectApprovalSystem();
-        this.progressTracker = new DevelopmentProgressTracker();
-        this.recommendationSystem = new IntelligentRecommendationSystem();
-        this.setupMiddleware();
-        this.setupRoutes();
-    }
+  constructor() {
+    this.app = express();
+    this.port = 3007;
+    this.projectSystem = new ProjectApprovalSystem();
+    this.progressTracker = new DevelopmentProgressTracker();
+    this.recommendationSystem = new IntelligentRecommendationSystem();
+    this.setupMiddleware();
+    this.setupRoutes();
+  }
 
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.urlencoded({ extended: true }));
-        this.app.use(express.static('public'));
-    }
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.static("public"));
+  }
 
-    setupRoutes() {
-        // Main management dashboard
-        this.app.get('/', (req, res) => {
-            // Add cache-busting headers
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            res.send(this.getManagementDashboardHTML());
-        });
+  setupRoutes() {
+    // Main management dashboard
+    this.app.get("/", (req, res) => {
+      // Add cache-busting headers
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.send(this.getManagementDashboardHTML());
+    });
 
-        // Trading challenge progress API
-        this.app.get('/api/trading/progress', async (req, res) => {
-            try {
-                const progress = await this.getTradingProgress();
-                res.json(progress);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    // Trading challenge progress API
+    this.app.get("/api/trading/progress", async (req, res) => {
+      try {
+        const progress = await this.getTradingProgress();
+        res.json(progress);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        // Real-time challenge data
-        this.app.get('/api/challenge/status', async (req, res) => {
-            try {
-                const status = await this.getChallengeStatus();
-                res.json(status);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    // Real-time challenge data
+    this.app.get("/api/challenge/status", async (req, res) => {
+      try {
+        const status = await this.getChallengeStatus();
+        res.json(status);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        // Project Management APIs
-        this.app.post('/api/projects/approve', async (req, res) => {
-            try {
-                const project = await this.projectSystem.approveProject(req.body);
-                res.json({ success: true, project });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
+    // Project Management APIs
+    this.app.post("/api/projects/approve", async (req, res) => {
+      try {
+        const project = await this.projectSystem.approveProject(req.body);
+        res.json({ success: true, project });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
-        this.app.post('/api/projects/:projectId/status', async (req, res) => {
-            try {
-                const { projectId } = req.params;
-                const { status, notes } = req.body;
-                const project = await this.projectSystem.updateProjectStatus(projectId, status, notes);
-                res.json({ success: true, project });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
+    this.app.post("/api/projects/:projectId/status", async (req, res) => {
+      try {
+        const { projectId } = req.params;
+        const { status, notes } = req.body;
+        const project = await this.projectSystem.updateProjectStatus(
+          projectId,
+          status,
+          notes,
+        );
+        res.json({ success: true, project });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
-        // Research Management APIs
-        this.app.post('/api/research/approve', async (req, res) => {
-            try {
-                const task = await this.projectSystem.addResearchTask(req.body);
-                res.json({ success: true, task });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
+    // Research Management APIs
+    this.app.post("/api/research/approve", async (req, res) => {
+      try {
+        const task = await this.projectSystem.addResearchTask(req.body);
+        res.json({ success: true, task });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
-        this.app.post('/api/research/:taskId/progress', async (req, res) => {
-            try {
-                const { taskId } = req.params;
-                const { progress, findings } = req.body;
-                const task = await this.projectSystem.updateResearchProgress(taskId, progress, findings);
-                res.json({ success: true, task });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
+    this.app.post("/api/research/:taskId/progress", async (req, res) => {
+      try {
+        const { taskId } = req.params;
+        const { progress, findings } = req.body;
+        const task = await this.projectSystem.updateResearchProgress(
+          taskId,
+          progress,
+          findings,
+        );
+        res.json({ success: true, task });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
-        this.app.post('/api/research/:taskId/promote', async (req, res) => {
-            try {
-                const { taskId } = req.params;
-                const project = await this.projectSystem.promoteResearchToProject(taskId, req.body);
-                res.json({ success: true, project });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
+    this.app.post("/api/research/:taskId/promote", async (req, res) => {
+      try {
+        const { taskId } = req.params;
+        const project = await this.projectSystem.promoteResearchToProject(
+          taskId,
+          req.body,
+        );
+        res.json({ success: true, project });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
-        // Development Management APIs
-        this.app.post('/api/development/:projectName/task/:stageName/:taskName/complete', async (req, res) => {
-            try {
-                const { projectName, stageName, taskName } = req.params;
-                const decodedProjectName = decodeURIComponent(projectName);
-                const progress = await this.progressTracker.markTaskCompleted(decodedProjectName, stageName, taskName);
-                res.json({ success: true, progress });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
-
-        this.app.post('/api/development/:projectName/task/add', async (req, res) => {
-            try {
-                const { projectName } = req.params;
-                const { stageName, taskName } = req.body;
-                const decodedProjectName = decodeURIComponent(projectName);
-                const progress = await this.progressTracker.addTask(decodedProjectName, stageName, taskName);
-                res.json({ success: true, progress });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
-
-        // Data retrieval APIs
-        this.app.get('/api/projects', async (req, res) => {
-            try {
-                const projects = this.projectSystem.getApprovedProjects();
-                res.json(projects);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/research', async (req, res) => {
-            try {
-                const research = this.projectSystem.getResearchTasks();
-                res.json(research);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/recommendations', async (req, res) => {
-            try {
-                const recommendations = await this.recommendationSystem.getFormattedRecommendations();
-                res.json(recommendations);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/development/progress', async (req, res) => {
-            try {
-                const progress = await this.progressTracker.getAllProjectsProgress();
-                res.json(progress);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/overview', async (req, res) => {
-            try {
-                const overview = await this.getBusinessOverview();
-                res.json(overview);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // Additional API endpoints needed by frontend
-        this.app.get('/api/projects', async (req, res) => {
-            try {
-                const projects = this.projectSystem.getApprovedProjects();
-                res.json(projects);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/research', async (req, res) => {
-            try {
-                const research = this.projectSystem.getResearchTasks();
-                res.json(research);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/development', async (req, res) => {
-            try {
-                const progress = await this.progressTracker.getAllProjectsProgress();
-                res.json(progress);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/recommendations', async (req, res) => {
-            try {
-                const recommendations = await this.recommendationSystem.getFormattedRecommendations();
-                res.json(recommendations);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        // AI Task Assistant API
-        this.app.post('/api/ai-assistant/execute', async (req, res) => {
-            try {
-                const { task, priority = 'medium' } = req.body;
-                
-                // Process the AI task
-                const response = await this.processAITask(task);
-                
-                // Optionally create a project or research task
-                if (response.createProject) {
-                    const project = await this.projectSystem.approveProject({
-                        title: response.projectTitle,
-                        description: response.projectDescription,
-                        priority: priority,
-                        category: 'ai_enhancement',
-                        timeline: response.timeline || '2-3 weeks',
-                        revenueImpact: response.revenueImpact || 'TBD',
-                        budget: response.budget || 'TBD',
-                        approvedBy: 'Super IT Agent'
-                    });
-                    response.projectId = project.id;
-                }
-
-                res.json({ success: true, response });
-            } catch (error) {
-                res.status(500).json({ success: false, error: error.message });
-            }
-        });
-    }
-
-    async getBusinessOverview() {
-        const projects = this.projectSystem.getApprovedProjects();
-        const research = this.projectSystem.getResearchTasks();
-        const recommendations = await this.recommendationSystem.getFormattedRecommendations();
-        const developmentProgress = await this.progressTracker.getAllProjectsProgress();
-
-        return {
-            projects: {
-                total: projects.length,
-                approved: projects.filter(p => p.status === 'approved').length,
-                inProgress: projects.filter(p => p.status === 'in_progress').length,
-                completed: projects.filter(p => p.status === 'completed').length,
-                revenueImpact: this.calculateTotalRevenue(projects)
-            },
-            research: {
-                total: research.length,
-                pending: research.filter(r => r.status === 'pending').length,
-                inProgress: research.filter(r => r.status === 'in_progress').length,
-                completed: research.filter(r => r.status === 'completed').length,
-                potentialRevenue: this.calculatePotentialRevenue(research)
-            },
-            recommendations: {
-                total: recommendations.totalRecommendations,
-                superHighDemand: recommendations.superHighDemand.length,
-                highDemand: recommendations.highDemand.length,
-                totalRevenueOpportunity: recommendations.summary.totalProjectedRevenue
-            },
-            development: {
-                activeProjects: developmentProgress.length,
-                averageProgress: developmentProgress.length > 0 ? 
-                    Math.round(developmentProgress.reduce((sum, p) => sum + p.overallProgress, 0) / developmentProgress.length) : 0,
-                totalTasks: developmentProgress.reduce((sum, p) => sum + p.totalTasks, 0),
-                completedTasks: developmentProgress.reduce((sum, p) => sum + p.completedTasks, 0)
-            }
-        };
-    }
-
-    calculateTotalRevenue(projects) {
-        return projects.reduce((total, project) => {
-            const revenueMatch = project.revenueImpact?.match(/\+?\$(\d+)K?/);
-            if (revenueMatch) {
-                const amount = parseInt(revenueMatch[1]);
-                return total + (project.revenueImpact.includes('K') ? amount * 1000 : amount);
-            }
-            return total;
-        }, 0);
-    }
-
-    async processAITask(task) {
-        // Intelligent task analysis and response generation
-        const taskLower = task.toLowerCase();
-        
-        if (taskLower.includes('dashboard')) {
-            return {
-                type: 'dashboard_modification',
-                response: 'Dashboard enhancement task received. I will add real-time analytics, performance metrics, and interactive visualizations.',
-                createProject: true,
-                projectTitle: 'Enhanced Dashboard Analytics',
-                projectDescription: `AI-requested dashboard enhancement: ${task}`,
-                timeline: '1-2 weeks',
-                revenueImpact: '+$5K/month',
-                budget: '$3K'
-            };
-        } else if (taskLower.includes('feature')) {
-            return {
-                type: 'feature_development',
-                response: 'New feature development task accepted. I will design, implement, and test the requested functionality.',
-                createProject: true,
-                projectTitle: 'AI-Requested Feature Development',
-                projectDescription: `Feature development task: ${task}`,
-                timeline: '2-3 weeks',
-                revenueImpact: '+$10K/month',
-                budget: '$8K'
-            };
-        } else if (taskLower.includes('report')) {
-            return {
-                type: 'report_generation',
-                response: 'Report generation task in progress. Comprehensive business analytics will be ready within 24 hours.',
-                createProject: false
-            };
-        } else if (taskLower.includes('learn')) {
-            return {
-                type: 'learning_task',
-                response: 'Learning new capability. I will research, study, and integrate the requested knowledge into my system.',
-                createProject: false
-            };
-        } else {
-            return {
-                type: 'custom_task',
-                response: `Custom task analysis complete. Task: "${task}" has been broken down into actionable steps and added to the work queue.`,
-                createProject: true,
-                projectTitle: 'Custom AI Task',
-                projectDescription: `AI-processed custom task: ${task}`,
-                timeline: '1-3 weeks',
-                revenueImpact: 'TBD',
-                budget: 'TBD'
-            };
+    // Development Management APIs
+    this.app.post(
+      "/api/development/:projectName/task/:stageName/:taskName/complete",
+      async (req, res) => {
+        try {
+          const { projectName, stageName, taskName } = req.params;
+          const decodedProjectName = decodeURIComponent(projectName);
+          const progress = await this.progressTracker.markTaskCompleted(
+            decodedProjectName,
+            stageName,
+            taskName,
+          );
+          res.json({ success: true, progress });
+        } catch (error) {
+          res.status(500).json({ success: false, error: error.message });
         }
-    }
+      },
+    );
 
-    calculatePotentialRevenue(research) {
-        return research.reduce((total, task) => {
-            const revenueMatch = task.marketPotential?.match(/\+?\$(\d+)K?/);
-            if (revenueMatch) {
-                const amount = parseInt(revenueMatch[1]);
-                return total + (task.marketPotential.includes('K') ? amount * 1000 : amount);
-            }
-            return total;
-        }, 0);
-    }
+    this.app.post(
+      "/api/development/:projectName/task/add",
+      async (req, res) => {
+        try {
+          const { projectName } = req.params;
+          const { stageName, taskName } = req.body;
+          const decodedProjectName = decodeURIComponent(projectName);
+          const progress = await this.progressTracker.addTask(
+            decodedProjectName,
+            stageName,
+            taskName,
+          );
+          res.json({ success: true, progress });
+        } catch (error) {
+          res.status(500).json({ success: false, error: error.message });
+        }
+      },
+    );
 
-    getManagementDashboardHTML() {
-        return `
+    // Data retrieval APIs
+    this.app.get("/api/projects", async (req, res) => {
+      try {
+        const projects = this.projectSystem.getApprovedProjects();
+        res.json(projects);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/research", async (req, res) => {
+      try {
+        const research = this.projectSystem.getResearchTasks();
+        res.json(research);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/recommendations", async (req, res) => {
+      try {
+        const recommendations =
+          await this.recommendationSystem.getFormattedRecommendations();
+        res.json(recommendations);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/development/progress", async (req, res) => {
+      try {
+        const progress = await this.progressTracker.getAllProjectsProgress();
+        res.json(progress);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/overview", async (req, res) => {
+      try {
+        const overview = await this.getBusinessOverview();
+        res.json(overview);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Additional API endpoints needed by frontend
+    this.app.get("/api/projects", async (req, res) => {
+      try {
+        const projects = this.projectSystem.getApprovedProjects();
+        res.json(projects);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/research", async (req, res) => {
+      try {
+        const research = this.projectSystem.getResearchTasks();
+        res.json(research);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/development", async (req, res) => {
+      try {
+        const progress = await this.progressTracker.getAllProjectsProgress();
+        res.json(progress);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/recommendations", async (req, res) => {
+      try {
+        const recommendations =
+          await this.recommendationSystem.getFormattedRecommendations();
+        res.json(recommendations);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // AI Task Assistant API
+    this.app.post("/api/ai-assistant/execute", async (req, res) => {
+      try {
+        const { task, priority = "medium" } = req.body;
+
+        // Process the AI task
+        const response = await this.processAITask(task);
+
+        // Optionally create a project or research task
+        if (response.createProject) {
+          const project = await this.projectSystem.approveProject({
+            title: response.projectTitle,
+            description: response.projectDescription,
+            priority: priority,
+            category: "ai_enhancement",
+            timeline: response.timeline || "2-3 weeks",
+            revenueImpact: response.revenueImpact || "TBD",
+            budget: response.budget || "TBD",
+            approvedBy: "Super IT Agent",
+          });
+          response.projectId = project.id;
+        }
+
+        res.json({ success: true, response });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+  }
+
+  async getBusinessOverview() {
+    const projects = this.projectSystem.getApprovedProjects();
+    const research = this.projectSystem.getResearchTasks();
+    const recommendations =
+      await this.recommendationSystem.getFormattedRecommendations();
+    const developmentProgress =
+      await this.progressTracker.getAllProjectsProgress();
+
+    return {
+      projects: {
+        total: projects.length,
+        approved: projects.filter((p) => p.status === "approved").length,
+        inProgress: projects.filter((p) => p.status === "in_progress").length,
+        completed: projects.filter((p) => p.status === "completed").length,
+        revenueImpact: this.calculateTotalRevenue(projects),
+      },
+      research: {
+        total: research.length,
+        pending: research.filter((r) => r.status === "pending").length,
+        inProgress: research.filter((r) => r.status === "in_progress").length,
+        completed: research.filter((r) => r.status === "completed").length,
+        potentialRevenue: this.calculatePotentialRevenue(research),
+      },
+      recommendations: {
+        total: recommendations.totalRecommendations,
+        superHighDemand: recommendations.superHighDemand.length,
+        highDemand: recommendations.highDemand.length,
+        totalRevenueOpportunity: recommendations.summary.totalProjectedRevenue,
+      },
+      development: {
+        activeProjects: developmentProgress.length,
+        averageProgress:
+          developmentProgress.length > 0
+            ? Math.round(
+                developmentProgress.reduce(
+                  (sum, p) => sum + p.overallProgress,
+                  0,
+                ) / developmentProgress.length,
+              )
+            : 0,
+        totalTasks: developmentProgress.reduce(
+          (sum, p) => sum + p.totalTasks,
+          0,
+        ),
+        completedTasks: developmentProgress.reduce(
+          (sum, p) => sum + p.completedTasks,
+          0,
+        ),
+      },
+    };
+  }
+
+  calculateTotalRevenue(projects) {
+    return projects.reduce((total, project) => {
+      const revenueMatch = project.revenueImpact?.match(/\+?\$(\d+)K?/);
+      if (revenueMatch) {
+        const amount = parseInt(revenueMatch[1]);
+        return (
+          total + (project.revenueImpact.includes("K") ? amount * 1000 : amount)
+        );
+      }
+      return total;
+    }, 0);
+  }
+
+  async processAITask(task) {
+    // Intelligent task analysis and response generation
+    const taskLower = task.toLowerCase();
+
+    if (taskLower.includes("dashboard")) {
+      return {
+        type: "dashboard_modification",
+        response:
+          "Dashboard enhancement task received. I will add real-time analytics, performance metrics, and interactive visualizations.",
+        createProject: true,
+        projectTitle: "Enhanced Dashboard Analytics",
+        projectDescription: `AI-requested dashboard enhancement: ${task}`,
+        timeline: "1-2 weeks",
+        revenueImpact: "+$5K/month",
+        budget: "$3K",
+      };
+    } else if (taskLower.includes("feature")) {
+      return {
+        type: "feature_development",
+        response:
+          "New feature development task accepted. I will design, implement, and test the requested functionality.",
+        createProject: true,
+        projectTitle: "AI-Requested Feature Development",
+        projectDescription: `Feature development task: ${task}`,
+        timeline: "2-3 weeks",
+        revenueImpact: "+$10K/month",
+        budget: "$8K",
+      };
+    } else if (taskLower.includes("report")) {
+      return {
+        type: "report_generation",
+        response:
+          "Report generation task in progress. Comprehensive business analytics will be ready within 24 hours.",
+        createProject: false,
+      };
+    } else if (taskLower.includes("learn")) {
+      return {
+        type: "learning_task",
+        response:
+          "Learning new capability. I will research, study, and integrate the requested knowledge into my system.",
+        createProject: false,
+      };
+    } else {
+      return {
+        type: "custom_task",
+        response: `Custom task analysis complete. Task: "${task}" has been broken down into actionable steps and added to the work queue.`,
+        createProject: true,
+        projectTitle: "Custom AI Task",
+        projectDescription: `AI-processed custom task: ${task}`,
+        timeline: "1-3 weeks",
+        revenueImpact: "TBD",
+        budget: "TBD",
+      };
+    }
+  }
+
+  calculatePotentialRevenue(research) {
+    return research.reduce((total, task) => {
+      const revenueMatch = task.marketPotential?.match(/\+?\$(\d+)K?/);
+      if (revenueMatch) {
+        const amount = parseInt(revenueMatch[1]);
+        return (
+          total + (task.marketPotential.includes("K") ? amount * 1000 : amount)
+        );
+      }
+      return total;
+    }, 0);
+  }
+
+  getManagementDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1962,21 +2012,23 @@ class ManagementDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🎯 Management Dashboard started on port ${this.port}`);
-            console.log(`📊 Management Dashboard URL: http://localhost:${this.port}`);
-            console.log(`🎮 Features: Project approval, research management, development control`);
-        });
-    }
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(`🎯 Management Dashboard started on port ${this.port}`);
+      console.log(`📊 Management Dashboard URL: http://localhost:${this.port}`);
+      console.log(
+        `🎮 Features: Project approval, research management, development control`,
+      );
+    });
+  }
 }
 
 // Start the management dashboard
 if (require.main === module) {
-    const dashboard = new ManagementDashboard();
-    dashboard.start();
+  const dashboard = new ManagementDashboard();
+  dashboard.start();
 }
 
 module.exports = ManagementDashboard;

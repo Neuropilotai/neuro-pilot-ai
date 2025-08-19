@@ -1,203 +1,211 @@
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
 
 class SuperAgentDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3007;
-        this.setupRoutes();
-    }
+  constructor() {
+    this.app = express();
+    this.port = 3007;
+    this.setupRoutes();
+  }
 
-    setupRoutes() {
-        this.app.use(express.static('public'));
-        
-        this.app.get('/super-agent', (req, res) => {
-            res.send(this.getSuperAgentDashboardHTML());
-        });
+  setupRoutes() {
+    this.app.use(express.static("public"));
 
-        this.app.get('/api/super-agent/status', async (req, res) => {
-            try {
-                const status = await this.getSuperAgentStatus();
-                res.json(status);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/super-agent", (req, res) => {
+      res.send(this.getSuperAgentDashboardHTML());
+    });
 
-        this.app.get('/api/super-agent/logs', async (req, res) => {
-            try {
-                const logs = await this.getSuperAgentLogs();
-                res.json(logs);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/api/super-agent/status", async (req, res) => {
+      try {
+        const status = await this.getSuperAgentStatus();
+        res.json(status);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        this.app.get('/api/super-agent/knowledge', async (req, res) => {
-            try {
-                const knowledge = await this.getKnowledgeBase();
-                res.json(knowledge);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/api/super-agent/logs", async (req, res) => {
+      try {
+        const logs = await this.getSuperAgentLogs();
+        res.json(logs);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        this.app.get('/api/super-agent/organization', async (req, res) => {
-            try {
-                const organizationStats = await this.getOrganizationStats();
-                res.json(organizationStats);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-    }
+    this.app.get("/api/super-agent/knowledge", async (req, res) => {
+      try {
+        const knowledge = await this.getKnowledgeBase();
+        res.json(knowledge);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-    async getSuperAgentStatus() {
+    this.app.get("/api/super-agent/organization", async (req, res) => {
+      try {
+        const organizationStats = await this.getOrganizationStats();
+        res.json(organizationStats);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
+  async getSuperAgentStatus() {
+    try {
+      const logPath = path.join(__dirname, "super_agent.log");
+      const logContent = await fs.readFile(logPath, "utf8");
+      const lines = logContent.split("\n").filter((line) => line.trim());
+
+      const recentLogs = lines.slice(-20).map((line) => {
         try {
-            const logPath = path.join(__dirname, 'super_agent.log');
-            const logContent = await fs.readFile(logPath, 'utf8');
-            const lines = logContent.split('\n').filter(line => line.trim());
-            
-            const recentLogs = lines.slice(-20).map(line => {
-                try {
-                    if (line.startsWith('{')) {
-                        return JSON.parse(line);
-                    } else {
-                        return { 
-                            message: line, 
-                            timestamp: new Date().toISOString(),
-                            type: 'INFO'
-                        };
-                    }
-                } catch (error) {
-                    return { 
-                        message: line, 
-                        timestamp: new Date().toISOString(),
-                        type: 'INFO'
-                    };
-                }
-            });
-
-            const issues = recentLogs.filter(log => 
-                (log.type && (log.type.includes('ERROR') || log.type.includes('DOWN'))) ||
-                (log.message && log.message.includes('❌'))
-            );
-            const fixes = recentLogs.filter(log => 
-                (log.type && log.type.includes('FIX')) ||
-                (log.message && log.message.includes('✅'))
-            );
-
+          if (line.startsWith("{")) {
+            return JSON.parse(line);
+          } else {
             return {
-                status: 'active',
-                lastActivity: recentLogs[recentLogs.length - 1]?.timestamp || new Date().toISOString(),
-                totalLogs: lines.length,
-                recentIssues: issues.length,
-                autoFixesApplied: fixes.length,
-                uptime: this.calculateUptime(),
-                isLearning: true,
-                knowledgeEntries: await this.getKnowledgeCount()
+              message: line,
+              timestamp: new Date().toISOString(),
+              type: "INFO",
             };
+          }
         } catch (error) {
+          return {
+            message: line,
+            timestamp: new Date().toISOString(),
+            type: "INFO",
+          };
+        }
+      });
+
+      const issues = recentLogs.filter(
+        (log) =>
+          (log.type &&
+            (log.type.includes("ERROR") || log.type.includes("DOWN"))) ||
+          (log.message && log.message.includes("❌")),
+      );
+      const fixes = recentLogs.filter(
+        (log) =>
+          (log.type && log.type.includes("FIX")) ||
+          (log.message && log.message.includes("✅")),
+      );
+
+      return {
+        status: "active",
+        lastActivity:
+          recentLogs[recentLogs.length - 1]?.timestamp ||
+          new Date().toISOString(),
+        totalLogs: lines.length,
+        recentIssues: issues.length,
+        autoFixesApplied: fixes.length,
+        uptime: this.calculateUptime(),
+        isLearning: true,
+        knowledgeEntries: await this.getKnowledgeCount(),
+      };
+    } catch (error) {
+      return {
+        status: "offline",
+        error: error.message,
+        lastActivity: "Never",
+        totalLogs: 0,
+        recentIssues: 0,
+        autoFixesApplied: 0,
+        uptime: "0h 0m",
+        isLearning: false,
+        knowledgeEntries: 0,
+      };
+    }
+  }
+
+  async getSuperAgentLogs() {
+    try {
+      const logPath = path.join(__dirname, "super_agent.log");
+      const logContent = await fs.readFile(logPath, "utf8");
+      const lines = logContent.split("\n").filter((line) => line.trim());
+
+      return lines
+        .slice(-50)
+        .map((line) => {
+          try {
+            return JSON.parse(line);
+          } catch (error) {
             return {
-                status: 'offline',
-                error: error.message,
-                lastActivity: 'Never',
-                totalLogs: 0,
-                recentIssues: 0,
-                autoFixesApplied: 0,
-                uptime: '0h 0m',
-                isLearning: false,
-                knowledgeEntries: 0
+              message: line,
+              timestamp: new Date().toISOString(),
+              type: "RAW_LOG",
             };
-        }
+          }
+        })
+        .reverse();
+    } catch (error) {
+      return [];
     }
+  }
 
-    async getSuperAgentLogs() {
-        try {
-            const logPath = path.join(__dirname, 'super_agent.log');
-            const logContent = await fs.readFile(logPath, 'utf8');
-            const lines = logContent.split('\n').filter(line => line.trim());
-            
-            return lines.slice(-50).map(line => {
-                try {
-                    return JSON.parse(line);
-                } catch (error) {
-                    return { 
-                        message: line, 
-                        timestamp: new Date().toISOString(),
-                        type: 'RAW_LOG'
-                    };
-                }
-            }).reverse();
-        } catch (error) {
-            return [];
-        }
+  async getKnowledgeBase() {
+    try {
+      const knowledgePath = path.join(__dirname, "super_agent_knowledge.json");
+      const content = await fs.readFile(knowledgePath, "utf8");
+      const knowledgeArray = JSON.parse(content);
+
+      return knowledgeArray.map(([key, value]) => ({
+        key,
+        ...value,
+      }));
+    } catch (error) {
+      return [];
     }
+  }
 
-    async getKnowledgeBase() {
-        try {
-            const knowledgePath = path.join(__dirname, 'super_agent_knowledge.json');
-            const content = await fs.readFile(knowledgePath, 'utf8');
-            const knowledgeArray = JSON.parse(content);
-            
-            return knowledgeArray.map(([key, value]) => ({
-                key,
-                ...value
-            }));
-        } catch (error) {
-            return [];
-        }
+  async getKnowledgeCount() {
+    try {
+      const knowledge = await this.getKnowledgeBase();
+      return knowledge.length;
+    } catch (error) {
+      return 0;
     }
+  }
 
-    async getKnowledgeCount() {
-        try {
-            const knowledge = await this.getKnowledgeBase();
-            return knowledge.length;
-        } catch (error) {
-            return 0;
-        }
+  async getOrganizationStats() {
+    try {
+      // This would integrate with the FileOrganizerModule in a real implementation
+      return {
+        totalFiles: Math.floor(Math.random() * 100) + 50,
+        organizedFiles: Math.floor(Math.random() * 30) + 20,
+        suggestions: Math.floor(Math.random() * 10) + 2,
+        lastOrganization: new Date().toISOString(),
+        directories: {
+          agents: 4,
+          dashboards: 3,
+          servers: 2,
+          email: 3,
+          pdf: 2,
+          config: 5,
+          logs: 8,
+        },
+      };
+    } catch (error) {
+      return {
+        totalFiles: 0,
+        organizedFiles: 0,
+        suggestions: 0,
+        lastOrganization: "Never",
+        directories: {},
+      };
     }
+  }
 
-    async getOrganizationStats() {
-        try {
-            // This would integrate with the FileOrganizerModule in a real implementation
-            return {
-                totalFiles: Math.floor(Math.random() * 100) + 50,
-                organizedFiles: Math.floor(Math.random() * 30) + 20,
-                suggestions: Math.floor(Math.random() * 10) + 2,
-                lastOrganization: new Date().toISOString(),
-                directories: {
-                    agents: 4,
-                    dashboards: 3,
-                    servers: 2,
-                    email: 3,
-                    pdf: 2,
-                    config: 5,
-                    logs: 8
-                }
-            };
-        } catch (error) {
-            return {
-                totalFiles: 0,
-                organizedFiles: 0,
-                suggestions: 0,
-                lastOrganization: 'Never',
-                directories: {}
-            };
-        }
-    }
+  calculateUptime() {
+    // Simple uptime calculation (in a real implementation, this would track actual start time)
+    const uptimeMs = Math.random() * 86400000; // Random uptime up to 24 hours
+    const hours = Math.floor(uptimeMs / 3600000);
+    const minutes = Math.floor((uptimeMs % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+  }
 
-    calculateUptime() {
-        // Simple uptime calculation (in a real implementation, this would track actual start time)
-        const uptimeMs = Math.random() * 86400000; // Random uptime up to 24 hours
-        const hours = Math.floor(uptimeMs / 3600000);
-        const minutes = Math.floor((uptimeMs % 3600000) / 60000);
-        return `${hours}h ${minutes}m`;
-    }
-
-    getSuperAgentDashboardHTML() {
-        return `
+  getSuperAgentDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -651,19 +659,21 @@ class SuperAgentDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🤖 Super Agent Dashboard started on port ${this.port}`);
-            console.log(`🔗 Super Agent Dashboard: http://localhost:${this.port}/super-agent`);
-        });
-    }
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(`🤖 Super Agent Dashboard started on port ${this.port}`);
+      console.log(
+        `🔗 Super Agent Dashboard: http://localhost:${this.port}/super-agent`,
+      );
+    });
+  }
 }
 
 if (require.main === module) {
-    const dashboard = new SuperAgentDashboard();
-    dashboard.start();
+  const dashboard = new SuperAgentDashboard();
+  dashboard.start();
 }
 
 module.exports = SuperAgentDashboard;

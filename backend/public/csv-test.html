@@ -1,124 +1,164 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>CSV Import Test</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .box { border: 1px solid #ccc; padding: 20px; margin: 20px 0; }
-        textarea { width: 100%; height: 200px; }
-        button { background: #007bff; color: white; padding: 10px 20px; border: none; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .result { margin-top: 20px; padding: 10px; background: #f8f9fa; }
-        .success { color: green; }
-        .error { color: red; }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .box {
+        border: 1px solid #ccc;
+        padding: 20px;
+        margin: 20px 0;
+      }
+      textarea {
+        width: 100%;
+        height: 200px;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      .result {
+        margin-top: 20px;
+        padding: 10px;
+        background: #f8f9fa;
+      }
+      .success {
+        color: green;
+      }
+      .error {
+        color: red;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>CSV Import Test Tool</h1>
-    
+
     <div class="box">
-        <h2>Test Your CSV Content</h2>
-        <p>Paste your CSV content here to test if it can be parsed:</p>
-        <textarea id="csvContent" placeholder="Item Name,Quantity
+      <h2>Test Your CSV Content</h2>
+      <p>Paste your CSV content here to test if it can be parsed:</p>
+      <textarea
+        id="csvContent"
+        placeholder="Item Name,Quantity
 Ground Beef,150
 Milk,80
-Bread,120"></textarea>
-        <br><br>
-        <button onclick="testCSV()">Test CSV Parse</button>
-        <div id="result" class="result" style="display:none;"></div>
+Bread,120"
+      ></textarea>
+      <br /><br />
+      <button onclick="testCSV()">Test CSV Parse</button>
+      <div id="result" class="result" style="display: none"></div>
     </div>
-    
+
     <div class="box">
-        <h2>Sample CSV Formats That Work</h2>
-        
-        <h3>Format 1: Simple Item List</h3>
-        <pre>Ground Beef,150
+      <h2>Sample CSV Formats That Work</h2>
+
+      <h3>Format 1: Simple Item List</h3>
+      <pre>
+Ground Beef,150
 Milk,80
 Bread,120
 Chicken Breast,100
-Rice,50</pre>
-        <button onclick="copyFormat1()">Copy This Format</button>
-        
-        <h3>Format 2: With Headers</h3>
-        <pre>Item,Quantity
+Rice,50</pre
+      >
+      <button onclick="copyFormat1()">Copy This Format</button>
+
+      <h3>Format 2: With Headers</h3>
+      <pre>
+Item,Quantity
 Ground Beef,150
 Milk,80
 Bread,120
-Chicken Breast,100</pre>
-        <button onclick="copyFormat2()">Copy This Format</button>
-        
-        <h3>Format 3: Full Order Template</h3>
-        <pre>Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
-2024-03-15,Gordon Food Service,280,7,Ground Beef,150,Milk,80,Bread,120</pre>
-        <button onclick="copyFormat3()">Copy This Format</button>
+Chicken Breast,100</pre
+      >
+      <button onclick="copyFormat2()">Copy This Format</button>
+
+      <h3>Format 3: Full Order Template</h3>
+      <pre>
+Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
+2024-03-15,Gordon Food Service,280,7,Ground Beef,150,Milk,80,Bread,120</pre
+      >
+      <button onclick="copyFormat3()">Copy This Format</button>
     </div>
 
     <script>
-        function testCSV() {
-            const content = document.getElementById('csvContent').value;
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            
-            if (!content.trim()) {
-                resultDiv.innerHTML = '<span class="error">Please enter some CSV content to test</span>';
-                return;
-            }
-            
-            try {
-                const lines = content.split(/\r?\n/).filter(line => line.trim());
-                const items = [];
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const parts = lines[i].split(',').map(p => p.trim());
-                    
-                    // Skip headers
-                    if (i === 0 && parts[0].toLowerCase().includes('item')) continue;
-                    
-                    if (parts.length >= 2) {
-                        const name = parts[0];
-                        const qty = parseFloat(parts[1]);
-                        
-                        if (name && !isNaN(qty) && qty > 0) {
-                            items.push({ name, quantity: qty });
-                        }
-                    }
-                }
-                
-                if (items.length > 0) {
-                    resultDiv.innerHTML = `<span class="success">✓ Success! Found ${items.length} items:</span><br>` +
-                        items.map(item => `${item.name}: ${item.quantity}`).join('<br>');
-                } else {
-                    resultDiv.innerHTML = '<span class="error">No valid items found. Check your format.</span>';
-                }
-                
-            } catch (error) {
-                resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-            }
+      function testCSV() {
+        const content = document.getElementById("csvContent").value;
+        const resultDiv = document.getElementById("result");
+        resultDiv.style.display = "block";
+
+        if (!content.trim()) {
+          resultDiv.innerHTML =
+            '<span class="error">Please enter some CSV content to test</span>';
+          return;
         }
-        
-        function copyFormat1() {
-            navigator.clipboard.writeText(`Ground Beef,150
+
+        try {
+          const lines = content.split(/\r?\n/).filter((line) => line.trim());
+          const items = [];
+
+          for (let i = 0; i < lines.length; i++) {
+            const parts = lines[i].split(",").map((p) => p.trim());
+
+            // Skip headers
+            if (i === 0 && parts[0].toLowerCase().includes("item")) continue;
+
+            if (parts.length >= 2) {
+              const name = parts[0];
+              const qty = parseFloat(parts[1]);
+
+              if (name && !isNaN(qty) && qty > 0) {
+                items.push({ name, quantity: qty });
+              }
+            }
+          }
+
+          if (items.length > 0) {
+            resultDiv.innerHTML =
+              `<span class="success">✓ Success! Found ${items.length} items:</span><br>` +
+              items
+                .map((item) => `${item.name}: ${item.quantity}`)
+                .join("<br>");
+          } else {
+            resultDiv.innerHTML =
+              '<span class="error">No valid items found. Check your format.</span>';
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+        }
+      }
+
+      function copyFormat1() {
+        navigator.clipboard.writeText(`Ground Beef,150
 Milk,80
 Bread,120
 Chicken Breast,100
 Rice,50`);
-            alert('Format copied to clipboard!');
-        }
-        
-        function copyFormat2() {
-            navigator.clipboard.writeText(`Item,Quantity
+        alert("Format copied to clipboard!");
+      }
+
+      function copyFormat2() {
+        navigator.clipboard.writeText(`Item,Quantity
 Ground Beef,150
 Milk,80
 Bread,120
 Chicken Breast,100`);
-            alert('Format copied to clipboard!');
-        }
-        
-        function copyFormat3() {
-            navigator.clipboard.writeText(`Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
+        alert("Format copied to clipboard!");
+      }
+
+      function copyFormat3() {
+        navigator.clipboard
+          .writeText(`Date,Supplier,People,Duration,Item1,Qty1,Item2,Qty2,Item3,Qty3
 2024-03-15,Gordon Food Service,280,7,Ground Beef,150,Milk,80,Bread,120`);
-            alert('Format copied to clipboard!');
-        }
+        alert("Format copied to clipboard!");
+      }
     </script>
-</body>
+  </body>
 </html>

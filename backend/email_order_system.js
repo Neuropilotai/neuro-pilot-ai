@@ -1,28 +1,30 @@
-const nodemailer = require('nodemailer');
-const fs = require('fs').promises;
-const path = require('path');
-const crypto = require('crypto');
+const nodemailer = require("nodemailer");
+const fs = require("fs").promises;
+const path = require("path");
+const crypto = require("crypto");
 
 class EmailOrderSystem {
-    constructor() {
-        // Configure email transporter
-        this.transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER || 'your-email@gmail.com',
-                pass: process.env.EMAIL_PASS || 'your-app-password'
-            }
-        });
+  constructor() {
+    // Configure email transporter
+    this.transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER || "your-email@gmail.com",
+        pass: process.env.EMAIL_PASS || "your-app-password",
+      },
+    });
 
-        this.orderFormUrl = process.env.ORDER_FORM_URL || 'https://0122-23-233-176-252.ngrok-free.app/order-form.html';
-    }
+    this.orderFormUrl =
+      process.env.ORDER_FORM_URL ||
+      "https://0122-23-233-176-252.ngrok-free.app/order-form.html";
+  }
 
-    // Send initial order form email to customer
-    async sendOrderFormEmail(customerEmail, customerName = '') {
-        const uniqueOrderId = crypto.randomBytes(16).toString('hex');
-        const personalizedUrl = `${this.orderFormUrl}?email=${encodeURIComponent(customerEmail)}&orderId=${uniqueOrderId}`;
+  // Send initial order form email to customer
+  async sendOrderFormEmail(customerEmail, customerName = "") {
+    const uniqueOrderId = crypto.randomBytes(16).toString("hex");
+    const personalizedUrl = `${this.orderFormUrl}?email=${encodeURIComponent(customerEmail)}&orderId=${uniqueOrderId}`;
 
-        const emailTemplate = `
+    const emailTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -44,7 +46,7 @@ class EmailOrderSystem {
             <p>Your AI-Powered Resume Builder</p>
         </div>
         <div class="content">
-            <h2>Hello ${customerName || 'there'}!</h2>
+            <h2>Hello ${customerName || "there"}!</h2>
             
             <p>Thank you for your interest in our AI Resume Generation service. We're excited to help you create a professional resume that stands out!</p>
             
@@ -92,27 +94,31 @@ class EmailOrderSystem {
 </html>
         `;
 
-        const mailOptions = {
-            from: '"Neuro.Pilot.AI" <noreply@neuropilot-ai.com>',
-            to: customerEmail,
-            subject: 'Your AI Resume Order - Neuro.Pilot.AI',
-            html: emailTemplate,
-            text: `Welcome to Neuro.Pilot.AI!\n\nComplete your order here: ${personalizedUrl}\n\nOur packages:\n- Basic ($29): AI-generated resume with ATS optimization\n- Professional ($59): Resume + Cover Letter + LinkedIn\n- Executive ($99): Premium with 30-day guarantee\n\nReply with your resume attached if needed!`
-        };
+    const mailOptions = {
+      from: '"Neuro.Pilot.AI" <noreply@neuropilot-ai.com>',
+      to: customerEmail,
+      subject: "Your AI Resume Order - Neuro.Pilot.AI",
+      html: emailTemplate,
+      text: `Welcome to Neuro.Pilot.AI!\n\nComplete your order here: ${personalizedUrl}\n\nOur packages:\n- Basic ($29): AI-generated resume with ATS optimization\n- Professional ($59): Resume + Cover Letter + LinkedIn\n- Executive ($99): Premium with 30-day guarantee\n\nReply with your resume attached if needed!`,
+    };
 
-        try {
-            const info = await this.transporter.sendMail(mailOptions);
-            console.log('Order form email sent:', info.messageId);
-            return { success: true, messageId: info.messageId, orderId: uniqueOrderId };
-        } catch (error) {
-            console.error('Email send error:', error);
-            return { success: false, error: error.message };
-        }
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log("Order form email sent:", info.messageId);
+      return {
+        success: true,
+        messageId: info.messageId,
+        orderId: uniqueOrderId,
+      };
+    } catch (error) {
+      console.error("Email send error:", error);
+      return { success: false, error: error.message };
     }
+  }
 
-    // Send order confirmation with details
-    async sendOrderConfirmation(orderData, attachmentPath = null) {
-        const confirmationTemplate = `
+  // Send order confirmation with details
+  async sendOrderConfirmation(orderData, attachmentPath = null) {
+    const confirmationTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -133,26 +139,26 @@ class EmailOrderSystem {
             <p>Thank you for your order!</p>
         </div>
         <div class="content">
-            <h2>Hi ${orderData.firstName || orderData.fullName || 'there'}!</h2>
+            <h2>Hi ${orderData.firstName || orderData.fullName || "there"}!</h2>
             
             <div class="status">
                 <strong>✅ Order Received!</strong><br>
-                Order ID: ${orderData.orderId || 'AI-' + Date.now()}
+                Order ID: ${orderData.orderId || "AI-" + Date.now()}
             </div>
             
             <p>We've received your order and our AI agents are ready to create your professional resume.</p>
             
             <div class="order-details">
                 <h3>Order Details:</h3>
-                <p><strong>Package:</strong> ${(orderData.packageType || orderData.package || 'professional').charAt(0).toUpperCase() + (orderData.packageType || orderData.package || 'professional').slice(1)}</p>
+                <p><strong>Package:</strong> ${(orderData.packageType || orderData.package || "professional").charAt(0).toUpperCase() + (orderData.packageType || orderData.package || "professional").slice(1)}</p>
                 <p><strong>Final Price:</strong> $${orderData.finalPrice || 0}</p>
-                ${orderData.originalPrice !== orderData.finalPrice ? `<p><strong>Original Price:</strong> $${orderData.originalPrice || 0}</p>` : ''}
-                ${orderData.promoCode ? `<p><strong>Promo Code Applied:</strong> ${orderData.promoCode} (${orderData.discountAmount ? '$' + orderData.discountAmount : ''})</p>` : ''}
-                <p><strong>Target Role:</strong> ${orderData.jobTitle || orderData.targetRole || 'Professional Role'}</p>
-                <p><strong>Industry:</strong> ${orderData.targetIndustry || orderData.industry || 'Various'}</p>
-                <p><strong>Experience:</strong> ${orderData.careerLevel || orderData.experience || 'Professional'}</p>
-                ${orderData.skills ? `<p><strong>Key Skills:</strong> ${orderData.skills}</p>` : ''}
-                ${attachmentPath ? '<p><strong>Resume Uploaded:</strong> ✅ We received your current resume</p>' : ''}
+                ${orderData.originalPrice !== orderData.finalPrice ? `<p><strong>Original Price:</strong> $${orderData.originalPrice || 0}</p>` : ""}
+                ${orderData.promoCode ? `<p><strong>Promo Code Applied:</strong> ${orderData.promoCode} (${orderData.discountAmount ? "$" + orderData.discountAmount : ""})</p>` : ""}
+                <p><strong>Target Role:</strong> ${orderData.jobTitle || orderData.targetRole || "Professional Role"}</p>
+                <p><strong>Industry:</strong> ${orderData.targetIndustry || orderData.industry || "Various"}</p>
+                <p><strong>Experience:</strong> ${orderData.careerLevel || orderData.experience || "Professional"}</p>
+                ${orderData.skills ? `<p><strong>Key Skills:</strong> ${orderData.skills}</p>` : ""}
+                ${attachmentPath ? "<p><strong>Resume Uploaded:</strong> ✅ We received your current resume</p>" : ""}
             </div>
             
             <h3>What's Next?</h3>
@@ -177,68 +183,76 @@ class EmailOrderSystem {
 </html>
         `;
 
-        const mailOptions = {
-            from: '"Neuro.Pilot.AI" <noreply@neuropilot-ai.com>',
-            to: orderData.email,
-            subject: `Order Confirmation #${orderData.orderId || 'AI-' + Date.now()} - Neuro.Pilot.AI`,
-            html: confirmationTemplate,
-            text: `Order Confirmation\n\nHi ${orderData.firstName || orderData.fullName || 'there'}!\n\nWe've received your order for the ${orderData.packageType || 'professional'} package.\n\nTarget Role: ${orderData.jobTitle || 'Professional Role'}\nIndustry: ${orderData.targetIndustry || 'Various'}\nFinal Price: $${orderData.finalPrice || 0}\n\nYour AI-optimized resume will be delivered within 24-48 hours.\n\nThank you for choosing Neuro.Pilot.AI!`
-        };
+    const mailOptions = {
+      from: '"Neuro.Pilot.AI" <noreply@neuropilot-ai.com>',
+      to: orderData.email,
+      subject: `Order Confirmation #${orderData.orderId || "AI-" + Date.now()} - Neuro.Pilot.AI`,
+      html: confirmationTemplate,
+      text: `Order Confirmation\n\nHi ${orderData.firstName || orderData.fullName || "there"}!\n\nWe've received your order for the ${orderData.packageType || "professional"} package.\n\nTarget Role: ${orderData.jobTitle || "Professional Role"}\nIndustry: ${orderData.targetIndustry || "Various"}\nFinal Price: $${orderData.finalPrice || 0}\n\nYour AI-optimized resume will be delivered within 24-48 hours.\n\nThank you for choosing Neuro.Pilot.AI!`,
+    };
 
-        try {
-            const info = await this.transporter.sendMail(mailOptions);
-            console.log('Confirmation email sent:', info.messageId);
-            
-            // Save order to database
-            await this.saveOrder(orderData, attachmentPath);
-            
-            return { success: true, messageId: info.messageId };
-        } catch (error) {
-            console.error('Confirmation email error:', error);
-            return { success: false, error: error.message };
-        }
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log("Confirmation email sent:", info.messageId);
+
+      // Save order to database
+      await this.saveOrder(orderData, attachmentPath);
+
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error("Confirmation email error:", error);
+      return { success: false, error: error.message };
     }
+  }
 
-    // Handle email with resume attachment
-    async processEmailWithAttachment(email, attachment) {
-        try {
-            // Save attachment
-            const uploadsDir = path.join(__dirname, '../uploads');
-            await fs.mkdir(uploadsDir, { recursive: true });
-            
-            const filename = `resume_${Date.now()}_${attachment.filename}`;
-            const filepath = path.join(uploadsDir, filename);
-            
-            await fs.writeFile(filepath, attachment.content);
-            
-            console.log(`Resume saved: ${filename}`);
-            return { success: true, filepath, filename };
-        } catch (error) {
-            console.error('Attachment processing error:', error);
-            return { success: false, error: error.message };
-        }
+  // Handle email with resume attachment
+  async processEmailWithAttachment(email, attachment) {
+    try {
+      // Save attachment
+      const uploadsDir = path.join(__dirname, "../uploads");
+      await fs.mkdir(uploadsDir, { recursive: true });
+
+      const filename = `resume_${Date.now()}_${attachment.filename}`;
+      const filepath = path.join(uploadsDir, filename);
+
+      await fs.writeFile(filepath, attachment.content);
+
+      console.log(`Resume saved: ${filename}`);
+      return { success: true, filepath, filename };
+    } catch (error) {
+      console.error("Attachment processing error:", error);
+      return { success: false, error: error.message };
     }
+  }
 
-    // Save order to database
-    async saveOrder(orderData, attachmentPath) {
-        const ordersDir = path.join(__dirname, '../orders');
-        await fs.mkdir(ordersDir, { recursive: true });
-        
-        const orderFile = path.join(ordersDir, `order_${orderData.orderId || Date.now()}.json`);
-        const orderRecord = {
-            ...orderData,
-            attachmentPath,
-            createdAt: new Date().toISOString(),
-            status: 'pending'
-        };
-        
-        await fs.writeFile(orderFile, JSON.stringify(orderRecord, null, 2));
-        console.log(`Order saved: ${orderFile}`);
-    }
+  // Save order to database
+  async saveOrder(orderData, attachmentPath) {
+    const ordersDir = path.join(__dirname, "../orders");
+    await fs.mkdir(ordersDir, { recursive: true });
 
-    // Send completed resume to customer
-    async sendCompletedResume(customerEmail, customerName, resumePath, coverLetterPath = null) {
-        const completionTemplate = `
+    const orderFile = path.join(
+      ordersDir,
+      `order_${orderData.orderId || Date.now()}.json`,
+    );
+    const orderRecord = {
+      ...orderData,
+      attachmentPath,
+      createdAt: new Date().toISOString(),
+      status: "pending",
+    };
+
+    await fs.writeFile(orderFile, JSON.stringify(orderRecord, null, 2));
+    console.log(`Order saved: ${orderFile}`);
+  }
+
+  // Send completed resume to customer
+  async sendCompletedResume(
+    customerEmail,
+    customerName,
+    resumePath,
+    coverLetterPath = null,
+  ) {
+    const completionTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -279,7 +293,7 @@ class EmailOrderSystem {
             <h3>What's Included:</h3>
             <ul>
                 <li>✅ ATS-Optimized Resume (PDF & Word)</li>
-                ${coverLetterPath ? '<li>✅ Customized Cover Letter Template</li>' : ''}
+                ${coverLetterPath ? "<li>✅ Customized Cover Letter Template</li>" : ""}
                 <li>✅ Keyword optimization for your target role</li>
                 <li>✅ Professional formatting and design</li>
             </ul>
@@ -300,35 +314,37 @@ class EmailOrderSystem {
 </html>
         `;
 
-        const attachments = [{
-            filename: `${customerName.replace(/\s+/g, '_')}_Resume.pdf`,
-            path: resumePath
-        }];
+    const attachments = [
+      {
+        filename: `${customerName.replace(/\s+/g, "_")}_Resume.pdf`,
+        path: resumePath,
+      },
+    ];
 
-        if (coverLetterPath) {
-            attachments.push({
-                filename: `${customerName.replace(/\s+/g, '_')}_Cover_Letter.pdf`,
-                path: coverLetterPath
-            });
-        }
-
-        const mailOptions = {
-            from: '"Neuro.Pilot.AI" <noreply@neuropilot-ai.com>',
-            to: customerEmail,
-            subject: `Your Resume is Ready! - Neuro.Pilot.AI`,
-            html: completionTemplate,
-            attachments: attachments
-        };
-
-        try {
-            const info = await this.transporter.sendMail(mailOptions);
-            console.log('Resume delivery email sent:', info.messageId);
-            return { success: true, messageId: info.messageId };
-        } catch (error) {
-            console.error('Resume delivery error:', error);
-            return { success: false, error: error.message };
-        }
+    if (coverLetterPath) {
+      attachments.push({
+        filename: `${customerName.replace(/\s+/g, "_")}_Cover_Letter.pdf`,
+        path: coverLetterPath,
+      });
     }
+
+    const mailOptions = {
+      from: '"Neuro.Pilot.AI" <noreply@neuropilot-ai.com>',
+      to: customerEmail,
+      subject: `Your Resume is Ready! - Neuro.Pilot.AI`,
+      html: completionTemplate,
+      attachments: attachments,
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log("Resume delivery email sent:", info.messageId);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error("Resume delivery error:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 module.exports = EmailOrderSystem;

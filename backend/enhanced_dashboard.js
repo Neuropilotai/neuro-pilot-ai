@@ -1,604 +1,642 @@
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
-const { exec } = require('child_process');
-const util = require('util');
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
+const { exec } = require("child_process");
+const util = require("util");
 const execAsync = util.promisify(exec);
-const IntelligentRecommendationSystem = require('./intelligent_recommendation_system');
-const ProjectApprovalSystem = require('./project_approval_system');
-const DevelopmentProgressTracker = require('./development_progress_tracker');
+const IntelligentRecommendationSystem = require("./intelligent_recommendation_system");
+const ProjectApprovalSystem = require("./project_approval_system");
+const DevelopmentProgressTracker = require("./development_progress_tracker");
 
 class EnhancedDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3006;
-        this.setupRoutes();
-        this.realAgentData = new Map();
-        this.recommendationSystem = new IntelligentRecommendationSystem();
-        this.projectSystem = new ProjectApprovalSystem();
-        this.progressTracker = new DevelopmentProgressTracker();
-        this.initializeRealData();
-    }
+  constructor() {
+    this.app = express();
+    this.port = 3006;
+    this.setupRoutes();
+    this.realAgentData = new Map();
+    this.recommendationSystem = new IntelligentRecommendationSystem();
+    this.projectSystem = new ProjectApprovalSystem();
+    this.progressTracker = new DevelopmentProgressTracker();
+    this.initializeRealData();
+  }
 
-    setupRoutes() {
-        this.app.use(express.static('public'));
-        
-        this.app.get('/', (req, res) => {
-            res.send(this.getEnhancedDashboardHTML());
+  setupRoutes() {
+    this.app.use(express.static("public"));
+
+    this.app.get("/", (req, res) => {
+      res.send(this.getEnhancedDashboardHTML());
+    });
+
+    // Enhanced API endpoints
+    this.app.get("/api/enhanced/status", async (req, res) => {
+      try {
+        const status = await this.getEnhancedStatus();
+        res.json(status);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/workflow/pipeline", async (req, res) => {
+      try {
+        const pipeline = await this.getWorkflowPipeline();
+        res.json(pipeline);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/agents/detailed", async (req, res) => {
+      try {
+        const agents = await this.getDetailedAgentStatus();
+        res.json(agents);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/orders/active", async (req, res) => {
+      try {
+        const orders = await this.getActiveOrders();
+        res.json(orders);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/recommendations/intelligent", async (req, res) => {
+      try {
+        const recommendations =
+          await this.recommendationSystem.getFormattedRecommendations();
+        res.json(recommendations);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/projects/approved", async (req, res) => {
+      try {
+        const projects = this.projectSystem.getApprovedProjects();
+        res.json(projects);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/research/tasks", async (req, res) => {
+      try {
+        const research = this.projectSystem.getResearchTasks();
+        res.json(research);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/projects/summary", async (req, res) => {
+      try {
+        const summary = await this.projectSystem.getProjectSummary();
+        res.json(summary);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/development/progress/:projectName", async (req, res) => {
+      try {
+        const projectName = decodeURIComponent(req.params.projectName);
+        const progress =
+          await this.progressTracker.getProjectProgress(projectName);
+        res.json(progress);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/development/all-progress", async (req, res) => {
+      try {
+        const allProgress = await this.progressTracker.getAllProjectsProgress();
+        res.json(allProgress);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
+  async initializeRealData() {
+    // Initialize with real system data
+    await this.updateRealAgentData();
+
+    // Update real data periodically
+    setInterval(async () => {
+      await this.updateRealAgentData();
+    }, 30000); // Update every 30 seconds
+  }
+
+  async updateRealAgentData() {
+    try {
+      // Get actual agent status from running processes
+      const realAgents = await this.getRealAgentStatus();
+      this.agentWorkflows = realAgents;
+    } catch (error) {
+      console.error("Failed to update real agent data:", error);
+    }
+  }
+
+  async getRealAgentStatus() {
+    const agents = [
+      {
+        name: "Email Monitor Agent",
+        process: "simple_email_agent.js",
+        logFile: "email_agent.log",
+      },
+      {
+        name: "Super Agent",
+        process: "super_agent.js",
+        logFile: "super_agent.log",
+      },
+      { name: "Backend API", process: "server.js", logFile: "server_8080.log" },
+      {
+        name: "Admin Server",
+        process: "admin_server.js",
+        logFile: "admin_8081.log",
+      },
+      {
+        name: "Fiverr Pro",
+        process: "fiverr_pro_system.js",
+        logFile: "fiverr_pro.log",
+      },
+      {
+        name: "Dashboard Agent",
+        process: "agent_dashboard.js",
+        logFile: "dashboard.log",
+      },
+      {
+        name: "Ngrok Manager",
+        process: "ngrok_manager.js",
+        logFile: "ngrok_manager.log",
+      },
+    ];
+
+    const agentStatus = [];
+
+    for (const agent of agents) {
+      try {
+        // Check if process is running
+        const { stdout } = await execAsync(
+          `ps aux | grep "${agent.process}" | grep -v grep`,
+        );
+        const isRunning = stdout.trim().length > 0;
+
+        // Get recent activity from log file
+        const lastActivity = await this.getLastActivity(agent.logFile);
+        const progress = await this.calculateProgress(agent, lastActivity);
+
+        agentStatus.push({
+          id: agent.process.replace(".js", "").replace(/_/g, "-"),
+          name: agent.name,
+          status: isRunning ? "active" : "offline",
+          currentTask: this.getCurrentTask(agent, isRunning, lastActivity),
+          progress: progress,
+          lastUpdate: new Date().toISOString(),
+          workflow: this.getWorkflowType(agent.name),
+          nextAction: this.getNextAction(agent, isRunning),
         });
-
-        // Enhanced API endpoints
-        this.app.get('/api/enhanced/status', async (req, res) => {
-            try {
-                const status = await this.getEnhancedStatus();
-                res.json(status);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+      } catch (error) {
+        agentStatus.push({
+          id: agent.process.replace(".js", "").replace(/_/g, "-"),
+          name: agent.name,
+          status: "offline",
+          currentTask: "Agent not running",
+          progress: 0,
+          lastUpdate: new Date().toISOString(),
+          workflow: "system_monitoring",
+          nextAction: "Start agent",
         });
+      }
+    }
 
-        this.app.get('/api/workflow/pipeline', async (req, res) => {
-            try {
-                const pipeline = await this.getWorkflowPipeline();
-                res.json(pipeline);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+    return agentStatus;
+  }
+
+  async getLastActivity(logFile) {
+    try {
+      const logPath = path.join(__dirname, logFile);
+      const content = await fs.readFile(logPath, "utf8");
+      const lines = content.split("\n").filter((line) => line.trim());
+      return lines[lines.length - 1] || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  calculateProgress(agent, lastActivity) {
+    if (agent.name.includes("Email") && lastActivity.includes("monitoring")) {
+      return 100; // Email agent is always monitoring
+    }
+    if (agent.name.includes("Super Agent") && lastActivity.includes("ACTIVE")) {
+      return 100;
+    }
+    if (agent.name.includes("Backend") && lastActivity.includes("listening")) {
+      return 100;
+    }
+    if (lastActivity.includes("✅")) {
+      return 100;
+    }
+    if (lastActivity.includes("🔄")) {
+      return 75;
+    }
+    if (lastActivity.includes("⚠️")) {
+      return 25;
+    }
+    return 0;
+  }
+
+  getCurrentTask(agent, isRunning, lastActivity) {
+    if (!isRunning) {
+      return "Agent offline";
+    }
+
+    if (agent.name.includes("Email")) {
+      return "Monitoring customer emails";
+    }
+    if (agent.name.includes("Super Agent")) {
+      return "System monitoring and optimization";
+    }
+    if (agent.name.includes("Backend")) {
+      return "Handling API requests";
+    }
+    if (agent.name.includes("Dashboard")) {
+      return "Serving monitoring interface";
+    }
+    if (agent.name.includes("Ngrok")) {
+      return "Managing public tunnels";
+    }
+
+    return "Processing tasks";
+  }
+
+  getWorkflowType(agentName) {
+    if (agentName.includes("Email")) return "email_monitoring";
+    if (agentName.includes("Super")) return "system_optimization";
+    if (agentName.includes("Backend")) return "api_processing";
+    if (agentName.includes("Dashboard")) return "interface_serving";
+    if (agentName.includes("Ngrok")) return "network_management";
+    return "general_processing";
+  }
+
+  getNextAction(agent, isRunning) {
+    if (!isRunning) {
+      return "Restart agent";
+    }
+
+    if (agent.name.includes("Email")) {
+      return "Process new orders";
+    }
+    if (agent.name.includes("Super Agent")) {
+      return "Optimize system performance";
+    }
+    if (agent.name.includes("Backend")) {
+      return "Handle next API request";
+    }
+
+    return "Continue monitoring";
+  }
+
+  updateWorkflows() {
+    this.agentWorkflows.forEach((agent) => {
+      // Simulate progress changes
+      if (agent.status === "working") {
+        agent.progress = Math.min(100, agent.progress + Math.random() * 15);
+        if (agent.progress >= 100) {
+          agent.status = "completed";
+          agent.currentTask = "Task completed successfully";
+        }
+      }
+
+      agent.lastUpdate = new Date().toISOString();
+    });
+  }
+
+  async getEnhancedStatus() {
+    const basicStatus = await this.getBasicAgentStatus();
+    const workflowStatus = this.agentWorkflows;
+    const systemMetrics = await this.getSystemMetrics();
+
+    return {
+      agents: basicStatus,
+      workflows: workflowStatus,
+      metrics: systemMetrics,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  async getWorkflowPipeline() {
+    try {
+      // Get real order data from processed orders log
+      const processedOrders = await this.getProcessedOrdersCount();
+      const emailInbox = await this.getEmailInboxCount();
+
+      return {
+        stages: [
+          {
+            name: "Email Monitoring",
+            status: "active",
+            count: 1,
+            description: "Monitoring customer emails",
+          },
+          {
+            name: "Order Processing",
+            status: "active",
+            count: emailInbox,
+            description: "Processing customer information",
+          },
+          {
+            name: "PDF Generation",
+            status: "active",
+            count: 0,
+            description: "Creating professional resumes",
+          },
+          {
+            name: "Email Delivery",
+            status: "active",
+            count: 0,
+            description: "Sending completed resumes",
+          },
+          {
+            name: "Completed Orders",
+            status: "completed",
+            count: processedOrders,
+            description: "Successfully delivered resumes",
+          },
+        ],
+        totalOrders: processedOrders + emailInbox,
+        completedToday: processedOrders,
+        averageTime: "1.5 hours",
+      };
+    } catch (error) {
+      return {
+        stages: [],
+        totalOrders: 0,
+        completedToday: 0,
+        averageTime: "0 hours",
+      };
+    }
+  }
+
+  async getProcessedOrdersCount() {
+    try {
+      const logPath = path.join(__dirname, "processed_orders_log.json");
+      const content = await fs.readFile(logPath, "utf8");
+      const orders = JSON.parse(content);
+      return orders.length;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  async getEmailInboxCount() {
+    try {
+      const inboxPath = path.join(__dirname, "email_inbox");
+      const files = await fs.readdir(inboxPath);
+      return files.filter((f) => f.endsWith(".json")).length;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  async getDetailedAgentStatus() {
+    return this.agentWorkflows.map((agent) => ({
+      ...agent,
+      health:
+        agent.status === "active" || agent.status === "working"
+          ? "healthy"
+          : "standby",
+      uptime: this.calculateUptime(),
+      tasksCompleted: Math.floor(Math.random() * 50) + 10,
+      efficiency: Math.floor(Math.random() * 30) + 70,
+    }));
+  }
+
+  async getActiveOrders() {
+    try {
+      // Get real active orders from processed orders log
+      const processedOrders = await this.getRecentProcessedOrders();
+      const pendingOrders = await this.getPendingOrders();
+
+      const orders = [];
+
+      // Add recent processed orders
+      processedOrders.forEach((order, index) => {
+        orders.push({
+          id: `PROC-${index + 1}`,
+          customer: order.customer || "Customer",
+          role: order.targetRole || "Professional",
+          status: "completed",
+          assignedAgent: "email_agent",
+          progress: 100,
+          timeRemaining: "Completed",
+          priority: "completed",
         });
+      });
 
-        this.app.get('/api/agents/detailed', async (req, res) => {
-            try {
-                const agents = await this.getDetailedAgentStatus();
-                res.json(agents);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+      // Add pending orders
+      pendingOrders.forEach((order, index) => {
+        orders.push({
+          id: `PEND-${index + 1}`,
+          customer: "New Customer",
+          role: "Processing...",
+          status: "processing",
+          assignedAgent: "email_agent",
+          progress: 50,
+          timeRemaining: "30 min",
+          priority: "high",
         });
+      });
 
-        this.app.get('/api/orders/active', async (req, res) => {
-            try {
-                const orders = await this.getActiveOrders();
-                res.json(orders);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+      // If no real orders, show system status
+      if (orders.length === 0) {
+        orders.push({
+          id: "SYS-001",
+          customer: "System Status",
+          role: "All Agents Monitoring",
+          status: "active",
+          assignedAgent: "super_agent",
+          progress: 100,
+          timeRemaining: "Continuous",
+          priority: "system",
         });
+      }
 
-        this.app.get('/api/recommendations/intelligent', async (req, res) => {
-            try {
-                const recommendations = await this.recommendationSystem.getFormattedRecommendations();
-                res.json(recommendations);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+      return orders;
+    } catch (error) {
+      return [
+        {
+          id: "ERR-001",
+          customer: "System",
+          role: "Error Loading Orders",
+          status: "error",
+          assignedAgent: "system",
+          progress: 0,
+          timeRemaining: "Unknown",
+          priority: "high",
+        },
+      ];
+    }
+  }
+
+  async getRecentProcessedOrders() {
+    try {
+      const logPath = path.join(__dirname, "processed_orders_log.json");
+      const content = await fs.readFile(logPath, "utf8");
+      const orders = JSON.parse(content);
+      return orders.slice(-3); // Last 3 orders
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async getPendingOrders() {
+    try {
+      const inboxPath = path.join(__dirname, "email_inbox");
+      const files = await fs.readdir(inboxPath);
+      const orderFiles = files.filter((f) => f.endsWith(".json"));
+
+      const pendingOrders = [];
+      for (const file of orderFiles.slice(0, 2)) {
+        // Max 2 pending
+        try {
+          const content = await fs.readFile(path.join(inboxPath, file), "utf8");
+          const order = JSON.parse(content);
+          pendingOrders.push(order);
+        } catch (error) {
+          // Skip invalid files
+        }
+      }
+
+      return pendingOrders;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  calculateUptime() {
+    const uptimeMs = Math.random() * 86400000; // Random uptime up to 24 hours
+    const hours = Math.floor(uptimeMs / 3600000);
+    const minutes = Math.floor((uptimeMs % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+  }
+
+  async getBasicAgentStatus() {
+    // Get basic status from existing logs
+    const agents = [
+      { name: "Email Agent", logFile: "email_agent.log", port: null },
+      { name: "Backend API", logFile: "server_8080.log", port: 8080 },
+      { name: "Admin Server", logFile: "admin_8081.log", port: 8081 },
+      { name: "Fiverr Pro", logFile: "fiverr_pro.log", port: 8082 },
+    ];
+
+    const statusData = [];
+    for (const agent of agents) {
+      try {
+        const logPath = path.join(__dirname, agent.logFile);
+        const logContent = await fs.readFile(logPath, "utf8");
+        const lines = logContent.split("\n").filter((line) => line.trim());
+        const lastLine = lines[lines.length - 1] || "";
+
+        statusData.push({
+          name: agent.name,
+          status: lastLine.includes("✅") ? "online" : "unknown",
+          lastActivity: this.extractTimestamp(lastLine) || "Unknown",
+          port: agent.port,
+          totalLines: lines.length,
         });
-
-        this.app.get('/api/projects/approved', async (req, res) => {
-            try {
-                const projects = this.projectSystem.getApprovedProjects();
-                res.json(projects);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+      } catch (error) {
+        statusData.push({
+          name: agent.name,
+          status: "offline",
+          lastActivity: "No log file",
+          port: agent.port,
+          totalLines: 0,
         });
-
-        this.app.get('/api/research/tasks', async (req, res) => {
-            try {
-                const research = this.projectSystem.getResearchTasks();
-                res.json(research);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/projects/summary', async (req, res) => {
-            try {
-                const summary = await this.projectSystem.getProjectSummary();
-                res.json(summary);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/development/progress/:projectName', async (req, res) => {
-            try {
-                const projectName = decodeURIComponent(req.params.projectName);
-                const progress = await this.progressTracker.getProjectProgress(projectName);
-                res.json(progress);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/development/all-progress', async (req, res) => {
-            try {
-                const allProgress = await this.progressTracker.getAllProjectsProgress();
-                res.json(allProgress);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+      }
     }
+    return statusData;
+  }
 
-    async initializeRealData() {
-        // Initialize with real system data
-        await this.updateRealAgentData();
-        
-        // Update real data periodically
-        setInterval(async () => {
-            await this.updateRealAgentData();
-        }, 30000); // Update every 30 seconds
+  async getSystemMetrics() {
+    try {
+      const processedOrders = await this.getProcessedOrdersCount();
+      const activeAgentsCount = this.agentWorkflows.filter(
+        (agent) => agent.status === "active",
+      ).length;
+      const systemLoad = await this.getSystemLoad();
+      const memoryUsage = await this.getMemoryUsage();
+
+      return {
+        totalAgents: this.agentWorkflows.length,
+        activeAgents: activeAgentsCount,
+        systemUptime: await this.getRealUptime(),
+        ordersProcessed: processedOrders,
+        ordersToday: processedOrders,
+        averageResponseTime: "0.8s",
+        systemLoad: systemLoad,
+        memoryUsage: memoryUsage,
+      };
+    } catch (error) {
+      return {
+        totalAgents: 0,
+        activeAgents: 0,
+        systemUptime: "0h 0m",
+        ordersProcessed: 0,
+        ordersToday: 0,
+        averageResponseTime: "N/A",
+        systemLoad: "N/A",
+        memoryUsage: "N/A",
+      };
     }
+  }
 
-    async updateRealAgentData() {
-        try {
-            // Get actual agent status from running processes
-            const realAgents = await this.getRealAgentStatus();
-            this.agentWorkflows = realAgents;
-        } catch (error) {
-            console.error('Failed to update real agent data:', error);
-        }
+  async getRealUptime() {
+    try {
+      const { stdout } = await execAsync("uptime");
+      const uptimeMatch = stdout.match(/up\s+(.+?),/);
+      return uptimeMatch ? uptimeMatch[1].trim() : "Unknown";
+    } catch (error) {
+      return "Unknown";
     }
+  }
 
-    async getRealAgentStatus() {
-        const agents = [
-            { name: 'Email Monitor Agent', process: 'simple_email_agent.js', logFile: 'email_agent.log' },
-            { name: 'Super Agent', process: 'super_agent.js', logFile: 'super_agent.log' },
-            { name: 'Backend API', process: 'server.js', logFile: 'server_8080.log' },
-            { name: 'Admin Server', process: 'admin_server.js', logFile: 'admin_8081.log' },
-            { name: 'Fiverr Pro', process: 'fiverr_pro_system.js', logFile: 'fiverr_pro.log' },
-            { name: 'Dashboard Agent', process: 'agent_dashboard.js', logFile: 'dashboard.log' },
-            { name: 'Ngrok Manager', process: 'ngrok_manager.js', logFile: 'ngrok_manager.log' }
-        ];
-
-        const agentStatus = [];
-
-        for (const agent of agents) {
-            try {
-                // Check if process is running
-                const { stdout } = await execAsync(`ps aux | grep "${agent.process}" | grep -v grep`);
-                const isRunning = stdout.trim().length > 0;
-                
-                // Get recent activity from log file
-                const lastActivity = await this.getLastActivity(agent.logFile);
-                const progress = await this.calculateProgress(agent, lastActivity);
-                
-                agentStatus.push({
-                    id: agent.process.replace('.js', '').replace(/_/g, '-'),
-                    name: agent.name,
-                    status: isRunning ? 'active' : 'offline',
-                    currentTask: this.getCurrentTask(agent, isRunning, lastActivity),
-                    progress: progress,
-                    lastUpdate: new Date().toISOString(),
-                    workflow: this.getWorkflowType(agent.name),
-                    nextAction: this.getNextAction(agent, isRunning)
-                });
-                
-            } catch (error) {
-                agentStatus.push({
-                    id: agent.process.replace('.js', '').replace(/_/g, '-'),
-                    name: agent.name,
-                    status: 'offline',
-                    currentTask: 'Agent not running',
-                    progress: 0,
-                    lastUpdate: new Date().toISOString(),
-                    workflow: 'system_monitoring',
-                    nextAction: 'Start agent'
-                });
-            }
-        }
-
-        return agentStatus;
+  async getSystemLoad() {
+    try {
+      const { stdout } = await execAsync(
+        "ps -A -o %cpu | awk '{s+=$1} END {print s}'",
+      );
+      const load = parseFloat(stdout.trim()) || 0;
+      return Math.min(100, Math.round(load)) + "%";
+    } catch (error) {
+      return "N/A";
     }
+  }
 
-    async getLastActivity(logFile) {
-        try {
-            const logPath = path.join(__dirname, logFile);
-            const content = await fs.readFile(logPath, 'utf8');
-            const lines = content.split('\n').filter(line => line.trim());
-            return lines[lines.length - 1] || '';
-        } catch (error) {
-            return '';
-        }
+  async getMemoryUsage() {
+    try {
+      const { stdout } = await execAsync(
+        "ps -A -o %mem | awk '{s+=$1} END {print s}'",
+      );
+      const usage = parseFloat(stdout.trim()) || 0;
+      return Math.min(100, Math.round(usage)) + "%";
+    } catch (error) {
+      return "N/A";
     }
+  }
 
-    calculateProgress(agent, lastActivity) {
-        if (agent.name.includes('Email') && lastActivity.includes('monitoring')) {
-            return 100; // Email agent is always monitoring
-        }
-        if (agent.name.includes('Super Agent') && lastActivity.includes('ACTIVE')) {
-            return 100;
-        }
-        if (agent.name.includes('Backend') && lastActivity.includes('listening')) {
-            return 100;
-        }
-        if (lastActivity.includes('✅')) {
-            return 100;
-        }
-        if (lastActivity.includes('🔄')) {
-            return 75;
-        }
-        if (lastActivity.includes('⚠️')) {
-            return 25;
-        }
-        return 0;
-    }
+  extractTimestamp(line) {
+    const timeMatch = line.match(/\[(\d+:\d+:\d+\s+[AP]M)\]/);
+    return timeMatch ? timeMatch[1] : null;
+  }
 
-    getCurrentTask(agent, isRunning, lastActivity) {
-        if (!isRunning) {
-            return 'Agent offline';
-        }
-        
-        if (agent.name.includes('Email')) {
-            return 'Monitoring customer emails';
-        }
-        if (agent.name.includes('Super Agent')) {
-            return 'System monitoring and optimization';
-        }
-        if (agent.name.includes('Backend')) {
-            return 'Handling API requests';
-        }
-        if (agent.name.includes('Dashboard')) {
-            return 'Serving monitoring interface';
-        }
-        if (agent.name.includes('Ngrok')) {
-            return 'Managing public tunnels';
-        }
-        
-        return 'Processing tasks';
-    }
-
-    getWorkflowType(agentName) {
-        if (agentName.includes('Email')) return 'email_monitoring';
-        if (agentName.includes('Super')) return 'system_optimization';
-        if (agentName.includes('Backend')) return 'api_processing';
-        if (agentName.includes('Dashboard')) return 'interface_serving';
-        if (agentName.includes('Ngrok')) return 'network_management';
-        return 'general_processing';
-    }
-
-    getNextAction(agent, isRunning) {
-        if (!isRunning) {
-            return 'Restart agent';
-        }
-        
-        if (agent.name.includes('Email')) {
-            return 'Process new orders';
-        }
-        if (agent.name.includes('Super Agent')) {
-            return 'Optimize system performance';
-        }
-        if (agent.name.includes('Backend')) {
-            return 'Handle next API request';
-        }
-        
-        return 'Continue monitoring';
-    }
-
-    updateWorkflows() {
-        this.agentWorkflows.forEach(agent => {
-            // Simulate progress changes
-            if (agent.status === 'working') {
-                agent.progress = Math.min(100, agent.progress + Math.random() * 15);
-                if (agent.progress >= 100) {
-                    agent.status = 'completed';
-                    agent.currentTask = 'Task completed successfully';
-                }
-            }
-            
-            agent.lastUpdate = new Date().toISOString();
-        });
-    }
-
-    async getEnhancedStatus() {
-        const basicStatus = await this.getBasicAgentStatus();
-        const workflowStatus = this.agentWorkflows;
-        const systemMetrics = await this.getSystemMetrics();
-        
-        return {
-            agents: basicStatus,
-            workflows: workflowStatus,
-            metrics: systemMetrics,
-            timestamp: new Date().toISOString()
-        };
-    }
-
-    async getWorkflowPipeline() {
-        try {
-            // Get real order data from processed orders log
-            const processedOrders = await this.getProcessedOrdersCount();
-            const emailInbox = await this.getEmailInboxCount();
-            
-            return {
-                stages: [
-                    {
-                        name: 'Email Monitoring',
-                        status: 'active',
-                        count: 1,
-                        description: 'Monitoring customer emails'
-                    },
-                    {
-                        name: 'Order Processing',
-                        status: 'active',
-                        count: emailInbox,
-                        description: 'Processing customer information'
-                    },
-                    {
-                        name: 'PDF Generation',
-                        status: 'active',
-                        count: 0,
-                        description: 'Creating professional resumes'
-                    },
-                    {
-                        name: 'Email Delivery',
-                        status: 'active',
-                        count: 0,
-                        description: 'Sending completed resumes'
-                    },
-                    {
-                        name: 'Completed Orders',
-                        status: 'completed',
-                        count: processedOrders,
-                        description: 'Successfully delivered resumes'
-                    }
-                ],
-                totalOrders: processedOrders + emailInbox,
-                completedToday: processedOrders,
-                averageTime: '1.5 hours'
-            };
-        } catch (error) {
-            return {
-                stages: [],
-                totalOrders: 0,
-                completedToday: 0,
-                averageTime: '0 hours'
-            };
-        }
-    }
-
-    async getProcessedOrdersCount() {
-        try {
-            const logPath = path.join(__dirname, 'processed_orders_log.json');
-            const content = await fs.readFile(logPath, 'utf8');
-            const orders = JSON.parse(content);
-            return orders.length;
-        } catch (error) {
-            return 0;
-        }
-    }
-
-    async getEmailInboxCount() {
-        try {
-            const inboxPath = path.join(__dirname, 'email_inbox');
-            const files = await fs.readdir(inboxPath);
-            return files.filter(f => f.endsWith('.json')).length;
-        } catch (error) {
-            return 0;
-        }
-    }
-
-    async getDetailedAgentStatus() {
-        return this.agentWorkflows.map(agent => ({
-            ...agent,
-            health: agent.status === 'active' || agent.status === 'working' ? 'healthy' : 'standby',
-            uptime: this.calculateUptime(),
-            tasksCompleted: Math.floor(Math.random() * 50) + 10,
-            efficiency: Math.floor(Math.random() * 30) + 70
-        }));
-    }
-
-    async getActiveOrders() {
-        try {
-            // Get real active orders from processed orders log
-            const processedOrders = await this.getRecentProcessedOrders();
-            const pendingOrders = await this.getPendingOrders();
-            
-            const orders = [];
-            
-            // Add recent processed orders
-            processedOrders.forEach((order, index) => {
-                orders.push({
-                    id: `PROC-${index + 1}`,
-                    customer: order.customer || 'Customer',
-                    role: order.targetRole || 'Professional',
-                    status: 'completed',
-                    assignedAgent: 'email_agent',
-                    progress: 100,
-                    timeRemaining: 'Completed',
-                    priority: 'completed'
-                });
-            });
-            
-            // Add pending orders
-            pendingOrders.forEach((order, index) => {
-                orders.push({
-                    id: `PEND-${index + 1}`,
-                    customer: 'New Customer',
-                    role: 'Processing...',
-                    status: 'processing',
-                    assignedAgent: 'email_agent',
-                    progress: 50,
-                    timeRemaining: '30 min',
-                    priority: 'high'
-                });
-            });
-            
-            // If no real orders, show system status
-            if (orders.length === 0) {
-                orders.push({
-                    id: 'SYS-001',
-                    customer: 'System Status',
-                    role: 'All Agents Monitoring',
-                    status: 'active',
-                    assignedAgent: 'super_agent',
-                    progress: 100,
-                    timeRemaining: 'Continuous',
-                    priority: 'system'
-                });
-            }
-            
-            return orders;
-            
-        } catch (error) {
-            return [{
-                id: 'ERR-001',
-                customer: 'System',
-                role: 'Error Loading Orders',
-                status: 'error',
-                assignedAgent: 'system',
-                progress: 0,
-                timeRemaining: 'Unknown',
-                priority: 'high'
-            }];
-        }
-    }
-
-    async getRecentProcessedOrders() {
-        try {
-            const logPath = path.join(__dirname, 'processed_orders_log.json');
-            const content = await fs.readFile(logPath, 'utf8');
-            const orders = JSON.parse(content);
-            return orders.slice(-3); // Last 3 orders
-        } catch (error) {
-            return [];
-        }
-    }
-
-    async getPendingOrders() {
-        try {
-            const inboxPath = path.join(__dirname, 'email_inbox');
-            const files = await fs.readdir(inboxPath);
-            const orderFiles = files.filter(f => f.endsWith('.json'));
-            
-            const pendingOrders = [];
-            for (const file of orderFiles.slice(0, 2)) { // Max 2 pending
-                try {
-                    const content = await fs.readFile(path.join(inboxPath, file), 'utf8');
-                    const order = JSON.parse(content);
-                    pendingOrders.push(order);
-                } catch (error) {
-                    // Skip invalid files
-                }
-            }
-            
-            return pendingOrders;
-        } catch (error) {
-            return [];
-        }
-    }
-
-    calculateUptime() {
-        const uptimeMs = Math.random() * 86400000; // Random uptime up to 24 hours
-        const hours = Math.floor(uptimeMs / 3600000);
-        const minutes = Math.floor((uptimeMs % 3600000) / 60000);
-        return `${hours}h ${minutes}m`;
-    }
-
-    async getBasicAgentStatus() {
-        // Get basic status from existing logs
-        const agents = [
-            { name: 'Email Agent', logFile: 'email_agent.log', port: null },
-            { name: 'Backend API', logFile: 'server_8080.log', port: 8080 },
-            { name: 'Admin Server', logFile: 'admin_8081.log', port: 8081 },
-            { name: 'Fiverr Pro', logFile: 'fiverr_pro.log', port: 8082 }
-        ];
-
-        const statusData = [];
-        for (const agent of agents) {
-            try {
-                const logPath = path.join(__dirname, agent.logFile);
-                const logContent = await fs.readFile(logPath, 'utf8');
-                const lines = logContent.split('\n').filter(line => line.trim());
-                const lastLine = lines[lines.length - 1] || '';
-                
-                statusData.push({
-                    name: agent.name,
-                    status: lastLine.includes('✅') ? 'online' : 'unknown',
-                    lastActivity: this.extractTimestamp(lastLine) || 'Unknown',
-                    port: agent.port,
-                    totalLines: lines.length
-                });
-            } catch (error) {
-                statusData.push({
-                    name: agent.name,
-                    status: 'offline',
-                    lastActivity: 'No log file',
-                    port: agent.port,
-                    totalLines: 0
-                });
-            }
-        }
-        return statusData;
-    }
-
-    async getSystemMetrics() {
-        try {
-            const processedOrders = await this.getProcessedOrdersCount();
-            const activeAgentsCount = this.agentWorkflows.filter(agent => agent.status === 'active').length;
-            const systemLoad = await this.getSystemLoad();
-            const memoryUsage = await this.getMemoryUsage();
-            
-            return {
-                totalAgents: this.agentWorkflows.length,
-                activeAgents: activeAgentsCount,
-                systemUptime: await this.getRealUptime(),
-                ordersProcessed: processedOrders,
-                ordersToday: processedOrders,
-                averageResponseTime: '0.8s',
-                systemLoad: systemLoad,
-                memoryUsage: memoryUsage
-            };
-        } catch (error) {
-            return {
-                totalAgents: 0,
-                activeAgents: 0,
-                systemUptime: '0h 0m',
-                ordersProcessed: 0,
-                ordersToday: 0,
-                averageResponseTime: 'N/A',
-                systemLoad: 'N/A',
-                memoryUsage: 'N/A'
-            };
-        }
-    }
-
-    async getRealUptime() {
-        try {
-            const { stdout } = await execAsync('uptime');
-            const uptimeMatch = stdout.match(/up\s+(.+?),/);
-            return uptimeMatch ? uptimeMatch[1].trim() : 'Unknown';
-        } catch (error) {
-            return 'Unknown';
-        }
-    }
-
-    async getSystemLoad() {
-        try {
-            const { stdout } = await execAsync("ps -A -o %cpu | awk '{s+=$1} END {print s}'");
-            const load = parseFloat(stdout.trim()) || 0;
-            return Math.min(100, Math.round(load)) + '%';
-        } catch (error) {
-            return 'N/A';
-        }
-    }
-
-    async getMemoryUsage() {
-        try {
-            const { stdout } = await execAsync("ps -A -o %mem | awk '{s+=$1} END {print s}'");
-            const usage = parseFloat(stdout.trim()) || 0;
-            return Math.min(100, Math.round(usage)) + '%';
-        } catch (error) {
-            return 'N/A';
-        }
-    }
-
-    extractTimestamp(line) {
-        const timeMatch = line.match(/\[(\d+:\d+:\d+\s+[AP]M)\]/);
-        return timeMatch ? timeMatch[1] : null;
-    }
-
-    getEnhancedDashboardHTML() {
-        return `
+  getEnhancedDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1993,20 +2031,22 @@ class EnhancedDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🚀 Enhanced Dashboard started on port ${this.port}`);
-            console.log(`📊 Enhanced Dashboard URL: http://localhost:${this.port}`);
-            console.log(`🎯 Features: Workflow tracking, agent status, order pipeline`);
-        });
-    }
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(`🚀 Enhanced Dashboard started on port ${this.port}`);
+      console.log(`📊 Enhanced Dashboard URL: http://localhost:${this.port}`);
+      console.log(
+        `🎯 Features: Workflow tracking, agent status, order pipeline`,
+      );
+    });
+  }
 }
 
 if (require.main === module) {
-    const dashboard = new EnhancedDashboard();
-    dashboard.start();
+  const dashboard = new EnhancedDashboard();
+  dashboard.start();
 }
 
 module.exports = EnhancedDashboard;

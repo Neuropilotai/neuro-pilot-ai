@@ -1,210 +1,207 @@
-require('dotenv').config();
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const { UserModel, getDb } = require('./db/database');
-const os = require('os');
+require("dotenv").config();
+const express = require("express");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+const { UserModel, getDb } = require("./db/database");
+const os = require("os");
 
 class UltimateDashboard {
-    constructor() {
-        this.app = express();
-        this.server = createServer(this.app);
-        this.io = new Server(this.server, {
-            cors: { origin: "*", methods: ["GET", "POST"] }
-        });
-        this.port = 3010;
-        this.setupMiddleware();
-        this.setupRoutes();
-        this.setupWebSocket();
-        this.startMonitoring();
-    }
+  constructor() {
+    this.app = express();
+    this.server = createServer(this.app);
+    this.io = new Server(this.server, {
+      cors: { origin: "*", methods: ["GET", "POST"] },
+    });
+    this.port = 3010;
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupWebSocket();
+    this.startMonitoring();
+  }
 
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-    }
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+  }
 
-    setupRoutes() {
-        this.app.get('/', (req, res) => {
-            res.send(this.getUltimateDashboardHTML());
-        });
+  setupRoutes() {
+    this.app.get("/", (req, res) => {
+      res.send(this.getUltimateDashboardHTML());
+    });
 
-        this.app.get('/api/ultimate/everything', async (req, res) => {
-            try {
-                const data = await this.getAllData();
-                res.json(data);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
+    this.app.get("/api/ultimate/everything", async (req, res) => {
+      try {
+        const data = await this.getAllData();
+        res.json(data);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
 
-        this.app.get('/api/ultimate/health', async (req, res) => {
-            try {
-                const health = await this.getSystemHealth();
-                res.json(health);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-    }
+    this.app.get("/api/ultimate/health", async (req, res) => {
+      try {
+        const health = await this.getSystemHealth();
+        res.json(health);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
 
-    setupWebSocket() {
-        this.io.on('connection', (socket) => {
-            console.log('🎯 Ultimate Dashboard connected:', socket.id);
-            
-            // Send initial data immediately
-            this.getAllData().then(data => {
-                socket.emit('dashboard_init', data);
-            });
-            
-            socket.on('disconnect', () => {
-                console.log('🎯 Ultimate Dashboard disconnected:', socket.id);
-            });
-        });
-    }
+  setupWebSocket() {
+    this.io.on("connection", (socket) => {
+      console.log("🎯 Ultimate Dashboard connected:", socket.id);
 
-    async startMonitoring() {
-        // Ultra-fast updates every 1 second
-        setInterval(async () => {
-            try {
-                const data = await this.getAllData();
-                this.io.emit('live_update', data);
-            } catch (error) {
-                console.error('Monitor error:', error);
-            }
-        }, 1000);
+      // Send initial data immediately
+      this.getAllData().then((data) => {
+        socket.emit("dashboard_init", data);
+      });
 
-        // Health check every 5 seconds
-        setInterval(async () => {
-            try {
-                const health = await this.getSystemHealth();
-                this.io.emit('health_update', health);
-            } catch (error) {
-                console.error('Health check error:', error);
-            }
-        }, 5000);
-    }
+      socket.on("disconnect", () => {
+        console.log("🎯 Ultimate Dashboard disconnected:", socket.id);
+      });
+    });
+  }
 
-    async getAllData() {
-        const [
-            stats,
-            users,
-            orders,
-            agents,
-            system,
-            activity
-        ] = await Promise.all([
-            this.getQuickStats(),
-            this.getRecentUsers(),
-            this.getRecentOrders(),
-            this.getAgentStatus(),
-            this.getSystemInfo(),
-            this.getRecentActivity()
-        ]);
+  async startMonitoring() {
+    // Ultra-fast updates every 1 second
+    setInterval(async () => {
+      try {
+        const data = await this.getAllData();
+        this.io.emit("live_update", data);
+      } catch (error) {
+        console.error("Monitor error:", error);
+      }
+    }, 1000);
 
-        return {
-            timestamp: new Date().toISOString(),
-            stats,
-            users,
-            orders,
-            agents,
-            system,
-            activity
-        };
-    }
+    // Health check every 5 seconds
+    setInterval(async () => {
+      try {
+        const health = await this.getSystemHealth();
+        this.io.emit("health_update", health);
+      } catch (error) {
+        console.error("Health check error:", error);
+      }
+    }, 5000);
+  }
 
-    async getQuickStats() {
-        const db = getDb();
-        if (!db) return { users: 0, orders: 0, revenue: 0, sessions: 0 };
+  async getAllData() {
+    const [stats, users, orders, agents, system, activity] = await Promise.all([
+      this.getQuickStats(),
+      this.getRecentUsers(),
+      this.getRecentOrders(),
+      this.getAgentStatus(),
+      this.getSystemInfo(),
+      this.getRecentActivity(),
+    ]);
 
-        const [users, orders, revenue, sessions] = await Promise.all([
-            db.get('SELECT COUNT(*) as count FROM users'),
-            db.get('SELECT COUNT(*) as count FROM resume_orders'),
-            db.get('SELECT SUM(price) as total FROM resume_orders WHERE status = "completed"'),
-            db.get('SELECT COUNT(*) as count FROM user_sessions WHERE datetime(expiresAt) > datetime("now")')
-        ]);
+    return {
+      timestamp: new Date().toISOString(),
+      stats,
+      users,
+      orders,
+      agents,
+      system,
+      activity,
+    };
+  }
 
-        return {
-            users: users?.count || 0,
-            orders: orders?.count || 0,
-            revenue: revenue?.total || 0,
-            sessions: sessions?.count || 0
-        };
-    }
+  async getQuickStats() {
+    const db = getDb();
+    if (!db) return { users: 0, orders: 0, revenue: 0, sessions: 0 };
 
-    async getRecentUsers() {
-        const db = getDb();
-        if (!db) return [];
+    const [users, orders, revenue, sessions] = await Promise.all([
+      db.get("SELECT COUNT(*) as count FROM users"),
+      db.get("SELECT COUNT(*) as count FROM resume_orders"),
+      db.get(
+        'SELECT SUM(price) as total FROM resume_orders WHERE status = "completed"',
+      ),
+      db.get(
+        'SELECT COUNT(*) as count FROM user_sessions WHERE datetime(expiresAt) > datetime("now")',
+      ),
+    ]);
 
-        return await db.all(`
+    return {
+      users: users?.count || 0,
+      orders: orders?.count || 0,
+      revenue: revenue?.total || 0,
+      sessions: sessions?.count || 0,
+    };
+  }
+
+  async getRecentUsers() {
+    const db = getDb();
+    if (!db) return [];
+
+    return await db.all(`
             SELECT id, email, firstName, lastName, createdAt
             FROM users 
             ORDER BY createdAt DESC 
             LIMIT 10
         `);
-    }
+  }
 
-    async getRecentOrders() {
-        const db = getDb();
-        if (!db) return [];
+  async getRecentOrders() {
+    const db = getDb();
+    if (!db) return [];
 
-        return await db.all(`
+    return await db.all(`
             SELECT ro.*, u.email as userEmail
             FROM resume_orders ro
             LEFT JOIN users u ON ro.userId = u.id
             ORDER BY ro.createdAt DESC
             LIMIT 10
         `);
+  }
+
+  async getAgentStatus() {
+    try {
+      const response = await fetch("http://localhost:8000/api/agents/status");
+      if (response.ok) {
+        const data = await response.json();
+        return Object.keys(data).map((key) => ({
+          name: key,
+          status: data[key]?.status || "unknown",
+          isRunning: data[key]?.is_running || false,
+          performance: data[key]?.performance || {},
+        }));
+      }
+      return [];
+    } catch (error) {
+      return [];
     }
+  }
 
-    async getAgentStatus() {
-        try {
-            const response = await fetch('http://localhost:8000/api/agents/status');
-            if (response.ok) {
-                const data = await response.json();
-                return Object.keys(data).map(key => ({
-                    name: key,
-                    status: data[key]?.status || 'unknown',
-                    isRunning: data[key]?.is_running || false,
-                    performance: data[key]?.performance || {}
-                }));
-            }
-            return [];
-        } catch (error) {
-            return [];
-        }
-    }
+  async getSystemInfo() {
+    const memUsage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
 
-    async getSystemInfo() {
-        const memUsage = process.memoryUsage();
-        const cpuUsage = process.cpuUsage();
-        
-        return {
-            uptime: Math.floor(process.uptime()),
-            memory: {
-                used: Math.round(memUsage.heapUsed / 1024 / 1024),
-                total: Math.round(memUsage.heapTotal / 1024 / 1024),
-                rss: Math.round(memUsage.rss / 1024 / 1024)
-            },
-            cpu: {
-                user: cpuUsage.user,
-                system: cpuUsage.system
-            },
-            loadAverage: os.loadavg(),
-            platform: os.platform(),
-            arch: os.arch(),
-            nodeVersion: process.version
-        };
-    }
+    return {
+      uptime: Math.floor(process.uptime()),
+      memory: {
+        used: Math.round(memUsage.heapUsed / 1024 / 1024),
+        total: Math.round(memUsage.heapTotal / 1024 / 1024),
+        rss: Math.round(memUsage.rss / 1024 / 1024),
+      },
+      cpu: {
+        user: cpuUsage.user,
+        system: cpuUsage.system,
+      },
+      loadAverage: os.loadavg(),
+      platform: os.platform(),
+      arch: os.arch(),
+      nodeVersion: process.version,
+    };
+  }
 
-    async getRecentActivity() {
-        const db = getDb();
-        if (!db) return [];
+  async getRecentActivity() {
+    const db = getDb();
+    if (!db) return [];
 
-        const activities = [];
-        
-        // Recent users
-        const recentUsers = await db.all(`
+    const activities = [];
+
+    // Recent users
+    const recentUsers = await db.all(`
             SELECT 'user' as type, email as description, createdAt as timestamp
             FROM users 
             WHERE datetime(createdAt) > datetime('now', '-1 hour')
@@ -212,8 +209,8 @@ class UltimateDashboard {
             LIMIT 5
         `);
 
-        // Recent orders
-        const recentOrders = await db.all(`
+    // Recent orders
+    const recentOrders = await db.all(`
             SELECT 'order' as type, 
                    (package || ' package - $' || price) as description, 
                    createdAt as timestamp
@@ -223,87 +220,87 @@ class UltimateDashboard {
             LIMIT 5
         `);
 
-        return [...recentUsers, ...recentOrders]
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-            .slice(0, 10);
+    return [...recentUsers, ...recentOrders]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 10);
+  }
+
+  async getSystemHealth() {
+    const memUsage = process.memoryUsage();
+    const loadAvg = os.loadavg();
+
+    const health = {
+      status: "healthy",
+      score: 100,
+      issues: [],
+      components: {
+        database: "healthy",
+        backend: "unknown",
+        memory: "healthy",
+        cpu: "healthy",
+      },
+    };
+
+    // Check memory
+    const memPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+    if (memPercent > 85) {
+      health.issues.push("High memory usage");
+      health.components.memory = "warning";
+      health.score -= 15;
     }
 
-    async getSystemHealth() {
-        const memUsage = process.memoryUsage();
-        const loadAvg = os.loadavg();
-        
-        const health = {
-            status: 'healthy',
-            score: 100,
-            issues: [],
-            components: {
-                database: 'healthy',
-                backend: 'unknown',
-                memory: 'healthy',
-                cpu: 'healthy'
-            }
-        };
-
-        // Check memory
-        const memPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
-        if (memPercent > 85) {
-            health.issues.push('High memory usage');
-            health.components.memory = 'warning';
-            health.score -= 15;
-        }
-
-        // Check CPU load
-        if (loadAvg[0] > os.cpus().length) {
-            health.issues.push('High CPU load');
-            health.components.cpu = 'critical';
-            health.score -= 20;
-        }
-
-        // Check backend
-        try {
-            const response = await fetch('http://localhost:8000/api/agents/status');
-            if (response.ok) {
-                health.components.backend = 'healthy';
-            } else {
-                health.components.backend = 'error';
-                health.issues.push('Backend not responding');
-                health.score -= 25;
-            }
-        } catch (error) {
-            health.components.backend = 'offline';
-            health.issues.push('Backend offline');
-            health.score -= 30;
-        }
-
-        // Check database
-        try {
-            const db = getDb();
-            if (db) {
-                await db.get('SELECT 1');
-                health.components.database = 'healthy';
-            } else {
-                health.components.database = 'error';
-                health.issues.push('Database connection failed');
-                health.score -= 25;
-            }
-        } catch (error) {
-            health.components.database = 'error';
-            health.issues.push('Database error');
-            health.score -= 25;
-        }
-
-        // Set overall status
-        if (health.score < 70) {
-            health.status = 'critical';
-        } else if (health.score < 85) {
-            health.status = 'warning';
-        }
-
-        return health;
+    // Check CPU load
+    if (loadAvg[0] > os.cpus().length) {
+      health.issues.push("High CPU load");
+      health.components.cpu = "critical";
+      health.score -= 20;
     }
 
-    getUltimateDashboardHTML() {
-        return `
+    // Check backend
+    try {
+      const response = await fetch("http://localhost:8000/api/agents/status");
+      if (response.ok) {
+        health.components.backend = "healthy";
+      } else {
+        health.components.backend = "error";
+        health.issues.push("Backend not responding");
+        health.score -= 25;
+      }
+    } catch (error) {
+      health.components.backend = "offline";
+      health.issues.push("Backend offline");
+      health.score -= 30;
+    }
+
+    // Check database
+    try {
+      const db = getDb();
+      if (db) {
+        await db.get("SELECT 1");
+        health.components.database = "healthy";
+      } else {
+        health.components.database = "error";
+        health.issues.push("Database connection failed");
+        health.score -= 25;
+      }
+    } catch (error) {
+      health.components.database = "error";
+      health.issues.push("Database error");
+      health.score -= 25;
+    }
+
+    // Set overall status
+    if (health.score < 70) {
+      health.status = "critical";
+    } else if (health.score < 85) {
+      health.status = "warning";
+    }
+
+    return health;
+  }
+
+  getUltimateDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1041,21 +1038,21 @@ class UltimateDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.server.listen(this.port, () => {
-            console.log(`🚀 Ultimate Dashboard started on port ${this.port}`);
-            console.log(`📊 Ultimate Dashboard URL: http://localhost:${this.port}`);
-            console.log(`🎯 The best dashboard with everything you need!`);
-        });
-    }
+  start() {
+    this.server.listen(this.port, () => {
+      console.log(`🚀 Ultimate Dashboard started on port ${this.port}`);
+      console.log(`📊 Ultimate Dashboard URL: http://localhost:${this.port}`);
+      console.log(`🎯 The best dashboard with everything you need!`);
+    });
+  }
 }
 
 // Start the ultimate dashboard
 if (require.main === module) {
-    const dashboard = new UltimateDashboard();
-    dashboard.start();
+  const dashboard = new UltimateDashboard();
+  dashboard.start();
 }
 
 module.exports = UltimateDashboard;

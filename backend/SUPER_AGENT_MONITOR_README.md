@@ -5,24 +5,28 @@ A real-time monitoring and control system for all AI agents in the Neuro.Pilot.A
 ## Features
 
 ### 🎯 Real-Time Agent Monitoring
+
 - Live status updates for all connected agents
 - Visual indicators for agent states (idle, working, paused, offline, error)
 - Current work tracking with detailed task information
 - Performance metrics display
 
 ### ✅ Work Approval System
+
 - Approve or reject agent work before execution
 - Add feedback to approvals
 - Configurable approval requirements per agent capability
 - Visual queue of pending approvals with notifications
 
 ### 📊 Comprehensive Dashboard
+
 - Beautiful dark-themed UI with glassmorphism effects
 - Real-time statistics (total agents, active agents, pending approvals, tasks completed)
 - Work history tracking with status indicators
 - Agent metrics and performance data
 
 ### 🎮 Agent Control
+
 - Pause/resume agents on demand
 - Assign tasks to specific agents
 - Send custom commands to agents
@@ -31,6 +35,7 @@ A real-time monitoring and control system for all AI agents in the Neuro.Pilot.A
 ## Quick Start
 
 1. **Start the Super Agent Monitor:**
+
    ```bash
    cd backend
    node start_super_monitor.js
@@ -50,63 +55,67 @@ A real-time monitoring and control system for all AI agents in the Neuro.Pilot.A
 ### For New Agents
 
 1. **Install the integration module:**
+
    ```javascript
-   const AgentMonitorIntegration = require('./agent_monitor_integration');
+   const AgentMonitorIntegration = require("./agent_monitor_integration");
    ```
 
 2. **Initialize in your agent:**
+
    ```javascript
    class YourAgent {
-       constructor() {
-           this.monitor = new AgentMonitorIntegration(
-               'your_agent_id',
-               'Your Agent Name',
-               ['capability1', 'capability2', 'capability3']
-           );
-           
-           // Specify which capabilities require approval
-           this.monitor.requiresApproval = ['capability2'];
-       }
+     constructor() {
+       this.monitor = new AgentMonitorIntegration(
+         "your_agent_id",
+         "Your Agent Name",
+         ["capability1", "capability2", "capability3"],
+       );
+
+       // Specify which capabilities require approval
+       this.monitor.requiresApproval = ["capability2"];
+     }
    }
    ```
 
 3. **Update status as you work:**
+
    ```javascript
    // When starting work
-   this.monitor.updateStatus('working', {
-       type: 'task_type',
-       description: 'What the agent is doing'
+   this.monitor.updateStatus("working", {
+     type: "task_type",
+     description: "What the agent is doing",
    });
-   
+
    // When idle
-   this.monitor.updateStatus('idle');
+   this.monitor.updateStatus("idle");
    ```
 
 4. **Submit work for approval:**
+
    ```javascript
    try {
-       const approval = await this.monitor.submitWork(
-           'content_creation',
-           'Created marketing blog post',
-           { content: blogPostData },
-           true // requires approval
-       );
-       
-       if (approval.approved) {
-           // Execute the approved work
-           console.log('Work approved!', approval.feedback);
-       }
+     const approval = await this.monitor.submitWork(
+       "content_creation",
+       "Created marketing blog post",
+       { content: blogPostData },
+       true, // requires approval
+     );
+
+     if (approval.approved) {
+       // Execute the approved work
+       console.log("Work approved!", approval.feedback);
+     }
    } catch (error) {
-       console.log('Work rejected:', error.message);
+     console.log("Work rejected:", error.message);
    }
    ```
 
 5. **Update metrics:**
    ```javascript
    this.monitor.updateMetrics({
-       tasksCompleted: 42,
-       successRate: 98.5,
-       avgResponseTime: 1200
+     tasksCompleted: 42,
+     successRate: 98.5,
+     avgResponseTime: 1200,
    });
    ```
 
@@ -150,19 +159,25 @@ Agent → AgentMonitorIntegration → Socket.io → SuperAgentMonitor → Dashbo
 ## Configuration
 
 ### Agent Capabilities
+
 Define what each agent can do in the agent definitions:
+
 ```javascript
-capabilities: ['lead_generation', 'content_creation', 'email_campaigns']
+capabilities: ["lead_generation", "content_creation", "email_campaigns"];
 ```
 
 ### Approval Requirements
+
 Specify which capabilities need approval:
+
 ```javascript
-requiresApproval: ['content_creation', 'email_campaigns']
+requiresApproval: ["content_creation", "email_campaigns"];
 ```
 
 ### Port Configuration
+
 Set the monitor port via environment variable:
+
 ```bash
 AGENT_MONITOR_PORT=3009 node start_super_monitor.js
 ```
@@ -170,6 +185,7 @@ AGENT_MONITOR_PORT=3009 node start_super_monitor.js
 ## Example Agents
 
 See `agents/monitored_agent_example.js` for a complete example of:
+
 - Agent initialization with monitor
 - Handling pause/resume commands
 - Submitting work for approval
@@ -179,16 +195,19 @@ See `agents/monitored_agent_example.js` for a complete example of:
 ## Troubleshooting
 
 ### Agent Not Showing in Dashboard
+
 - Ensure the agent is connecting to the correct monitor URL
 - Check that the agent is calling `registerAgent()` after connection
 - Verify no firewall is blocking port 3009
 
 ### Approvals Not Working
+
 - Make sure the work type is in the agent's `requiresApproval` array
 - Check browser console for any JavaScript errors
 - Ensure Socket.io connection is established
 
 ### Real-time Updates Not Working
+
 - Verify WebSocket connection in browser dev tools
 - Check for any proxy or network issues
 - Ensure all Socket.io events are properly emitted

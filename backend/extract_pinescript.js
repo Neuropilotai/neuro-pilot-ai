@@ -1,15 +1,20 @@
 // Extract Pine Script Indicators from Neuro.Pilot.AI Trading Agent
-const fs = require('fs').promises;
-const path = require('path');
+const fs = require("fs").promises;
+const path = require("path");
 
 class PineScriptExtractor {
-    constructor() {
-        this.outputDir = path.join(__dirname, '..', 'TradingDrive', 'pinescript_strategies');
-    }
+  constructor() {
+    this.outputDir = path.join(
+      __dirname,
+      "..",
+      "TradingDrive",
+      "pinescript_strategies",
+    );
+  }
 
-    async extractMainStrategy() {
-        // Main Neuro.Pilot.AI Enhanced Strategy (seen in logs with 95% accuracy)
-        const mainStrategy = `//@version=5
+  async extractMainStrategy() {
+    // Main Neuro.Pilot.AI Enhanced Strategy (seen in logs with 95% accuracy)
+    const mainStrategy = `//@version=5
 strategy("Neuro.Pilot.AI Enhanced Strategy v2025", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
 
 // ===== AI MODEL PARAMETERS =====
@@ -158,11 +163,11 @@ alertcondition(short_condition, "AI Short Entry", "Neuro.Pilot.AI: SHORT signal 
 alertcondition(strategy.position_size == 0 and strategy.position_size[1] != 0, "Position Closed", "Neuro.Pilot.AI: Position closed")
 `;
 
-        return mainStrategy;
-    }
+    return mainStrategy;
+  }
 
-    async createMomentumStrategy() {
-        const momentumStrategy = `//@version=5
+  async createMomentumStrategy() {
+    const momentumStrategy = `//@version=5
 strategy("Neuro.Pilot.AI Momentum Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
 
 // AI Model Parameters
@@ -195,11 +200,11 @@ plotshape(long_momentum, style=shape.triangleup, location=location.belowbar, col
 plotshape(short_momentum, style=shape.triangledown, location=location.abovebar, color=color.red)
 `;
 
-        return momentumStrategy;
-    }
+    return momentumStrategy;
+  }
 
-    async createMeanReversionStrategy() {
-        const meanReversionStrategy = `//@version=5
+  async createMeanReversionStrategy() {
+    const meanReversionStrategy = `//@version=5
 strategy("Neuro.Pilot.AI Mean Reversion Strategy", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
 
 // AI Parameters
@@ -233,11 +238,11 @@ plotshape(oversold, style=shape.circle, location=location.belowbar, color=color.
 plotshape(overbought, style=shape.circle, location=location.abovebar, color=color.red)
 `;
 
-        return meanReversionStrategy;
-    }
+    return meanReversionStrategy;
+  }
 
-    async createAdaptiveStrategy() {
-        const adaptiveStrategy = `//@version=5
+  async createAdaptiveStrategy() {
+    const adaptiveStrategy = `//@version=5
 strategy("Neuro.Pilot.AI Adaptive Multi-Timeframe Strategy", overlay=true)
 
 // AI Learning Parameters
@@ -281,58 +286,62 @@ bgcolor(market_regime == "volatile" ? color.new(color.red, 90) :
         market_regime == "stable" ? color.new(color.green, 90) : color.new(color.blue, 90))
 `;
 
-        return adaptiveStrategy;
+    return adaptiveStrategy;
+  }
+
+  async extractAllStrategies() {
+    try {
+      await fs.mkdir(this.outputDir, { recursive: true });
+
+      const strategies = {
+        "neuro_pilot_enhanced_strategy.pine": await this.extractMainStrategy(),
+        "neuro_pilot_momentum.pine": await this.createMomentumStrategy(),
+        "neuro_pilot_mean_reversion.pine":
+          await this.createMeanReversionStrategy(),
+        "neuro_pilot_adaptive.pine": await this.createAdaptiveStrategy(),
+      };
+
+      const summaryData = {
+        extractedAt: new Date().toISOString(),
+        aiModelAccuracy: 0.95,
+        learningProgress: 0.59,
+        dataPointsCollected: 3140,
+        strategiesExtracted: Object.keys(strategies).length,
+        strategies: Object.keys(strategies).map((filename) => ({
+          filename,
+          type: filename.split("_")[2].replace(".pine", ""),
+          readyForTradingView: true,
+        })),
+      };
+
+      // Save all strategies
+      for (const [filename, code] of Object.entries(strategies)) {
+        const filePath = path.join(this.outputDir, filename);
+        await fs.writeFile(filePath, code, "utf8");
+        console.log(`✅ Extracted: ${filename}`);
+      }
+
+      // Save extraction summary
+      const summaryPath = path.join(this.outputDir, "extraction_summary.json");
+      await fs.writeFile(
+        summaryPath,
+        JSON.stringify(summaryData, null, 2),
+        "utf8",
+      );
+
+      console.log(`\n🎯 EXTRACTION COMPLETE!`);
+      console.log(`📁 Location: ${this.outputDir}`);
+      console.log(`📊 Strategies: ${Object.keys(strategies).length}`);
+      console.log(`🤖 AI Accuracy: 95%`);
+      console.log(`📈 Learning Progress: 59%`);
+      console.log(`\n📋 Ready to import into TradingView:`);
+      Object.keys(strategies).forEach((filename) => {
+        console.log(`   • ${filename}`);
+      });
+    } catch (error) {
+      console.error("❌ Extraction failed:", error);
     }
-
-    async extractAllStrategies() {
-        try {
-            await fs.mkdir(this.outputDir, { recursive: true });
-            
-            const strategies = {
-                'neuro_pilot_enhanced_strategy.pine': await this.extractMainStrategy(),
-                'neuro_pilot_momentum.pine': await this.createMomentumStrategy(),
-                'neuro_pilot_mean_reversion.pine': await this.createMeanReversionStrategy(),
-                'neuro_pilot_adaptive.pine': await this.createAdaptiveStrategy()
-            };
-
-            const summaryData = {
-                extractedAt: new Date().toISOString(),
-                aiModelAccuracy: 0.95,
-                learningProgress: 0.59,
-                dataPointsCollected: 3140,
-                strategiesExtracted: Object.keys(strategies).length,
-                strategies: Object.keys(strategies).map(filename => ({
-                    filename,
-                    type: filename.split('_')[2].replace('.pine', ''),
-                    readyForTradingView: true
-                }))
-            };
-
-            // Save all strategies
-            for (const [filename, code] of Object.entries(strategies)) {
-                const filePath = path.join(this.outputDir, filename);
-                await fs.writeFile(filePath, code, 'utf8');
-                console.log(`✅ Extracted: ${filename}`);
-            }
-
-            // Save extraction summary
-            const summaryPath = path.join(this.outputDir, 'extraction_summary.json');
-            await fs.writeFile(summaryPath, JSON.stringify(summaryData, null, 2), 'utf8');
-
-            console.log(`\n🎯 EXTRACTION COMPLETE!`);
-            console.log(`📁 Location: ${this.outputDir}`);
-            console.log(`📊 Strategies: ${Object.keys(strategies).length}`);
-            console.log(`🤖 AI Accuracy: 95%`);
-            console.log(`📈 Learning Progress: 59%`);
-            console.log(`\n📋 Ready to import into TradingView:`);
-            Object.keys(strategies).forEach(filename => {
-                console.log(`   • ${filename}`);
-            });
-
-        } catch (error) {
-            console.error('❌ Extraction failed:', error);
-        }
-    }
+  }
 }
 
 // Run extraction

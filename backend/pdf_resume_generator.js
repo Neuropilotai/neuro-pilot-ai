@@ -1,68 +1,69 @@
-const puppeteer = require('puppeteer');
-const fs = require('fs').promises;
-const path = require('path');
+const puppeteer = require("puppeteer");
+const fs = require("fs").promises;
+const path = require("path");
 
 class PDFResumeGenerator {
-    async generateProfessionalResume(orderData) {
-        try {
-            // Create HTML resume template
-            const resumeHTML = this.createResumeHTML(orderData);
-            
-            // Generate PDF using Puppeteer
-            const browser = await puppeteer.launch({ 
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
-            });
-            const page = await browser.newPage();
-            
-            // Set content and generate PDF
-            await page.setContent(resumeHTML, { waitUntil: 'networkidle0' });
-            
-            // Create output directory
-            const outputDir = path.join(__dirname, '../generated_resumes');
-            await fs.mkdir(outputDir, { recursive: true });
-            
-            // Generate filename
-            const safeName = orderData.fullName.replace(/[^a-zA-Z0-9]/g, '_');
-            const timestamp = Date.now();
-            const filename = `${safeName}_Resume_${timestamp}.pdf`;
-            const filePath = path.join(outputDir, filename);
-            
-            // Generate PDF with professional formatting
-            await page.pdf({
-                path: filePath,
-                format: 'A4',
-                printBackground: true,
-                margin: {
-                    top: '0.5in',
-                    bottom: '0.5in',
-                    left: '0.75in',
-                    right: '0.75in'
-                }
-            });
-            
-            await browser.close();
-            
-            console.log(`✅ PDF Resume generated: ${filename}`);
-            return {
-                success: true,
-                filePath: filePath,
-                filename: filename
-            };
-            
-        } catch (error) {
-            console.error('PDF generation error:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    }
+  async generateProfessionalResume(orderData) {
+    try {
+      // Create HTML resume template
+      const resumeHTML = this.createResumeHTML(orderData);
 
-    createResumeHTML(orderData) {
-        const keywords = orderData.keywords ? orderData.keywords.split(',').map(k => k.trim()) : [];
-        
-        return `
+      // Generate PDF using Puppeteer
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      const page = await browser.newPage();
+
+      // Set content and generate PDF
+      await page.setContent(resumeHTML, { waitUntil: "networkidle0" });
+
+      // Create output directory
+      const outputDir = path.join(__dirname, "../generated_resumes");
+      await fs.mkdir(outputDir, { recursive: true });
+
+      // Generate filename
+      const safeName = orderData.fullName.replace(/[^a-zA-Z0-9]/g, "_");
+      const timestamp = Date.now();
+      const filename = `${safeName}_Resume_${timestamp}.pdf`;
+      const filePath = path.join(outputDir, filename);
+
+      // Generate PDF with professional formatting
+      await page.pdf({
+        path: filePath,
+        format: "A4",
+        printBackground: true,
+        margin: {
+          top: "0.5in",
+          bottom: "0.5in",
+          left: "0.75in",
+          right: "0.75in",
+        },
+      });
+
+      await browser.close();
+
+      console.log(`✅ PDF Resume generated: ${filename}`);
+      return {
+        success: true,
+        filePath: filePath,
+        filename: filename,
+      };
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  createResumeHTML(orderData) {
+    const keywords = orderData.keywords
+      ? orderData.keywords.split(",").map((k) => k.trim())
+      : [];
+
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -278,7 +279,7 @@ class PDFResumeGenerator {
             <div class="title">${orderData.targetRole}</div>
             <div class="contact">
                 <span>📧 ${orderData.email}</span>
-                ${orderData.phone ? `<span>📱 ${orderData.phone}</span>` : ''}
+                ${orderData.phone ? `<span>📱 ${orderData.phone}</span>` : ""}
                 <span>💼 ${orderData.experience} Years Experience</span>
                 <span>🏢 ${orderData.industry}</span>
             </div>
@@ -290,7 +291,7 @@ class PDFResumeGenerator {
                 <div class="summary">
                     Results-driven ${orderData.targetRole} with ${orderData.experience} years of progressive experience in ${orderData.industry}. 
                     Proven track record of delivering innovative solutions, leading high-performing teams, and driving organizational growth. 
-                    Expert in ${keywords.slice(0, 3).join(', ')} with a strong commitment to excellence and continuous improvement. 
+                    Expert in ${keywords.slice(0, 3).join(", ")} with a strong commitment to excellence and continuous improvement. 
                     Seeking to leverage extensive expertise and leadership skills to contribute to organizational success in a challenging ${orderData.targetRole} role.
                 </div>
             </div>
@@ -329,107 +330,160 @@ class PDFResumeGenerator {
     </div>
 </body>
 </html>`;
-    }
+  }
 
-    generateSkillCategories(keywords, industry) {
-        const skillCategories = {
-            'Technology': [
-                { title: 'Technical Skills', skills: keywords.slice(0, 4).join(' • ') || 'Python • JavaScript • SQL • AWS' },
-                { title: 'Development', skills: 'Agile • DevOps • CI/CD • Testing' },
-                { title: 'Leadership', skills: 'Team Management • Strategic Planning • Project Management' }
-            ],
-            'Finance': [
-                { title: 'Financial Analysis', skills: keywords.slice(0, 4).join(' • ') || 'Financial Modeling • Risk Analysis • Investment Strategy' },
-                { title: 'Software & Tools', skills: 'Excel • Bloomberg • SAP • Tableau' },
-                { title: 'Leadership', skills: 'Team Management • Client Relations • Strategic Planning' }
-            ],
-            'Healthcare': [
-                { title: 'Clinical Skills', skills: keywords.slice(0, 4).join(' • ') || 'Patient Care • Medical Records • Compliance' },
-                { title: 'Technology', skills: 'EMR Systems • Medical Software • Data Analysis' },
-                { title: 'Leadership', skills: 'Team Coordination • Quality Improvement • Training' }
-            ],
-            'Food Services': [
-                { title: 'Operations', skills: keywords.slice(0, 4).join(' • ') || 'Operations Management • Quality Control • Supply Chain' },
-                { title: 'Technology', skills: 'POS Systems • Inventory Management • Data Analytics' },
-                { title: 'Leadership', skills: 'Team Management • Customer Service • Strategic Planning' }
-            ]
-        };
+  generateSkillCategories(keywords, industry) {
+    const skillCategories = {
+      Technology: [
+        {
+          title: "Technical Skills",
+          skills:
+            keywords.slice(0, 4).join(" • ") ||
+            "Python • JavaScript • SQL • AWS",
+        },
+        { title: "Development", skills: "Agile • DevOps • CI/CD • Testing" },
+        {
+          title: "Leadership",
+          skills: "Team Management • Strategic Planning • Project Management",
+        },
+      ],
+      Finance: [
+        {
+          title: "Financial Analysis",
+          skills:
+            keywords.slice(0, 4).join(" • ") ||
+            "Financial Modeling • Risk Analysis • Investment Strategy",
+        },
+        {
+          title: "Software & Tools",
+          skills: "Excel • Bloomberg • SAP • Tableau",
+        },
+        {
+          title: "Leadership",
+          skills: "Team Management • Client Relations • Strategic Planning",
+        },
+      ],
+      Healthcare: [
+        {
+          title: "Clinical Skills",
+          skills:
+            keywords.slice(0, 4).join(" • ") ||
+            "Patient Care • Medical Records • Compliance",
+        },
+        {
+          title: "Technology",
+          skills: "EMR Systems • Medical Software • Data Analysis",
+        },
+        {
+          title: "Leadership",
+          skills: "Team Coordination • Quality Improvement • Training",
+        },
+      ],
+      "Food Services": [
+        {
+          title: "Operations",
+          skills:
+            keywords.slice(0, 4).join(" • ") ||
+            "Operations Management • Quality Control • Supply Chain",
+        },
+        {
+          title: "Technology",
+          skills: "POS Systems • Inventory Management • Data Analytics",
+        },
+        {
+          title: "Leadership",
+          skills: "Team Management • Customer Service • Strategic Planning",
+        },
+      ],
+    };
 
-        const categories = skillCategories[industry] || skillCategories['Technology'];
-        
-        return categories.map(cat => `
+    const categories =
+      skillCategories[industry] || skillCategories["Technology"];
+
+    return categories
+      .map(
+        (cat) => `
             <div class="skill-category">
                 <h3>${cat.title}</h3>
                 <p>${cat.skills}</p>
             </div>
-        `).join('');
-    }
+        `,
+      )
+      .join("");
+  }
 
-    generateExperienceSection(orderData) {
-        const experienceYears = parseInt(orderData.experience.split('-')[1]) || 10;
-        const roles = this.getIndustryRoles(orderData.industry, orderData.targetRole);
-        
-        return roles.map((role, index) => `
+  generateExperienceSection(orderData) {
+    const experienceYears = parseInt(orderData.experience.split("-")[1]) || 10;
+    const roles = this.getIndustryRoles(
+      orderData.industry,
+      orderData.targetRole,
+    );
+
+    return roles
+      .map(
+        (role, index) => `
             <div class="experience-item">
                 <div class="job-title">${role.title}</div>
                 <div class="company">${role.company}</div>
                 <div class="date-location">${role.period} | ${role.location}</div>
                 <ul class="achievements">
-                    ${role.achievements.map(achievement => `<li>${achievement}</li>`).join('')}
+                    ${role.achievements.map((achievement) => `<li>${achievement}</li>`).join("")}
                 </ul>
             </div>
-        `).join('');
-    }
+        `,
+      )
+      .join("");
+  }
 
-    getIndustryRoles(industry, targetRole) {
-        const roles = {
-            'Food Services': [
-                {
-                    title: 'Senior Operations Manager',
-                    company: 'Global Food Services Inc.',
-                    period: '2020 - Present',
-                    location: 'New York, NY',
-                    achievements: [
-                        'Led digital transformation initiatives resulting in 25% operational efficiency improvement',
-                        'Managed cross-functional teams of 50+ employees across multiple locations',
-                        'Implemented new inventory management system reducing costs by $500K annually',
-                        'Developed strategic partnerships with key vendors improving supply chain reliability by 30%'
-                    ]
-                },
-                {
-                    title: 'IT Operations Manager',
-                    company: 'Corporate Dining Solutions',
-                    period: '2017 - 2020',
-                    location: 'Chicago, IL',
-                    achievements: [
-                        'Oversaw IT infrastructure for 200+ dining locations nationwide',
-                        'Led successful migration to cloud-based POS systems',
-                        'Reduced system downtime by 40% through proactive monitoring',
-                        'Managed annual IT budget of $2.5M with 15% cost reduction'
-                    ]
-                }
-            ],
-            'Technology': [
-                {
-                    title: 'Senior Software Engineer',
-                    company: 'TechCorp Solutions',
-                    period: '2020 - Present',
-                    location: 'San Francisco, CA',
-                    achievements: [
-                        'Led development of scalable microservices architecture serving 1M+ users',
-                        'Mentored team of 8 junior developers and improved code quality by 35%',
-                        'Implemented CI/CD pipelines reducing deployment time by 60%',
-                        'Designed and built REST APIs handling 10K+ requests per minute'
-                    ]
-                }
-            ]
-        };
+  getIndustryRoles(industry, targetRole) {
+    const roles = {
+      "Food Services": [
+        {
+          title: "Senior Operations Manager",
+          company: "Global Food Services Inc.",
+          period: "2020 - Present",
+          location: "New York, NY",
+          achievements: [
+            "Led digital transformation initiatives resulting in 25% operational efficiency improvement",
+            "Managed cross-functional teams of 50+ employees across multiple locations",
+            "Implemented new inventory management system reducing costs by $500K annually",
+            "Developed strategic partnerships with key vendors improving supply chain reliability by 30%",
+          ],
+        },
+        {
+          title: "IT Operations Manager",
+          company: "Corporate Dining Solutions",
+          period: "2017 - 2020",
+          location: "Chicago, IL",
+          achievements: [
+            "Oversaw IT infrastructure for 200+ dining locations nationwide",
+            "Led successful migration to cloud-based POS systems",
+            "Reduced system downtime by 40% through proactive monitoring",
+            "Managed annual IT budget of $2.5M with 15% cost reduction",
+          ],
+        },
+      ],
+      Technology: [
+        {
+          title: "Senior Software Engineer",
+          company: "TechCorp Solutions",
+          period: "2020 - Present",
+          location: "San Francisco, CA",
+          achievements: [
+            "Led development of scalable microservices architecture serving 1M+ users",
+            "Mentored team of 8 junior developers and improved code quality by 35%",
+            "Implemented CI/CD pipelines reducing deployment time by 60%",
+            "Designed and built REST APIs handling 10K+ requests per minute",
+          ],
+        },
+      ],
+    };
 
-        return roles[industry] || roles['Technology'];
-    }
+    return roles[industry] || roles["Technology"];
+  }
 
-    generateEducationSection(orderData) {
-        return `
+  generateEducationSection(orderData) {
+    return `
             <div class="education-item">
                 <div class="job-title">Master of Business Administration (MBA)</div>
                 <div class="company">University of Management Excellence</div>
@@ -441,44 +495,46 @@ class PDFResumeGenerator {
                 <div class="date-location">2013 | GPA: 3.7/4.0</div>
             </div>
         `;
-    }
+  }
 
-    getRelevantDegree(industry) {
-        const degrees = {
-            'Technology': 'Computer Science',
-            'Finance': 'Finance & Economics',
-            'Healthcare': 'Healthcare Administration',
-            'Food Services': 'Business Administration',
-            'Education': 'Education Management'
-        };
-        return degrees[industry] || 'Business Administration';
-    }
+  getRelevantDegree(industry) {
+    const degrees = {
+      Technology: "Computer Science",
+      Finance: "Finance & Economics",
+      Healthcare: "Healthcare Administration",
+      "Food Services": "Business Administration",
+      Education: "Education Management",
+    };
+    return degrees[industry] || "Business Administration";
+  }
 
-    generateCertifications(industry) {
-        const certs = {
-            'Technology': [
-                'AWS Certified Solutions Architect',
-                'Certified Scrum Master (CSM)',
-                'Project Management Professional (PMP)',
-                'ITIL Foundation Certified'
-            ],
-            'Finance': [
-                'Chartered Financial Analyst (CFA)',
-                'Financial Risk Manager (FRM)',
-                'Certified Public Accountant (CPA)',
-                'Project Management Professional (PMP)'
-            ],
-            'Food Services': [
-                'ServSafe Certified Manager',
-                'Certified Food & Beverage Executive',
-                'Lean Six Sigma Green Belt',
-                'Project Management Professional (PMP)'
-            ]
-        };
+  generateCertifications(industry) {
+    const certs = {
+      Technology: [
+        "AWS Certified Solutions Architect",
+        "Certified Scrum Master (CSM)",
+        "Project Management Professional (PMP)",
+        "ITIL Foundation Certified",
+      ],
+      Finance: [
+        "Chartered Financial Analyst (CFA)",
+        "Financial Risk Manager (FRM)",
+        "Certified Public Accountant (CPA)",
+        "Project Management Professional (PMP)",
+      ],
+      "Food Services": [
+        "ServSafe Certified Manager",
+        "Certified Food & Beverage Executive",
+        "Lean Six Sigma Green Belt",
+        "Project Management Professional (PMP)",
+      ],
+    };
 
-        const certList = certs[industry] || certs['Technology'];
-        return certList.map(cert => `<div class="cert-item">• ${cert}</div>`).join('');
-    }
+    const certList = certs[industry] || certs["Technology"];
+    return certList
+      .map((cert) => `<div class="cert-item">• ${cert}</div>`)
+      .join("");
+  }
 }
 
 module.exports = PDFResumeGenerator;

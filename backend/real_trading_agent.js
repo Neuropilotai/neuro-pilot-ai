@@ -1,4 +1,5 @@
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 class RealTradingAgent {
   constructor() {
@@ -9,11 +10,13 @@ class RealTradingAgent {
 
   async getMarketData(symbol) {
     try {
-      const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`);
+      const response = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`,
+      );
       const data = await response.json();
       return data.chart.result[0];
     } catch (error) {
-      console.error('Market data error:', error);
+      console.error("Market data error:", error);
       return null;
     }
   }
@@ -27,14 +30,14 @@ class RealTradingAgent {
     const change = ((price - previousClose) / previousClose) * 100;
 
     // Simple momentum strategy
-    let signal = 'hold';
+    let signal = "hold";
     let confidence = 50;
 
     if (change > 2) {
-      signal = 'buy';
+      signal = "buy";
       confidence = 75;
     } else if (change < -2) {
-      signal = 'sell';
+      signal = "sell";
       confidence = 75;
     }
 
@@ -44,18 +47,20 @@ class RealTradingAgent {
       confidence,
       price,
       timestamp: new Date(),
-      reasoning: `${change.toFixed(2)}% change from previous close`
+      reasoning: `${change.toFixed(2)}% change from previous close`,
     };
   }
 
   async startTrading() {
-    const symbols = ['AAPL', 'TSLA', 'NVDA', 'MSFT'];
-    
+    const symbols = ["AAPL", "TSLA", "NVDA", "MSFT"];
+
     for (const symbol of symbols) {
       const signal = await this.generateSignal(symbol);
       if (signal) {
         this.signals.push(signal);
-        console.log(`📈 Signal: ${signal.signal.toUpperCase()} ${symbol} at ${signal.price}`);
+        console.log(
+          `📈 Signal: ${signal.signal.toUpperCase()} ${symbol} at ${signal.price}`,
+        );
       }
     }
   }

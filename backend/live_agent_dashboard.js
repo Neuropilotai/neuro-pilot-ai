@@ -1,233 +1,274 @@
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
-const { EventEmitter } = require('events');
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
+const { EventEmitter } = require("events");
 
 class LiveAgentDashboard extends EventEmitter {
-    constructor() {
-        super();
-        this.app = express();
-        this.port = 3013;
-        
-        // Real-time data storage
-        this.agentActivities = new Map();
-        this.tradingResults = {
-            startingBalance: 100000,
-            currentBalance: 100000,
-            trades: [],
-            dailyPnL: 0,
-            totalPnL: 0,
-            winRate: 0,
-            totalTrades: 0
-        };
-        this.pendingResearch = new Map();
-        this.approvedResearch = new Map();
-        
-        this.setupMiddleware();
-        this.setupRoutes();
-        this.startMonitoring();
-    }
-    
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-    }
-    
-    setupRoutes() {
-        // Dashboard homepage
-        this.app.get('/', (req, res) => {
-            res.send(this.getDashboardHTML());
-        });
-        
-        // API endpoints
-        this.app.get('/api/live/activities', async (req, res) => {
-            const activities = await this.getCurrentActivities();
-            res.json(activities);
-        });
-        
-        this.app.get('/api/live/trading', async (req, res) => {
-            const trading = await this.getTradingResults();
-            res.json(trading);
-        });
-        
-        this.app.get('/api/live/research', (req, res) => {
-            res.json({
-                pending: Array.from(this.pendingResearch.values()),
-                approved: Array.from(this.approvedResearch.values()).slice(-10)
-            });
-        });
-        
-        this.app.post('/api/approve/research/:id', (req, res) => {
-            const { id } = req.params;
-            const { approved, feedback } = req.body;
-            
-            const research = this.pendingResearch.get(id);
-            if (research) {
-                research.status = approved ? 'approved' : 'rejected';
-                research.feedback = feedback;
-                research.reviewedAt = new Date();
-                
-                this.pendingResearch.delete(id);
-                this.approvedResearch.set(id, research);
-                
-                res.json({ success: true, research });
-            } else {
-                res.status(404).json({ error: 'Research not found' });
+  constructor() {
+    super();
+    this.app = express();
+    this.port = 3013;
+
+    // Real-time data storage
+    this.agentActivities = new Map();
+    this.tradingResults = {
+      startingBalance: 100000,
+      currentBalance: 100000,
+      trades: [],
+      dailyPnL: 0,
+      totalPnL: 0,
+      winRate: 0,
+      totalTrades: 0,
+    };
+    this.pendingResearch = new Map();
+    this.approvedResearch = new Map();
+
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.startMonitoring();
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+  }
+
+  setupRoutes() {
+    // Dashboard homepage
+    this.app.get("/", (req, res) => {
+      res.send(this.getDashboardHTML());
+    });
+
+    // API endpoints
+    this.app.get("/api/live/activities", async (req, res) => {
+      const activities = await this.getCurrentActivities();
+      res.json(activities);
+    });
+
+    this.app.get("/api/live/trading", async (req, res) => {
+      const trading = await this.getTradingResults();
+      res.json(trading);
+    });
+
+    this.app.get("/api/live/research", (req, res) => {
+      res.json({
+        pending: Array.from(this.pendingResearch.values()),
+        approved: Array.from(this.approvedResearch.values()).slice(-10),
+      });
+    });
+
+    this.app.post("/api/approve/research/:id", (req, res) => {
+      const { id } = req.params;
+      const { approved, feedback } = req.body;
+
+      const research = this.pendingResearch.get(id);
+      if (research) {
+        research.status = approved ? "approved" : "rejected";
+        research.feedback = feedback;
+        research.reviewedAt = new Date();
+
+        this.pendingResearch.delete(id);
+        this.approvedResearch.set(id, research);
+
+        res.json({ success: true, research });
+      } else {
+        res.status(404).json({ error: "Research not found" });
+      }
+    });
+  }
+
+  async getCurrentActivities() {
+    const activities = [];
+
+    // Monitor running processes
+    try {
+      // Check for agent log files modified in last 5 minutes
+      const logFiles = await fs.readdir(__dirname);
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+      for (const file of logFiles) {
+        if (file.endsWith(".log")) {
+          try {
+            const stats = await fs.stat(path.join(__dirname, file));
+            if (stats.mtime > fiveMinutesAgo) {
+              const content = await fs.readFile(
+                path.join(__dirname, file),
+                "utf8",
+              );
+              const lastLines = content
+                .split("\n")
+                .slice(-10)
+                .filter((line) => line.trim());
+
+              activities.push({
+                agent: file.replace(".log", ""),
+                status: "active",
+                lastActivity: stats.mtime,
+                recentLogs: lastLines,
+                currentWork: this.extractWorkFromLogs(lastLines),
+              });
             }
-        });
-    }
-    
-    async getCurrentActivities() {
-        const activities = [];
-        
-        // Monitor running processes
-        try {
-            // Check for agent log files modified in last 5 minutes
-            const logFiles = await fs.readdir(__dirname);
-            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-            
-            for (const file of logFiles) {
-                if (file.endsWith('.log')) {
-                    try {
-                        const stats = await fs.stat(path.join(__dirname, file));
-                        if (stats.mtime > fiveMinutesAgo) {
-                            const content = await fs.readFile(path.join(__dirname, file), 'utf8');
-                            const lastLines = content.split('\n').slice(-10).filter(line => line.trim());
-                            
-                            activities.push({
-                                agent: file.replace('.log', ''),
-                                status: 'active',
-                                lastActivity: stats.mtime,
-                                recentLogs: lastLines,
-                                currentWork: this.extractWorkFromLogs(lastLines)
-                            });
-                        }
-                    } catch (error) {
-                        // Skip if can't read
-                    }
-                }
-            }
-            
-            // Check for trading activity
-            const tradingLogPath = path.join(__dirname, 'trading_results.json');
-            try {
-                const tradingData = await fs.readFile(tradingLogPath, 'utf8');
-                const results = JSON.parse(tradingData);
-                activities.push({
-                    agent: 'trading_agent',
-                    status: 'active',
-                    lastActivity: new Date(),
-                    currentWork: `Paper trading with $${results.currentBalance.toLocaleString()}`,
-                    metrics: results
-                });
-            } catch (error) {
-                // No trading results yet
-            }
-            
-        } catch (error) {
-            console.error('Error getting activities:', error);
+          } catch (error) {
+            // Skip if can't read
+          }
         }
-        
-        return activities;
+      }
+
+      // Check for trading activity
+      const tradingLogPath = path.join(__dirname, "trading_results.json");
+      try {
+        const tradingData = await fs.readFile(tradingLogPath, "utf8");
+        const results = JSON.parse(tradingData);
+        activities.push({
+          agent: "trading_agent",
+          status: "active",
+          lastActivity: new Date(),
+          currentWork: `Paper trading with $${results.currentBalance.toLocaleString()}`,
+          metrics: results,
+        });
+      } catch (error) {
+        // No trading results yet
+      }
+    } catch (error) {
+      console.error("Error getting activities:", error);
     }
-    
-    extractWorkFromLogs(logs) {
-        // Extract meaningful work from log lines
-        for (const log of logs) {
-            if (log.includes('Processing') || log.includes('Analyzing') || log.includes('Working on')) {
-                return log;
-            }
-            if (log.includes('email') || log.includes('Email')) {
-                return 'Processing emails';
-            }
-            if (log.includes('order') || log.includes('Order')) {
-                return 'Processing orders';
-            }
-            if (log.includes('trade') || log.includes('Trade')) {
-                return 'Executing trades';
-            }
-        }
-        return 'Active';
+
+    return activities;
+  }
+
+  extractWorkFromLogs(logs) {
+    // Extract meaningful work from log lines
+    for (const log of logs) {
+      if (
+        log.includes("Processing") ||
+        log.includes("Analyzing") ||
+        log.includes("Working on")
+      ) {
+        return log;
+      }
+      if (log.includes("email") || log.includes("Email")) {
+        return "Processing emails";
+      }
+      if (log.includes("order") || log.includes("Order")) {
+        return "Processing orders";
+      }
+      if (log.includes("trade") || log.includes("Trade")) {
+        return "Executing trades";
+      }
     }
-    
-    async getTradingResults() {
-        try {
-            // Try to read actual trading results
-            const resultsPath = path.join(__dirname, 'trading_results.json');
-            const data = await fs.readFile(resultsPath, 'utf8');
-            return JSON.parse(data);
-        } catch (error) {
-            // Return simulated paper trading data if no real data
-            return this.simulatePaperTrading();
-        }
+    return "Active";
+  }
+
+  async getTradingResults() {
+    try {
+      // Try to read actual trading results
+      const resultsPath = path.join(__dirname, "trading_results.json");
+      const data = await fs.readFile(resultsPath, "utf8");
+      return JSON.parse(data);
+    } catch (error) {
+      // Return simulated paper trading data if no real data
+      return this.simulatePaperTrading();
     }
-    
-    simulatePaperTrading() {
-        // Simulate some paper trading activity
-        const trades = [
-            { time: new Date(Date.now() - 3600000), symbol: 'AAPL', side: 'BUY', quantity: 100, price: 185.50, pnl: 250 },
-            { time: new Date(Date.now() - 2400000), symbol: 'TSLA', side: 'SELL', quantity: 50, price: 245.80, pnl: -120 },
-            { time: new Date(Date.now() - 1200000), symbol: 'NVDA', side: 'BUY', quantity: 75, price: 875.25, pnl: 450 },
-            { time: new Date(Date.now() - 600000), symbol: 'SPY', side: 'BUY', quantity: 200, price: 475.90, pnl: 180 }
+  }
+
+  simulatePaperTrading() {
+    // Simulate some paper trading activity
+    const trades = [
+      {
+        time: new Date(Date.now() - 3600000),
+        symbol: "AAPL",
+        side: "BUY",
+        quantity: 100,
+        price: 185.5,
+        pnl: 250,
+      },
+      {
+        time: new Date(Date.now() - 2400000),
+        symbol: "TSLA",
+        side: "SELL",
+        quantity: 50,
+        price: 245.8,
+        pnl: -120,
+      },
+      {
+        time: new Date(Date.now() - 1200000),
+        symbol: "NVDA",
+        side: "BUY",
+        quantity: 75,
+        price: 875.25,
+        pnl: 450,
+      },
+      {
+        time: new Date(Date.now() - 600000),
+        symbol: "SPY",
+        side: "BUY",
+        quantity: 200,
+        price: 475.9,
+        pnl: 180,
+      },
+    ];
+
+    const totalPnL = trades.reduce((sum, t) => sum + t.pnl, 0);
+    const wins = trades.filter((t) => t.pnl > 0).length;
+
+    return {
+      startingBalance: 100000,
+      currentBalance: 100000 + totalPnL,
+      trades: trades,
+      dailyPnL: totalPnL,
+      totalPnL: totalPnL,
+      winRate: (wins / trades.length) * 100,
+      totalTrades: trades.length,
+      lastUpdate: new Date(),
+    };
+  }
+
+  startMonitoring() {
+    // Monitor for new research/analysis that needs approval
+    setInterval(async () => {
+      try {
+        // Check for files that might contain research
+        const researchFiles = [
+          "market_analysis.json",
+          "ai_insights.json",
+          "trading_signals.json",
         ];
-        
-        const totalPnL = trades.reduce((sum, t) => sum + t.pnl, 0);
-        const wins = trades.filter(t => t.pnl > 0).length;
-        
-        return {
-            startingBalance: 100000,
-            currentBalance: 100000 + totalPnL,
-            trades: trades,
-            dailyPnL: totalPnL,
-            totalPnL: totalPnL,
-            winRate: (wins / trades.length) * 100,
-            totalTrades: trades.length,
-            lastUpdate: new Date()
-        };
-    }
-    
-    startMonitoring() {
-        // Monitor for new research/analysis that needs approval
-        setInterval(async () => {
-            try {
-                // Check for files that might contain research
-                const researchFiles = ['market_analysis.json', 'ai_insights.json', 'trading_signals.json'];
-                
-                for (const file of researchFiles) {
-                    try {
-                        const filePath = path.join(__dirname, file);
-                        const stats = await fs.stat(filePath);
-                        
-                        // If file was modified in last 10 minutes
-                        if (new Date() - stats.mtime < 10 * 60 * 1000) {
-                            const content = await fs.readFile(filePath, 'utf8');
-                            const data = JSON.parse(content);
-                            
-                            // Create research item for approval
-                            const researchId = `research_${Date.now()}`;
-                            if (!this.pendingResearch.has(researchId)) {
-                                this.pendingResearch.set(researchId, {
-                                    id: researchId,
-                                    type: file.replace('.json', ''),
-                                    agent: 'AI Analysis Agent',
-                                    timestamp: stats.mtime,
-                                    data: data,
-                                    status: 'pending'
-                                });
-                            }
-                        }
-                    } catch (error) {
-                        // File doesn't exist or can't be parsed
-                    }
-                }
-            } catch (error) {
-                console.error('Monitoring error:', error);
+
+        for (const file of researchFiles) {
+          try {
+            const filePath = path.join(__dirname, file);
+            const stats = await fs.stat(filePath);
+
+            // If file was modified in last 10 minutes
+            if (new Date() - stats.mtime < 10 * 60 * 1000) {
+              const content = await fs.readFile(filePath, "utf8");
+              const data = JSON.parse(content);
+
+              // Create research item for approval
+              const researchId = `research_${Date.now()}`;
+              if (!this.pendingResearch.has(researchId)) {
+                this.pendingResearch.set(researchId, {
+                  id: researchId,
+                  type: file.replace(".json", ""),
+                  agent: "AI Analysis Agent",
+                  timestamp: stats.mtime,
+                  data: data,
+                  status: "pending",
+                });
+              }
             }
-        }, 30000); // Check every 30 seconds
-    }
-    
-    getDashboardHTML() {
-        return `
+          } catch (error) {
+            // File doesn't exist or can't be parsed
+          }
+        }
+      } catch (error) {
+        console.error("Monitoring error:", error);
+      }
+    }, 30000); // Check every 30 seconds
+  }
+
+  getDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -681,46 +722,71 @@ class LiveAgentDashboard extends EventEmitter {
 </body>
 </html>
         `;
-    }
-    
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🎯 Live Agent Dashboard running on http://localhost:${this.port}`);
-            console.log('📊 Monitoring real agent activities and paper trading results');
-        });
-    }
+  }
+
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(
+        `🎯 Live Agent Dashboard running on http://localhost:${this.port}`,
+      );
+      console.log(
+        "📊 Monitoring real agent activities and paper trading results",
+      );
+    });
+  }
 }
 
 // Create a helper to save trading results
 async function saveTradingResults(results) {
-    const resultsPath = path.join(__dirname, 'trading_results.json');
-    await fs.writeFile(resultsPath, JSON.stringify(results, null, 2));
+  const resultsPath = path.join(__dirname, "trading_results.json");
+  await fs.writeFile(resultsPath, JSON.stringify(results, null, 2));
 }
 
 // Start if run directly
 if (require.main === module) {
-    const dashboard = new LiveAgentDashboard();
-    dashboard.start();
-    
-    // Example: Simulate some trading activity for demo
-    setTimeout(async () => {
-        const mockResults = {
-            startingBalance: 100000,
-            currentBalance: 102450,
-            trades: [
-                { time: new Date(), symbol: 'AAPL', side: 'BUY', quantity: 100, price: 185.50, pnl: 250 },
-                { time: new Date(), symbol: 'MSFT', side: 'SELL', quantity: 50, price: 425.30, pnl: 180 },
-                { time: new Date(), symbol: 'GOOGL', side: 'BUY', quantity: 25, price: 155.75, pnl: 320 }
-            ],
-            dailyPnL: 2450,
-            totalPnL: 2450,
-            winRate: 100,
-            totalTrades: 3,
-            lastUpdate: new Date()
-        };
-        await saveTradingResults(mockResults);
-        console.log('💰 Sample trading data saved for demo');
-    }, 2000);
+  const dashboard = new LiveAgentDashboard();
+  dashboard.start();
+
+  // Example: Simulate some trading activity for demo
+  setTimeout(async () => {
+    const mockResults = {
+      startingBalance: 100000,
+      currentBalance: 102450,
+      trades: [
+        {
+          time: new Date(),
+          symbol: "AAPL",
+          side: "BUY",
+          quantity: 100,
+          price: 185.5,
+          pnl: 250,
+        },
+        {
+          time: new Date(),
+          symbol: "MSFT",
+          side: "SELL",
+          quantity: 50,
+          price: 425.3,
+          pnl: 180,
+        },
+        {
+          time: new Date(),
+          symbol: "GOOGL",
+          side: "BUY",
+          quantity: 25,
+          price: 155.75,
+          pnl: 320,
+        },
+      ],
+      dailyPnL: 2450,
+      totalPnL: 2450,
+      winRate: 100,
+      totalTrades: 3,
+      lastUpdate: new Date(),
+    };
+    await saveTradingResults(mockResults);
+    console.log("💰 Sample trading data saved for demo");
+  }, 2000);
 }
 
 module.exports = LiveAgentDashboard;

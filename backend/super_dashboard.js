@@ -1,379 +1,379 @@
-require('dotenv').config();
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
 
 class SuperDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3011;
-        this.setupMiddleware();
-        this.setupRoutes();
-        
-        // Simulated data sources
-        this.marketData = {
-            hot: [],
-            veryHot: [],
-            trending: []
-        };
-        
-        this.agentLearning = new Map();
-        this.paperTradingData = [];
-        this.predictions = [];
-    }
-    
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-    }
-    
-    setupRoutes() {
-        this.app.get('/', (req, res) => {
-            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            res.send(this.getSuperDashboardHTML());
-        });
-        
-        // Market Heat API
-        this.app.get('/api/market-heat', async (req, res) => {
-            try {
-                const heatData = await this.getMarketHeatData();
-                res.json(heatData);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Agent Learning Progress API
-        this.app.get('/api/agent-learning', async (req, res) => {
-            try {
-                const learningData = await this.getAgentLearningData();
-                res.json(learningData);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Paper Trading API
-        this.app.get('/api/paper-trading', async (req, res) => {
-            try {
-                const tradingData = await this.getPaperTradingData();
-                res.json(tradingData);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Predictions API
-        this.app.get('/api/predictions', async (req, res) => {
-            try {
-                const predictions = await this.getPredictions();
-                res.json(predictions);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-    }
-    
-    async getMarketHeatData() {
-        // Analyze market trends and opportunities
-        return {
-            veryHot: [
-                {
-                    title: 'AI Job Matching Platform',
-                    heat: 95,
-                    demandScore: 98,
-                    competitorActivity: 'High',
-                    marketSize: '$2.5B',
-                    growth: '+45%',
-                    urgency: 'IMMEDIATE',
-                    revenue: '+$50K/month',
-                    reason: 'LinkedIn API changes creating massive opportunity'
-                },
-                {
-                    title: 'Video Interview Coaching',
-                    heat: 92,
-                    demandScore: 94,
-                    competitorActivity: 'Medium',
-                    marketSize: '$800M',
-                    growth: '+38%',
-                    urgency: 'VERY HIGH',
-                    revenue: '+$35K/month',
-                    reason: 'Remote work trend accelerating demand'
-                },
-                {
-                    title: 'Multi-Language Resume Service',
-                    heat: 88,
-                    demandScore: 85,
-                    competitorActivity: 'Low',
-                    marketSize: '$1.2B',
-                    growth: '+32%',
-                    urgency: 'HIGH',
-                    revenue: '+$28K/month',
-                    reason: 'Global talent shortage driving international hiring'
-                }
-            ],
-            hot: [
-                {
-                    title: 'LinkedIn Profile Optimization',
-                    heat: 78,
-                    demandScore: 75,
-                    competitorActivity: 'High',
-                    marketSize: '$500M',
-                    growth: '+22%',
-                    urgency: 'MEDIUM',
-                    revenue: '+$15K/month'
-                },
-                {
-                    title: 'Career Transition Packages',
-                    heat: 72,
-                    demandScore: 70,
-                    competitorActivity: 'Medium',
-                    marketSize: '$300M',
-                    growth: '+18%',
-                    urgency: 'MEDIUM',
-                    revenue: '+$12K/month'
-                }
-            ],
-            emerging: [
-                {
-                    title: 'AI Interview Prep Bot',
-                    heat: 65,
-                    demandScore: 60,
-                    status: 'Early Stage',
-                    potential: 'High'
-                },
-                {
-                    title: 'Skill Gap Analysis Tool',
-                    heat: 58,
-                    demandScore: 55,
-                    status: 'Research Phase',
-                    potential: 'Medium'
-                }
-            ],
-            alerts: [
-                {
-                    type: 'opportunity',
-                    message: 'Indeed.com API opening - IMMEDIATE ACTION REQUIRED',
-                    severity: 'critical'
-                },
-                {
-                    type: 'competition',
-                    message: 'Major competitor raised $50M - accelerate AI features',
-                    severity: 'high'
-                },
-                {
-                    type: 'market',
-                    message: 'Tech layoffs increasing resume service demand by 300%',
-                    severity: 'high'
-                }
-            ]
-        };
-    }
-    
-    async getAgentLearningData() {
-        // Agent learning progress and capabilities
-        return {
-            agents: [
-                {
-                    name: 'Email Processing Agent',
-                    learningProgress: 85,
-                    skillsAcquired: 42,
-                    totalSkills: 50,
-                    currentLearning: 'Advanced PDF customization',
-                    timeToMastery: '2 weeks',
-                    performance: {
-                        accuracy: 94,
-                        speed: 88,
-                        efficiency: 91
-                    },
-                    recentAchievements: [
-                        'Mastered multi-format resume generation',
-                        'Learned automated follow-up sequences',
-                        'Achieved 99.5% delivery rate'
-                    ]
-                },
-                {
-                    name: 'Customer Service Agent',
-                    learningProgress: 78,
-                    skillsAcquired: 35,
-                    totalSkills: 45,
-                    currentLearning: 'Sentiment analysis',
-                    timeToMastery: '3 weeks',
-                    performance: {
-                        accuracy: 92,
-                        speed: 85,
-                        efficiency: 88
-                    },
-                    recentAchievements: [
-                        'Learned 15 new response templates',
-                        'Improved response time by 40%',
-                        'Zero escalations in past week'
-                    ]
-                },
-                {
-                    name: 'AI Job Matcher',
-                    learningProgress: 47,
-                    skillsAcquired: 28,
-                    totalSkills: 60,
-                    currentLearning: 'Industry-specific matching',
-                    timeToMastery: '6 weeks',
-                    performance: {
-                        accuracy: 76,
-                        speed: 82,
-                        efficiency: 79
-                    },
-                    recentAchievements: [
-                        'Improved match accuracy to 76%',
-                        'Learned tech stack analysis',
-                        'Added salary prediction model'
-                    ]
-                },
-                {
-                    name: 'Analytics Agent',
-                    learningProgress: 62,
-                    skillsAcquired: 25,
-                    totalSkills: 40,
-                    currentLearning: 'Predictive modeling',
-                    timeToMastery: '4 weeks',
-                    performance: {
-                        accuracy: 88,
-                        speed: 90,
-                        efficiency: 89
-                    },
-                    recentAchievements: [
-                        'Built revenue forecasting model',
-                        'Automated daily reports',
-                        'Identified 3 growth opportunities'
-                    ]
-                }
-            ],
-            overallProgress: 68,
-            collectiveLearning: {
-                totalSkillsAcquired: 130,
-                totalSkillsAvailable: 195,
-                estimatedTimeToFullCapability: '8 weeks',
-                learningVelocity: '+12% per week'
-            }
-        };
-    }
-    
-    async getPaperTradingData() {
-        // Simulated business strategy testing
-        return {
-            activeStrategies: [
-                {
-                    name: 'Premium Package Upsell',
-                    status: 'Testing',
-                    startDate: '2025-06-01',
-                    duration: '30 days',
-                    currentROI: '+22%',
-                    projectedROI: '+35%',
-                    risk: 'Low',
-                    investment: '$5,000',
-                    metrics: {
-                        conversions: 45,
-                        revenue: '$8,100',
-                        customerSatisfaction: 4.8
-                    }
-                },
-                {
-                    name: 'LinkedIn Integration',
-                    status: 'Active',
-                    startDate: '2025-05-15',
-                    duration: '45 days',
-                    currentROI: '+18%',
-                    projectedROI: '+42%',
-                    risk: 'Medium',
-                    investment: '$12,000',
-                    metrics: {
-                        conversions: 120,
-                        revenue: '$21,600',
-                        customerSatisfaction: 4.6
-                    }
-                },
-                {
-                    name: 'AI Chat Support',
-                    status: 'Planning',
-                    startDate: '2025-07-01',
-                    duration: '60 days',
-                    currentROI: '0%',
-                    projectedROI: '+55%',
-                    risk: 'High',
-                    investment: '$20,000',
-                    metrics: {
-                        conversions: 0,
-                        revenue: '$0',
-                        customerSatisfaction: 'TBD'
-                    }
-                }
-            ],
-            portfolio: {
-                totalInvestment: '$37,000',
-                currentValue: '$42,700',
-                totalROI: '+15.4%',
-                winRate: '75%',
-                avgHoldTime: '42 days'
-            },
-            recommendations: [
-                'Scale Premium Package Upsell - proven winner',
-                'Increase LinkedIn Integration budget by 50%',
-                'Delay AI Chat Support pending more research'
-            ]
-        };
-    }
-    
-    async getPredictions() {
-        // AI-powered predictions
-        return {
-            revenue: {
-                next30Days: '$125,000',
-                next90Days: '$425,000',
-                confidence: 87,
-                factors: [
-                    'Seasonal hiring surge (+30%)',
-                    'New AI features launch (+25%)',
-                    'Market expansion (+15%)'
-                ]
-            },
-            growth: {
-                customerAcquisition: '+45%',
-                marketShare: '+2.3%',
-                agentEfficiency: '+28%',
-                timeline: '90 days'
-            },
-            risks: [
-                {
-                    type: 'Competition',
-                    probability: 65,
-                    impact: 'Medium',
-                    mitigation: 'Accelerate AI development'
-                },
-                {
-                    type: 'Technical Debt',
-                    probability: 40,
-                    impact: 'Low',
-                    mitigation: 'Schedule refactoring sprint'
-                }
-            ],
-            opportunities: [
-                {
-                    title: 'Enterprise Contracts',
-                    value: '+$200K/year',
-                    probability: 78,
-                    timeline: '60 days'
-                },
-                {
-                    title: 'Government RFP',
-                    value: '+$500K/year',
-                    probability: 45,
-                    timeline: '120 days'
-                }
-            ]
-        };
-    }
-    
-    getSuperDashboardHTML() {
-        return `
+  constructor() {
+    this.app = express();
+    this.port = 3011;
+    this.setupMiddleware();
+    this.setupRoutes();
+
+    // Simulated data sources
+    this.marketData = {
+      hot: [],
+      veryHot: [],
+      trending: [],
+    };
+
+    this.agentLearning = new Map();
+    this.paperTradingData = [];
+    this.predictions = [];
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+  }
+
+  setupRoutes() {
+    this.app.get("/", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.send(this.getSuperDashboardHTML());
+    });
+
+    // Market Heat API
+    this.app.get("/api/market-heat", async (req, res) => {
+      try {
+        const heatData = await this.getMarketHeatData();
+        res.json(heatData);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Agent Learning Progress API
+    this.app.get("/api/agent-learning", async (req, res) => {
+      try {
+        const learningData = await this.getAgentLearningData();
+        res.json(learningData);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Paper Trading API
+    this.app.get("/api/paper-trading", async (req, res) => {
+      try {
+        const tradingData = await this.getPaperTradingData();
+        res.json(tradingData);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Predictions API
+    this.app.get("/api/predictions", async (req, res) => {
+      try {
+        const predictions = await this.getPredictions();
+        res.json(predictions);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+  }
+
+  async getMarketHeatData() {
+    // Analyze market trends and opportunities
+    return {
+      veryHot: [
+        {
+          title: "AI Job Matching Platform",
+          heat: 95,
+          demandScore: 98,
+          competitorActivity: "High",
+          marketSize: "$2.5B",
+          growth: "+45%",
+          urgency: "IMMEDIATE",
+          revenue: "+$50K/month",
+          reason: "LinkedIn API changes creating massive opportunity",
+        },
+        {
+          title: "Video Interview Coaching",
+          heat: 92,
+          demandScore: 94,
+          competitorActivity: "Medium",
+          marketSize: "$800M",
+          growth: "+38%",
+          urgency: "VERY HIGH",
+          revenue: "+$35K/month",
+          reason: "Remote work trend accelerating demand",
+        },
+        {
+          title: "Multi-Language Resume Service",
+          heat: 88,
+          demandScore: 85,
+          competitorActivity: "Low",
+          marketSize: "$1.2B",
+          growth: "+32%",
+          urgency: "HIGH",
+          revenue: "+$28K/month",
+          reason: "Global talent shortage driving international hiring",
+        },
+      ],
+      hot: [
+        {
+          title: "LinkedIn Profile Optimization",
+          heat: 78,
+          demandScore: 75,
+          competitorActivity: "High",
+          marketSize: "$500M",
+          growth: "+22%",
+          urgency: "MEDIUM",
+          revenue: "+$15K/month",
+        },
+        {
+          title: "Career Transition Packages",
+          heat: 72,
+          demandScore: 70,
+          competitorActivity: "Medium",
+          marketSize: "$300M",
+          growth: "+18%",
+          urgency: "MEDIUM",
+          revenue: "+$12K/month",
+        },
+      ],
+      emerging: [
+        {
+          title: "AI Interview Prep Bot",
+          heat: 65,
+          demandScore: 60,
+          status: "Early Stage",
+          potential: "High",
+        },
+        {
+          title: "Skill Gap Analysis Tool",
+          heat: 58,
+          demandScore: 55,
+          status: "Research Phase",
+          potential: "Medium",
+        },
+      ],
+      alerts: [
+        {
+          type: "opportunity",
+          message: "Indeed.com API opening - IMMEDIATE ACTION REQUIRED",
+          severity: "critical",
+        },
+        {
+          type: "competition",
+          message: "Major competitor raised $50M - accelerate AI features",
+          severity: "high",
+        },
+        {
+          type: "market",
+          message: "Tech layoffs increasing resume service demand by 300%",
+          severity: "high",
+        },
+      ],
+    };
+  }
+
+  async getAgentLearningData() {
+    // Agent learning progress and capabilities
+    return {
+      agents: [
+        {
+          name: "Email Processing Agent",
+          learningProgress: 85,
+          skillsAcquired: 42,
+          totalSkills: 50,
+          currentLearning: "Advanced PDF customization",
+          timeToMastery: "2 weeks",
+          performance: {
+            accuracy: 94,
+            speed: 88,
+            efficiency: 91,
+          },
+          recentAchievements: [
+            "Mastered multi-format resume generation",
+            "Learned automated follow-up sequences",
+            "Achieved 99.5% delivery rate",
+          ],
+        },
+        {
+          name: "Customer Service Agent",
+          learningProgress: 78,
+          skillsAcquired: 35,
+          totalSkills: 45,
+          currentLearning: "Sentiment analysis",
+          timeToMastery: "3 weeks",
+          performance: {
+            accuracy: 92,
+            speed: 85,
+            efficiency: 88,
+          },
+          recentAchievements: [
+            "Learned 15 new response templates",
+            "Improved response time by 40%",
+            "Zero escalations in past week",
+          ],
+        },
+        {
+          name: "AI Job Matcher",
+          learningProgress: 47,
+          skillsAcquired: 28,
+          totalSkills: 60,
+          currentLearning: "Industry-specific matching",
+          timeToMastery: "6 weeks",
+          performance: {
+            accuracy: 76,
+            speed: 82,
+            efficiency: 79,
+          },
+          recentAchievements: [
+            "Improved match accuracy to 76%",
+            "Learned tech stack analysis",
+            "Added salary prediction model",
+          ],
+        },
+        {
+          name: "Analytics Agent",
+          learningProgress: 62,
+          skillsAcquired: 25,
+          totalSkills: 40,
+          currentLearning: "Predictive modeling",
+          timeToMastery: "4 weeks",
+          performance: {
+            accuracy: 88,
+            speed: 90,
+            efficiency: 89,
+          },
+          recentAchievements: [
+            "Built revenue forecasting model",
+            "Automated daily reports",
+            "Identified 3 growth opportunities",
+          ],
+        },
+      ],
+      overallProgress: 68,
+      collectiveLearning: {
+        totalSkillsAcquired: 130,
+        totalSkillsAvailable: 195,
+        estimatedTimeToFullCapability: "8 weeks",
+        learningVelocity: "+12% per week",
+      },
+    };
+  }
+
+  async getPaperTradingData() {
+    // Simulated business strategy testing
+    return {
+      activeStrategies: [
+        {
+          name: "Premium Package Upsell",
+          status: "Testing",
+          startDate: "2025-06-01",
+          duration: "30 days",
+          currentROI: "+22%",
+          projectedROI: "+35%",
+          risk: "Low",
+          investment: "$5,000",
+          metrics: {
+            conversions: 45,
+            revenue: "$8,100",
+            customerSatisfaction: 4.8,
+          },
+        },
+        {
+          name: "LinkedIn Integration",
+          status: "Active",
+          startDate: "2025-05-15",
+          duration: "45 days",
+          currentROI: "+18%",
+          projectedROI: "+42%",
+          risk: "Medium",
+          investment: "$12,000",
+          metrics: {
+            conversions: 120,
+            revenue: "$21,600",
+            customerSatisfaction: 4.6,
+          },
+        },
+        {
+          name: "AI Chat Support",
+          status: "Planning",
+          startDate: "2025-07-01",
+          duration: "60 days",
+          currentROI: "0%",
+          projectedROI: "+55%",
+          risk: "High",
+          investment: "$20,000",
+          metrics: {
+            conversions: 0,
+            revenue: "$0",
+            customerSatisfaction: "TBD",
+          },
+        },
+      ],
+      portfolio: {
+        totalInvestment: "$37,000",
+        currentValue: "$42,700",
+        totalROI: "+15.4%",
+        winRate: "75%",
+        avgHoldTime: "42 days",
+      },
+      recommendations: [
+        "Scale Premium Package Upsell - proven winner",
+        "Increase LinkedIn Integration budget by 50%",
+        "Delay AI Chat Support pending more research",
+      ],
+    };
+  }
+
+  async getPredictions() {
+    // AI-powered predictions
+    return {
+      revenue: {
+        next30Days: "$125,000",
+        next90Days: "$425,000",
+        confidence: 87,
+        factors: [
+          "Seasonal hiring surge (+30%)",
+          "New AI features launch (+25%)",
+          "Market expansion (+15%)",
+        ],
+      },
+      growth: {
+        customerAcquisition: "+45%",
+        marketShare: "+2.3%",
+        agentEfficiency: "+28%",
+        timeline: "90 days",
+      },
+      risks: [
+        {
+          type: "Competition",
+          probability: 65,
+          impact: "Medium",
+          mitigation: "Accelerate AI development",
+        },
+        {
+          type: "Technical Debt",
+          probability: 40,
+          impact: "Low",
+          mitigation: "Schedule refactoring sprint",
+        },
+      ],
+      opportunities: [
+        {
+          title: "Enterprise Contracts",
+          value: "+$200K/year",
+          probability: 78,
+          timeline: "60 days",
+        },
+        {
+          title: "Government RFP",
+          value: "+$500K/year",
+          probability: 45,
+          timeline: "120 days",
+        },
+      ],
+    };
+  }
+
+  getSuperDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1062,21 +1062,23 @@ class SuperDashboard {
 </body>
 </html>
         `;
-    }
-    
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🚀 Super Dashboard started on port ${this.port}`);
-            console.log(`📊 Super Dashboard URL: http://localhost:${this.port}`);
-            console.log(`✨ Features: Market Heat Map, Agent Learning, Paper Trading, AI Predictions`);
-        });
-    }
+  }
+
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(`🚀 Super Dashboard started on port ${this.port}`);
+      console.log(`📊 Super Dashboard URL: http://localhost:${this.port}`);
+      console.log(
+        `✨ Features: Market Heat Map, Agent Learning, Paper Trading, AI Predictions`,
+      );
+    });
+  }
 }
 
 // Start the Super Dashboard
 if (require.main === module) {
-    const dashboard = new SuperDashboard();
-    dashboard.start();
+  const dashboard = new SuperDashboard();
+  dashboard.start();
 }
 
 module.exports = SuperDashboard;

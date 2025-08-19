@@ -1,205 +1,229 @@
-require('dotenv').config();
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
 
 class AIAgentDashboard {
-    constructor() {
-        this.app = express();
-        this.port = 3008;
-        this.setupMiddleware();
-        this.setupRoutes();
-        
-        // Agent learning data
-        this.agentLearningData = {
-            agent1_analyzer: {
-                name: "Market Analyzer Agent",
-                stage: "Advanced Learning",
-                progress: 87,
-                status: "active",
-                capabilities: ["Job Market Analysis", "Industry Trends", "Salary Benchmarking"],
-                currentTask: "Analyzing Executive Package Requirements",
-                learnedSkills: 234,
-                totalSkills: 300,
-                lastActive: new Date()
-            },
-            agent2_optimizer: {
-                name: "ATS Optimizer Agent", 
-                stage: "Expert Level",
-                progress: 94,
-                status: "active",
-                capabilities: ["ATS Optimization", "Keyword Extraction", "Format Compliance"],
-                currentTask: "Optimizing Resume Keywords",
-                learnedSkills: 187,
-                totalSkills: 200,
-                lastActive: new Date()
-            },
-            agent3_content: {
-                name: "Content Creator Agent",
-                stage: "Professional Level", 
-                progress: 78,
-                status: "learning",
-                capabilities: ["Professional Writing", "Achievement Crafting", "Industry Adaptation"],
-                currentTask: "Learning French Professional Writing",
-                learnedSkills: 156,
-                totalSkills: 250,
-                lastActive: new Date()
-            },
-            agent4_formatter: {
-                name: "Design & Format Agent",
-                stage: "Advanced Learning",
-                progress: 82,
-                status: "active", 
-                capabilities: ["Visual Design", "Template Optimization", "Multi-format Export"],
-                currentTask: "Preparing Executive Template",
-                learnedSkills: 164,
-                totalSkills: 220,
-                lastActive: new Date()
+  constructor() {
+    this.app = express();
+    this.port = 3008;
+    this.setupMiddleware();
+    this.setupRoutes();
+
+    // Agent learning data
+    this.agentLearningData = {
+      agent1_analyzer: {
+        name: "Market Analyzer Agent",
+        stage: "Advanced Learning",
+        progress: 87,
+        status: "active",
+        capabilities: [
+          "Job Market Analysis",
+          "Industry Trends",
+          "Salary Benchmarking",
+        ],
+        currentTask: "Analyzing Executive Package Requirements",
+        learnedSkills: 234,
+        totalSkills: 300,
+        lastActive: new Date(),
+      },
+      agent2_optimizer: {
+        name: "ATS Optimizer Agent",
+        stage: "Expert Level",
+        progress: 94,
+        status: "active",
+        capabilities: [
+          "ATS Optimization",
+          "Keyword Extraction",
+          "Format Compliance",
+        ],
+        currentTask: "Optimizing Resume Keywords",
+        learnedSkills: 187,
+        totalSkills: 200,
+        lastActive: new Date(),
+      },
+      agent3_content: {
+        name: "Content Creator Agent",
+        stage: "Professional Level",
+        progress: 78,
+        status: "learning",
+        capabilities: [
+          "Professional Writing",
+          "Achievement Crafting",
+          "Industry Adaptation",
+        ],
+        currentTask: "Learning French Professional Writing",
+        learnedSkills: 156,
+        totalSkills: 250,
+        lastActive: new Date(),
+      },
+      agent4_formatter: {
+        name: "Design & Format Agent",
+        stage: "Advanced Learning",
+        progress: 82,
+        status: "active",
+        capabilities: [
+          "Visual Design",
+          "Template Optimization",
+          "Multi-format Export",
+        ],
+        currentTask: "Preparing Executive Template",
+        learnedSkills: 164,
+        totalSkills: 220,
+        lastActive: new Date(),
+      },
+    };
+
+    // Coming soon features
+    this.comingSoonFeatures = [
+      {
+        name: "AI Video Resume Generator",
+        description: "Create personalized video resumes with AI avatars",
+        eta: "Q2 2025",
+        priority: "high",
+        progress: 15,
+      },
+      {
+        name: "Real-time Job Matching",
+        description: "AI agents scan job boards and match with user profiles",
+        eta: "Q1 2025",
+        priority: "high",
+        progress: 45,
+      },
+      {
+        name: "LinkedIn Auto-Optimizer",
+        description:
+          "Automatically optimize LinkedIn profiles using AI insights",
+        eta: "March 2025",
+        priority: "medium",
+        progress: 30,
+      },
+      {
+        name: "Interview Preparation AI",
+        description: "AI-powered mock interviews with real-time feedback",
+        eta: "Q2 2025",
+        priority: "high",
+        progress: 8,
+      },
+      {
+        name: "Salary Negotiation Assistant",
+        description: "AI coach for salary negotiations with market data",
+        eta: "Q3 2025",
+        priority: "medium",
+        progress: 5,
+      },
+      {
+        name: "Multi-language Support",
+        description:
+          "Support for 10+ languages including Spanish, German, Italian",
+        eta: "April 2025",
+        priority: "medium",
+        progress: 25,
+      },
+    ];
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(express.static("public"));
+  }
+
+  setupRoutes() {
+    // Main dashboard
+    this.app.get("/", (req, res) => {
+      res.send(this.getDashboardHTML());
+    });
+
+    // API endpoints
+    this.app.get("/api/agents/status", (req, res) => {
+      res.json(this.agentLearningData);
+    });
+
+    this.app.get("/api/coming-soon", (req, res) => {
+      res.json(this.comingSoonFeatures);
+    });
+
+    this.app.get("/api/orders/active", async (req, res) => {
+      try {
+        const activeOrders = await this.getActiveOrders();
+        res.json(activeOrders);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    this.app.get("/api/system/stats", (req, res) => {
+      res.json({
+        totalOrders: 47,
+        ordersToday: 3,
+        activeAgents: 4,
+        learningProgress: 85.25,
+        uptime: "2h 34m",
+        systemHealth: "excellent",
+      });
+    });
+  }
+
+  async getActiveOrders() {
+    try {
+      const ordersDir = path.join(__dirname, "orders");
+      const files = await fs.readdir(ordersDir).catch(() => []);
+
+      const activeOrders = [];
+      for (const file of files) {
+        if (file.startsWith("order_") && file.endsWith(".json")) {
+          try {
+            const orderPath = path.join(ordersDir, file);
+            const orderData = JSON.parse(await fs.readFile(orderPath, "utf8"));
+
+            if (
+              orderData.status === "received" ||
+              orderData.status === "processing"
+            ) {
+              activeOrders.push({
+                orderId: orderData.orderId,
+                email: orderData.email,
+                packageType: orderData.packageType,
+                status: orderData.status,
+                timestamp: orderData.timestamp,
+                processingStage: this.getProcessingStage(orderData),
+              });
             }
-        };
-        
-        // Coming soon features
-        this.comingSoonFeatures = [
-            {
-                name: "AI Video Resume Generator",
-                description: "Create personalized video resumes with AI avatars",
-                eta: "Q2 2025",
-                priority: "high",
-                progress: 15
-            },
-            {
-                name: "Real-time Job Matching",
-                description: "AI agents scan job boards and match with user profiles",
-                eta: "Q1 2025", 
-                priority: "high",
-                progress: 45
-            },
-            {
-                name: "LinkedIn Auto-Optimizer",
-                description: "Automatically optimize LinkedIn profiles using AI insights",
-                eta: "March 2025",
-                priority: "medium",
-                progress: 30
-            },
-            {
-                name: "Interview Preparation AI",
-                description: "AI-powered mock interviews with real-time feedback",
-                eta: "Q2 2025",
-                priority: "high",
-                progress: 8
-            },
-            {
-                name: "Salary Negotiation Assistant",
-                description: "AI coach for salary negotiations with market data",
-                eta: "Q3 2025",
-                priority: "medium", 
-                progress: 5
-            },
-            {
-                name: "Multi-language Support",
-                description: "Support for 10+ languages including Spanish, German, Italian",
-                eta: "April 2025",
-                priority: "medium",
-                progress: 25
-            }
-        ];
-    }
-
-    setupMiddleware() {
-        this.app.use(express.json());
-        this.app.use(express.static('public'));
-    }
-
-    setupRoutes() {
-        // Main dashboard
-        this.app.get('/', (req, res) => {
-            res.send(this.getDashboardHTML());
-        });
-
-        // API endpoints
-        this.app.get('/api/agents/status', (req, res) => {
-            res.json(this.agentLearningData);
-        });
-
-        this.app.get('/api/coming-soon', (req, res) => {
-            res.json(this.comingSoonFeatures);
-        });
-
-        this.app.get('/api/orders/active', async (req, res) => {
-            try {
-                const activeOrders = await this.getActiveOrders();
-                res.json(activeOrders);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/system/stats', (req, res) => {
-            res.json({
-                totalOrders: 47,
-                ordersToday: 3,
-                activeAgents: 4,
-                learningProgress: 85.25,
-                uptime: "2h 34m",
-                systemHealth: "excellent"
-            });
-        });
-    }
-
-    async getActiveOrders() {
-        try {
-            const ordersDir = path.join(__dirname, 'orders');
-            const files = await fs.readdir(ordersDir).catch(() => []);
-            
-            const activeOrders = [];
-            for (const file of files) {
-                if (file.startsWith('order_') && file.endsWith('.json')) {
-                    try {
-                        const orderPath = path.join(ordersDir, file);
-                        const orderData = JSON.parse(await fs.readFile(orderPath, 'utf8'));
-                        
-                        if (orderData.status === 'received' || orderData.status === 'processing') {
-                            activeOrders.push({
-                                orderId: orderData.orderId,
-                                email: orderData.email,
-                                packageType: orderData.packageType,
-                                status: orderData.status,
-                                timestamp: orderData.timestamp,
-                                processingStage: this.getProcessingStage(orderData)
-                            });
-                        }
-                    } catch (error) {
-                        console.error(`Error reading order file ${file}:`, error);
-                    }
-                }
-            }
-            
-            return activeOrders;
-        } catch (error) {
-            console.error('Error getting active orders:', error);
-            return [];
+          } catch (error) {
+            console.error(`Error reading order file ${file}:`, error);
+          }
         }
-    }
+      }
 
-    getProcessingStage(orderData) {
-        const stages = [
-            "Order Received",
-            "Market Analysis", 
-            "Keyword Optimization",
-            "Content Creation",
-            "Design & Formatting",
-            "Quality Review",
-            "Email Delivery"
-        ];
-        
-        // Simulate processing stage based on order age
-        const orderAge = Date.now() - new Date(orderData.timestamp).getTime();
-        const stageIndex = Math.min(Math.floor(orderAge / (30 * 1000)), stages.length - 1);
-        return stages[stageIndex];
+      return activeOrders;
+    } catch (error) {
+      console.error("Error getting active orders:", error);
+      return [];
     }
+  }
 
-    getDashboardHTML() {
-        return `
+  getProcessingStage(orderData) {
+    const stages = [
+      "Order Received",
+      "Market Analysis",
+      "Keyword Optimization",
+      "Content Creation",
+      "Design & Formatting",
+      "Quality Review",
+      "Email Delivery",
+    ];
+
+    // Simulate processing stage based on order age
+    const orderAge = Date.now() - new Date(orderData.timestamp).getTime();
+    const stageIndex = Math.min(
+      Math.floor(orderAge / (30 * 1000)),
+      stages.length - 1,
+    );
+    return stages[stageIndex];
+  }
+
+  getDashboardHTML() {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -632,15 +656,17 @@ class AIAgentDashboard {
 </body>
 </html>
         `;
-    }
+  }
 
-    start() {
-        this.app.listen(this.port, () => {
-            console.log(`🚀 AI Agent Dashboard running at http://localhost:${this.port}`);
-            console.log(`📊 Monitor your AI agents and their learning progress`);
-            console.log(`🔮 View coming soon features and development roadmap`);
-        });
-    }
+  start() {
+    this.app.listen(this.port, () => {
+      console.log(
+        `🚀 AI Agent Dashboard running at http://localhost:${this.port}`,
+      );
+      console.log(`📊 Monitor your AI agents and their learning progress`);
+      console.log(`🔮 View coming soon features and development roadmap`);
+    });
+  }
 }
 
 // Start the dashboard

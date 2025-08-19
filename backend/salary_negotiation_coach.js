@@ -1,660 +1,724 @@
-require('dotenv').config();
-const express = require('express');
-const fs = require('fs').promises;
-const path = require('path');
+require("dotenv").config();
+const express = require("express");
+const fs = require("fs").promises;
+const path = require("path");
 
 class SalaryNegotiationCoach {
-    constructor() {
-        this.app = express();
-        this.port = 3018;
-        this.setupMiddleware();
-        this.setupRoutes();
-        
-        // Salary Benchmarking Database
-        this.salaryData = {
-            'Software Engineer': {
-                junior: { min: 75000, max: 95000, median: 85000 },
-                mid: { min: 95000, max: 130000, median: 115000 },
-                senior: { min: 130000, max: 180000, median: 155000 },
-                lead: { min: 180000, max: 250000, median: 215000 }
-            },
-            'Product Manager': {
-                junior: { min: 85000, max: 110000, median: 98000 },
-                mid: { min: 110000, max: 150000, median: 130000 },
-                senior: { min: 150000, max: 200000, median: 175000 },
-                lead: { min: 200000, max: 280000, median: 240000 }
-            },
-            'Data Scientist': {
-                junior: { min: 80000, max: 105000, median: 92000 },
-                mid: { min: 105000, max: 140000, median: 122000 },
-                senior: { min: 140000, max: 185000, median: 162000 },
-                lead: { min: 185000, max: 260000, median: 220000 }
-            },
-            'Marketing Manager': {
-                junior: { min: 60000, max: 80000, median: 70000 },
-                mid: { min: 80000, max: 110000, median: 95000 },
-                senior: { min: 110000, max: 150000, median: 130000 },
-                lead: { min: 150000, max: 200000, median: 175000 }
-            }
+  constructor() {
+    this.app = express();
+    this.port = 3018;
+    this.setupMiddleware();
+    this.setupRoutes();
+
+    // Salary Benchmarking Database
+    this.salaryData = {
+      "Software Engineer": {
+        junior: { min: 75000, max: 95000, median: 85000 },
+        mid: { min: 95000, max: 130000, median: 115000 },
+        senior: { min: 130000, max: 180000, median: 155000 },
+        lead: { min: 180000, max: 250000, median: 215000 },
+      },
+      "Product Manager": {
+        junior: { min: 85000, max: 110000, median: 98000 },
+        mid: { min: 110000, max: 150000, median: 130000 },
+        senior: { min: 150000, max: 200000, median: 175000 },
+        lead: { min: 200000, max: 280000, median: 240000 },
+      },
+      "Data Scientist": {
+        junior: { min: 80000, max: 105000, median: 92000 },
+        mid: { min: 105000, max: 140000, median: 122000 },
+        senior: { min: 140000, max: 185000, median: 162000 },
+        lead: { min: 185000, max: 260000, median: 220000 },
+      },
+      "Marketing Manager": {
+        junior: { min: 60000, max: 80000, median: 70000 },
+        mid: { min: 80000, max: 110000, median: 95000 },
+        senior: { min: 110000, max: 150000, median: 130000 },
+        lead: { min: 150000, max: 200000, median: 175000 },
+      },
+    };
+
+    // Market Intelligence Engine
+    this.marketFactors = {
+      location: {
+        "San Francisco": 1.35,
+        "New York": 1.25,
+        Seattle: 1.2,
+        "Los Angeles": 1.15,
+        Boston: 1.1,
+        Austin: 1.05,
+        Remote: 0.95,
+      },
+      company: {
+        FAANG: 1.4,
+        Unicorn: 1.3,
+        Public: 1.15,
+        "Series B+": 1.1,
+        "Series A": 1.05,
+        Startup: 0.95,
+      },
+      skills: {
+        "AI/ML": 1.25,
+        "Cloud Architecture": 1.2,
+        DevOps: 1.15,
+        "Mobile Development": 1.1,
+        "Full Stack": 1.05,
+      },
+    };
+
+    // Negotiation Strategies Database
+    this.negotiationStrategies = {
+      lowball: {
+        name: "Counter Lowball Offers",
+        tactics: [
+          "Research market rates thoroughly",
+          "Present competing offers if available",
+          "Highlight unique value proposition",
+          "Request time to consider the offer",
+        ],
+      },
+      equity: {
+        name: "Equity Negotiation",
+        tactics: [
+          "Understand vesting schedule details",
+          "Negotiate acceleration clauses",
+          "Consider equity vs salary trade-offs",
+          "Research company valuation trends",
+        ],
+      },
+      benefits: {
+        name: "Total Compensation Focus",
+        tactics: [
+          "Calculate full compensation package",
+          "Negotiate flexible work arrangements",
+          "Request professional development budget",
+          "Discuss vacation time and PTO",
+        ],
+      },
+      timing: {
+        name: "Strategic Timing",
+        tactics: [
+          "Negotiate after proving initial value",
+          "Align with performance review cycles",
+          "Use competing offers strategically",
+          "Build leverage through achievements",
+        ],
+      },
+    };
+
+    // Coaching Sessions Database
+    this.coachingSessions = new Map();
+    this.userProgress = new Map();
+
+    console.log("💰 Salary Negotiation Coach Starting...");
+    this.startServer();
+  }
+
+  setupMiddleware() {
+    this.app.use(express.json({ limit: "10mb" }));
+    this.app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  }
+
+  setupRoutes() {
+    // Main coaching interface
+    this.app.get("/", (req, res) => {
+      res.send(this.getCoachingHTML());
+    });
+
+    // Salary benchmarking API
+    this.app.post("/api/salary-benchmark", async (req, res) => {
+      try {
+        const { role, experience, location, company, skills } = req.body;
+        const benchmark = await this.calculateSalaryBenchmark(
+          role,
+          experience,
+          location,
+          company,
+          skills,
+        );
+        res.json(benchmark);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Negotiation strategy generator
+    this.app.post("/api/negotiation-strategy", async (req, res) => {
+      try {
+        const { currentOffer, targetSalary, situation, leverage } = req.body;
+        const strategy = await this.generateNegotiationStrategy(
+          currentOffer,
+          targetSalary,
+          situation,
+          leverage,
+        );
+        res.json(strategy);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Role-playing simulation
+    this.app.post("/api/start-roleplay", async (req, res) => {
+      try {
+        const { userId, scenario, role } = req.body;
+        const sessionId = `roleplay_${Date.now()}`;
+
+        const session = {
+          id: sessionId,
+          userId,
+          scenario,
+          role,
+          startTime: new Date(),
+          exchanges: [],
+          status: "active",
         };
-        
-        // Market Intelligence Engine
-        this.marketFactors = {
-            location: {
-                'San Francisco': 1.35,
-                'New York': 1.25,
-                'Seattle': 1.20,
-                'Los Angeles': 1.15,
-                'Boston': 1.10,
-                'Austin': 1.05,
-                'Remote': 0.95
-            },
-            company: {
-                'FAANG': 1.40,
-                'Unicorn': 1.30,
-                'Public': 1.15,
-                'Series B+': 1.10,
-                'Series A': 1.05,
-                'Startup': 0.95
-            },
-            skills: {
-                'AI/ML': 1.25,
-                'Cloud Architecture': 1.20,
-                'DevOps': 1.15,
-                'Mobile Development': 1.10,
-                'Full Stack': 1.05
-            }
-        };
-        
-        // Negotiation Strategies Database
-        this.negotiationStrategies = {
-            lowball: {
-                name: 'Counter Lowball Offers',
-                tactics: [
-                    'Research market rates thoroughly',
-                    'Present competing offers if available',
-                    'Highlight unique value proposition',
-                    'Request time to consider the offer'
-                ]
-            },
-            equity: {
-                name: 'Equity Negotiation',
-                tactics: [
-                    'Understand vesting schedule details',
-                    'Negotiate acceleration clauses',
-                    'Consider equity vs salary trade-offs',
-                    'Research company valuation trends'
-                ]
-            },
-            benefits: {
-                name: 'Total Compensation Focus',
-                tactics: [
-                    'Calculate full compensation package',
-                    'Negotiate flexible work arrangements',
-                    'Request professional development budget',
-                    'Discuss vacation time and PTO'
-                ]
-            },
-            timing: {
-                name: 'Strategic Timing',
-                tactics: [
-                    'Negotiate after proving initial value',
-                    'Align with performance review cycles',
-                    'Use competing offers strategically',
-                    'Build leverage through achievements'
-                ]
-            }
-        };
-        
-        // Coaching Sessions Database
-        this.coachingSessions = new Map();
-        this.userProgress = new Map();
-        
-        console.log('💰 Salary Negotiation Coach Starting...');
-        this.startServer();
-    }
-    
-    setupMiddleware() {
-        this.app.use(express.json({ limit: '10mb' }));
-        this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-    }
-    
-    setupRoutes() {
-        // Main coaching interface
-        this.app.get('/', (req, res) => {
-            res.send(this.getCoachingHTML());
+
+        this.coachingSessions.set(sessionId, session);
+
+        const firstResponse = this.generateEmployerResponse(
+          scenario,
+          "opening",
+        );
+
+        res.json({
+          success: true,
+          sessionId,
+          employerResponse: firstResponse,
+          tips: this.getScenarioTips(scenario),
         });
-        
-        // Salary benchmarking API
-        this.app.post('/api/salary-benchmark', async (req, res) => {
-            try {
-                const { role, experience, location, company, skills } = req.body;
-                const benchmark = await this.calculateSalaryBenchmark(role, experience, location, company, skills);
-                res.json(benchmark);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Submit negotiation response
+    this.app.post("/api/submit-response", async (req, res) => {
+      try {
+        const { sessionId, userResponse } = req.body;
+        const session = this.coachingSessions.get(sessionId);
+
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        // Analyze user response
+        const analysis = await this.analyzeNegotiationResponse(
+          userResponse,
+          session.scenario,
+        );
+
+        // Generate employer counter-response
+        const employerResponse = this.generateEmployerResponse(
+          session.scenario,
+          "counter",
+          userResponse,
+        );
+
+        // Record exchange
+        session.exchanges.push({
+          userResponse,
+          analysis,
+          employerResponse,
+          timestamp: new Date(),
         });
-        
-        // Negotiation strategy generator
-        this.app.post('/api/negotiation-strategy', async (req, res) => {
-            try {
-                const { currentOffer, targetSalary, situation, leverage } = req.body;
-                const strategy = await this.generateNegotiationStrategy(currentOffer, targetSalary, situation, leverage);
-                res.json(strategy);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Role-playing simulation
-        this.app.post('/api/start-roleplay', async (req, res) => {
-            try {
-                const { userId, scenario, role } = req.body;
-                const sessionId = `roleplay_${Date.now()}`;
-                
-                const session = {
-                    id: sessionId,
-                    userId,
-                    scenario,
-                    role,
-                    startTime: new Date(),
-                    exchanges: [],
-                    status: 'active'
-                };
-                
-                this.coachingSessions.set(sessionId, session);
-                
-                const firstResponse = this.generateEmployerResponse(scenario, 'opening');
-                
-                res.json({
-                    success: true,
-                    sessionId,
-                    employerResponse: firstResponse,
-                    tips: this.getScenarioTips(scenario)
-                });
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Submit negotiation response
-        this.app.post('/api/submit-response', async (req, res) => {
-            try {
-                const { sessionId, userResponse } = req.body;
-                const session = this.coachingSessions.get(sessionId);
-                
-                if (!session) {
-                    return res.status(404).json({ error: 'Session not found' });
-                }
-                
-                // Analyze user response
-                const analysis = await this.analyzeNegotiationResponse(userResponse, session.scenario);
-                
-                // Generate employer counter-response
-                const employerResponse = this.generateEmployerResponse(session.scenario, 'counter', userResponse);
-                
-                // Record exchange
-                session.exchanges.push({
-                    userResponse,
-                    analysis,
-                    employerResponse,
-                    timestamp: new Date()
-                });
-                
-                // Check if negotiation should end
-                const shouldEnd = session.exchanges.length >= 3 || analysis.outcome === 'success';
-                
-                if (shouldEnd) {
-                    session.status = 'completed';
-                    const finalReport = await this.generateFinalNegotiationReport(session);
-                    
-                    res.json({
-                        success: true,
-                        isComplete: true,
-                        analysis,
-                        employerResponse,
-                        finalReport
-                    });
-                } else {
-                    res.json({
-                        success: true,
-                        isComplete: false,
-                        analysis,
-                        employerResponse,
-                        tips: this.getResponseTips(analysis)
-                    });
-                }
-                
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Market insights API
-        this.app.get('/api/market-insights/:role', async (req, res) => {
-            try {
-                const insights = await this.getMarketInsights(req.params.role);
-                res.json(insights);
-            } catch (error) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-        
-        // Revenue tracking
-        this.app.get('/api/revenue', (req, res) => {
-            const totalSessions = this.coachingSessions.size;
-            const activeUsers = new Set([...this.coachingSessions.values()].map(s => s.userId)).size;
-            
-            res.json({
-                totalSessions,
-                activeUsers,
-                revenuePerSession: 199, // $199 per coaching session
-                monthlyRevenue: totalSessions * 199,
-                projectedMonthly: Math.min(totalSessions * 199 * 3.5, 28000) // Growth projection
-            });
-        });
-    }
-    
-    async calculateSalaryBenchmark(role, experience, location, company, skills) {
-        const baseData = this.salaryData[role];
-        if (!baseData) {
-            throw new Error('Role not found in database');
+
+        // Check if negotiation should end
+        const shouldEnd =
+          session.exchanges.length >= 3 || analysis.outcome === "success";
+
+        if (shouldEnd) {
+          session.status = "completed";
+          const finalReport =
+            await this.generateFinalNegotiationReport(session);
+
+          res.json({
+            success: true,
+            isComplete: true,
+            analysis,
+            employerResponse,
+            finalReport,
+          });
+        } else {
+          res.json({
+            success: true,
+            isComplete: false,
+            analysis,
+            employerResponse,
+            tips: this.getResponseTips(analysis),
+          });
         }
-        
-        const experienceData = baseData[experience];
-        if (!experienceData) {
-            throw new Error('Experience level not found');
-        }
-        
-        // Apply market factors
-        let adjustedSalary = experienceData.median;
-        
-        // Location adjustment
-        const locationMultiplier = this.marketFactors.location[location] || 1.0;
-        adjustedSalary *= locationMultiplier;
-        
-        // Company type adjustment
-        const companyMultiplier = this.marketFactors.company[company] || 1.0;
-        adjustedSalary *= companyMultiplier;
-        
-        // Skills adjustment
-        const skillsMultiplier = skills.reduce((mult, skill) => {
-            return mult * (this.marketFactors.skills[skill] || 1.0);
-        }, 1.0);
-        adjustedSalary *= Math.min(skillsMultiplier, 1.5); // Cap at 50% increase
-        
-        return {
-            baseRange: experienceData,
-            adjustedSalary: Math.round(adjustedSalary),
-            marketFactors: {
-                location: locationMultiplier,
-                company: companyMultiplier,
-                skills: skillsMultiplier
-            },
-            negotiationRange: {
-                conservative: Math.round(adjustedSalary * 1.05),
-                aggressive: Math.round(adjustedSalary * 1.15),
-                optimal: Math.round(adjustedSalary * 1.10)
-            },
-            insights: this.generateSalaryInsights(role, experience, adjustedSalary)
-        };
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Market insights API
+    this.app.get("/api/market-insights/:role", async (req, res) => {
+      try {
+        const insights = await this.getMarketInsights(req.params.role);
+        res.json(insights);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Revenue tracking
+    this.app.get("/api/revenue", (req, res) => {
+      const totalSessions = this.coachingSessions.size;
+      const activeUsers = new Set(
+        [...this.coachingSessions.values()].map((s) => s.userId),
+      ).size;
+
+      res.json({
+        totalSessions,
+        activeUsers,
+        revenuePerSession: 199, // $199 per coaching session
+        monthlyRevenue: totalSessions * 199,
+        projectedMonthly: Math.min(totalSessions * 199 * 3.5, 28000), // Growth projection
+      });
+    });
+  }
+
+  async calculateSalaryBenchmark(role, experience, location, company, skills) {
+    const baseData = this.salaryData[role];
+    if (!baseData) {
+      throw new Error("Role not found in database");
     }
-    
-    generateSalaryInsights(role, experience, salary) {
-        const insights = [
-            `${role}s with ${experience} experience typically earn $${Math.round(salary).toLocaleString()}`,
-            'Consider the full compensation package including equity and benefits',
-            'Research recent funding rounds if negotiating with startups'
-        ];
-        
-        if (salary > 150000) {
-            insights.push('At this level, equity and stock options become increasingly important');
-        }
-        
-        if (experience === 'senior' || experience === 'lead') {
-            insights.push('Senior roles have more negotiation flexibility due to high demand');
-        }
-        
-        return insights;
+
+    const experienceData = baseData[experience];
+    if (!experienceData) {
+      throw new Error("Experience level not found");
     }
-    
-    async generateNegotiationStrategy(currentOffer, targetSalary, situation, leverage) {
-        const gap = targetSalary - currentOffer;
-        const gapPercentage = (gap / currentOffer) * 100;
-        
-        let strategy = 'balanced';
-        if (gapPercentage > 20) strategy = 'aggressive';
-        if (gapPercentage < 5) strategy = 'conservative';
-        
-        const tactics = this.selectNegotiationTactics(situation, leverage, gapPercentage);
-        
-        return {
-            strategy,
-            gap: gap,
-            gapPercentage: Math.round(gapPercentage),
-            recommendedApproach: this.getRecommendedApproach(strategy),
-            tactics: tactics,
-            timeline: this.getNegotiationTimeline(strategy),
-            scriptSuggestions: this.generateNegotiationScript(currentOffer, targetSalary, strategy),
-            riskAssessment: this.assessNegotiationRisk(gapPercentage, leverage)
-        };
+
+    // Apply market factors
+    let adjustedSalary = experienceData.median;
+
+    // Location adjustment
+    const locationMultiplier = this.marketFactors.location[location] || 1.0;
+    adjustedSalary *= locationMultiplier;
+
+    // Company type adjustment
+    const companyMultiplier = this.marketFactors.company[company] || 1.0;
+    adjustedSalary *= companyMultiplier;
+
+    // Skills adjustment
+    const skillsMultiplier = skills.reduce((mult, skill) => {
+      return mult * (this.marketFactors.skills[skill] || 1.0);
+    }, 1.0);
+    adjustedSalary *= Math.min(skillsMultiplier, 1.5); // Cap at 50% increase
+
+    return {
+      baseRange: experienceData,
+      adjustedSalary: Math.round(adjustedSalary),
+      marketFactors: {
+        location: locationMultiplier,
+        company: companyMultiplier,
+        skills: skillsMultiplier,
+      },
+      negotiationRange: {
+        conservative: Math.round(adjustedSalary * 1.05),
+        aggressive: Math.round(adjustedSalary * 1.15),
+        optimal: Math.round(adjustedSalary * 1.1),
+      },
+      insights: this.generateSalaryInsights(role, experience, adjustedSalary),
+    };
+  }
+
+  generateSalaryInsights(role, experience, salary) {
+    const insights = [
+      `${role}s with ${experience} experience typically earn $${Math.round(salary).toLocaleString()}`,
+      "Consider the full compensation package including equity and benefits",
+      "Research recent funding rounds if negotiating with startups",
+    ];
+
+    if (salary > 150000) {
+      insights.push(
+        "At this level, equity and stock options become increasingly important",
+      );
     }
-    
-    selectNegotiationTactics(situation, leverage, gapPercentage) {
-        const tactics = [];
-        
-        if (leverage.includes('competing_offer')) {
-            tactics.push(...this.negotiationStrategies.lowball.tactics.slice(0, 2));
-        }
-        
-        if (situation.includes('startup')) {
-            tactics.push(...this.negotiationStrategies.equity.tactics.slice(0, 2));
-        }
-        
-        if (gapPercentage > 15) {
-            tactics.push(...this.negotiationStrategies.benefits.tactics);
-        }
-        
-        tactics.push(...this.negotiationStrategies.timing.tactics.slice(0, 2));
-        
-        return [...new Set(tactics)].slice(0, 5); // Remove duplicates and limit to 5
+
+    if (experience === "senior" || experience === "lead") {
+      insights.push(
+        "Senior roles have more negotiation flexibility due to high demand",
+      );
     }
-    
-    getRecommendedApproach(strategy) {
-        const approaches = {
-            conservative: 'Focus on demonstrating value and asking for modest increases',
-            balanced: 'Present market research while emphasizing your unique contributions',
-            aggressive: 'Leverage competing offers and highlight significant value gaps'
-        };
-        return approaches[strategy];
+
+    return insights;
+  }
+
+  async generateNegotiationStrategy(
+    currentOffer,
+    targetSalary,
+    situation,
+    leverage,
+  ) {
+    const gap = targetSalary - currentOffer;
+    const gapPercentage = (gap / currentOffer) * 100;
+
+    let strategy = "balanced";
+    if (gapPercentage > 20) strategy = "aggressive";
+    if (gapPercentage < 5) strategy = "conservative";
+
+    const tactics = this.selectNegotiationTactics(
+      situation,
+      leverage,
+      gapPercentage,
+    );
+
+    return {
+      strategy,
+      gap: gap,
+      gapPercentage: Math.round(gapPercentage),
+      recommendedApproach: this.getRecommendedApproach(strategy),
+      tactics: tactics,
+      timeline: this.getNegotiationTimeline(strategy),
+      scriptSuggestions: this.generateNegotiationScript(
+        currentOffer,
+        targetSalary,
+        strategy,
+      ),
+      riskAssessment: this.assessNegotiationRisk(gapPercentage, leverage),
+    };
+  }
+
+  selectNegotiationTactics(situation, leverage, gapPercentage) {
+    const tactics = [];
+
+    if (leverage.includes("competing_offer")) {
+      tactics.push(...this.negotiationStrategies.lowball.tactics.slice(0, 2));
     }
-    
-    getNegotiationTimeline(strategy) {
-        const timelines = {
-            conservative: '1-2 weeks for response and counteroffers',
-            balanced: '2-3 weeks including research and preparation time',
-            aggressive: '3-4 weeks with multiple negotiation rounds'
-        };
-        return timelines[strategy];
+
+    if (situation.includes("startup")) {
+      tactics.push(...this.negotiationStrategies.equity.tactics.slice(0, 2));
     }
-    
-    generateNegotiationScript(currentOffer, targetSalary, strategy) {
-        const scripts = {
-            opening: `Thank you for the offer of $${currentOffer.toLocaleString()}. I'm excited about the opportunity and would like to discuss the compensation package.`,
-            research: `Based on my research of market rates for similar roles, I was expecting something closer to $${targetSalary.toLocaleString()}.`,
-            value: `Given my experience with [specific skills] and track record of [achievements], I believe this adjustment reflects my potential contribution.`,
-            flexibility: `I'm open to discussing the total package, including equity, benefits, and growth opportunities.`,
-            closing: `I'm very interested in moving forward and hope we can find a mutually beneficial arrangement.`
-        };
-        
-        return Object.values(scripts);
+
+    if (gapPercentage > 15) {
+      tactics.push(...this.negotiationStrategies.benefits.tactics);
     }
-    
-    assessNegotiationRisk(gapPercentage, leverage) {
-        let risk = 'Medium';
-        
-        if (gapPercentage < 10 && leverage.length > 2) risk = 'Low';
-        if (gapPercentage > 25 && leverage.length < 2) risk = 'High';
-        
-        const risks = {
-            Low: 'Strong position with minimal downside risk',
-            Medium: 'Balanced approach recommended with moderate risk',
-            High: 'Significant gap may require creative compensation solutions'
-        };
-        
-        return { level: risk, description: risks[risk] };
+
+    tactics.push(...this.negotiationStrategies.timing.tactics.slice(0, 2));
+
+    return [...new Set(tactics)].slice(0, 5); // Remove duplicates and limit to 5
+  }
+
+  getRecommendedApproach(strategy) {
+    const approaches = {
+      conservative:
+        "Focus on demonstrating value and asking for modest increases",
+      balanced:
+        "Present market research while emphasizing your unique contributions",
+      aggressive:
+        "Leverage competing offers and highlight significant value gaps",
+    };
+    return approaches[strategy];
+  }
+
+  getNegotiationTimeline(strategy) {
+    const timelines = {
+      conservative: "1-2 weeks for response and counteroffers",
+      balanced: "2-3 weeks including research and preparation time",
+      aggressive: "3-4 weeks with multiple negotiation rounds",
+    };
+    return timelines[strategy];
+  }
+
+  generateNegotiationScript(currentOffer, targetSalary, strategy) {
+    const scripts = {
+      opening: `Thank you for the offer of $${currentOffer.toLocaleString()}. I'm excited about the opportunity and would like to discuss the compensation package.`,
+      research: `Based on my research of market rates for similar roles, I was expecting something closer to $${targetSalary.toLocaleString()}.`,
+      value: `Given my experience with [specific skills] and track record of [achievements], I believe this adjustment reflects my potential contribution.`,
+      flexibility: `I'm open to discussing the total package, including equity, benefits, and growth opportunities.`,
+      closing: `I'm very interested in moving forward and hope we can find a mutually beneficial arrangement.`,
+    };
+
+    return Object.values(scripts);
+  }
+
+  assessNegotiationRisk(gapPercentage, leverage) {
+    let risk = "Medium";
+
+    if (gapPercentage < 10 && leverage.length > 2) risk = "Low";
+    if (gapPercentage > 25 && leverage.length < 2) risk = "High";
+
+    const risks = {
+      Low: "Strong position with minimal downside risk",
+      Medium: "Balanced approach recommended with moderate risk",
+      High: "Significant gap may require creative compensation solutions",
+    };
+
+    return { level: risk, description: risks[risk] };
+  }
+
+  generateEmployerResponse(scenario, stage, userResponse = null) {
+    const responses = {
+      opening: {
+        lowball:
+          "We're excited to extend this offer. The salary reflects our current budget constraints.",
+        standard:
+          "This offer is competitive based on our internal salary bands.",
+        generous:
+          "We believe this offer reflects the value you'll bring to our team.",
+      },
+      counter: {
+        pushback:
+          "I understand your perspective. Let me discuss this with our compensation team.",
+        flexibility:
+          "We have some flexibility in the total package. What aspects are most important to you?",
+        final:
+          "This is our best offer given current market conditions and budget constraints.",
+      },
+    };
+
+    if (stage === "opening") {
+      return responses.opening[scenario] || responses.opening.standard;
     }
-    
-    generateEmployerResponse(scenario, stage, userResponse = null) {
-        const responses = {
-            opening: {
-                lowball: "We're excited to extend this offer. The salary reflects our current budget constraints.",
-                standard: "This offer is competitive based on our internal salary bands.",
-                generous: "We believe this offer reflects the value you'll bring to our team."
-            },
-            counter: {
-                pushback: "I understand your perspective. Let me discuss this with our compensation team.",
-                flexibility: "We have some flexibility in the total package. What aspects are most important to you?",
-                final: "This is our best offer given current market conditions and budget constraints."
-            }
-        };
-        
-        if (stage === 'opening') {
-            return responses.opening[scenario] || responses.opening.standard;
-        }
-        
-        // Analyze user response and generate appropriate counter
-        const responseType = this.analyzeUserResponseType(userResponse);
-        return responses.counter[responseType] || responses.counter.flexibility;
+
+    // Analyze user response and generate appropriate counter
+    const responseType = this.analyzeUserResponseType(userResponse);
+    return responses.counter[responseType] || responses.counter.flexibility;
+  }
+
+  analyzeUserResponseType(response) {
+    if (!response) return "flexibility";
+
+    const lowerResponse = response.toLowerCase();
+    if (
+      lowerResponse.includes("competing") ||
+      lowerResponse.includes("other offer")
+    ) {
+      return "pushback";
     }
-    
-    analyzeUserResponseType(response) {
-        if (!response) return 'flexibility';
-        
-        const lowerResponse = response.toLowerCase();
-        if (lowerResponse.includes('competing') || lowerResponse.includes('other offer')) {
-            return 'pushback';
-        }
-        if (lowerResponse.includes('final') || lowerResponse.includes('best')) {
-            return 'final';
-        }
-        return 'flexibility';
+    if (lowerResponse.includes("final") || lowerResponse.includes("best")) {
+      return "final";
     }
-    
-    getScenarioTips(scenario) {
-        const tips = {
-            lowball: [
-                'Don\'t accept the first offer immediately',
-                'Research market rates before responding',
-                'Present your value proposition clearly'
-            ],
-            standard: [
-                'Express enthusiasm for the role',
-                'Ask about the total compensation package',
-                'Negotiate based on specific achievements'
-            ],
-            generous: [
-                'Still negotiate - there may be room for improvement',
-                'Focus on non-salary benefits if salary is fixed',
-                'Consider long-term growth opportunities'
-            ]
-        };
-        
-        return tips[scenario] || tips.standard;
+    return "flexibility";
+  }
+
+  getScenarioTips(scenario) {
+    const tips = {
+      lowball: [
+        "Don't accept the first offer immediately",
+        "Research market rates before responding",
+        "Present your value proposition clearly",
+      ],
+      standard: [
+        "Express enthusiasm for the role",
+        "Ask about the total compensation package",
+        "Negotiate based on specific achievements",
+      ],
+      generous: [
+        "Still negotiate - there may be room for improvement",
+        "Focus on non-salary benefits if salary is fixed",
+        "Consider long-term growth opportunities",
+      ],
+    };
+
+    return tips[scenario] || tips.standard;
+  }
+
+  async analyzeNegotiationResponse(response, scenario) {
+    // Simulate AI analysis of negotiation response
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const analysis = {
+      confidence: Math.floor(Math.random() * 30) + 70,
+      persuasiveness: Math.floor(Math.random() * 25) + 75,
+      professionalism: Math.floor(Math.random() * 20) + 80,
+      strategicApproach: Math.floor(Math.random() * 35) + 65,
+      overallScore: Math.floor(Math.random() * 25) + 75,
+      strengths: this.identifyResponseStrengths(response),
+      improvements: this.identifyResponseImprovements(response),
+      outcome: this.predictNegotiationOutcome(response, scenario),
+    };
+
+    return analysis;
+  }
+
+  identifyResponseStrengths(response) {
+    const strengths = [
+      "Clear communication of expectations",
+      "Professional tone throughout",
+      "Reference to market research",
+      "Emphasis on mutual benefit",
+      "Specific examples of value",
+    ];
+
+    return strengths.sort(() => 0.5 - Math.random()).slice(0, 2);
+  }
+
+  identifyResponseImprovements(response) {
+    const improvements = [
+      "Could provide more specific market data",
+      "Consider mentioning competing offers",
+      "Highlight unique qualifications more clearly",
+      "Express more enthusiasm for the role",
+      "Request specific timeline for response",
+    ];
+
+    return improvements.sort(() => 0.5 - Math.random()).slice(0, 2);
+  }
+
+  predictNegotiationOutcome(response, scenario) {
+    const outcomes = ["success", "partial", "ongoing"];
+    return outcomes[Math.floor(Math.random() * outcomes.length)];
+  }
+
+  getResponseTips(analysis) {
+    const tips = [
+      "Maintain professional tone while being assertive",
+      "Provide specific examples of your achievements",
+      "Research competing offers if possible",
+      "Consider the total compensation package",
+      "Be prepared to justify your salary expectations",
+    ];
+
+    return tips.slice(0, 3);
+  }
+
+  async generateFinalNegotiationReport(session) {
+    const exchanges = session.exchanges;
+    const avgScore =
+      exchanges.reduce((sum, ex) => sum + ex.analysis.overallScore, 0) /
+      exchanges.length;
+
+    return {
+      overallPerformance: Math.round(avgScore),
+      grade: this.getNegotiationGrade(avgScore),
+      keyStrengths: this.aggregateStrengths(exchanges),
+      areasForImprovement: this.aggregateImprovements(exchanges),
+      negotiationOutcome: this.getFinalOutcome(exchanges),
+      salaryImpactEstimate: this.estimateSalaryImpact(avgScore),
+      nextSteps: this.getPersonalizedNextSteps(avgScore),
+      practiceRecommendations: this.getPracticeRecommendations(
+        session.scenario,
+      ),
+    };
+  }
+
+  getNegotiationGrade(score) {
+    if (score >= 90) return "A+";
+    if (score >= 85) return "A";
+    if (score >= 80) return "B+";
+    if (score >= 75) return "B";
+    if (score >= 70) return "C+";
+    return "C";
+  }
+
+  aggregateStrengths(exchanges) {
+    const allStrengths = exchanges.flatMap((ex) => ex.analysis.strengths);
+    const counts = {};
+    allStrengths.forEach(
+      (strength) => (counts[strength] = (counts[strength] || 0) + 1),
+    );
+
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([strength]) => strength);
+  }
+
+  aggregateImprovements(exchanges) {
+    const allImprovements = exchanges.flatMap((ex) => ex.analysis.improvements);
+    const counts = {};
+    allImprovements.forEach((imp) => (counts[imp] = (counts[imp] || 0) + 1));
+
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([improvement]) => improvement);
+  }
+
+  getFinalOutcome(exchanges) {
+    const outcomes = exchanges.map((ex) => ex.analysis.outcome);
+    if (outcomes.includes("success"))
+      return "Successfully negotiated higher compensation";
+    if (outcomes.includes("partial"))
+      return "Achieved partial success with room for improvement";
+    return "Gained valuable negotiation experience";
+  }
+
+  estimateSalaryImpact(score) {
+    const impactPercentages = {
+      90: "15-20% salary increase potential",
+      85: "12-15% salary increase potential",
+      80: "8-12% salary increase potential",
+      75: "5-8% salary increase potential",
+      70: "3-5% salary increase potential",
+    };
+
+    for (const threshold of Object.keys(impactPercentages).sort(
+      (a, b) => b - a,
+    )) {
+      if (score >= parseInt(threshold)) {
+        return impactPercentages[threshold];
+      }
     }
-    
-    async analyzeNegotiationResponse(response, scenario) {
-        // Simulate AI analysis of negotiation response
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        const analysis = {
-            confidence: Math.floor(Math.random() * 30) + 70,
-            persuasiveness: Math.floor(Math.random() * 25) + 75,
-            professionalism: Math.floor(Math.random() * 20) + 80,
-            strategicApproach: Math.floor(Math.random() * 35) + 65,
-            overallScore: Math.floor(Math.random() * 25) + 75,
-            strengths: this.identifyResponseStrengths(response),
-            improvements: this.identifyResponseImprovements(response),
-            outcome: this.predictNegotiationOutcome(response, scenario)
-        };
-        
-        return analysis;
+
+    return "0-3% salary increase potential";
+  }
+
+  getPersonalizedNextSteps(score) {
+    const baseSteps = [
+      "Practice negotiation scenarios regularly",
+      "Research salary data for your specific role and location",
+      "Build a portfolio of achievements and quantifiable results",
+    ];
+
+    if (score < 75) {
+      baseSteps.unshift("Focus on fundamental negotiation skills");
+      baseSteps.push("Consider additional coaching sessions");
     }
-    
-    identifyResponseStrengths(response) {
-        const strengths = [
-            'Clear communication of expectations',
-            'Professional tone throughout',
-            'Reference to market research',
-            'Emphasis on mutual benefit',
-            'Specific examples of value'
-        ];
-        
-        return strengths.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+    if (score >= 85) {
+      baseSteps.push("Apply these skills in real negotiations");
+      baseSteps.push("Mentor others in salary negotiation techniques");
     }
-    
-    identifyResponseImprovements(response) {
-        const improvements = [
-            'Could provide more specific market data',
-            'Consider mentioning competing offers',
-            'Highlight unique qualifications more clearly',
-            'Express more enthusiasm for the role',
-            'Request specific timeline for response'
-        ];
-        
-        return improvements.sort(() => 0.5 - Math.random()).slice(0, 2);
-    }
-    
-    predictNegotiationOutcome(response, scenario) {
-        const outcomes = ['success', 'partial', 'ongoing'];
-        return outcomes[Math.floor(Math.random() * outcomes.length)];
-    }
-    
-    getResponseTips(analysis) {
-        const tips = [
-            'Maintain professional tone while being assertive',
-            'Provide specific examples of your achievements',
-            'Research competing offers if possible',
-            'Consider the total compensation package',
-            'Be prepared to justify your salary expectations'
-        ];
-        
-        return tips.slice(0, 3);
-    }
-    
-    async generateFinalNegotiationReport(session) {
-        const exchanges = session.exchanges;
-        const avgScore = exchanges.reduce((sum, ex) => sum + ex.analysis.overallScore, 0) / exchanges.length;
-        
-        return {
-            overallPerformance: Math.round(avgScore),
-            grade: this.getNegotiationGrade(avgScore),
-            keyStrengths: this.aggregateStrengths(exchanges),
-            areasForImprovement: this.aggregateImprovements(exchanges),
-            negotiationOutcome: this.getFinalOutcome(exchanges),
-            salaryImpactEstimate: this.estimateSalaryImpact(avgScore),
-            nextSteps: this.getPersonalizedNextSteps(avgScore),
-            practiceRecommendations: this.getPracticeRecommendations(session.scenario)
-        };
-    }
-    
-    getNegotiationGrade(score) {
-        if (score >= 90) return 'A+';
-        if (score >= 85) return 'A';
-        if (score >= 80) return 'B+';
-        if (score >= 75) return 'B';
-        if (score >= 70) return 'C+';
-        return 'C';
-    }
-    
-    aggregateStrengths(exchanges) {
-        const allStrengths = exchanges.flatMap(ex => ex.analysis.strengths);
-        const counts = {};
-        allStrengths.forEach(strength => counts[strength] = (counts[strength] || 0) + 1);
-        
-        return Object.entries(counts)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 3)
-            .map(([strength]) => strength);
-    }
-    
-    aggregateImprovements(exchanges) {
-        const allImprovements = exchanges.flatMap(ex => ex.analysis.improvements);
-        const counts = {};
-        allImprovements.forEach(imp => counts[imp] = (counts[imp] || 0) + 1);
-        
-        return Object.entries(counts)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 3)
-            .map(([improvement]) => improvement);
-    }
-    
-    getFinalOutcome(exchanges) {
-        const outcomes = exchanges.map(ex => ex.analysis.outcome);
-        if (outcomes.includes('success')) return 'Successfully negotiated higher compensation';
-        if (outcomes.includes('partial')) return 'Achieved partial success with room for improvement';
-        return 'Gained valuable negotiation experience';
-    }
-    
-    estimateSalaryImpact(score) {
-        const impactPercentages = {
-            90: '15-20% salary increase potential',
-            85: '12-15% salary increase potential',
-            80: '8-12% salary increase potential',
-            75: '5-8% salary increase potential',
-            70: '3-5% salary increase potential'
-        };
-        
-        for (const threshold of Object.keys(impactPercentages).sort((a, b) => b - a)) {
-            if (score >= parseInt(threshold)) {
-                return impactPercentages[threshold];
-            }
-        }
-        
-        return '0-3% salary increase potential';
-    }
-    
-    getPersonalizedNextSteps(score) {
-        const baseSteps = [
-            'Practice negotiation scenarios regularly',
-            'Research salary data for your specific role and location',
-            'Build a portfolio of achievements and quantifiable results'
-        ];
-        
-        if (score < 75) {
-            baseSteps.unshift('Focus on fundamental negotiation skills');
-            baseSteps.push('Consider additional coaching sessions');
-        }
-        
-        if (score >= 85) {
-            baseSteps.push('Apply these skills in real negotiations');
-            baseSteps.push('Mentor others in salary negotiation techniques');
-        }
-        
-        return baseSteps;
-    }
-    
-    getPracticeRecommendations(scenario) {
-        const recommendations = {
-            lowball: [
-                'Practice responding to below-market offers',
-                'Prepare compelling value propositions',
-                'Research multiple salary sources'
-            ],
-            standard: [
-                'Practice balanced negotiation approaches',
-                'Develop benefit package alternatives',
-                'Build confidence in salary discussions'
-            ],
-            generous: [
-                'Practice negotiating from positions of strength',
-                'Focus on long-term career growth discussions',
-                'Explore creative compensation structures'
-            ]
-        };
-        
-        return recommendations[scenario] || recommendations.standard;
-    }
-    
-    async getMarketInsights(role) {
-        // Simulate market data retrieval
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const insights = {
-            demandTrend: 'High',
-            salaryGrowth: '+8.5% year-over-year',
-            hotSkills: ['AI/ML', 'Cloud Architecture', 'DevOps'],
-            topPayingCompanies: ['Google', 'Meta', 'Netflix', 'Stripe'],
-            negotiationSuccess: '78% of professionals who negotiate receive increases',
-            averageIncrease: '$12,500 average salary increase through negotiation'
-        };
-        
-        return insights;
-    }
-    
-    getCoachingHTML() {
-        return `
+
+    return baseSteps;
+  }
+
+  getPracticeRecommendations(scenario) {
+    const recommendations = {
+      lowball: [
+        "Practice responding to below-market offers",
+        "Prepare compelling value propositions",
+        "Research multiple salary sources",
+      ],
+      standard: [
+        "Practice balanced negotiation approaches",
+        "Develop benefit package alternatives",
+        "Build confidence in salary discussions",
+      ],
+      generous: [
+        "Practice negotiating from positions of strength",
+        "Focus on long-term career growth discussions",
+        "Explore creative compensation structures",
+      ],
+    };
+
+    return recommendations[scenario] || recommendations.standard;
+  }
+
+  async getMarketInsights(role) {
+    // Simulate market data retrieval
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const insights = {
+      demandTrend: "High",
+      salaryGrowth: "+8.5% year-over-year",
+      hotSkills: ["AI/ML", "Cloud Architecture", "DevOps"],
+      topPayingCompanies: ["Google", "Meta", "Netflix", "Stripe"],
+      negotiationSuccess:
+        "78% of professionals who negotiate receive increases",
+      averageIncrease: "$12,500 average salary increase through negotiation",
+    };
+
+    return insights;
+  }
+
+  getCoachingHTML() {
+    return `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -1282,20 +1346,20 @@ class SalaryNegotiationCoach {
         </body>
         </html>
         `;
-    }
-    
-    async startServer() {
-        this.app.listen(this.port, () => {
-            console.log(`💰 Salary Negotiation Coach running on port ${this.port}`);
-            console.log(`🔗 http://localhost:${this.port}`);
-            console.log(`💵 Premium coaching sessions: $199 each`);
-            console.log(`🎯 Revenue target: $28K/month`);
-            this.logStartup();
-        });
-    }
-    
-    async logStartup() {
-        const logEntry = `
+  }
+
+  async startServer() {
+    this.app.listen(this.port, () => {
+      console.log(`💰 Salary Negotiation Coach running on port ${this.port}`);
+      console.log(`🔗 http://localhost:${this.port}`);
+      console.log(`💵 Premium coaching sessions: $199 each`);
+      console.log(`🎯 Revenue target: $28K/month`);
+      this.logStartup();
+    });
+  }
+
+  async logStartup() {
+    const logEntry = `
 💰 Salary Negotiation Coach LAUNCHED!
 🎯 AI-powered salary benchmarking and negotiation strategies
 📊 Real-time market data and compensation analysis
@@ -1305,13 +1369,13 @@ class SalaryNegotiationCoach {
 ⚡ READY TO MAXIMIZE EARNING POTENTIAL!
 
 `;
-        
-        try {
-            await fs.appendFile('salary_coaching.log', logEntry);
-        } catch (error) {
-            console.log('Logging note:', error.message);
-        }
+
+    try {
+      await fs.appendFile("salary_coaching.log", logEntry);
+    } catch (error) {
+      console.log("Logging note:", error.message);
     }
+  }
 }
 
 // Start the Salary Negotiation Coach
