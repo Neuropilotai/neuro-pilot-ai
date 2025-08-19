@@ -205,7 +205,20 @@ app.use('/api', generalLimiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:8083'],
+  origin: (origin, callback) => {
+    const defaults = [
+      'http://localhost:8080',
+      'http://localhost:8081',
+      'http://localhost:8083',
+      'http://localhost:5500'
+    ];
+    const allowed = (process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',')
+      : defaults);
+    // allow same-origin or tools without origin (curl, Postman)
+    if (!origin || allowed.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS not allowed from origin: ' + origin));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -225,6 +238,9 @@ app.use(express.json({
 
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Quiet favicon requests (avoid 404 noise in dev)
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 // GitHub Orders Sync Integration
 const { GitHubOrdersSync, setupGitHubSyncRoutes } = require('./github-orders-sync');
@@ -2410,6 +2426,22 @@ app.post('/api/backup/encrypted', authenticateToken, async (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'Complete Bilingual Inventory System',
+    version: '3.0',
+    features: {
+      bilingual: true,
+      syscoCatalog: syscoCatalog.length,
+      gfsOrders: gfsOrders.length,
+      storageLocations: Object.keys(storageLocations).length,
+      inventoryItems: inventory.length
+    }
+  });
+});
+
+// Alias health check under /api for frontend helpers expecting it there
+app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     service: 'Complete Bilingual Inventory System',
