@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Inventory Management</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="css/styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <i class="fas fa-boxes auth-icon"></i>
+                <h1>Enterprise Inventory</h1>
+                <p>Secure Access Required</p>
+            </div>
+            
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" name="email" required autocomplete="email">
+                    <i class="fas fa-envelope input-icon"></i>
+                </div>
+                
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+                    <i class="fas fa-lock input-icon"></i>
+                    <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Sign In
+                </button>
+                
+                <div class="auth-links">
+                    <a href="#" onclick="showRegisterForm()">Need an account? Register</a>
+                </div>
+            </form>
+            
+            <div id="loginError" class="error-message"></div>
+        </div>
+    </div>
+
+    <!-- Register Screen -->
+    <div id="registerScreen" class="auth-container" style="display: none;">
+        <div class="auth-card">
+            <div class="auth-header">
+                <i class="fas fa-user-plus auth-icon"></i>
+                <h1>Create Account</h1>
+                <p>Join Enterprise Inventory</p>
+            </div>
+            
+            <form id="registerForm" class="auth-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">First Name</label>
+                        <input type="text" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Last Name</label>
+                        <input type="text" id="lastName" name="lastName" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" name="email" required autocomplete="email">
+                    <i class="fas fa-envelope input-icon"></i>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" name="password" required autocomplete="new-password">
+                    <i class="fas fa-lock input-icon"></i>
+                    <button type="button" class="password-toggle" onclick="togglePassword('registerPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <div class="password-requirements">
+                        <small>Password must contain: 8+ characters, uppercase, lowercase, number, special character</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role">Role</label>
+                    <select id="role" name="role">
+                        <option value="staff">Staff</option>
+                        <option value="manager">Manager</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-user-plus"></i>
+                    Create Account
+                </button>
+                
+                <div class="auth-links">
+                    <a href="#" onclick="showLoginForm()">Already have an account? Sign In</a>
+                </div>
+            </form>
+            
+            <div id="registerError" class="error-message"></div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" style="display: none;">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-left">
+                <i class="fas fa-boxes header-logo"></i>
+                <h1>Enterprise Inventory</h1>
+            </div>
+            
+            <div class="header-center">
+                <div class="search-container">
+                    <input type="text" id="globalSearch" placeholder="Search inventory..." class="search-input">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="user-menu">
+                    <button class="user-button" onclick="toggleUserMenu()">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="userName">User</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div id="userDropdown" class="user-dropdown">
+                        <div class="user-info">
+                            <div id="userFullName">User Name</div>
+                            <div id="userRole" class="user-role">Role</div>
+                        </div>
+                        <hr>
+                        <a href="#" onclick="showProfile()">
+                            <i class="fas fa-user"></i>
+                            Profile
+                        </a>
+                        <a href="#" onclick="changePassword()">
+                            <i class="fas fa-key"></i>
+                            Change Password
+                        </a>
+                        <hr>
+                        <a href="#" onclick="logout()" class="danger">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <div class="nav-items">
+                <a href="#" class="nav-item active" onclick="showDashboard()">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showInventory()">
+                    <i class="fas fa-boxes"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showLocations()">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>Locations</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showTransfers()">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Transfers</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showReports()">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="nav-item admin-only" onclick="showUsers()">
+                    <i class="fas fa-users"></i>
+                    <span>Users</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="view">
+                <div class="view-header">
+                    <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+                    <div class="header-actions">
+                        <button class="btn-secondary" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-boxes"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalItems">0</div>
+                            <div class="stat-label">Total Items</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="lowStockItems">0</div>
+                            <div class="stat-label">Low Stock</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalValue">$0</div>
+                            <div class="stat-label">Total Value</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="locationCount">0</div>
+                            <div class="stat-label">Locations</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="dashboard-section">
+                    <h3>Recent Activity</h3>
+                    <div id="recentActivity" class="activity-list">
+                        <!-- Activity items will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory View -->
+            <div id="inventoryView" class="view" style="display: none;">
+                <div class="view-header">
+                    <h2><i class="fas fa-boxes"></i> Inventory Management</h2>
+                    <div class="header-actions">
+                        <button class="btn-secondary" onclick="exportInventory()">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                        <button class="btn-primary" onclick="showAddItemModal()">
+                            <i class="fas fa-plus"></i>
+                            Add Item
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="filters-bar">
+                    <div class="filter-group">
+                        <label>Category:</label>
+                        <select id="categoryFilter" onchange="applyFilters()">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Location:</label>
+                        <select id="locationFilter" onchange="applyFilters()">
+                            <option value="">All Locations</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Stock Status:</label>
+                        <select id="stockFilter" onchange="applyFilters()">
+                            <option value="">All Items</option>
+                            <option value="low">Low Stock</option>
+                            <option value="out">Out of Stock</option>
+                        </select>
+                    </div>
+                    <button class="btn-secondary" onclick="clearFilters()">
+                        <i class="fas fa-times"></i>
+                        Clear
+                    </button>
+                </div>
+
+                <!-- Inventory Table -->
+                <div class="table-container">
+                    <table id="inventoryTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Quantity</th>
+                                <th>Location</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <!-- Items will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div id="inventoryPagination" class="pagination">
+                    <!-- Pagination will be loaded here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modalOverlay" class="modal-overlay" onclick="closeModal()"></div>
+    
+    <!-- Add/Edit Item Modal -->
+    <div id="itemModal" class="modal">
+        <div class="modal-header">
+            <h3 id="itemModalTitle">Add New Item</h3>
+            <button class="modal-close" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form id="itemForm" class="modal-content">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="itemName">Name *</label>
+                    <input type="text" id="itemName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="itemCategory">Category *</label>
+                    <input type="text" id="itemCategory" name="category" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="itemQuantity">Quantity *</label>
+                    <input type="number" id="itemQuantity" name="quantity" min="0" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="itemUnit">Unit *</label>
+                    <input type="text" id="itemUnit" name="unit" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="itemLocation">Location *</label>
+                <select id="itemLocation" name="location" required>
+                    <option value="">Select Location</option>
+                </select>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="itemUnitPrice">Unit Price</label>
+                    <input type="number" id="itemUnitPrice" name="unitPrice" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="itemSupplier">Supplier</label>
+                    <input type="text" id="itemSupplier" name="supplier">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="itemMinQuantity">Min Quantity</label>
+                    <input type="number" id="itemMinQuantity" name="minQuantity" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="itemMaxQuantity">Max Quantity</label>
+                    <input type="number" id="itemMaxQuantity" name="maxQuantity" min="0" step="0.01">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="itemExpiryDate">Expiry Date</label>
+                <input type="date" id="itemExpiryDate" name="expiryDate">
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-save"></i>
+                    Save Item
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div id="transferModal" class="modal">
+        <div class="modal-header">
+            <h3>Transfer Item</h3>
+            <button class="modal-close" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form id="transferForm" class="modal-content">
+            <input type="hidden" id="transferItemId">
+            
+            <div class="form-group">
+                <label>Item:</label>
+                <div id="transferItemInfo" class="item-info">
+                    <!-- Item info will be populated here -->
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="fromLocation">From Location</label>
+                    <select id="fromLocation" name="fromLocation" required>
+                        <option value="">Select Location</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="toLocation">To Location *</label>
+                    <select id="toLocation" name="toLocation" required>
+                        <option value="">Select Location</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="transferQuantity">Quantity to Transfer *</label>
+                <input type="number" id="transferQuantity" name="quantity" min="0.01" step="0.01" required>
+                <small id="availableQuantity">Available: 0</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="transferReason">Reason (Optional)</label>
+                <textarea id="transferReason" name="reason" rows="3" placeholder="Reason for transfer..."></textarea>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-exchange-alt"></i>
+                    Transfer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading...</div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/app.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/utils.js"></script>
+</body>
+</html>
