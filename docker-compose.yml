@@ -1,21 +1,18 @@
-version: '3.8'
+version: "3.9"
 services:
-  backend:
-    build: ./backend
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./.env
     ports:
-      - "8000:8000"
-    environment:
-      - NODE_ENV=production
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    
-  frontend:
-    build: ./frontend
+      - "3001:3001"
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     ports:
-      - "3000:3000"
+      - "8080:80"
     depends_on:
-      - backend
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
+      - api

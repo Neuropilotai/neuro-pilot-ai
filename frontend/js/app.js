@@ -1,0 +1,1 @@
+console.log('📦 Inventory Enterprise Secure frontend loaded');

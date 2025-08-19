@@ -1,27 +1,18 @@
-# Use Node.js 18 for Railway deployment
-FROM node:18-slim
+# Use official Node.js LTS image
+FROM node:18-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
 # Install dependencies
-RUN npm ci --only=production
+COPY backend/package*.json ./
+RUN npm install
 
-# Copy application code
-COPY . .
-
-# Build if needed
-RUN npm run build || echo "No build step needed"
+# Copy backend code
+COPY backend/ .
 
 # Expose port
-EXPOSE 8080
+EXPOSE 3001
 
-# Set environment
-ENV NODE_ENV=production
-ENV PORT=8080
-
-# Start production server
+# Run server
 CMD ["npm", "start"]

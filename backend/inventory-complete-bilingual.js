@@ -22,9 +22,10 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 
 const app = express();
-const PORT = 8083;
+const PORT = process.env.PORT || 8083;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production' || process.env.FLY_APP_NAME;
 
 // Get the correct data directory based on environment
@@ -40,6 +41,133 @@ const JWT_SECRET = process.env.JWT_SECRET || (() => {
   console.warn('⚠️ WARNING: Using default JWT secret. Set JWT_SECRET environment variable for production!');
   return 'camp-inventory-secret-2025-david-mikulis-' + Date.now();
 })();
+
+// 256-bit AES-GCM Encryption Configuration
+const ENCRYPTION_KEY = process.env.DATA_ENCRYPTION_KEY || (() => {
+  console.warn('⚠️ WARNING: Using default encryption key. Set DATA_ENCRYPTION_KEY environment variable for production!');
+  return crypto.randomBytes(32).toString('hex');
+})();
+
+// 256-bit AES-GCM Encryption/Decryption Functions
+class EncryptionManager {
+  constructor() {
+    this.algorithm = 'aes-256-gcm';
+    this.keyBuffer = Buffer.from(ENCRYPTION_KEY, 'hex');
+    console.log('🔐 256-bit AES-GCM encryption initialized');
+  }
+
+  encrypt(data) {
+    try {
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipher(this.algorithm, this.keyBuffer);
+      cipher.setAAD(Buffer.from('inventory-professional-system', 'utf8'));
+      
+      let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+      
+      const authTag = cipher.getAuthTag();
+      
+      return {
+        encrypted,
+        iv: iv.toString('hex'),
+        authTag: authTag.toString('hex'),
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      console.error('❌ Encryption failed:', error);
+      throw new Error('Data encryption failed');
+    }
+  }
+
+  decrypt(encryptedData) {
+    try {
+      const { encrypted, iv, authTag, timestamp } = encryptedData;
+      const decipher = crypto.createDecipher(this.algorithm, this.keyBuffer);
+      
+      decipher.setAAD(Buffer.from('inventory-professional-system', 'utf8'));
+      decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+      
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return JSON.parse(decrypted);
+    } catch (error) {
+      console.error('❌ Decryption failed:', error);
+      throw new Error('Data decryption failed');
+    }
+  }
+
+  encryptFile(data) {
+    const encrypted = this.encrypt(data);
+    return {
+      version: '1.0',
+      encryption: 'aes-256-gcm',
+      timestamp: Date.now(),
+      data: encrypted
+    };
+  }
+
+  decryptFile(encryptedFile) {
+    if (!encryptedFile.data || encryptedFile.encryption !== 'aes-256-gcm') {
+      throw new Error('Invalid encrypted file format');
+    }
+    return this.decrypt(encryptedFile.data);
+  }
+}
+
+const encryption = new EncryptionManager();
+
+// Encrypted File I/O Functions
+async function saveEncryptedData(filePath, data) {
+  try {
+    const encryptedFile = encryption.encryptFile(data);
+    await fs.writeFile(filePath, JSON.stringify(encryptedFile, null, 2));
+    console.log(`🔐 Encrypted data saved to: ${filePath}`);
+  } catch (error) {
+    console.error('❌ Failed to save encrypted data:', error);
+    throw error;
+  }
+}
+
+async function loadEncryptedData(filePath) {
+  try {
+    const encryptedData = await fs.readFile(filePath, 'utf8');
+    const encryptedFile = JSON.parse(encryptedData);
+    
+    // Check if file is encrypted
+    if (encryptedFile.encryption === 'aes-256-gcm') {
+      return encryption.decryptFile(encryptedFile);
+    }
+    
+    // Handle legacy unencrypted files
+    console.log(`⚠️ Loading legacy unencrypted file: ${filePath}`);
+    return encryptedFile;
+  } catch (error) {
+    console.error('❌ Failed to load encrypted data:', error);
+    throw error;
+  }
+}
+
+// Encrypted backup function
+async function createEncryptedBackup() {
+  try {
+    const backupData = {
+      timestamp: new Date().toISOString(),
+      inventory: inventory,
+      storageLocations: storageLocations,
+      syscoCatalog: syscoCatalog.slice(0, 100), // Sample for backup
+      gfsOrders: gfsOrders.slice(0, 10) // Sample for backup
+    };
+    
+    const backupPath = getDataPath('backups', `encrypted_backup_${Date.now()}.json`);
+    await saveEncryptedData(backupPath, backupData);
+    console.log('🔐 Encrypted backup created successfully');
+    return backupPath;
+  } catch (error) {
+    console.error('❌ Encrypted backup failed:', error);
+    throw error;
+  }
+}
 
 // Security Middleware
 app.use(helmet({
@@ -474,7 +602,7 @@ function loadStorageLocationsFromFile() {
 }
 
 // Save storage locations to file
-function saveStorageLocationsToFile() {
+async function saveStorageLocationsToFile() {
   const locationsFilePath = getDataPath('storage_locations', 'locations.json');
   const locationsDir = getDataPath('storage_locations');
   
@@ -505,8 +633,9 @@ function saveStorageLocationsToFile() {
       lastModifiedBy: 'System'
     }));
     
-    fsSync.writeFileSync(locationsFilePath, JSON.stringify(locationsArray, null, 2));
-    console.log('✅ Saved storage locations to file');
+    // Save with encryption
+    await saveEncryptedData(locationsFilePath, locationsArray);
+    console.log('🔐 Saved encrypted storage locations to file');
   } catch (error) {
     console.error('❌ Error saving storage locations:', error);
   }
@@ -2252,6 +2381,29 @@ app.get('/api/ai/count-sheets/:location', authenticateToken, (req, res) => {
       success: false,
       error: 'Failed to generate count sheet',
       details: error.message
+    });
+  }
+});
+
+// 🔐 Encrypted Backup Endpoint
+app.post('/api/backup/encrypted', authenticateToken, async (req, res) => {
+  try {
+    const backupPath = await createEncryptedBackup();
+    
+    res.json({
+      success: true,
+      message: '🔐 Encrypted backup created successfully',
+      backupPath: backupPath,
+      timestamp: new Date().toISOString(),
+      encryption: 'AES-256-GCM',
+      keyFingerprint: ENCRYPTION_KEY.slice(0, 8) + '...' + ENCRYPTION_KEY.slice(-8)
+    });
+  } catch (error) {
+    console.error('❌ Encrypted backup failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create encrypted backup',
+      message: error.message
     });
   }
 });
