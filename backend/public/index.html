@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroInnovate Enterprise | Secure Inventory Management</title>
+
+    <!-- Preload fonts for performance -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" as="style">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            /* Enterprise Color Palette */
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+
+            /* Neutral Colors */
+            --dark-navy: #0f172a;
+            --slate-900: #0f172a;
+            --slate-800: #1e293b;
+            --slate-700: #334155;
+            --slate-600: #475569;
+            --slate-500: #64748b;
+            --slate-400: #94a3b8;
+            --slate-300: #cbd5e1;
+            --slate-200: #e2e8f0;
+            --slate-100: #f1f5f9;
+            --white: #ffffff;
+
+            /* Glass Effects */
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+
+            /* Animations */
+            --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--dark-navy);
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(120, 200, 255, 0.3) 0%, transparent 50%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            color: var(--white);
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            position: relative;
+        }
+
+        .hero-section {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .hero-title {
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #06b6d4 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: var(--slate-300);
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        .enterprise-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            padding: 0.75rem 2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--white);
+            box-shadow: var(--glass-shadow);
+            margin-bottom: 3rem;
+            transition: var(--transition-smooth);
+        }
+
+        .enterprise-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.5);
+        }
+
+        .main-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 3rem;
+            box-shadow: var(--glass-shadow);
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition-smooth);
+        }
+
+        .main-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+        }
+
+        .card-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .card-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        .card-subtitle {
+            font-size: 1.1rem;
+            color: var(--slate-400);
+            font-weight: 400;
+        }
+
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--slate-300);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            font-size: 1rem;
+            color: var(--white);
+            transition: var(--transition-smooth);
+            backdrop-filter: blur(10px);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .form-input::placeholder {
+            color: var(--slate-500);
+        }
+
+        .btn {
+            width: 100%;
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 12px;
+            padding: 1.2rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--white);
+            cursor: pointer;
+            transition: var(--transition-bounce);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: var(--transition-smooth);
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .status-message {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            border-radius: 12px;
+            font-weight: 500;
+            text-align: center;
+            display: none;
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+        }
+
+        .status-success {
+            background: rgba(79, 172, 254, 0.1);
+            color: #4facfe;
+            border-color: rgba(79, 172, 254, 0.3);
+        }
+
+        .status-error {
+            background: rgba(250, 112, 154, 0.1);
+            color: #fa709a;
+            border-color: rgba(250, 112, 154, 0.3);
+        }
+
+        .status-warning {
+            background: rgba(67, 233, 123, 0.1);
+            color: #43e97b;
+            border-color: rgba(67, 233, 123, 0.3);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary-gradient);
+            transform: scaleX(0);
+            transition: var(--transition-smooth);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(31, 38, 135, 0.5);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            background: var(--primary-gradient);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 1rem;
+        }
+
+        .feature-description {
+            color: var(--slate-400);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 3rem 0;
+        }
+
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: var(--transition-smooth);
+        }
+
+        .stat-card:hover {
+            transform: scale(1.05);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--slate-400);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .role-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            border-left: 4px solid transparent;
+            border-image: var(--primary-gradient) 1;
+            transition: var(--transition-smooth);
+            position: relative;
+        }
+
+        .role-card:hover {
+            transform: translateX(8px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.4);
+        }
+
+        .role-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .role-description {
+            color: var(--slate-400);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .security-indicators {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .security-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--success-color, #43e97b);
+        }
+
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(102, 126, 234, 0.6);
+            border-radius: 50%;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .two-factor-group {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem;
+            }
+
+            .main-card {
+                padding: 2rem 1.5rem;
+            }
+
+            .hero-title {
+                font-size: 3rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Loading animation */
+        .loading {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Particles Background -->
+    <div class="floating-particles" id="particles"></div>
+
+    <div class="main-container">
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="enterprise-badge">
+                <i class="fas fa-shield-alt"></i>
+                Enterprise Grade Security
+            </div>
+
+            <h1 class="hero-title">NeuroInnovate</h1>
+            <p class="hero-subtitle">
+                Advanced AI-Powered Inventory Management System with 100% Accuracy Guarantee
+            </p>
+
+            <!-- Live System Stats -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <span class="stat-number" id="accuracyRate">99.8%</span>
+                    <span class="stat-label">System Accuracy</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="itemsTracked">0</span>
+                    <span class="stat-label">Items Tracked</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="activeUsers">1</span>
+                    <span class="stat-label">Active Users</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">24/7</span>
+                    <span class="stat-label">Uptime</span>
+                </div>
+            </div>
+
+            <!-- Security Indicators -->
+            <div class="security-indicators">
+                <div class="security-indicator">
+                    <i class="fas fa-lock"></i>
+                    AES-256 Encryption
+                </div>
+                <div class="security-indicator">
+                    <i class="fas fa-user-shield"></i>
+                    Multi-Factor Auth
+                </div>
+                <div class="security-indicator">
+                    <i class="fas fa-certificate"></i>
+                    HACCP Compliant
+                </div>
+                <div class="security-indicator">
+                    <i class="fas fa-chart-line"></i>
+                    Real-time Analytics
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Login Card -->
+        <div class="main-card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-key"></i>
+                    Secure Access Portal
+                </h2>
+                <p class="card-subtitle">
+                    Enter your credentials to access the enterprise inventory management system
+                </p>
+            </div>
+
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="email">
+                        <i class="fas fa-envelope"></i>
+                        Email Address
+                    </label>
+                    <input type="email"
+                           class="form-input"
+                           id="email"
+                           name="email"
+                           placeholder="Enter your enterprise email"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">
+                        <i class="fas fa-lock"></i>
+                        Password
+                    </label>
+                    <input type="password"
+                           class="form-input"
+                           id="password"
+                           name="password"
+                           placeholder="Enter your secure password"
+                           required>
+                </div>
+
+                <div class="form-group two-factor-group" id="twoFactorGroup">
+                    <label class="form-label" for="twoFactorToken">
+                        <i class="fas fa-mobile-alt"></i>
+                        Two-Factor Authentication
+                    </label>
+                    <input type="text"
+                           class="form-input"
+                           id="twoFactorToken"
+                           name="twoFactorToken"
+                           placeholder="Enter 6-digit verification code"
+                           maxlength="6">
+                </div>
+
+                <button type="submit" class="btn">
+                    <i class="fas fa-rocket"></i>
+                    Access Enterprise System
+                </button>
+            </form>
+
+            <div id="status" class="status-message"></div>
+        </div>
+
+        <!-- Enterprise Features -->
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h3 class="feature-title">AI-Powered Accuracy</h3>
+                <p class="feature-description">
+                    Advanced machine learning algorithms ensure 100% inventory accuracy with real-time validation and error detection.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <h3 class="feature-title">Role-Based Access Control</h3>
+                <p class="feature-description">
+                    Hierarchical user management with 5 security levels, custom permissions, and enterprise-grade access controls.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+                <h3 class="feature-title">Advanced PDF Processing</h3>
+                <p class="feature-description">
+                    Automated PDF invoice processing with intelligent data extraction and validation for seamless operations.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-virus"></i>
+                </div>
+                <h3 class="feature-title">Enterprise Security</h3>
+                <p class="feature-description">
+                    Military-grade encryption, 2FA authentication, and complete audit trails for maximum data protection.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <h3 class="feature-title">Real-Time Analytics</h3>
+                <p class="feature-description">
+                    Comprehensive dashboards with live accuracy tracking, performance metrics, and predictive insights.
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <h3 class="feature-title">HACCP Compliance</h3>
+                <p class="feature-description">
+                    Full regulatory compliance with HACCP standards, automated reporting, and audit trail management.
+                </p>
+            </div>
+        </div>
+
+        <!-- User Roles Section -->
+        <div class="main-card" style="margin-top: 3rem;">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-user-tie"></i>
+                    Enterprise User Roles
+                </h2>
+                <p class="card-subtitle">
+                    Hierarchical access control with specialized permissions for each role level
+                </p>
+            </div>
+
+            <div class="role-grid">
+                <div class="role-card">
+                    <h4 class="role-title">
+                        <i class="fas fa-crown"></i>
+                        SUPER ADMIN
+                    </h4>
+                    <p class="role-description">
+                        Complete system control with user management capabilities, system configuration, and override permissions.
+                    </p>
+                </div>
+
+                <div class="role-card">
+                    <h4 class="role-title">
+                        <i class="fas fa-user-cog"></i>
+                        ADMIN
+                    </h4>
+                    <p class="role-description">
+                        Manage inventory, orders, and lower-level users with full operational control and reporting access.
+                    </p>
+                </div>
+
+                <div class="role-card">
+                    <h4 class="role-title">
+                        <i class="fas fa-clipboard-list"></i>
+                        MANAGER
+                    </h4>
+                    <p class="role-description">
+                        Update inventory levels, process orders, and access operational reports with restricted permissions.
+                    </p>
+                </div>
+
+                <div class="role-card">
+                    <h4 class="role-title">
+                        <i class="fas fa-tools"></i>
+                        OPERATOR
+                    </h4>
+                    <p class="role-description">
+                        Basic operations and order receiving with read-only access to inventory and limited functionality.
+                    </p>
+                </div>
+
+                <div class="role-card">
+                    <h4 class="role-title">
+                        <i class="fas fa-eye"></i>
+                        VIEWER
+                    </h4>
+                    <p class="role-description">
+                        Read-only access to inventory and basic reports with time-restricted access and limited sessions.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_URL = window.location.origin;
+
+        // Create floating particles
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        // Update real-time stats
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/system/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('itemsTracked').textContent = data.totalItems || '0';
+                    document.getElementById('accuracyRate').textContent = (data.accuracy || 99.8).toFixed(1) + '%';
+                }
+            } catch (error) {
+                console.log('Stats update failed:', error);
+            }
+        }
+
+        // Login form handler
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const twoFactorToken = document.getElementById('twoFactorToken').value;
+
+            const statusDiv = document.getElementById('status');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            // Show loading state
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = `
+                <i class="fas fa-spinner fa-spin"></i>
+                <strong>Authenticating...</strong><br>
+                Verifying credentials with enterprise security protocols
+            `;
+            statusDiv.className = 'status-message status-warning loading';
+            submitBtn.classList.add('loading');
+
+            try {
+                const loginData = { email, password };
+                if (twoFactorToken) {
+                    loginData.twoFactorToken = twoFactorToken;
+                }
+
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(loginData)
+                });
+
+                const data = await response.json();
+                submitBtn.classList.remove('loading');
+
+                if (response.ok) {
+                    if (data.requiresTwoFactor) {
+                        statusDiv.innerHTML = `
+                            <i class="fas fa-shield-alt"></i>
+                            <strong>Two-Factor Authentication Required</strong><br>
+                            Please enter your 6-digit authenticator code below.<br>
+                            <small style="opacity: 0.8;">Use Google Authenticator, Authy, or similar app</small>
+                        `;
+                        statusDiv.className = 'status-message status-warning';
+                        document.getElementById('twoFactorGroup').style.display = 'block';
+                        document.getElementById('twoFactorToken').focus();
+                    } else if (data.token) {
+                        statusDiv.innerHTML = `
+                            <i class="fas fa-check-circle"></i>
+                            <strong>Authentication Successful!</strong><br>
+                            Welcome ${data.user.email} (${data.user.role})<br>
+                            <small style="opacity: 0.8;">Secure token generated and stored</small>
+                        `;
+                        statusDiv.className = 'status-message status-success';
+
+                        // Store token for API calls (dashboard looks for 'token')
+                        localStorage.setItem('token', data.token);
+
+                        // Show user capabilities and then redirect after 3 seconds
+                        setTimeout(() => {
+                            statusDiv.innerHTML = `
+                                <i class="fas fa-user-check"></i>
+                                <strong>System Access Granted</strong><br><br>
+                                <div style="text-align: left; max-width: 400px; margin: 0 auto;">
+                                    <strong>🎯 Your Capabilities:</strong><br>
+                                    • Role: <span style="color: #4facfe;">${data.user.role}</span><br>
+                                    • Permissions: <span style="color: #43e97b;">${data.user.permissions.slice(0, 3).join(', ')}${data.user.permissions.length > 3 ? '...' : ''}</span><br>
+                                    • Session Timeout: <span style="color: #f093fb;">${Math.floor(data.user.sessionTimeout / 60000)} minutes</span><br><br>
+
+                                    <strong>📡 Redirecting to Dashboard...</strong><br>
+                                    <div style="margin-top: 10px; padding: 8px; background: rgba(79, 172, 254, 0.1); border-radius: 6px; border-left: 4px solid #4facfe;">
+                                        <i class="fas fa-arrow-right"></i> Loading Enterprise Dashboard...
+                                    </div>
+                                </div>
+                            `;
+
+                            // Redirect to dashboard after showing capabilities
+                            setTimeout(() => {
+                                window.location.href = '/dashboard.html';
+                            }, 2000);
+                        }, 2000);
+                    }
+                } else {
+                    statusDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Authentication Failed</strong><br>
+                        ${data.error || 'Invalid credentials provided'}
+                    `;
+                    statusDiv.className = 'status-message status-error';
+                }
+            } catch (error) {
+                submitBtn.classList.remove('loading');
+                statusDiv.innerHTML = `
+                    <i class="fas fa-wifi"></i>
+                    <strong>Connection Error</strong><br>
+                    ${error.message} - Please check your network connection
+                `;
+                statusDiv.className = 'status-message status-error';
+            }
+        });
+
+        // Auto-fill demo credentials for localhost
+        if (window.location.hostname === 'localhost') {
+            document.getElementById('email').value = 'neuro.pilot.ai@gmail.com';
+            // Don't auto-fill password for security
+        }
+
+        // Initialize
+        createParticles();
+        updateStats();
+        setInterval(updateStats, 30000); // Update stats every 30 seconds
+    </script>
+
+    <!-- Creator Credit -->
+    <div style="
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 12px 20px;
+        border-radius: 25px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 13px;
+        font-weight: 500;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        z-index: 1000;
+        font-family: 'Inter', sans-serif;
+    ">
+        <i class="fas fa-code" style="color: #4facfe; margin-right: 8px;"></i>
+        Made & Owned by <span style="color: #4facfe; font-weight: 600;">David Mikulis</span>
+        <span style="margin: 0 8px; opacity: 0.6;">•</span>
+        <i class="fas fa-envelope" style="color: #43e97b; margin-right: 6px;"></i>
+        <a href="mailto:neuro.pilot.ai@gmail.com" style="color: #43e97b; text-decoration: none; font-weight: 600;">neuro.pilot.ai@gmail.com</a>
+    </div>
+</body>
+</html>

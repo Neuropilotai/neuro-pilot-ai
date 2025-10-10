@@ -1,0 +1,66 @@
+# AI Ops Playbook: Low Cache Hit Rate
+# Version: v2.6.0-2025-10-07
+#
+# Triggered when cache hit rate drops below threshold
+# Remediation: Warm cache, check Redis health, restart cache service
+
+name: cache-miss
+description: Remediate low cache hit rate by warming cache and checking Redis health
+
+conditions:
+  - field: prediction.anomalyScore
+    operator: greater_than
+    value: 0.80
+  - field: prediction.value
+    operator: less_than
+    value: 70  # 70% hit rate
+
+actions:
+  - type: execute-command
+    description: Check Redis memory usage
+    params:
+      command: "redis-cli INFO memory | grep used_memory_human"
+    critical: false
+
+  - type: api-call
+    description: Warm cache with frequent queries
+    params:
+      url: "http://localhost:8083/api/cache/warm"
+      method: POST
+      headers:
+        Authorization: "Bearer ${INTERNAL_API_TOKEN}"
+      body:
+        strategy: "top_products"
+        limit: 1000
+    critical: false
+
+  - type: database-query
+    description: Preload frequently accessed inventory items
+    params:
+      query: >
+        SELECT code, name, current_stock, price
+        FROM inventory
+        WHERE last_accessed > NOW() - INTERVAL '1 hour'
+        ORDER BY access_count DESC
+        LIMIT 1000
+      params: []
+    critical: false
+
+  - type: execute-command
+    description: Check Redis connection pool
+    params:
+      command: "redis-cli CLIENT LIST | wc -l"
+    critical: false
+
+  - type: restart-service
+    description: Restart Redis if needed
+    params:
+      service: redis-server
+      method: systemctl
+    critical: false
+
+  - type: send-notification
+    description: Notify ops team
+    params:
+      message: "Cache miss rate remediation completed: cache warmed, Redis checked"
+      channel: slack

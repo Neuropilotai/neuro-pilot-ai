@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Physical Count - Inventory System</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      margin-left: 15px;
+    }
+
+    .status-badge.pending {
+      background: #ffeaa7;
+      color: #fdcb6e;
+    }
+
+    .status-badge.in-progress {
+      background: #74b9ff;
+      color: #0984e3;
+    }
+
+    .status-badge.completed {
+      background: #55efc4;
+      color: #00b894;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      color: #2d3436;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #2d3436;
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #dfe6e9;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 5px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-success {
+      background: #00b894;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #00a383;
+    }
+
+    .btn-danger {
+      background: #d63031;
+      color: white;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btn-danger:hover {
+      background: #c0272a;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    .stat-card .label {
+      font-size: 12px;
+      color: #636e72;
+      margin-bottom: 5px;
+    }
+
+    .stat-card .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #2d3436;
+    }
+
+    .location-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .location-btn {
+      padding: 15px;
+      border: 2px solid #dfe6e9;
+      border-radius: 5px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .location-btn:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .location-btn.selected {
+      border-color: #667eea;
+      background: #667eea;
+      color: white;
+    }
+
+    .location-btn.counted {
+      border-color: #00b894;
+      background: #00b894;
+      color: white;
+    }
+
+    .location-btn .name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .location-btn .type {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    .items-table th,
+    .items-table td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #dfe6e9;
+    }
+
+    .items-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #2d3436;
+    }
+
+    .items-table tr:hover {
+      background: #f8f9fa;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    .alert-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert-danger {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>
+        📦 Physical Inventory Count
+        <span id="statusBadge" class="status-badge pending">PENDING</span>
+      </h1>
+      <p>Track your physical inventory count by location with real-time totals</p>
+    </div>
+
+    <!-- Count Not Started -->
+    <div id="startCountSection" class="grid hidden">
+      <div class="card full-width">
+        <h2>Start New Count</h2>
+        <div class="alert alert-info">
+          Ready to start COUNT-002. Please enter the count details below.
+        </div>
+        <div class="grid">
+          <div class="form-group">
+            <label>Start Date & Time</label>
+            <input type="datetime-local" id="startDate" required>
+          </div>
+          <div class="form-group">
+            <label>End Date & Time</label>
+            <input type="datetime-local" id="endDate" required>
+          </div>
+          <div class="form-group">
+            <label>Last Order Date Included</label>
+            <input type="date" id="lastOrderDate" required>
+          </div>
+          <div class="form-group">
+            <label>Number of People On Site</label>
+            <input type="number" id="peopleOnSite" min="1" required>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="startCount()">Start Count</button>
+      </div>
+    </div>
+
+    <!-- Count In Progress -->
+    <div id="countInProgressSection" class="hidden">
+      <!-- Stats -->
+      <div class="card">
+        <h2>Count Statistics</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Items Counted</div>
+            <div class="value" id="itemsCounted">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Value</div>
+            <div class="value" id="totalValue">$0.00</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Locations</div>
+            <div class="value" id="locationsCounted">0/10</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- Add Item Form -->
+        <div class="card">
+          <h2>Add Item</h2>
+          <div class="form-group">
+            <label>Location</label>
+            <div class="location-grid" id="locationGrid"></div>
+          </div>
+          <div class="form-group">
+            <label>Item Code</label>
+            <input type="text" id="itemCode" placeholder="e.g., 1234567">
+          </div>
+          <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" id="itemName" placeholder="e.g., Apple Golden Delicious">
+          </div>
+          <div class="grid">
+            <div class="form-group">
+              <label>Quantity</label>
+              <input type="number" id="quantity" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>Unit</label>
+              <select id="unit">
+                <option value="CS">CS - Case</option>
+                <option value="LB">LB - Pound</option>
+                <option value="EA">EA - Each</option>
+                <option value="BX">BX - Box</option>
+                <option value="DZ">DZ - Dozen</option>
+                <option value="KG">KG - Kilogram</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Unit Price (Optional)</label>
+            <input type="number" id="unitPrice" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>Notes (Optional)</label>
+            <textarea id="notes" rows="2" placeholder="Additional notes..."></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="addItem()">Add Item</button>
+        </div>
+
+        <!-- Items List -->
+        <div class="card">
+          <h2>Items in Current Count (<span id="itemCount">0</span>)</h2>
+          <div style="max-height: 500px; overflow-y: auto;">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Value</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="itemsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card full-width">
+        <h2>Complete Count</h2>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="completionNotes" rows="3" placeholder="Add any notes about this count..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Performed By (comma separated names)</label>
+          <input type="text" id="performedBy" placeholder="e.g., John Smith, Jane Doe">
+        </div>
+        <button class="btn btn-success" onclick="completeCount()">Complete Count</button>
+      </div>
+    </div>
+
+    <!-- Count Completed -->
+    <div id="countCompletedSection" class="hidden">
+      <div class="card">
+        <h2>Count Completed Successfully! 🎉</h2>
+        <div class="alert alert-success">
+          COUNT-002 has been completed and saved to history.
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Items Counted</div>
+            <div class="value" id="completedItemsCounted">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Value</div>
+            <div class="value" id="completedTotalValue">$0.00</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Locations</div>
+            <div class="value" id="completedLocationsCounted">0</div>
+          </div>
+        </div>
+        <div style="margin-top: 20px;">
+          <button class="btn btn-primary" onclick="viewComparison()">View Comparison with First Count</button>
+          <button class="btn btn-primary" onclick="location.reload()">Start New Count</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api/physical-count';
+    let currentConfig = null;
+    let selectedLocation = null;
+
+    // Initialize on page load
+    async function init() {
+      await loadConfig();
+      updateUI();
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch(`${API_BASE}/config`);
+        currentConfig = await response.json();
+      } catch (error) {
+        console.error('Error loading config:', error);
+        alert('Failed to load configuration');
+      }
+    }
+
+    function updateUI() {
+      if (!currentConfig) return;
+
+      const count = currentConfig.counts.secondCount;
+      const statusBadge = document.getElementById('statusBadge');
+
+      if (count.status === 'PENDING') {
+        statusBadge.textContent = 'PENDING';
+        statusBadge.className = 'status-badge pending';
+        document.getElementById('startCountSection').classList.remove('hidden');
+      } else if (count.status === 'IN_PROGRESS') {
+        statusBadge.textContent = 'IN PROGRESS';
+        statusBadge.className = 'status-badge in-progress';
+        document.getElementById('countInProgressSection').classList.remove('hidden');
+        loadLocations();
+        loadItems();
+      } else if (count.status === 'COMPLETED') {
+        statusBadge.textContent = 'COMPLETED';
+        statusBadge.className = 'status-badge completed';
+        document.getElementById('countCompletedSection').classList.remove('hidden');
+        displayCompletedCount(count);
+      }
+    }
+
+    async function startCount() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const lastOrderDate = document.getElementById('lastOrderDate').value;
+      const peopleOnSite = document.getElementById('peopleOnSite').value;
+
+      if (!startDate || !endDate || !lastOrderDate || !peopleOnSite) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate, endDate, lastOrderDate, peopleOnSite })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          alert('Count started successfully!');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error || 'Failed to start count'));
+        }
+      } catch (error) {
+        console.error('Error starting count:', error);
+        alert('Failed to start count');
+      }
+    }
+
+    function loadLocations() {
+      const grid = document.getElementById('locationGrid');
+      grid.innerHTML = '';
+
+      currentConfig.locations.forEach(location => {
+        const btn = document.createElement('div');
+        btn.className = 'location-btn' + (location.counted ? ' counted' : '');
+        btn.innerHTML = `
+          <div class="name">${location.name}</div>
+          <div class="type">${location.type}</div>
+        `;
+        btn.onclick = () => selectLocation(location.id, btn);
+        grid.appendChild(btn);
+      });
+    }
+
+    function selectLocation(locationId, btn) {
+      document.querySelectorAll('.location-btn').forEach(b => {
+        if (!b.classList.contains('counted')) {
+          b.classList.remove('selected');
+        }
+      });
+
+      if (!btn.classList.contains('counted')) {
+        btn.classList.add('selected');
+        selectedLocation = locationId;
+      }
+    }
+
+    async function addItem() {
+      if (!selectedLocation) {
+        alert('Please select a location');
+        return;
+      }
+
+      const itemCode = document.getElementById('itemCode').value;
+      const itemName = document.getElementById('itemName').value;
+      const quantity = document.getElementById('quantity').value;
+      const unit = document.getElementById('unit').value;
+      const unitPrice = document.getElementById('unitPrice').value || 0;
+      const notes = document.getElementById('notes').value;
+
+      if (!itemCode || !itemName || !quantity) {
+        alert('Please fill in item code, name, and quantity');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/add-item`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: selectedLocation,
+            itemCode,
+            itemName,
+            quantity: parseFloat(quantity),
+            unit,
+            unitPrice: parseFloat(unitPrice),
+            notes
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          // Clear form
+          document.getElementById('itemCode').value = '';
+          document.getElementById('itemName').value = '';
+          document.getElementById('quantity').value = '';
+          document.getElementById('unitPrice').value = '';
+          document.getElementById('notes').value = '';
+
+          // Reload data
+          await loadConfig();
+          loadLocations();
+          loadItems();
+        } else {
+          alert('Error: ' + (result.error || 'Failed to add item'));
+        }
+      } catch (error) {
+        console.error('Error adding item:', error);
+        alert('Failed to add item');
+      }
+    }
+
+    async function loadItems() {
+      try {
+        const response = await fetch(`${API_BASE}/items`);
+        const data = await response.json();
+
+        document.getElementById('itemsCounted').textContent = data.itemsCounted;
+        document.getElementById('totalValue').textContent = '$' + data.totalValue.toFixed(2);
+        document.getElementById('locationsCounted').textContent = data.locationsCounted.length + '/10';
+        document.getElementById('itemCount').textContent = data.itemsCounted;
+
+        const tbody = document.getElementById('itemsTableBody');
+        tbody.innerHTML = '';
+
+        data.items.forEach((item, index) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${item.location}</td>
+            <td>${item.itemName}<br><small style="color: #636e72;">${item.itemCode}</small></td>
+            <td>${item.quantity} ${item.unit}</td>
+            <td>$${item.totalValue.toFixed(2)}</td>
+            <td><button class="btn btn-danger" onclick="deleteItem(${index})">Delete</button></td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error loading items:', error);
+      }
+    }
+
+    async function deleteItem(index) {
+      if (!confirm('Delete this item?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/items/${index}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          await loadConfig();
+          loadLocations();
+          loadItems();
+        } else {
+          alert('Error: ' + (result.error || 'Failed to delete item'));
+        }
+      } catch (error) {
+        console.error('Error deleting item:', error);
+        alert('Failed to delete item');
+      }
+    }
+
+    async function completeCount() {
+      if (!confirm('Complete this count? This cannot be undone.')) return;
+
+      const notes = document.getElementById('completionNotes').value;
+      const performedBy = document.getElementById('performedBy').value.split(',').map(n => n.trim());
+
+      try {
+        const response = await fetch(`${API_BASE}/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes, performedBy })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          alert('Count completed successfully!');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error || 'Failed to complete count'));
+        }
+      } catch (error) {
+        console.error('Error completing count:', error);
+        alert('Failed to complete count');
+      }
+    }
+
+    function displayCompletedCount(count) {
+      document.getElementById('completedItemsCounted').textContent = count.itemsCounted;
+      document.getElementById('completedTotalValue').textContent = '$' + count.totalValue.toFixed(2);
+      document.getElementById('completedLocationsCounted').textContent = count.locationsCounted.length;
+    }
+
+    async function viewComparison() {
+      try {
+        const response = await fetch(`${API_BASE}/comparison`);
+        const comparison = await response.json();
+
+        if (comparison.error) {
+          alert(comparison.error);
+          return;
+        }
+
+        const message = `
+COUNT COMPARISON:
+
+First Count (${comparison.firstCount.countDate}):
+- Items: ${comparison.firstCount.itemsCounted}
+- Value: $${comparison.firstCount.totalValue.toFixed(2)}
+
+Second Count (${comparison.secondCount.countDate}):
+- Items: ${comparison.secondCount.itemsCounted}
+- Value: $${comparison.secondCount.totalValue.toFixed(2)}
+
+DIFFERENCES:
+- Items: ${comparison.differences.itemCountDiff > 0 ? '+' : ''}${comparison.differences.itemCountDiff}
+- Value: $${comparison.differences.valueDiff.toFixed(2)} (${comparison.differences.valueDiffPercent}%)
+        `;
+
+        alert(message);
+      } catch (error) {
+        console.error('Error loading comparison:', error);
+        alert('Failed to load comparison');
+      }
+    }
+
+    // Initialize on page load
+    init();
+  </script>
+</body>
+</html>

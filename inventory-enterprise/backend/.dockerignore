@@ -1,0 +1,56 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Tests
+__tests__
+coverage
+*.test.js
+*.spec.js
+jest.config.js
+
+# Documentation
+*.md
+!README_ENTERPRISE.md
+docs
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# Database (should be in volumes)
+data/*.db
+data/*.db-*
+
+# Backups (should be in volumes)
+backups/*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist
+build

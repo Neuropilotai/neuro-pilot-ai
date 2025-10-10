@@ -1,0 +1,66 @@
+# AI Ops Playbook: Memory Spike
+# Version: v2.6.0-2025-10-07
+#
+# Triggered when memory usage spikes unexpectedly
+# Remediation: Clear cache, kill memory-intensive processes, trigger garbage collection
+
+name: memory-spike
+description: Remediate memory spikes by clearing cache and managing processes
+
+conditions:
+  - field: prediction.anomalyScore
+    operator: greater_than
+    value: 0.85
+  - field: prediction.value
+    operator: greater_than
+    value: 85  # 85% memory usage
+
+actions:
+  - type: execute-command
+    description: Check top memory-consuming processes
+    params:
+      command: "ps aux --sort=-%mem | head -n 10"
+    critical: false
+
+  - type: invalidate-cache
+    description: Clear Redis cache to free memory
+    params:
+      pattern: "temp:*"
+    critical: false
+
+  - type: execute-command
+    description: Trigger Node.js garbage collection
+    params:
+      command: "kill -USR2 $(pgrep -f 'node.*server.js')"
+    critical: false
+
+  - type: database-query
+    description: Clear old session data
+    params:
+      query: >
+        DELETE FROM sessions
+        WHERE last_accessed < NOW() - INTERVAL '24 hours'
+      params: []
+    critical: false
+
+  - type: execute-command
+    description: Clear temporary files
+    params:
+      command: "find /tmp -type f -mtime +7 -delete"
+    critical: false
+
+  - type: api-call
+    description: Notify monitoring system
+    params:
+      url: "http://localhost:8083/api/health/memory-warning"
+      method: POST
+      body:
+        usage: "${prediction.value}"
+        threshold: 85
+    critical: false
+
+  - type: send-notification
+    description: Alert ops team
+    params:
+      message: "Memory spike detected and mitigated: cache cleared, GC triggered, temp files removed"
+      channel: slack

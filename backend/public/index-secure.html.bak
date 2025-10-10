@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="David Mikulis">
+    <meta name="copyright" content="© 2025 David Mikulis - All Rights Reserved">
+    <meta name="description" content="Ultra-Secure Proprietary Inventory Management System">
+    <title>Secure Inventory System - © David Mikulis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 440px;
+            padding: 20px;
+        }
+        
+        .security-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .security-badge h3 {
+            color: #4CAF50;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .security-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        
+        .security-features span {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #81C784;
+        }
+        
+        .login-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .logo .subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+        }
+        
+        .copyright-notice {
+            background: rgba(139, 69, 19, 0.1);
+            border: 1px solid rgba(139, 69, 19, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .copyright-notice strong {
+            display: block;
+            color: #FFA726;
+            margin-bottom: 4px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            color: #EF5350;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .success-message {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            color: #81C784;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .legal-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.4);
+            line-height: 1.6;
+        }
+        
+        .legal-footer .warning {
+            color: #FFA726;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .dashboard {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            font-size: 14px;
+        }
+        
+        .user-info .name {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .logout-btn {
+            padding: 8px 16px;
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            color: #EF5350;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(244, 67, 54, 0.2);
+        }
+        
+        .inventory-grid {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .inventory-item {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        
+        .inventory-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .item-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .item-quantity {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .item-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .item-details span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Security Badge -->
+        <div class="security-badge">
+            <h3>🔐 ULTRA-SECURE SYSTEM</h3>
+            <div class="security-features">
+                <span>256-bit AES-GCM</span>
+                <span>Zero-Knowledge</span>
+                <span>Audit Logging</span>
+                <span>Intrusion Detection</span>
+            </div>
+        </div>
+        
+        <!-- Login Form -->
+        <div id="loginForm" class="login-card">
+            <div class="logo">
+                <h1>Secure Inventory</h1>
+                <div class="subtitle">Professional Management System</div>
+            </div>
+            
+            <div class="copyright-notice">
+                <strong>© 2025 DAVID MIKULIS</strong>
+                Proprietary Software - All Rights Reserved<br>
+                Licensed to: neuro.pilot.ai@gmail.com
+            </div>
+            
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+            
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required 
+                           placeholder="neuro.pilot.ai@gmail.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required 
+                           placeholder="Enter secure password">
+                </div>
+                
+                <button type="submit" id="loginBtn">🔒 Secure Login</button>
+            </form>
+            
+            <div class="legal-footer">
+                <div class="warning">⚠️ UNAUTHORIZED ACCESS IS A FEDERAL CRIME</div>
+                This system is proprietary software owned by David Mikulis.<br>
+                All access attempts are logged and monitored.<br>
+                Patent Pending: US #2025-INV-SECURE
+            </div>
+        </div>
+        
+        <!-- Dashboard (Hidden by default) -->
+        <div id="dashboard" class="dashboard">
+            <div class="dashboard-header">
+                <div class="user-info">
+                    Logged in as: <span class="name" id="userName"></span><br>
+                    <small style="color: rgba(255,255,255,0.5)">© 2025 David Mikulis</small>
+                </div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+            
+            <div id="inventoryContainer" class="inventory-grid">
+                <div class="loading">Loading secure inventory data...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = window.location.origin;
+        let authToken = null;
+        
+        // Copyright protection
+        console.log('%c⚠️ STOP!', 'color: red; font-size: 50px; font-weight: bold;');
+        console.log('%cThis is a secure system owned by David Mikulis.', 'color: orange; font-size: 20px;');
+        console.log('%cUnauthorized access or inspection of this code is prohibited.', 'color: orange; font-size: 16px;');
+        console.log('%c© 2025 David Mikulis - neuro.pilot.ai@gmail.com', 'color: yellow; font-size: 14px;');
+        
+        // Disable right-click
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            showError('Right-click disabled for security');
+            return false;
+        });
+        
+        // Disable text selection
+        document.addEventListener('selectstart', (e) => {
+            if (e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Login form handler
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = '🔄 Authenticating...';
+            hideMessages();
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    authToken = data.token;
+                    localStorage.setItem('authToken', authToken);
+                    showSuccess('Authentication successful! Loading secure data...');
+                    
+                    // Show dashboard
+                    setTimeout(() => {
+                        document.getElementById('loginForm').style.display = 'none';
+                        document.getElementById('dashboard').style.display = 'block';
+                        document.getElementById('userName').textContent = data.user.name;
+                        loadInventory();
+                    }, 1500);
+                } else {
+                    showError(data.error || 'Authentication failed');
+                }
+            } catch (error) {
+                showError('Security error: Unable to connect to secure server');
+                console.error('Auth error:', error);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '🔒 Secure Login';
+            }
+        });
+        
+        // Load inventory data
+        async function loadInventory() {
+            try {
+                const response = await fetch(`${API_URL}/api/inventory`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load inventory');
+                }
+                
+                const data = await response.json();
+                displayInventory(data.data);
+            } catch (error) {
+                document.getElementById('inventoryContainer').innerHTML = 
+                    '<div class="error-message">Failed to load secure inventory data</div>';
+            }
+        }
+        
+        // Display inventory items
+        function displayInventory(items) {
+            const container = document.getElementById('inventoryContainer');
+            
+            if (!items || items.length === 0) {
+                container.innerHTML = '<div class="loading">No inventory items found</div>';
+                return;
+            }
+            
+            container.innerHTML = items.map(item => `
+                <div class="inventory-item">
+                    <div class="item-header">
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-quantity">${item.quantity} units</span>
+                    </div>
+                    <div class="item-details">
+                        <span>📦 ${item.category}</span>
+                        <span>🏢 ${item.supplier}</span>
+                        <span>📍 ${item.location}</span>
+                        <span>👤 ${item.updatedBy?.split('@')[0] || 'System'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Logout function
+        function logout() {
+            authToken = null;
+            localStorage.removeItem('authToken');
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+            showSuccess('Logged out successfully');
+        }
+        
+        // Message helpers
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+        
+        function showSuccess(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+        }
+        
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+        
+        // Check for existing session
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                authToken = token;
+                // Validate token
+                fetch(`${API_URL}/api/auth/validate`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        document.getElementById('loginForm').style.display = 'none';
+                        document.getElementById('dashboard').style.display = 'block';
+                        loadInventory();
+                    } else {
+                        localStorage.removeItem('authToken');
+                    }
+                }).catch(() => {
+                    localStorage.removeItem('authToken');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

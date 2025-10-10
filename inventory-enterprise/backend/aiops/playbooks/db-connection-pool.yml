@@ -1,0 +1,62 @@
+# AI Ops Playbook: Database Connection Pool Exhaustion
+# Version: v2.6.0-2025-10-07
+#
+# Triggered when DB connection pool is near capacity
+# Remediation: Kill idle connections, increase pool size, restart service
+
+name: db-connection-pool
+description: Remediate database connection pool exhaustion
+
+conditions:
+  - field: prediction.anomalyScore
+    operator: greater_than
+    value: 0.80
+  - field: prediction.value
+    operator: greater_than
+    value: 90  # 90% of pool capacity
+
+actions:
+  - type: database-query
+    description: Kill idle database connections
+    params:
+      query: >
+        SELECT pg_terminate_backend(pid)
+        FROM pg_stat_activity
+        WHERE state = 'idle'
+        AND state_change < NOW() - INTERVAL '10 minutes'
+      params: []
+    critical: false
+
+  - type: database-query
+    description: Check for long-running transactions
+    params:
+      query: >
+        SELECT pid, now() - xact_start as duration, query
+        FROM pg_stat_activity
+        WHERE state = 'active'
+        ORDER BY duration DESC
+        LIMIT 10
+      params: []
+    critical: false
+
+  - type: execute-command
+    description: Increase connection pool size
+    params:
+      command: >
+        curl -X POST http://localhost:8083/api/admin/db/pool/resize
+        -H "Content-Type: application/json"
+        -d '{"maxConnections": 100}'
+    critical: false
+
+  - type: restart-service
+    description: Restart application to reset connections
+    params:
+      service: inventory-api
+      method: pm2
+    critical: true
+
+  - type: send-notification
+    description: Alert DBA team
+    params:
+      message: "DB connection pool exhaustion: idle connections killed, pool resized, service restarted"
+      channel: slack

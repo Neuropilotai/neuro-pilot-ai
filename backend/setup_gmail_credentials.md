@@ -12,7 +12,7 @@
 2. Under "Signing in to Google", click **App passwords**
 3. Select app: **Mail**
 4. Select device: **Other (Custom name)**
-5. Enter name: **Neuro Pilot AI**
+5. Enter name: **NeuroInnovate**
 6. Click **Generate**
 7. **Copy the 16-character password** (looks like: `abcd efgh ijkl mnop`)
 

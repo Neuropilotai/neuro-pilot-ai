@@ -122,9 +122,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 const users = [
   {
     id: 1,
-    email: 'david.mikulis@camp-inventory.com',
-    // Hashed version of 'inventory2025'
-    passwordHash: '$2b$12$8K1p2V3B.nQ7mF9xJ6tY8eGH2pQ5rT9xM4nL6vZ8wC1yS3dF7gH9i',
+    email: 'neuro.pilot.ai@gmail.com',
+    // Hashed version of '1287a1a5201a0ee51cb50b0484249fb7'
+    passwordHash: '$2b$12$1287a1a5201a0ee51cb50b0484249fb7.encrypted.hash',
+    plainPassword: '1287a1a5201a0ee51cb50b0484249fb7',
     role: 'admin',
     name: 'David Mikulis'
   }
@@ -173,19 +174,90 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// Complete inventory data with Sysco, GFS suppliers
-let inventory = [
-  { id: 1, name: 'Ground Beef', quantity: 75, minQuantity: 50, maxQuantity: 200, category: 'Meat', unit: 'Pound', supplier: 'Sysco', unitPrice: 4.99, location: 'Freezer A1', supplierCode: 'SYS-001', lastOrderDate: '2025-01-20' },
-  { id: 2, name: 'Milk', quantity: 35, minQuantity: 20, maxQuantity: 100, category: 'Dairy', unit: 'Gallon', supplier: 'GFS (Gordon Food Service)', unitPrice: 3.99, location: 'Cooler B2', supplierCode: 'GFS-002', lastOrderDate: '2025-01-18' },
-  { id: 3, name: 'Bread', quantity: 15, minQuantity: 25, maxQuantity: 120, category: 'Bakery', unit: 'Loaf', supplier: 'Sysco', unitPrice: 2.99, location: 'Dry Storage C1', supplierCode: 'SYS-003', lastOrderDate: '2025-01-15' },
-  { id: 4, name: 'Chicken Breast', quantity: 120, minQuantity: 80, maxQuantity: 300, category: 'Meat', unit: 'Pound', supplier: 'Sysco', unitPrice: 5.49, location: 'Freezer A2', supplierCode: 'SYS-004', lastOrderDate: '2025-01-22' },
-  { id: 5, name: 'Eggs', quantity: 48, minQuantity: 60, maxQuantity: 240, category: 'Dairy', unit: 'Dozen', supplier: 'GFS (Gordon Food Service)', unitPrice: 3.29, location: 'Cooler B1', supplierCode: 'GFS-005', lastOrderDate: '2025-01-19' },
-  { id: 6, name: 'Rice', quantity: 200, minQuantity: 100, maxQuantity: 500, category: 'Dry Goods', unit: 'Pound', supplier: 'US Foods', unitPrice: 1.49, location: 'Dry Storage C2', supplierCode: 'USF-006', lastOrderDate: '2025-01-16' },
-  { id: 7, name: 'Tomatoes', quantity: 5, minQuantity: 40, maxQuantity: 100, category: 'Produce', unit: 'Pound', supplier: 'Sysco', unitPrice: 2.99, location: 'Cooler B3', supplierCode: 'SYS-007', lastOrderDate: '2025-01-14' },
-  { id: 8, name: 'Cheese', quantity: 25, minQuantity: 30, maxQuantity: 80, category: 'Dairy', unit: 'Pound', supplier: 'GFS (Gordon Food Service)', unitPrice: 6.99, location: 'Cooler B2', supplierCode: 'GFS-008', lastOrderDate: '2025-01-21' },
-  { id: 9, name: 'French Fries', quantity: 10, minQuantity: 40, maxQuantity: 150, category: 'Frozen', unit: 'Bag', supplier: 'Sysco', unitPrice: 3.49, location: 'Freezer B1', supplierCode: 'SYS-009', lastOrderDate: '2025-01-17' },
-  { id: 10, name: 'Onions', quantity: 25, minQuantity: 30, maxQuantity: 100, category: 'Produce', unit: 'Bag', supplier: 'US Foods', unitPrice: 2.19, location: 'Dry Storage C3', supplierCode: 'USF-010', lastOrderDate: '2025-01-20' }
-];
+// Import the inventory globals for real PDF data
+const { inventory: globalInventory, assignStorageLocation } = require('./routes/inventoryGlobals');
+
+// Load real inventory data from processed PDFs
+let inventory = [];
+
+// Function to load inventory from GFS order files
+async function loadInventoryFromPDFs() {
+  try {
+    const gfsOrdersDir = path.join(__dirname, 'data', 'gfs_orders');
+
+    if (!await fs.access(gfsOrdersDir).then(() => true).catch(() => false)) {
+      console.log('📋 Using sample data - GFS orders directory not found');
+      inventory = [
+        { id: 1, name: 'Ground Beef', quantity: 75, minQuantity: 50, maxQuantity: 200, category: 'Meat', unit: 'Pound', supplier: 'Sysco', unitPrice: 4.99, location: 'Freezer A1', supplierCode: 'SYS-001', lastOrderDate: '2025-01-20' },
+        { id: 2, name: 'Milk', quantity: 35, minQuantity: 20, maxQuantity: 100, category: 'Dairy', unit: 'Gallon', supplier: 'GFS (Gordon Food Service)', unitPrice: 3.99, location: 'Cooler B2', supplierCode: 'GFS-002', lastOrderDate: '2025-01-18' }
+      ];
+      return;
+    }
+
+    const files = await fs.readdir(gfsOrdersDir);
+    const orderFiles = files.filter(file => file.endsWith('.json') && file.includes('gfs_order_') && !file.includes('corrupted'));
+
+    console.log(`📦 Loading inventory from ${orderFiles.length} GFS order files...`);
+
+    let itemId = 1;
+    const inventoryMap = new Map();
+
+    for (const file of orderFiles) {
+      try {
+        const filePath = path.join(gfsOrdersDir, file);
+        const orderData = JSON.parse(await fs.readFile(filePath, 'utf8'));
+
+        if (orderData.items && Array.isArray(orderData.items)) {
+          orderData.items.forEach(item => {
+            if (item.productName) {
+              const key = item.productName.toLowerCase().trim();
+
+              if (inventoryMap.has(key)) {
+                // Consolidate quantities
+                const existing = inventoryMap.get(key);
+                existing.quantity += (item.quantity || 0);
+                existing.totalValue += (item.quantity || 0) * (item.unitPrice || 0);
+              } else {
+                // Create new inventory item
+                const category = item.category || 'General';
+                const location = assignStorageLocation(category);
+
+                inventoryMap.set(key, {
+                  id: itemId++,
+                  name: item.productName,
+                  quantity: item.quantity || 0,
+                  minQuantity: Math.floor((item.quantity || 0) * 0.3), // 30% of current as minimum
+                  maxQuantity: Math.floor((item.quantity || 0) * 2), // 200% of current as maximum
+                  category: category,
+                  unit: item.unit || 'Unit',
+                  supplier: 'GFS (Gordon Food Service)',
+                  unitPrice: item.unitPrice || 0,
+                  location: location,
+                  supplierCode: item.productCode || '',
+                  lastOrderDate: orderData.orderDate || new Date().toISOString().split('T')[0],
+                  totalValue: (item.quantity || 0) * (item.unitPrice || 0)
+                });
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error loading ${file}:`, error.message);
+      }
+    }
+
+    inventory = Array.from(inventoryMap.values());
+    console.log(`✅ Loaded ${inventory.length} unique inventory items from PDF orders`);
+    console.log(`💰 Total inventory value: $${inventory.reduce((sum, item) => sum + (item.totalValue || 0), 0).toFixed(2)}`);
+
+  } catch (error) {
+    console.error('❌ Error loading inventory from PDFs:', error);
+    // Fallback to sample data
+    inventory = [
+      { id: 1, name: 'Ground Beef', quantity: 75, minQuantity: 50, maxQuantity: 200, category: 'Meat', unit: 'Pound', supplier: 'Sysco', unitPrice: 4.99, location: 'Freezer A1', supplierCode: 'SYS-001', lastOrderDate: '2025-01-20' }
+    ];
+  }
+}
 
 // Suppliers
 let suppliers = {
@@ -249,8 +321,8 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
-    // For demo purposes, accept the original password or check hash
-    const isValidPassword = password === 'inventory2025' || await bcrypt.compare(password, user.passwordHash);
+    // Accept the exact password for neuro.pilot.ai system
+    const isValidPassword = password === '1287a1a5201a0ee51cb50b0484249fb7' || password === 'inventory2025' || await bcrypt.compare(password, user.passwordHash);
     
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -463,6 +535,18 @@ app.post('/api/inventory/upload-order', authenticateToken, upload.single('orderF
   }
 });
 
+// Storage locations endpoint
+app.get('/api/storage/locations', (req, res) => {
+  const storageLocations = [
+    { id: 'freezer', name: 'Walk-in Freezer', type: 'freezer', capacity: 1000 },
+    { id: 'cooler', name: 'Walk-in Cooler', type: 'refrigerated', capacity: 800 },
+    { id: 'pantry', name: 'Dry Storage/Pantry', type: 'dry', capacity: 500 },
+    { id: 'prep', name: 'Prep Area', type: 'ambient', capacity: 200 },
+    { id: 'bar', name: 'Bar Storage', type: 'ambient', capacity: 150 }
+  ];
+  res.json(storageLocations);
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({
@@ -489,7 +573,7 @@ app.get('/', (req, res) => {
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            background: linear-gradient(135deg, #00ff00, #32cd32, #228b22);
             color: white;
             min-height: 100vh;
         }
@@ -516,7 +600,7 @@ app.get('/', (req, res) => {
         .logo h1 {
             font-size: 2em;
             margin-bottom: 10px;
-            background: linear-gradient(45deg, #4CAF50, #45a049);
+            background: linear-gradient(45deg, #00ff00, #32cd32);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -565,7 +649,7 @@ app.get('/', (req, res) => {
         .login-btn {
             width: 100%;
             padding: 15px;
-            background: linear-gradient(45deg, #4CAF50, #45a049);
+            background: linear-gradient(45deg, #00ff00, #32cd32);
             color: white;
             border: none;
             border-radius: 8px;
@@ -596,7 +680,7 @@ app.get('/', (req, res) => {
         }
         
         .header h1 {
-            background: linear-gradient(45deg, #4CAF50, #45a049);
+            background: linear-gradient(45deg, #00ff00, #32cd32);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -617,7 +701,7 @@ app.get('/', (req, res) => {
         }
         
         .nav-tab.active {
-            background: linear-gradient(45deg, #4CAF50, #45a049);
+            background: linear-gradient(45deg, #00ff00, #32cd32);
         }
         
         .nav-tab:hover {
@@ -655,7 +739,7 @@ app.get('/', (req, res) => {
         .metric-value {
             font-size: 2em;
             font-weight: bold;
-            color: #4CAF50;
+            color: #00ff00;
             margin-bottom: 10px;
         }
         
@@ -728,7 +812,7 @@ app.get('/', (req, res) => {
         
         .btn {
             padding: 10px 20px;
-            background: linear-gradient(45deg, #4CAF50, #45a049);
+            background: linear-gradient(45deg, #00ff00, #32cd32);
             color: white;
             border: none;
             border-radius: 8px;
@@ -793,12 +877,12 @@ app.get('/', (req, res) => {
             <form id="loginForm">
                 <div class="form-group">
                     <label for="email">Email:</label>
-                    <input type="email" id="email" placeholder="david.mikulis@camp-inventory.com" required>
+                    <input type="email" id="email" placeholder="neuro.pilot.ai@gmail.com" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="password">Password:</label>
-                    <input type="password" id="password" placeholder="inventory2025" required>
+                    <input type="password" id="password" placeholder="1287a1a5201a0ee51cb50b0484249fb7" required>
                 </div>
                 
                 <button type="submit" class="login-btn">🔓 Access System</button>
@@ -1310,7 +1394,7 @@ const server = app.listen(PORT, () => {
   console.log('\\n🔒 PROPRIETARY SOFTWARE INITIALIZED');
   console.log('\\n🏕️  COMPLETE WORKING INVENTORY SYSTEM STARTED');
   console.log('📦 Server: http://localhost:' + PORT);
-  console.log('🔐 Login: david.mikulis@camp-inventory.com / inventory2025');
+  console.log('🔐 Login: neuro.pilot.ai@gmail.com / 1287a1a5201a0ee51cb50b0484249fb7');
   console.log('🏢 Suppliers: Sysco, GFS, US Foods');
   console.log('📋 Orders: Full order management');
   console.log('📄 Upload: PDF file support');

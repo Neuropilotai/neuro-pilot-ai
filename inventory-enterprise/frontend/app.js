@@ -1,8 +1,172 @@
-fetch('/health')
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById('status').innerText = 'API Status: ' + data.status;
-  })
-  .catch(err => {
-    document.getElementById('status').innerText = 'Error: ' + err;
-  });
+// Authentication and app initialization
+let currentUser = null;
+let authToken = null;
+
+// Check if user is already logged in
+document.addEventListener('DOMContentLoaded', function() {
+    authToken = localStorage.getItem('authToken');
+    if (authToken) {
+        validateToken();
+    } else {
+        showLogin();
+    }
+
+    // Setup login form
+    const loginForm = document.getElementById('loginForm');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+});
+
+function showLogin() {
+    const loginContainer = document.getElementById('loginContainer');
+    const dashboardContainer = document.getElementById('dashboardContainer');
+
+    if (loginContainer) {
+        loginContainer.style.display = 'block';
+    }
+    if (dashboardContainer) {
+        dashboardContainer.style.display = 'none';
+    }
+}
+
+function showDashboard() {
+    const loginContainer = document.getElementById('loginContainer');
+    const dashboardContainer = document.getElementById('dashboardContainer');
+
+    if (loginContainer) {
+        loginContainer.style.display = 'none';
+    }
+    if (dashboardContainer) {
+        dashboardContainer.style.display = 'block';
+    }
+    loadDashboardData();
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('loginError');
+    const loginBtn = document.getElementById('loginBtn');
+
+    loginBtn.textContent = 'Logging in...';
+    loginBtn.disabled = true;
+    errorDiv.style.display = 'none';
+
+    try {
+        const response = await fetch('http://localhost:8083/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            authToken = data.accessToken;
+            currentUser = data.user;
+            localStorage.setItem('authToken', authToken);
+            showDashboard();
+        } else {
+            showError(data.message || 'Login failed');
+        }
+    } catch (error) {
+        showError('Network error: ' + error.message);
+    } finally {
+        loginBtn.textContent = 'Login';
+        loginBtn.disabled = false;
+    }
+}
+
+async function validateToken() {
+    try {
+        const response = await fetch('http://localhost:8083/api/auth/me', {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            currentUser = data.user;
+            showDashboard();
+        } else {
+            // Token is invalid, clear it and show login
+            console.log('Token validation failed:', response.status);
+            localStorage.removeItem('authToken');
+            authToken = null;
+            showLogin();
+        }
+    } catch (error) {
+        console.error('Token validation error:', error);
+        localStorage.removeItem('authToken');
+        authToken = null;
+        showLogin();
+    }
+}
+
+function handleLogout() {
+    localStorage.removeItem('authToken');
+    authToken = null;
+    currentUser = null;
+    showLogin();
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('loginError');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+}
+
+async function loadDashboardData() {
+    if (currentUser) {
+        document.getElementById('userInfo').textContent =
+            `${currentUser.firstName} ${currentUser.lastName} (${currentUser.role})`;
+    }
+
+    try {
+        const response = await fetch('http://localhost:8083/health');
+        const data = await response.json();
+        document.getElementById('status').textContent = 'API Status: ' + data.status;
+
+        // Load inventory data if user has permission
+        if (currentUser && hasPermission('inventory:read')) {
+            loadInventoryData();
+        }
+    } catch (error) {
+        document.getElementById('status').textContent = 'Error: ' + error.message;
+    }
+}
+
+async function loadInventoryData() {
+    try {
+        const response = await fetch('http://localhost:8083/api/inventory/items', {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const itemCount = data.items ? data.items.length : 0;
+            document.getElementById('inventoryData').innerHTML =
+                `<h3>Inventory Items: ${itemCount}</h3>`;
+        }
+    } catch (error) {
+        console.error('Failed to load inventory:', error);
+    }
+}
+
+function hasPermission(permission) {
+    return currentUser && currentUser.permissions &&
+           currentUser.permissions.includes(permission);
+}

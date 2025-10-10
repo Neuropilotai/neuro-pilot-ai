@@ -1,0 +1,275 @@
+/* Custom Dashboard Styles - Extracted from inline styles */
+
+/* Modal Container Styles */
+.modal-container {
+    display: none;
+}
+
+/* Modal Card */
+.modal-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideUp 0.3s ease;
+}
+
+/* Modal Header Button */
+.modal-header-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+/* Hidden Elements */
+.hidden-element {
+    display: none;
+}
+
+/* Date Range Section */
+.date-range-section {
+    display: none;
+}
+
+/* Tabs Container */
+.tabs-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+}
+
+/* Activity Grid */
+.activity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+/* Activity Feed Scroll */
+.activity-feed-scroll {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 1rem;
+}
+
+/* Alert List */
+.alert-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Export Options */
+.export-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+/* Notification Panel Styles - From inline styles added by the notification fix */
+.notification-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+}
+
+.notification-panel {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 600px;
+    overflow-y: auto;
+    color: white;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.notification-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+}
+
+.notification-close:hover {
+    opacity: 1;
+}
+
+.notification-item {
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.notification-item.success {
+    background: rgba(34, 197, 94, 0.1);
+    border-left: 4px solid #22c55e;
+}
+
+.notification-item.warning {
+    background: rgba(249, 115, 22, 0.1);
+    border-left: 4px solid #f97316;
+}
+
+.notification-item.info {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: 4px solid #3b82f6;
+}
+
+.notification-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.notification-item-header strong.success {
+    color: #22c55e;
+}
+
+.notification-item-header strong.warning {
+    color: #f97316;
+}
+
+.notification-item-header strong.info {
+    color: #3b82f6;
+}
+
+.notification-item-header small {
+    opacity: 0.7;
+}
+
+.notification-item p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.notification-actions {
+    margin-top: 24px;
+    text-align: center;
+}
+
+.notification-mark-read {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.notification-mark-read:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Chart Placeholder Icon Styles */
+.chart-placeholder-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* Tab Content Display */
+.tab-content-hidden {
+    display: none;
+}
+
+/* Coming Soon Text */
+.coming-soon-text {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+/* Search Icon */
+.search-icon {
+    color: var(--text-secondary);
+}
+
+/* Location Details Container Margin */
+.location-details-container {
+    margin-top: 2rem;
+}
+
+/* Close Button Styles */
+.notification-close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+}
+
+.notification-close-btn:hover {
+    opacity: 1;
+}
+
+/* Mark as Read Button */
+.notification-mark-read-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+}

@@ -1,0 +1,122 @@
+/**
+ * Policy Sync Module
+ * Version: v2.2.0-2025-10-07
+ *
+ * Handles cache invalidation and version bumping after model retraining
+ */
+
+const { logger } = require('../../config/logger');
+const db = require('../../config/database');
+
+class PolicySync {
+  /**
+   * Sync policy after successful retrain
+   * @param {string} itemCode - Item code
+   */
+  async syncAfterRetrain(itemCode) {
+    logger.info(`[PolicySync] Syncing policy for ${itemCode} after retrain`);
+
+    try {
+      // 1. Invalidate forecast cache (if Redis is available)
+      await this.invalidateForecastCache(itemCode);
+
+      // 2. Bump model version in ai_models table
+      await this.bumpModelVersion(itemCode);
+
+      // 3. Update policy timestamp (if policy exists)
+      await this.touchPolicy(itemCode);
+
+      logger.info(`[PolicySync] Policy sync complete for ${itemCode}`);
+    } catch (error) {
+      logger.error(`[PolicySync] Error syncing policy for ${itemCode}:`, error);
+      // Don't throw - sync failures shouldn't break retraining
+    }
+  }
+
+  /**
+   * Invalidate forecast cache for an item
+   * @param {string} itemCode - Item code
+   */
+  async invalidateForecastCache(itemCode) {
+    try {
+      // Check if Redis is available
+      if (global.redisClient && global.redisClient.isReady) {
+        const cacheKey = `forecast:${itemCode}`;
+        await global.redisClient.del(cacheKey);
+        logger.debug(`[PolicySync] Invalidated cache key: ${cacheKey}`);
+
+        // Also invalidate any related keys
+        const pattern = `forecast:${itemCode}:*`;
+        const keys = await global.redisClient.keys(pattern);
+        if (keys.length > 0) {
+          await global.redisClient.del(...keys);
+          logger.debug(`[PolicySync] Invalidated ${keys.length} related cache keys`);
+        }
+      }
+    } catch (error) {
+      logger.warn(`[PolicySync] Error invalidating cache for ${itemCode}:`, error);
+    }
+  }
+
+  /**
+   * Bump model version in ai_models table
+   * @param {string} itemCode - Item code
+   */
+  async bumpModelVersion(itemCode) {
+    try {
+      const query = `
+        UPDATE ai_models
+        SET version = version + 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE entity_id = ?
+          AND entity_type = 'item'
+          AND status = 'active'
+      `;
+
+      await db.query(query, [itemCode]);
+      logger.debug(`[PolicySync] Bumped model version for ${itemCode}`);
+    } catch (error) {
+      logger.warn(`[PolicySync] Error bumping model version for ${itemCode}:`, error);
+    }
+  }
+
+  /**
+   * Touch policy to update timestamp
+   * @param {string} itemCode - Item code
+   */
+  async touchPolicy(itemCode) {
+    try {
+      const query = `
+        UPDATE ai_policy
+        SET updated_at = CURRENT_TIMESTAMP,
+            updated_by = 'autotrainer'
+        WHERE item_code = ?
+      `;
+
+      await db.query(query, [itemCode]);
+      logger.debug(`[PolicySync] Touched policy for ${itemCode}`);
+    } catch (error) {
+      logger.warn(`[PolicySync] Error touching policy for ${itemCode}:`, error);
+    }
+  }
+
+  /**
+   * Invalidate all forecast caches (use after bulk retrain)
+   */
+  async invalidateAllForecastCaches() {
+    try {
+      if (global.redisClient && global.redisClient.isReady) {
+        const pattern = 'forecast:*';
+        const keys = await global.redisClient.keys(pattern);
+        if (keys.length > 0) {
+          await global.redisClient.del(...keys);
+          logger.info(`[PolicySync] Invalidated all forecast caches (${keys.length} keys)`);
+        }
+      }
+    } catch (error) {
+      logger.error('[PolicySync] Error invalidating all caches:', error);
+    }
+  }
+}
+
+module.exports = new PolicySync();

@@ -1,0 +1,282 @@
+{
+  "dashboard": {
+    "title": "NeuroInnovate Inventory Enterprise - AI Real-Time Intelligence (v2.3.0)",
+    "tags": ["ai", "realtime", "websocket", "streaming", "v2.3.0"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "WebSocket Connections (Live)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "description": "Current number of active WebSocket connections",
+        "targets": [
+          {
+            "expr": "ai_ws_connections_total",
+            "legendFormat": "Active Connections",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 50, "color": "yellow" },
+                { "value": 100, "color": "red" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "auto",
+          "textMode": "value_and_name",
+          "colorMode": "background",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 2,
+        "title": "WebSocket Events (Rate)",
+        "type": "graph",
+        "gridPos": { "h": 4, "w": 18, "x": 6, "y": 0 },
+        "description": "WebSocket event broadcast rate per type",
+        "targets": [
+          {
+            "expr": "rate(ai_ws_events_total[1m])",
+            "legendFormat": "{{event_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Events/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Forecast Latency (p50/p95/p99)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "description": "Forecast generation latency percentiles",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(ai_forecast_latency_seconds_bucket[5m]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(ai_forecast_latency_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(ai_forecast_latency_seconds_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Latency" },
+          { "format": "short" }
+        ],
+        "thresholds": [
+          {
+            "value": 0.2,
+            "colorMode": "critical",
+            "op": "gt",
+            "fill": true,
+            "line": true
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [0.2], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["B", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "High Forecast Latency (p95 > 200ms)",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 4,
+        "title": "Forecast Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "description": "Percentage of forecasts served from cache",
+        "targets": [
+          {
+            "expr": "100 * sum(rate(ai_forecast_latency_seconds_count{cache_status=\"cache_hit\"}[5m])) / sum(rate(ai_forecast_latency_seconds_count[5m]))",
+            "legendFormat": "Hit Rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 70, "color": "yellow" },
+                { "value": 85, "color": "green" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 5,
+        "title": "Feedback Streaming Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "description": "Real-time feedback records processed per second",
+        "targets": [
+          {
+            "expr": "ai_feedback_stream_rate",
+            "legendFormat": "Records/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 20
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "WebSocket Event Types (Breakdown)",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "description": "Distribution of WebSocket event types",
+        "targets": [
+          {
+            "expr": "sum(increase(ai_ws_events_total[5m])) by (event_type)",
+            "legendFormat": "{{event_type}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Real-Time Latency Heatmap",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+        "description": "Forecast latency distribution over time",
+        "targets": [
+          {
+            "expr": "rate(ai_forecast_latency_seconds_bucket[1m])",
+            "legendFormat": "{{le}}",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ],
+        "dataFormat": "tsbuckets",
+        "yAxis": {
+          "format": "s",
+          "min": "0",
+          "max": "2"
+        },
+        "options": {
+          "calculate": true,
+          "calculation": {
+            "xBuckets": {
+              "mode": "size",
+              "value": "10s"
+            }
+          },
+          "cellGap": 2,
+          "color": {
+            "mode": "scheme",
+            "scheme": "Spectral"
+          }
+        }
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(ai_ws_connections_total[1m]) > 5",
+          "iconColor": "blue",
+          "name": "Connection Spikes",
+          "textFormat": "{{$value}} new connections",
+          "titleFormat": "WS Connection Spike"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "refresh_interval",
+          "type": "interval",
+          "label": "Refresh",
+          "auto": true,
+          "auto_count": 30,
+          "auto_min": "1s",
+          "options": [
+            { "text": "5s", "value": "5s", "selected": true },
+            { "text": "10s", "value": "10s", "selected": false },
+            { "text": "30s", "value": "30s", "selected": false },
+            { "text": "1m", "value": "1m", "selected": false }
+          ]
+        }
+      ]
+    }
+  }
+}

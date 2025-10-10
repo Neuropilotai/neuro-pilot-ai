@@ -661,7 +661,7 @@ class LocalizationService {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>🌐 ${isEnglish ? 'Neuro Pilot AI - Bilingual Career Platform' : 'Neuro Pilot AI - Plateforme carrière bilingue'}</title>
+            <title>🌐 ${isEnglish ? 'NeuroInnovate - Bilingual Career Platform' : 'NeuroInnovate - Plateforme carrière bilingue'}</title>
             <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body { 
@@ -792,7 +792,7 @@ class LocalizationService {
             
             <div class="container">
                 <div class="header">
-                    <h1>🌐 ${isEnglish ? 'Neuro Pilot AI' : 'Neuro Pilot IA'}</h1>
+                    <h1>🌐 ${isEnglish ? 'NeuroInnovate' : 'NeuroInnovate'}</h1>
                     <p>${isEnglish ? 'AI-Powered Career Platform for North America' : 'Plateforme carrière alimentée par IA pour l\'Amérique du Nord'}</p>
                     <p>${isEnglish ? 'English & French • Canada & United States' : 'Anglais et français • Canada et États-Unis'}</p>
                 </div>

@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Tracker | FIFO Rotation Monitoring</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .search-section {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .item-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            border-color: #667eea;
+        }
+
+        .item-code {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .item-description {
+            color: #555;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            height: 40px;
+            overflow: hidden;
+        }
+
+        .item-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #888;
+        }
+
+        #detailsModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            max-width: 900px;
+            border-radius: 15px;
+            padding: 30px;
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 30px;
+            color: #666;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #667eea;
+        }
+
+        .modal-header {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .modal-title {
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .cases-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .cases-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .cases-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .cases-table tr:hover {
+            background: #f5f7fa;
+        }
+
+        .case-number {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .rotation-badge {
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .rotation-fresh {
+            background: #4ade80;
+            color: white;
+        }
+
+        .rotation-aging {
+            background: #fbbf24;
+            color: #333;
+        }
+
+        .rotation-aged {
+            background: #f87171;
+            color: white;
+        }
+
+        .limit-selector {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .limit-selector select {
+            padding: 8px 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .physical-count-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f5f7fa;
+            border-radius: 10px;
+        }
+
+        .case-checkboxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .case-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .case-checkbox-item input {
+            width: 18px;
+            height: 18px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Case Tracker</h1>
+            <p class="subtitle">FIFO Rotation Monitoring & Spot Checking</p>
+        </header>
+
+        <div class="search-section">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search by item code or description...">
+            <button class="btn btn-primary" onclick="loadItems()">🔍 Search</button>
+            <button class="btn btn-primary" onclick="showAllItems()">📋 Show All</button>
+        </div>
+
+        <div id="itemsContainer" class="loading">
+            Loading case inventory...
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="detailsModal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalItemCode"></h2>
+                <p id="modalItemDescription"></p>
+                <div class="item-stats" style="margin-top: 15px;">
+                    <div class="stat">
+                        <span class="stat-value" id="modalTotalCases">-</span>
+                        <span class="stat-label">Total Cases</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="modalTotalWeight">-</span>
+                        <span class="stat-label">Total Weight</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="modalUnit">-</span>
+                        <span class="stat-label">Unit</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="limit-selector">
+                <label>Show last:</label>
+                <select id="caseLimit" onchange="loadCaseDetails(currentItemCode, this.value)">
+                    <option value="10">10 cases</option>
+                    <option value="20">20 cases</option>
+                    <option value="50">50 cases</option>
+                    <option value="">All cases</option>
+                </select>
+            </div>
+
+            <div id="casesTableContainer">
+                <table class="cases-table">
+                    <thead>
+                        <tr>
+                            <th>Case #</th>
+                            <th>Weight</th>
+                            <th>Remaining</th>
+                            <th>Status</th>
+                            <th>Invoice Date</th>
+                            <th>Age</th>
+                            <th>Rotation</th>
+                        </tr>
+                    </thead>
+                    <tbody id="casesTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="physical-count-section">
+                <h3>📋 Physical Count</h3>
+
+                <div style="margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Count Date *</label>
+                            <input type="date" id="countDate" class="search-input"
+                                   style="width: 100%; padding: 8px;"
+                                   required>
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Order Cutoff Date *</label>
+                            <input type="date" id="cutoffDate" class="search-input"
+                                   style="width: 100%; padding: 8px;"
+                                   required>
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: bold; margin-bottom: 5px;">People On Site</label>
+                            <input type="number" id="peopleOnSite" class="search-input"
+                                   style="width: 100%; padding: 8px;"
+                                   min="0" placeholder="e.g., 5">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-weight: bold; margin-bottom: 5px;">Notes (Optional)</label>
+                        <textarea id="countNotes" class="search-input"
+                                  style="width: 100%; padding: 8px; min-height: 60px;"
+                                  placeholder="Any notes about this count..."></textarea>
+                    </div>
+                </div>
+
+                <p style="margin-top: 15px;"><strong>Select the cases you have in your inventory:</strong></p>
+                <div id="caseCheckboxes" class="case-checkboxes"></div>
+                <button class="btn btn-primary" onclick="submitPhysicalCount()" style="margin-top: 15px;">
+                    💾 Update Inventory from Count
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentItemCode = null;
+        let allItems = [];
+
+        // Load all items on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadItems();
+        });
+
+        async function loadItems() {
+            const container = document.getElementById('itemsContainer');
+            container.innerHTML = '<div class="loading">Loading case inventory...</div>';
+
+            try {
+                const response = await fetch('/api/case-inventory');
+                const data = await response.json();
+
+                if (data.success && data.items.length > 0) {
+                    allItems = data.items;
+                    displayItems(allItems);
+                } else {
+                    container.innerHTML = '<div class="no-data">No items with case tracking found.</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="no-data">Error loading inventory: ' + error.message + '</div>';
+            }
+        }
+
+        function displayItems(items) {
+            const container = document.getElementById('itemsContainer');
+            container.className = 'items-grid';
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="no-data">No items found matching your search.</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="item-card" onclick="showDetails('${item.itemCode}')">
+                    <div class="item-code">${item.itemCode}</div>
+                    <div class="item-description">${item.description}</div>
+                    <div class="item-stats">
+                        <div class="stat">
+                            <span class="stat-value">${item.totalCases}</span>
+                            <span class="stat-label">Cases</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">${item.totalWeight ? item.totalWeight.toFixed(2) : '0'}</span>
+                            <span class="stat-label">${item.unit || 'LBS'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showAllItems() {
+            document.getElementById('searchInput').value = '';
+            displayItems(allItems);
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allItems.filter(item =>
+                item.itemCode.toLowerCase().includes(searchTerm) ||
+                item.description.toLowerCase().includes(searchTerm)
+            );
+            displayItems(filtered);
+        });
+
+        async function showDetails(itemCode) {
+            currentItemCode = itemCode;
+            document.getElementById('detailsModal').style.display = 'block';
+            document.getElementById('caseLimit').value = '10';  // Default to showing last 10
+
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('countDate').value = today;
+            document.getElementById('cutoffDate').value = today;
+            document.getElementById('peopleOnSite').value = '';
+            document.getElementById('countNotes').value = '';
+
+            await loadCaseDetails(itemCode, 10);
+        }
+
+        async function loadCaseDetails(itemCode, limit) {
+            try {
+                const url = `/api/case-inventory/${itemCode}${limit ? '?limit=' + limit : ''}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update header
+                    document.getElementById('modalItemCode').textContent = data.item.itemCode;
+                    document.getElementById('modalItemDescription').textContent = data.item.description;
+                    document.getElementById('modalTotalCases').textContent = data.item.totalCases;
+                    document.getElementById('modalTotalWeight').textContent = data.item.totalWeight;
+                    document.getElementById('modalUnit').textContent = data.item.unit;
+
+                    // Update cases table
+                    const tbody = document.getElementById('casesTableBody');
+                    tbody.innerHTML = data.cases.map(c => `
+                        <tr>
+                            <td><span class="case-number">...${c.caseNumberShort}</span></td>
+                            <td>${c.weight.toFixed(2)}</td>
+                            <td>${c.remainingWeight.toFixed(2)}</td>
+                            <td>${c.status}</td>
+                            <td>${c.invoiceDate}</td>
+                            <td>${c.ageInDays} days</td>
+                            <td><span class="rotation-badge rotation-${c.rotationStatus.toLowerCase()}">${c.rotationStatus}</span></td>
+                        </tr>
+                    `).join('');
+
+                    // Update checkboxes for physical count
+                    const checkboxContainer = document.getElementById('caseCheckboxes');
+                    checkboxContainer.innerHTML = data.cases.map(c => `
+                        <div class="case-checkbox-item">
+                            <input type="checkbox" id="case-${c.caseNumberShort}" value="${c.caseNumberShort}" checked>
+                            <label for="case-${c.caseNumberShort}">...${c.caseNumberShort}</label>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                alert('Error loading case details: ' + error.message);
+            }
+        }
+
+        async function submitPhysicalCount() {
+            if (!currentItemCode) return;
+
+            // Get count information
+            const countDate = document.getElementById('countDate').value;
+            const cutoffDate = document.getElementById('cutoffDate').value;
+            const peopleOnSite = document.getElementById('peopleOnSite').value;
+            const notes = document.getElementById('countNotes').value;
+
+            // Validate required fields
+            if (!countDate) {
+                alert('Please enter the count date');
+                return;
+            }
+
+            if (!cutoffDate) {
+                alert('Please enter the order cutoff date');
+                return;
+            }
+
+            // Get selected case numbers
+            const checkboxes = document.querySelectorAll('#caseCheckboxes input[type="checkbox"]:checked');
+            const caseNumbers = Array.from(checkboxes).map(cb => cb.value);
+
+            if (caseNumbers.length === 0) {
+                alert('Please select at least one case');
+                return;
+            }
+
+            // Confirmation message
+            let confirmMsg = `Update inventory with the following details?\n\n`;
+            confirmMsg += `Count Date: ${countDate}\n`;
+            confirmMsg += `Cutoff Date: ${cutoffDate}\n`;
+            if (peopleOnSite) confirmMsg += `People On Site: ${peopleOnSite}\n`;
+            confirmMsg += `Cases Counted: ${caseNumbers.length}\n`;
+            if (notes) confirmMsg += `Notes: ${notes}`;
+
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            try {
+                const payload = {
+                    caseNumbers,
+                    countDate,
+                    cutoffDate
+                };
+
+                if (peopleOnSite) {
+                    payload.peopleOnSite = parseInt(peopleOnSite);
+                }
+
+                if (notes) {
+                    payload.notes = notes;
+                }
+
+                const response = await fetch(`/api/case-inventory/${currentItemCode}/physical-count`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    let successMsg = `✅ Physical Count Updated!\n\n`;
+                    successMsg += `Count Date: ${data.countDate}\n`;
+                    successMsg += `Cutoff Date: ${data.cutoffDate}\n`;
+                    if (data.peopleOnSite) successMsg += `People On Site: ${data.peopleOnSite}\n`;
+                    successMsg += `\nCases Verified: ${data.summary.casesVerified}\n`;
+                    successMsg += `Cases Marked Used: ${data.summary.casesMarkedUsed}\n`;
+                    successMsg += `Cases Excluded (after cutoff): ${data.summary.casesExcluded}\n`;
+                    successMsg += `\nNew Total: ${data.newTotalCases} cases, ${data.newTotalWeight} lbs`;
+
+                    alert(successMsg);
+                    closeModal();
+                    loadItems();  // Refresh the list
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                    if (data.invalidCases) {
+                        console.error('Invalid cases:', data.invalidCases);
+                    }
+                }
+            } catch (error) {
+                alert('Error updating count: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('detailsModal').style.display = 'none';
+            currentItemCode = null;
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('detailsModal');
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

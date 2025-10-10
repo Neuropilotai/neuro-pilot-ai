@@ -1,0 +1,546 @@
+/**
+ * AI Ops Agent - Predictive Incident Response
+ * Version: v2.6.0-2025-10-07
+ *
+ * Core orchestrator for AI-driven operations automation.
+ * Monitors Prometheus metrics, predicts incidents 24h ahead,
+ * triggers remediation playbooks, and manages alert workflows.
+ *
+ * Features:
+ * - LSTM + Prophet hybrid prediction
+ * - Real-time anomaly detection
+ * - Automated remediation execution
+ * - Multi-channel alerting (Slack, Email, PagerDuty)
+ * - Root cause analysis correlation
+ *
+ * @module aiops/Agent
+ */
+
+const EventEmitter = require('events');
+const logger = require('../utils/logger')('aiops-agent');
+const MetricsCollector = require('./MetricsCollector');
+const AnomalyPredictor = require('./AnomalyPredictor');
+const RemediationEngine = require('./RemediationEngine');
+const AlertManager = require('./AlertManager');
+const db = require('../database');
+
+class AIOperationsAgent extends EventEmitter {
+  constructor(config = {}) {
+    super();
+
+    this.config = {
+      checkInterval: config.checkInterval || 60000, // 1 minute
+      predictionWindow: config.predictionWindow || 24, // 24 hours
+      anomalyThreshold: config.anomalyThreshold || 0.85,
+      autoRemediationEnabled: config.autoRemediationEnabled !== false,
+      minConfidence: config.minConfidence || 0.75,
+      ...config
+    };
+
+    // Component initialization
+    this.metricsCollector = new MetricsCollector({
+      prometheusUrl: config.prometheusUrl || 'http://localhost:9090'
+    });
+
+    this.anomalyPredictor = new AnomalyPredictor({
+      modelPath: config.modelPath || './aiops/models',
+      minSamples: config.minSamples || 100
+    });
+
+    this.remediationEngine = new RemediationEngine({
+      playbooksPath: config.playbooksPath || './aiops/playbooks',
+      dryRun: config.dryRun || false
+    });
+
+    this.alertManager = new AlertManager({
+      slack: config.slack,
+      email: config.email,
+      pagerduty: config.pagerduty
+    });
+
+    // State management
+    this.isRunning = false;
+    this.checkIntervalId = null;
+    this.stats = {
+      checksPerformed: 0,
+      incidentsPredicted: 0,
+      remediationsTriggered: 0,
+      remediationsSucceeded: 0,
+      remediationsFailed: 0,
+      falsePositives: 0,
+      truePositives: 0,
+      meanResponseTime: 0,
+      totalResponseTime: 0,
+      startTime: null
+    };
+
+    this._setupEventHandlers();
+  }
+
+  /**
+   * Initialize agent and start monitoring
+   */
+  async start() {
+    if (this.isRunning) {
+      logger.warn('AI Ops Agent already running');
+      return;
+    }
+
+    logger.info('Starting AI Ops Agent v2.6.0');
+    logger.info('Configuration:', {
+      checkInterval: `${this.config.checkInterval}ms`,
+      predictionWindow: `${this.config.predictionWindow}h`,
+      autoRemediation: this.config.autoRemediationEnabled
+    });
+
+    try {
+      // Initialize components
+      await this.metricsCollector.initialize();
+      await this.anomalyPredictor.initialize();
+      await this.remediationEngine.initialize();
+      await this.alertManager.initialize();
+
+      // Load historical data for model training
+      logger.info('Loading historical metrics for baseline...');
+      const historicalMetrics = await this._loadHistoricalMetrics(7); // 7 days
+      if (historicalMetrics.length > 0) {
+        await this.anomalyPredictor.train(historicalMetrics);
+        logger.info(`Trained on ${historicalMetrics.length} historical data points`);
+      }
+
+      // Start monitoring loop
+      this.isRunning = true;
+      this.stats.startTime = Date.now();
+      this.checkIntervalId = setInterval(() => this._performCheck(), this.config.checkInterval);
+
+      // Perform initial check immediately
+      await this._performCheck();
+
+      this.emit('started');
+      logger.info('AI Ops Agent started successfully');
+    } catch (error) {
+      logger.error('Failed to start AI Ops Agent:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop agent gracefully
+   */
+  async stop() {
+    if (!this.isRunning) {
+      return;
+    }
+
+    logger.info('Stopping AI Ops Agent...');
+    this.isRunning = false;
+
+    if (this.checkIntervalId) {
+      clearInterval(this.checkIntervalId);
+      this.checkIntervalId = null;
+    }
+
+    // Save final statistics
+    await this._saveStatistics();
+
+    this.emit('stopped');
+    logger.info('AI Ops Agent stopped');
+  }
+
+  /**
+   * Perform monitoring check cycle
+   * @private
+   */
+  async _performCheck() {
+    const startTime = Date.now();
+    this.stats.checksPerformed++;
+
+    try {
+      logger.debug(`Performing check #${this.stats.checksPerformed}`);
+
+      // 1. Collect current metrics
+      const currentMetrics = await this.metricsCollector.collectMetrics();
+
+      // 2. Predict future anomalies (24h window)
+      const predictions = await this.anomalyPredictor.predict(
+        currentMetrics,
+        this.config.predictionWindow
+      );
+
+      // 3. Analyze predictions for incidents
+      const incidents = this._analyzeIncidents(predictions, currentMetrics);
+
+      // 4. Handle each predicted incident
+      for (const incident of incidents) {
+        await this._handleIncident(incident, startTime);
+      }
+
+      // 5. Update Prometheus metrics
+      await this._updatePrometheusMetrics(incidents.length);
+
+      logger.debug(`Check completed in ${Date.now() - startTime}ms`);
+    } catch (error) {
+      logger.error('Error during check cycle:', error);
+      this.emit('error', error);
+    }
+  }
+
+  /**
+   * Analyze predictions to identify incidents
+   * @private
+   */
+  _analyzeIncidents(predictions, currentMetrics) {
+    const incidents = [];
+
+    for (const prediction of predictions) {
+      // Check if anomaly score exceeds threshold
+      if (prediction.anomalyScore >= this.config.anomalyThreshold) {
+        // Determine incident type based on metric
+        const incidentType = this._classifyIncident(prediction, currentMetrics);
+
+        if (incidentType && prediction.confidence >= this.config.minConfidence) {
+          incidents.push({
+            id: `incident_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            type: incidentType,
+            severity: this._calculateSeverity(prediction),
+            prediction: prediction,
+            currentMetrics: currentMetrics,
+            predictedTime: prediction.timestamp,
+            confidence: prediction.confidence,
+            rootCause: prediction.rootCause || null
+          });
+
+          this.stats.incidentsPredicted++;
+        }
+      }
+    }
+
+    return incidents;
+  }
+
+  /**
+   * Classify incident type from prediction
+   * @private
+   */
+  _classifyIncident(prediction, currentMetrics) {
+    const { metricName, value } = prediction;
+
+    // Map metrics to incident types
+    const incidentTypeMap = {
+      'api_latency_p95_ms': 'high-latency',
+      'cache_hit_rate_percent': 'cache-miss',
+      'memory_usage_percent': 'memory-spike',
+      'db_connection_pool_active': 'db-connection-pool',
+      'tenant_requests_per_second': 'tenant-overload',
+      'forecast_accuracy_mape': 'ai-model-degradation',
+      'disk_usage_percent': 'disk-full',
+      'cpu_usage_percent': 'cpu-spike',
+      'error_rate_percent': 'error-spike'
+    };
+
+    return incidentTypeMap[metricName] || 'unknown-anomaly';
+  }
+
+  /**
+   * Calculate incident severity
+   * @private
+   */
+  _calculateSeverity(prediction) {
+    const { anomalyScore, confidence } = prediction;
+    const combinedScore = anomalyScore * confidence;
+
+    if (combinedScore >= 0.95) return 'critical';
+    if (combinedScore >= 0.85) return 'high';
+    if (combinedScore >= 0.70) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * Handle detected incident
+   * @private
+   */
+  async _handleIncident(incident, detectionTime) {
+    logger.warn(`Incident detected: ${incident.type} (severity: ${incident.severity}, confidence: ${(incident.confidence * 100).toFixed(1)}%)`);
+
+    try {
+      // 1. Store incident prediction
+      await this._storePrediction(incident);
+
+      // 2. Send alerts
+      await this.alertManager.sendAlert({
+        type: incident.type,
+        severity: incident.severity,
+        confidence: incident.confidence,
+        predictedTime: incident.predictedTime,
+        currentMetrics: incident.currentMetrics,
+        message: this._generateIncidentMessage(incident)
+      });
+
+      // 3. Trigger remediation if enabled and severity warrants it
+      if (this.config.autoRemediationEnabled &&
+          ['critical', 'high'].includes(incident.severity)) {
+
+        logger.info(`Triggering auto-remediation for ${incident.type}`);
+        this.stats.remediationsTriggered++;
+
+        const remediationResult = await this.remediationEngine.execute(
+          incident.type,
+          incident
+        );
+
+        const responseTime = Date.now() - detectionTime;
+        this._updateResponseTime(responseTime);
+
+        if (remediationResult.success) {
+          this.stats.remediationsSucceeded++;
+          logger.info(`Remediation succeeded for ${incident.type} in ${responseTime}ms`);
+
+          // Send success notification
+          await this.alertManager.sendAlert({
+            type: 'remediation-success',
+            severity: 'info',
+            message: `Auto-remediation completed successfully for ${incident.type}`,
+            actions: remediationResult.actions
+          });
+        } else {
+          this.stats.remediationsFailed++;
+          logger.error(`Remediation failed for ${incident.type}:`, remediationResult.error);
+
+          // Escalate to human intervention
+          await this.alertManager.sendAlert({
+            type: 'remediation-failure',
+            severity: 'critical',
+            message: `Auto-remediation FAILED for ${incident.type}. Manual intervention required.`,
+            error: remediationResult.error
+          });
+        }
+
+        // Store remediation result
+        await this._storeRemediationResult(incident, remediationResult, responseTime);
+      }
+
+      this.emit('incident-detected', incident);
+    } catch (error) {
+      logger.error(`Error handling incident ${incident.id}:`, error);
+      this.emit('error', error);
+    }
+  }
+
+  /**
+   * Generate human-readable incident message
+   * @private
+   */
+  _generateIncidentMessage(incident) {
+    const timeToIncident = Math.round(
+      (new Date(incident.predictedTime) - Date.now()) / (1000 * 60 * 60)
+    );
+
+    return `🚨 Predicted Incident: ${incident.type}\n` +
+           `Severity: ${incident.severity.toUpperCase()}\n` +
+           `Confidence: ${(incident.confidence * 100).toFixed(1)}%\n` +
+           `Predicted in: ${timeToIncident}h\n` +
+           `Root Cause: ${incident.rootCause || 'Analyzing...'}\n` +
+           `Current Metrics:\n${JSON.stringify(incident.currentMetrics, null, 2)}`;
+  }
+
+  /**
+   * Store prediction in database
+   * @private
+   */
+  async _storePrediction(incident) {
+    try {
+      const query = `
+        INSERT INTO ai_anomaly_predictions (
+          incident_type, severity, confidence, anomaly_score,
+          predicted_timestamp, detected_timestamp, metric_name, metric_value,
+          root_cause, current_metrics
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await db.run(query, [
+        incident.type,
+        incident.severity,
+        incident.confidence,
+        incident.prediction.anomalyScore,
+        incident.predictedTime,
+        new Date().toISOString(),
+        incident.prediction.metricName,
+        incident.prediction.value,
+        incident.rootCause,
+        JSON.stringify(incident.currentMetrics)
+      ]);
+    } catch (error) {
+      logger.error('Failed to store prediction:', error);
+    }
+  }
+
+  /**
+   * Store remediation result
+   * @private
+   */
+  async _storeRemediationResult(incident, result, responseTime) {
+    try {
+      const query = `
+        INSERT INTO ai_remediation_log (
+          incident_id, incident_type, severity, remediation_action,
+          success, response_time_ms, error_message, actions_taken
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await db.run(query, [
+        incident.id,
+        incident.type,
+        incident.severity,
+        result.playbook || incident.type,
+        result.success ? 1 : 0,
+        responseTime,
+        result.error || null,
+        JSON.stringify(result.actions || [])
+      ]);
+    } catch (error) {
+      logger.error('Failed to store remediation result:', error);
+    }
+  }
+
+  /**
+   * Load historical metrics for training
+   * @private
+   */
+  async _loadHistoricalMetrics(days = 7) {
+    // In production, query from time-series database
+    // For now, fetch from metrics endpoint with time range
+    try {
+      return await this.metricsCollector.fetchHistorical(days);
+    } catch (error) {
+      logger.warn('Failed to load historical metrics:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update response time statistics
+   * @private
+   */
+  _updateResponseTime(responseTime) {
+    this.stats.totalResponseTime += responseTime;
+    const remediationCount = this.stats.remediationsTriggered;
+    this.stats.meanResponseTime = Math.round(
+      this.stats.totalResponseTime / remediationCount
+    );
+  }
+
+  /**
+   * Update Prometheus metrics
+   * @private
+   */
+  async _updatePrometheusMetrics(incidentCount) {
+    // Metrics updated via Prometheus client in server.js
+    // This method provides data for metrics endpoint
+    this.emit('metrics-updated', {
+      incidents_predicted_total: this.stats.incidentsPredicted,
+      remediations_triggered_total: this.stats.remediationsTriggered,
+      remediations_succeeded_total: this.stats.remediationsSucceeded,
+      remediations_failed_total: this.stats.remediationsFailed,
+      mean_response_time_ms: this.stats.meanResponseTime,
+      checks_performed_total: this.stats.checksPerformed,
+      false_positives_total: this.stats.falsePositives,
+      true_positives_total: this.stats.truePositives
+    });
+  }
+
+  /**
+   * Save statistics to database
+   * @private
+   */
+  async _saveStatistics() {
+    try {
+      const uptime = this.stats.startTime ? Date.now() - this.stats.startTime : 0;
+      const successRate = this.stats.remediationsTriggered > 0
+        ? (this.stats.remediationsSucceeded / this.stats.remediationsTriggered) * 100
+        : 0;
+
+      logger.info('AI Ops Agent Statistics:', {
+        ...this.stats,
+        uptime: `${Math.round(uptime / 1000)}s`,
+        successRate: `${successRate.toFixed(2)}%`
+      });
+
+      // Store in database for historical analysis
+      const query = `
+        INSERT INTO ai_ops_statistics (
+          checks_performed, incidents_predicted, remediations_triggered,
+          remediations_succeeded, mean_response_time_ms, success_rate, uptime_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await db.run(query, [
+        this.stats.checksPerformed,
+        this.stats.incidentsPredicted,
+        this.stats.remediationsTriggered,
+        this.stats.remediationsSucceeded,
+        this.stats.meanResponseTime,
+        successRate,
+        uptime
+      ]);
+    } catch (error) {
+      logger.error('Failed to save statistics:', error);
+    }
+  }
+
+  /**
+   * Setup event handlers
+   * @private
+   */
+  _setupEventHandlers() {
+    this.on('error', (error) => {
+      logger.error('AI Ops Agent error:', error);
+    });
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => this.stop());
+    process.on('SIGINT', () => this.stop());
+  }
+
+  /**
+   * Get current statistics
+   */
+  getStatistics() {
+    const uptime = this.stats.startTime ? Date.now() - this.stats.startTime : 0;
+    const successRate = this.stats.remediationsTriggered > 0
+      ? (this.stats.remediationsSucceeded / this.stats.remediationsTriggered) * 100
+      : 0;
+
+    return {
+      ...this.stats,
+      uptime,
+      successRate,
+      isRunning: this.isRunning
+    };
+  }
+
+  /**
+   * Mark prediction as false positive (for learning)
+   */
+  async markFalsePositive(predictionId) {
+    this.stats.falsePositives++;
+    await db.run(
+      'UPDATE ai_anomaly_predictions SET false_positive = 1 WHERE id = ?',
+      [predictionId]
+    );
+    logger.info(`Marked prediction ${predictionId} as false positive`);
+  }
+
+  /**
+   * Mark prediction as true positive (incident occurred)
+   */
+  async markTruePositive(predictionId) {
+    this.stats.truePositives++;
+    await db.run(
+      'UPDATE ai_anomaly_predictions SET confirmed = 1 WHERE id = ?',
+      [predictionId]
+    );
+    logger.info(`Marked prediction ${predictionId} as true positive`);
+  }
+}
+
+module.exports = AIOperationsAgent;

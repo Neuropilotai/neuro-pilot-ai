@@ -1,0 +1,407 @@
+# Grafana Alert Rules for Inventory Enterprise v2.2.0-2025-10-07
+# These rules integrate with Prometheus AlertManager
+# Includes AI Self-Optimization alerts (MAPE feedback loop, autotrain, RL policy)
+
+groups:
+  - name: api_performance
+    interval: 1m
+    rules:
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency detected (p95 > 200ms)"
+          description: "API p95 latency is {{ $value }}s for route {{ $labels.route }}"
+          runbook_url: "https://docs.your-company.com/runbooks/high-api-latency"
+
+      - alert: CriticalAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "CRITICAL: API latency > 500ms"
+          description: "API p95 latency is {{ $value }}s for route {{ $labels.route }}"
+
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High HTTP error rate (>5%)"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+
+  - name: cache_performance
+    interval: 1m
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          sum(rate(cache_hits_total[5m])) /
+          (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m]))) < 0.6
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Cache hit rate below 60%"
+          description: "Current cache hit rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.your-company.com/runbooks/low-cache-hit-rate"
+
+      - alert: CacheDown
+        expr: up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: cache
+        annotations:
+          summary: "Redis cache is down"
+          description: "Redis instance is unreachable"
+
+      - alert: HighCacheMemoryUsage
+        expr: cache_memory_usage_bytes > 1.8e9
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Cache memory usage > 1.8GB"
+          description: "Current cache memory: {{ $value | humanize }}B (90% of 2GB limit)"
+
+  - name: database_performance
+    interval: 1m
+    rules:
+      - alert: HighDatabaseLatency
+        expr: db_latency_seconds > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database latency > 500ms"
+          description: "{{ $labels.db_type }} latency is {{ $value }}s"
+          runbook_url: "https://docs.your-company.com/runbooks/high-db-latency"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connection_pool_active >= db_connection_pool_size * 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database connection pool >90% utilized"
+          description: "{{ $labels.db_type }} using {{ $value }} of {{ $labels.pool_size }} connections"
+
+      - alert: DualWriteErrors
+        expr: increase(db_dual_write_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Dual-write errors detected"
+          description: "{{ $value }} secondary database write failures in 5 minutes"
+
+      - alert: DatabaseDown
+        expr: system_health_status{component=~"database.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database is down"
+          description: "{{ $labels.component }} health check failed"
+
+  - name: ai_models
+    interval: 5m
+    rules:
+      - alert: HighModelMAPE
+        expr: ai_model_accuracy_mape > 20
+        for: 15m
+        labels:
+          severity: warning
+          component: ai
+        annotations:
+          summary: "AI model accuracy degraded (MAPE > 20%)"
+          description: "{{ $labels.model_type }} model for {{ $labels.entity_id }} has MAPE of {{ $value }}%"
+          runbook_url: "https://docs.your-company.com/runbooks/ai-model-accuracy"
+
+      - alert: CriticalModelMAPE
+        expr: ai_model_accuracy_mape > 30
+        for: 10m
+        labels:
+          severity: critical
+          component: ai
+        annotations:
+          summary: "CRITICAL: AI model MAPE > 30%"
+          description: "{{ $labels.model_type }} model for {{ $labels.entity_id }} has MAPE of {{ $value }}%. Model may need retraining."
+
+      - alert: TrainingFailures
+        expr: increase(ai_train_total{status="failed"}[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: ai
+        annotations:
+          summary: "Multiple AI training failures"
+          description: "{{ $value }} training failures in the last hour for {{ $labels.model_type }}"
+
+      - alert: NoActiveModels
+        expr: sum(ai_models_active_total) == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: ai
+        annotations:
+          summary: "No active AI models"
+          description: "No forecasting models are currently active. AI features unavailable."
+
+      - alert: HighAnomalyRate
+        expr: increase(ai_anomalies_detected_total[1h]) > 50
+        for: 10m
+        labels:
+          severity: warning
+          component: ai
+        annotations:
+          summary: "High anomaly detection rate"
+          description: "{{ $value }} anomalies detected in the last hour"
+
+  - name: ai_self_optimization
+    interval: 5m
+    rules:
+      - alert: HighFeedbackMAPE
+        expr: ai_accuracy_mape > 20
+        for: 3h
+        labels:
+          severity: warning
+          component: ai_feedback
+        annotations:
+          summary: "Item forecast accuracy degraded (MAPE > 20%)"
+          description: "Item {{ $labels.item_code }} has sustained MAPE of {{ $value }}% for 3 hours. Autotrain may trigger."
+          runbook_url: "https://docs.your-company.com/runbooks/ai-feedback-mape"
+
+      - alert: CriticalFeedbackMAPE
+        expr: ai_accuracy_mape > 30
+        for: 3h
+        labels:
+          severity: critical
+          component: ai_feedback
+        annotations:
+          summary: "CRITICAL: Item MAPE > 30% sustained"
+          description: "Item {{ $labels.item_code }} has MAPE of {{ $value }}% for 3+ hours. Requires immediate attention."
+
+      - alert: AutotrainFailureSpike
+        expr: increase(ai_retrain_failures_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: autotrainer
+        annotations:
+          summary: "Multiple autotrain failures detected"
+          description: "{{ $value }} autotrain failures in the last hour for trigger {{ $labels.trigger }}"
+          runbook_url: "https://docs.your-company.com/runbooks/autotrain-failures"
+
+      - alert: AutotrainStalled
+        expr: |
+          (time() - max(ai_autotrain_duration_seconds_count) > 86400)
+          and (sum(ai_models_active_total) > 0)
+        for: 1h
+        labels:
+          severity: warning
+          component: autotrainer
+        annotations:
+          summary: "No autotrain activity in 24+ hours"
+          description: "Autotrain system may be stalled. Check scheduler and drift detection."
+
+      - alert: RLPolicyChurnHigh
+        expr: increase(ai_rl_policy_commits_total[24h]) > 10
+        for: 1h
+        labels:
+          severity: warning
+          component: rl_agent
+        annotations:
+          summary: "High RL policy change rate"
+          description: "Item {{ $labels.item_code }} has {{ $value }} policy changes in 24h. Possible instability."
+          runbook_url: "https://docs.your-company.com/runbooks/rl-policy-churn"
+
+      - alert: RLRewardDegraded
+        expr: |
+          (ai_rl_reward_gauge - ai_rl_reward_gauge offset 7d) /
+          abs(ai_rl_reward_gauge offset 7d) < -0.15
+        for: 2h
+        labels:
+          severity: warning
+          component: rl_agent
+        annotations:
+          summary: "RL reward degraded >15% vs last week"
+          description: "Item {{ $labels.item_code }} reward dropped from {{ $value }} (7d ago) to current value"
+
+      - alert: FeedbackIngestionStalled
+        expr: rate(ai_feedback_ingest_total[15m]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          component: feedback_ingestor
+        annotations:
+          summary: "No feedback ingestion activity"
+          description: "Feedback ingestion has stalled for 1+ hour. Check data sources."
+
+      - alert: FeedbackIngestionErrors
+        expr: increase(ai_feedback_ingest_total{status="error"}[15m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: feedback_ingestor
+        annotations:
+          summary: "High feedback ingestion error rate"
+          description: "{{ $value }} ingestion errors in 15 minutes"
+
+  - name: business_metrics
+    interval: 5m
+    rules:
+      - alert: HighReorderRecommendations
+        expr: inventory_reorder_recommendations_total > 50
+        for: 15m
+        labels:
+          severity: warning
+          component: inventory
+        annotations:
+          summary: "High number of reorder recommendations"
+          description: "{{ $value }} items need reordering. Check inventory levels."
+
+      - alert: StockoutEvent
+        expr: increase(inventory_stockouts_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: inventory
+        annotations:
+          summary: "Stockout detected"
+          description: "Item {{ $labels.item_code }} is out of stock"
+
+      - alert: InventoryValueDrop
+        expr: |
+          (inventory_value_total - inventory_value_total offset 1h) /
+          inventory_value_total offset 1h < -0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: inventory
+        annotations:
+          summary: "Inventory value dropped >10%"
+          description: "Total inventory value decreased by {{ $value | humanizePercentage }}"
+
+  - name: security
+    interval: 1m
+    rules:
+      - alert: BruteForceAttack
+        expr: increase(auth_failed_attempts_total[5m]) > 20
+        for: 2m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Possible brute force attack detected"
+          description: "{{ $value }} failed login attempts in 5 minutes"
+          runbook_url: "https://docs.your-company.com/runbooks/security-incident"
+
+      - alert: UnusualAuthActivity
+        expr: rate(auth_attempts_total[5m]) > 10
+        for: 10m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Unusual authentication activity"
+          description: "{{ $value }} auth attempts per second"
+
+  - name: system_health
+    interval: 1m
+    rules:
+      - alert: SystemUnhealthy
+        expr: system_health_status < 1
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "System component unhealthy"
+          description: "{{ $labels.component }} health check failed"
+
+      - alert: BackupFailed
+        expr: backup_last_status == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "Backup failed"
+          description: "Last backup operation failed. Data at risk."
+          runbook_url: "https://docs.your-company.com/runbooks/backup-failure"
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 1.5e9
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage (>1.5GB)"
+          description: "Application memory usage is {{ $value | humanize }}B"
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage (>90%)"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+
+# Alert routing configuration (for AlertManager)
+route:
+  receiver: 'default-receiver'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      continue: true
+    - match:
+        component: security
+      receiver: 'security-team'
+      continue: true
+
+receivers:
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://localhost:9093/webhook'
+
+  - name: 'critical-receiver'
+    email_configs:
+      - to: 'oncall@your-company.com'
+        from: 'alerts@your-company.com'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'alerts@your-company.com'
+        auth_password: '${SMTP_PASSWORD}'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#critical-alerts'
+        title: 'CRITICAL: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  - name: 'security-team'
+    email_configs:
+      - to: 'security@your-company.com'
+        from: 'alerts@your-company.com'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'

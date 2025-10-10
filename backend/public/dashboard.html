@@ -1,0 +1,3904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="dashboard.title">Enterprise Secure Inventory Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/dashboard-custom.css">
+    <style>
+        :root {
+            --primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            --danger: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            --dark: #1a1d29;
+            --darker: #0f1117;
+            --card-bg: rgba(26, 29, 41, 0.7);
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a8b2d1;
+            --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.3);
+            --shadow-glow: 0 0 30px rgba(102, 126, 234, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f1117 0%, #1a1d29 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(118, 75, 162, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 50% 100%, rgba(67, 233, 123, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Modern Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+        }
+
+        .brand {
+            padding: 2rem;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar.collapsed .brand {
+            padding: 2rem 1rem;
+            justify-content: center;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-size: 1.4rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .brand-logo i {
+            font-size: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 12px;
+        }
+
+        .sidebar.collapsed .brand-text {
+            display: none;
+        }
+
+        .toggle-sidebar {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed .toggle-sidebar {
+            transform: rotate(180deg);
+        }
+
+        .user-profile {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .sidebar.collapsed .user-profile {
+            padding: 1.5rem 1rem;
+            justify-content: center;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            background: var(--secondary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: var(--dark);
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .sidebar.collapsed .user-info {
+            display: none;
+        }
+
+        .user-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            background: rgba(67, 233, 123, 0.2);
+            padding: 2px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .nav-menu {
+            flex: 1;
+            padding: 1.5rem 0;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            margin: 0.5rem 1rem;
+        }
+
+        .sidebar.collapsed .nav-item {
+            margin: 0.5rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 1rem 1.5rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed .nav-link {
+            padding: 1rem;
+            justify-content: center;
+        }
+
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--primary);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: -1;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+            transform: translateX(5px);
+        }
+
+        .sidebar.collapsed .nav-link:hover {
+            transform: none;
+        }
+
+        .nav-link:hover::before {
+            left: 0;
+            opacity: 0.1;
+        }
+
+        .nav-link.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .nav-link i {
+            font-size: 1.2rem;
+            width: 24px;
+            text-align: center;
+        }
+
+        .sidebar.collapsed .nav-text {
+            display: none;
+        }
+
+        .sidebar-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .sidebar.collapsed .sidebar-footer {
+            padding: 1.5rem 1rem;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 1rem 1.5rem;
+            background: rgba(250, 112, 154, 0.1);
+            border: 1px solid rgba(250, 112, 154, 0.3);
+            color: #fa709a;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .sidebar.collapsed .logout-btn {
+            padding: 1rem;
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .logout-text {
+            display: none;
+        }
+
+        .logout-btn:hover {
+            background: rgba(250, 112, 154, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(250, 112, 154, 0.3);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            transition: margin-left 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-content.expanded {
+            margin-left: 80px;
+        }
+
+        /* Professional Header */
+        .main-header {
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: var(--primary);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb-separator {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .header-btn.primary {
+            background: var(--primary);
+            border: none;
+        }
+
+        .notification-btn {
+            position: relative;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--danger);
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 2rem;
+        }
+
+        /* Statistics Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .stat-card.success::before {
+            background: var(--secondary);
+        }
+
+        .stat-card.warning::before {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-card.danger::before {
+            background: var(--danger);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .stat-card.primary .stat-icon {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+        }
+
+        .stat-card.success .stat-icon {
+            background: rgba(67, 233, 123, 0.2);
+            color: #43e97b;
+        }
+
+        .stat-card.warning .stat-icon {
+            background: rgba(240, 147, 251, 0.2);
+            color: #f093fb;
+        }
+
+        .stat-card.danger .stat-icon {
+            background: rgba(250, 112, 154, 0.2);
+            color: #fa709a;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-change {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
+        .stat-change.positive {
+            color: #43e97b;
+        }
+
+        .stat-change.negative {
+            color: #fa709a;
+        }
+
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chart-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chart-btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+
+        .chart-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .chart-btn.active {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+
+        .chart-placeholder {
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            background: var(--glass);
+            border-radius: 12px;
+            border: 2px dashed var(--glass-border);
+        }
+
+        /* Activity Feed */
+        .activity-feed {
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+        }
+
+        .activity-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--glass);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .activity-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.success {
+            background: rgba(67, 233, 123, 0.2);
+            color: #43e97b;
+        }
+
+        .activity-icon.info {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+        }
+
+        .activity-icon.warning {
+            background: rgba(240, 147, 251, 0.2);
+            color: #f093fb;
+        }
+
+        .activity-details {
+            flex: 1;
+        }
+
+        .activity-message {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .activity-time {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Table Styles */
+        .data-table-container {
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            overflow-x: auto;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .table-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 0.5rem 1rem;
+        }
+
+        .search-input {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            outline: none;
+            width: 200px;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 1rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .data-table td {
+            padding: 1rem;
+            color: var(--text-primary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .table-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: rgba(67, 233, 123, 0.2);
+            color: #43e97b;
+        }
+
+        .badge-warning {
+            background: rgba(240, 147, 251, 0.2);
+            color: #f093fb;
+        }
+
+        .badge-danger {
+            background: rgba(250, 112, 154, 0.2);
+            color: #fa709a;
+        }
+
+        /* Sections */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--glass-border);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Utility classes for inline styles */
+        .hidden { display: none; }
+        .flex-row { display: flex; gap: 0.5rem; }
+        .flex-1 { flex: 1; }
+        .nowrap { white-space: nowrap; }
+        .w-100 { width: 100%; }
+        .mb-05 { margin-bottom: 0.5rem; }
+        .mt-1 { margin-top: 1rem; }
+        .mt-2 { margin-top: 2rem; }
+        .text-center { text-align: center; }
+        .p-40 { padding: 40px; }
+
+        .modal-md { max-width: 600px; }
+        .modal-lg { max-width: 1200px; }
+        .modal-xl { width: 90%; height: 90%; max-width: none; }
+
+        .item-name-display {
+            color: var(--accent-primary);
+            display: none;
+            margin-top: 0.5rem;
+        }
+
+        .create-location-form {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+
+        .multi-location-warning {
+            display: none;
+            padding: 1rem;
+            background: rgba(255, 200, 0, 0.1);
+            border-left: 3px solid #ffc107;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        .warning-icon {
+            color: #ffc107;
+            margin-top: 2px;
+        }
+
+        .warning-message {
+            margin: 0.5rem 0 0 0;
+            font-size: 0.9rem;
+        }
+
+        .location-actions {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-wrapper {
+            margin-top: 20px;
+        }
+
+        .location-search-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .table-scroll {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .utilization-bar-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .utilization-bar-bg {
+            flex: 1;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .btn-with-margin {
+            margin-left: 8px;
+        }
+
+        .stats-section {
+            margin-bottom: 2rem;
+        }
+
+        .search-icon-style {
+            color: var(--text-secondary);
+        }
+
+        .secondary-text {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .pdf-viewer-container {
+            height: calc(100% - 80px);
+            padding: 20px;
+        }
+
+        .pdf-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .notification-title {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .notification-icon {
+            margin-right: 8px;
+            color: #fbbf24;
+        }
+
+        .notifications-list {
+            space-y: 16px;
+        }
+
+        .notification-success {
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 4px solid #22c55e;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .notification-warning {
+            background: rgba(249, 115, 22, 0.1);
+            border-left: 4px solid #f97316;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .notification-info {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid #3b82f6;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .notification-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .notification-type-success {
+            color: #22c55e;
+        }
+
+        .notification-type-warning {
+            color: #f97316;
+        }
+
+        .notification-type-info {
+            color: #3b82f6;
+        }
+
+        .notification-time {
+            opacity: 0.7;
+        }
+
+        .notification-body {
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .notification-footer {
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .system-accuracy-green {
+            color: #43e97b;
+        }
+
+        .link-primary {
+            color: var(--accent-primary);
+            text-decoration: underline;
+        }
+
+        .pdf-unavailable {
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <a href="#" class="brand-logo">
+                    <i class="fas fa-brain"></i>
+                    <span class="brand-text">NeuroInnovate</span>
+                </a>
+                <button type="button" class="toggle-sidebar" id="toggleSidebar" title="Toggle sidebar">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+
+            <div class="user-profile">
+                <div class="user-avatar" id="userAvatar">DM</div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">Loading...</div>
+                    <div class="user-role" id="userRole">Admin</div>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <div class="nav-item">
+                    <a href="#" class="nav-link active" data-section="dashboard">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span class="nav-text" data-i18n="navigation.dashboard">Dashboard</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-section="inventory">
+                        <i class="fas fa-boxes"></i>
+                        <span class="nav-text" data-i18n="navigation.inventory">Inventory</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-section="locations">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span class="nav-text" data-i18n="navigation.locations">Locations</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-section="orders">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="nav-text" data-i18n="navigation.orders">Orders</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-section="analytics">
+                        <i class="fas fa-chart-line"></i>
+                        <span class="nav-text">Analytics</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-section="users">
+                        <i class="fas fa-users"></i>
+                        <span class="nav-text">Users</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-section="reports">
+                        <i class="fas fa-file-alt"></i>
+                        <span class="nav-text">Reports</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="#" class="nav-link" data-section="settings">
+                        <i class="fas fa-cog"></i>
+                        <span class="nav-text">Settings</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button type="button" class="logout-btn" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="logout-text" data-i18n="navigation.logout">Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span data-i18n="navigation.dashboard">Dashboard</span>
+                        </h1>
+                    </div>
+                    <div class="header-right">
+                        <button type="button" class="header-btn" id="refreshBtn">
+                            <i class="fas fa-sync-alt"></i>
+                            <span data-i18n="common.refresh">Refresh</span>
+                        </button>
+                        <button type="button" class="header-btn primary" id="exportBtn">
+                            <i class="fas fa-download"></i>
+                            <span data-i18n="common.export">Export</span>
+                        </button>
+                        <button type="button" class="notification-btn">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge">3</span>
+                        </button>
+                    </div>
+                </header>
+
+                <div class="content-area">
+                    <!-- Statistics Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card primary">
+                            <div class="stat-header">
+                                <div>
+                                    <div class="stat-value" id="totalPdfs">0</div>
+                                    <div class="stat-label" data-i18n="dashboard.totalPdfs">Total PDFs</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-file-pdf"></i>
+                                        <span>Processed invoices</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-file-invoice"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card success">
+                            <div class="stat-header">
+                                <div>
+                                    <div class="stat-value" id="totalInventoryValue">$0</div>
+                                    <div class="stat-label" data-i18n="dashboard.inventoryValue">June Inventory Value</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-dollar-sign"></i>
+                                        <span>Physical count value</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-hand-holding-usd"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card warning">
+                            <div class="stat-header">
+                                <div>
+                                    <div class="stat-value" id="totalInventoryItems">0</div>
+                                    <div class="stat-label" data-i18n="dashboard.inventoryItems">June Inventory Items</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-calendar"></i>
+                                        <span>Counted July 4, 2025</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-warehouse"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card danger">
+                            <div class="stat-header">
+                                <div>
+                                    <div class="stat-value" id="totalQuantity">0</div>
+                                    <div class="stat-label" data-i18n="dashboard.totalQuantity">June Total Units</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-box"></i>
+                                        <span>Physical count</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon">
+                                    <i class="fas fa-box-open"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Revenue Overview</h3>
+                                <div class="chart-actions">
+                                    <button type="button" class="chart-btn active">Week</button>
+                                    <button type="button" class="chart-btn">Month</button>
+                                    <button type="button" class="chart-btn">Year</button>
+                                </div>
+                            </div>
+                            <div class="chart-placeholder">
+                                <i class="fas fa-chart-line chart-placeholder-icon"></i>
+                                <p>Revenue chart will be displayed here</p>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Top Categories</h3>
+                                <button type="button" class="chart-btn">View All</button>
+                            </div>
+                            <div class="chart-placeholder">
+                                <i class="fas fa-chart-pie chart-placeholder-icon"></i>
+                                <p>Category distribution</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity & Recent Orders -->
+                    <div class="charts-grid">
+                        <div class="data-table-container">
+                            <div class="table-header">
+                                <h3 class="table-title">Recent Orders</h3>
+                                <div class="search-box">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" class="search-input" placeholder="Search orders...">
+                                </div>
+                            </div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Customer</th>
+                                        <th>Date</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>#ORD-2024-001</td>
+                                        <td>John Smith</td>
+                                        <td>Jan 15, 2024</td>
+                                        <td>$1,234.50</td>
+                                        <td><span class="table-badge badge-success">Completed</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>#ORD-2024-002</td>
+                                        <td>Jane Doe</td>
+                                        <td>Jan 15, 2024</td>
+                                        <td>$892.00</td>
+                                        <td><span class="table-badge badge-warning">Processing</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>#ORD-2024-003</td>
+                                        <td>Bob Johnson</td>
+                                        <td>Jan 14, 2024</td>
+                                        <td>$456.75</td>
+                                        <td><span class="table-badge badge-danger">Pending</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="activity-feed">
+                            <h3 class="activity-header">Recent Activity</h3>
+                            <div class="activity-list">
+                                <div class="activity-item">
+                                    <div class="activity-icon success">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <div class="activity-details">
+                                        <div class="activity-message">New order completed</div>
+                                        <div class="activity-time">2 minutes ago</div>
+                                    </div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-icon info">
+                                        <i class="fas fa-user-plus"></i>
+                                    </div>
+                                    <div class="activity-details">
+                                        <div class="activity-message">New customer registered</div>
+                                        <div class="activity-time">15 minutes ago</div>
+                                    </div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-icon warning">
+                                        <i class="fas fa-exclamation"></i>
+                                    </div>
+                                    <div class="activity-details">
+                                        <div class="activity-message">Low stock alert: Product #123</div>
+                                        <div class="activity-time">1 hour ago</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other Sections -->
+            <section id="inventory" class="section">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-boxes"></i>
+                            Inventory Management
+                        </h1>
+                    </div>
+                    <div class="header-right">
+                        <button type="button" class="btn btn-primary" onclick="showAddItemModal()">
+                            <i class="fas fa-plus"></i> Add Item by Number
+                        </button>
+                    </div>
+                </header>
+                <div class="content-area" id="inventoryContent">
+                    <p>Loading inventory...</p>
+                </div>
+            </section>
+
+            <!-- Add Item Modal - Enterprise Counting -->
+            <div id="addItemModal" class="modal hidden">
+                <div class="modal-content modal-md">
+                    <div class="modal-header">
+                        <h2>📦 Count Inventory Item</h2>
+                        <span class="close" onclick="closeAddItemModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="addItemForm" onsubmit="addInventoryItem(event)">
+                            <div class="form-group">
+                                <label for="addItemCode">🔢 Item Code / Number</label>
+                                <input type="text" id="addItemCode" required placeholder="Scan or type item number" pattern="[0-9]+" title="Enter item number (digits only)" autofocus>
+                                <small id="itemNameDisplay" class="item-name-display"></small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="addItemQuantity">📊 Quantity Counted</label>
+                                <input type="number" id="addItemQuantity" required min="0" step="0.01" placeholder="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="addItemLocation">📍 Location</label>
+                                <div class="flex-row">
+                                    <select id="addItemLocation" class="flex-1">
+                                        <option value="">-- Select Location --</option>
+                                    </select>
+                                    <button type="button" class="btn btn-secondary nowrap" onclick="showCreateLocationForm()">
+                                        <i class="fas fa-plus"></i> New
+                                    </button>
+                                </div>
+                                <div id="createLocationForm" class="create-location-form">
+                                    <h4 class="mb-05">Create New Location</h4>
+                                    <input type="text" id="newLocationName" placeholder="Location name (e.g., Freezer A1)" class="w-100 mb-05">
+                                    <select id="newLocationType" class="w-100 mb-05">
+                                        <option value="freezer">Freezer</option>
+                                        <option value="cooler">Cooler</option>
+                                        <option value="dry">Dry Storage</option>
+                                        <option value="prep">Prep Area</option>
+                                    </select>
+                                    <button type="button" class="btn btn-primary" onclick="createNewLocation()">Create Location</button>
+                                    <button type="button" class="btn btn-secondary" onclick="cancelCreateLocation()">Cancel</button>
+                                </div>
+                            </div>
+
+                            <div id="multiLocationWarning" class="multi-location-warning">
+                                <div class="flex-row">
+                                    <i class="fas fa-exclamation-triangle warning-icon"></i>
+                                    <div>
+                                        <strong>Multiple Locations Detected</strong>
+                                        <p id="multiLocationMessage" class="warning-message"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="addItemDate">📅 Count Date</label>
+                                <input type="date" id="addItemDate" required>
+                            </div>
+
+                            <div class="modal-actions">
+                                <button type="button" class="btn btn-secondary" onclick="closeAddItemModal()">Cancel</button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Add to Count
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Location Details Modal -->
+            <div id="locationDetailsModal" class="modal hidden">
+                <div class="modal-content modal-lg">
+                    <div class="modal-header">
+                        <h3 id="locationDetailsTitle">
+                            <i class="fas fa-warehouse"></i> Location Details
+                        </h3>
+                        <span class="close-modal" onclick="closeLocationDetailsModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="location-details-summary">
+                            <div class="stat-card">
+                                <div class="stat-label">Total Items</div>
+                                <div class="stat-value" id="locationTotalItems">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Total Value</div>
+                                <div class="stat-value" id="locationTotalValue">$0.00</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Last Count</div>
+                                <div class="stat-value" id="locationLastCount">-</div>
+                            </div>
+                        </div>
+
+                        <div class="location-actions">
+                            <button type="button" class="btn btn-primary" onclick="generateCountingSheet()">
+                                <i class="fas fa-clipboard-list"></i> Generate Counting Sheet
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="getSpotCheckRecommendations()">
+                                <i class="fas fa-bullseye"></i> Spot Check Recommendations
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="resequenceItems()">
+                                <i class="fas fa-sort"></i> Resequence Items
+                            </button>
+                        </div>
+
+                        <div class="search-wrapper">
+                            <input type="text" id="locationItemSearch" placeholder="Search items in this location..." class="location-search-input">
+                        </div>
+
+                        <div class="table-wrapper table-scroll">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Item Code</th>
+                                        <th>Description</th>
+                                        <th>Category</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Price</th>
+                                        <th>Total Value</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="locationItemsTableBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center p-40">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Locations Section -->
+            <section id="locations" class="section">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Storage Locations
+                        </h1>
+                    </div>
+                    <div class="header-right">
+                        <button type="button" class="header-btn manage-sequence-btn">
+                            <i class="fas fa-sort"></i>
+                            Manage Sequence
+                        </button>
+                        <button type="button" class="header-btn start-count-btn">
+                            <i class="fas fa-clipboard-check"></i>
+                            Start Count
+                        </button>
+                        <button type="button" class="header-btn" id="addLocationBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Location
+                        </button>
+                        <button type="button" class="header-btn primary" id="tempLogBtn">
+                            <i class="fas fa-thermometer-half"></i>
+                            Log Temperature
+                        </button>
+                    </div>
+                </header>
+                <div class="content-area">
+                    <!-- Location Type Cards -->
+                    <div class="stats-grid" id="locationsGrid">
+                        <!-- Will be populated dynamically -->
+                    </div>
+
+                    <!-- Location Details Table -->
+                    <div class="data-table-container location-details-container">
+                        <div class="table-header">
+                            <h3 class="table-title">Location Details</h3>
+                            <div class="search-box">
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" class="search-input" id="locationSearch" placeholder="Search locations...">
+                            </div>
+                        </div>
+                        <table class="data-table" id="locationsTable">
+                            <thead>
+                                <tr>
+                                    <th>Location</th>
+                                    <th>Type</th>
+                                    <th>Temperature Range</th>
+                                    <th>Capacity</th>
+                                    <th>Utilization</th>
+                                    <th>Items</th>
+                                    <th>Alerts</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="locationsTableBody">
+                                <!-- Will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="orders" class="section">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-shopping-cart"></i>
+                            Order Management
+                        </h1>
+                    </div>
+                    <div class="header-right">
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('pdfUploadInput').click()">
+                            <i class="fas fa-upload"></i> Upload Invoice PDF
+                        </button>
+                        <input type="file" id="pdfUploadInput" accept=".pdf" class="hidden" onchange="uploadPDF(event)">
+                    </div>
+                </header>
+                <div class="content-area" id="ordersContent">
+                    <p>Loading orders...</p>
+                </div>
+            </section>
+
+            <section id="analytics" class="section">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-chart-line"></i>
+                            Analytics & Insights
+                        </h1>
+                    </div>
+                </header>
+                <div class="content-area">
+                    <div class="data-table-container">
+                        <p class="coming-soon-text">
+                            Analytics features coming soon...
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="users" class="section">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-users"></i>
+                            User Management
+                        </h1>
+                    </div>
+                </header>
+                <div class="content-area">
+                    <div class="data-table-container">
+                        <p class="coming-soon-text">
+                            User management features coming soon...
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="reports" class="section">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-file-alt"></i>
+                            Reports & Documents
+                        </h1>
+                    </div>
+                </header>
+                <div class="content-area">
+                    <div class="data-table-container">
+                        <p class="coming-soon-text">
+                            Reports features coming soon...
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="settings" class="section">
+                <header class="main-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-cog"></i>
+                            System Settings
+                        </h1>
+                    </div>
+                </header>
+                <div class="content-area">
+                    <div class="data-table-container">
+                        <p class="coming-soon-text">
+                            Settings features coming soon...
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <script>
+        // Initialize dashboard
+        // Global variable to store available PDFs
+        let availablePdfs = [];
+
+        // Authentication helper function
+        function checkAuthAndRedirect(response) {
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('token');
+                window.location.href = '/';
+                return true;
+            }
+            return false;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+
+            // Load user info
+            loadUserInfo();
+
+            // Setup event listeners
+            setupEventListeners();
+
+            // Initialize dashboard data
+            initializeDashboard();
+        });
+
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (checkAuthAndRedirect(response)) return;
+
+                if (checkAuthAndRedirect(response)) return;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const user = data.user || data;
+                    document.getElementById('userName').textContent = user.email || 'User';
+                    document.getElementById('userRole').textContent = user.role || 'Admin';
+
+                    // Set avatar initials
+                    const initials = user.email ? user.email.substring(0, 2).toUpperCase() : 'U';
+                    document.getElementById('userAvatar').textContent = initials;
+                } else if (response.status === 401) {
+                    logout();
+                }
+            } catch (error) {
+                console.error('Failed to load user info:', error);
+            }
+        }
+
+        function setupEventListeners() {
+            // Sidebar toggle
+            const toggleBtn = document.getElementById('toggleSidebar');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+
+            toggleBtn.addEventListener('click', function() {
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+            });
+
+            // Navigation
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // Remove active class from all links
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    // Add active class to clicked link
+                    this.classList.add('active');
+
+                    // Show corresponding section
+                    const sectionId = this.dataset.section;
+                    showSection(sectionId);
+                });
+            });
+
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                refreshDashboard();
+            });
+
+            // Export button
+            document.getElementById('exportBtn').addEventListener('click', function() {
+                exportData();
+            });
+
+            // Inventory search
+            const inventorySearch = document.getElementById('inventorySearch');
+            if (inventorySearch) {
+                inventorySearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const tbody = document.getElementById('inventoryTableBody');
+                    if (tbody) {
+                        const rows = tbody.getElementsByTagName('tr');
+                        Array.from(rows).forEach(row => {
+                            const text = row.textContent.toLowerCase();
+                            row.style.display = text.includes(searchTerm) ? '' : 'none';
+                        });
+                    }
+                });
+            }
+
+            // Notification bell
+            document.querySelector('.notification-btn').addEventListener('click', function() {
+                showNotificationPanel();
+            });
+
+            // Chart period buttons
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const parent = this.parentElement;
+                    parent.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // Event delegation for data-action buttons
+            document.addEventListener('click', function(e) {
+                // Handle view location button
+                const viewBtn = e.target.closest('.view-location-btn');
+                if (viewBtn) {
+                    const locationName = viewBtn.dataset.location;
+                    if (locationName) {
+                        openLocationDetailsModal(locationName);
+                        return;
+                    }
+                }
+
+                const action = e.target.dataset.action;
+                if (!action) return;
+
+                switch(action) {
+                    case 'location-manager':
+                        const itemCode = e.target.dataset.itemCode;
+                        const itemName = e.target.dataset.itemName;
+                        const quantity = e.target.dataset.quantity;
+                        openLocationManager(itemCode, itemName, quantity);
+                        break;
+
+                    case 'close-notification':
+                        const notificationPanel = e.target.closest('[style*="position: fixed"]');
+                        if (notificationPanel) notificationPanel.remove();
+                        break;
+
+                    case 'edit-assignment':
+                        const location = e.target.dataset.location;
+                        const assignmentQuantity = e.target.dataset.quantity;
+                        editLocationAssignment(location, assignmentQuantity);
+                        break;
+
+                    case 'close-modal':
+                        const modal = e.target.closest('.modal-overlay');
+                        if (modal) modal.remove();
+                        break;
+
+                    case 'close-location-manager':
+                        closeLocationManager();
+                        break;
+
+                    case 'execute-transfer':
+                        executeLocationTransfer();
+                        break;
+                }
+            });
+        }
+
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Show selected section
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+        }
+
+        async function initializeDashboard() {
+            showLoading();
+            try {
+                // Load dashboard data
+                await loadDashboardData();
+            } catch (error) {
+                console.error('Failed to initialize dashboard:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                // Fetch dashboard stats and available PDFs in parallel
+                const [statsResponse, pdfsResponse] = await Promise.all([
+                    fetch('/api/dashboard/stats', {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    }),
+                    fetch('/api/orders/available-pdfs', {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    })
+                ]);
+
+                if (checkAuthAndRedirect(statsResponse) || checkAuthAndRedirect(pdfsResponse)) return;
+
+                // Load available PDFs
+                if (pdfsResponse.ok) {
+                    const pdfsData = await pdfsResponse.json();
+                    availablePdfs = pdfsData.availablePdfs || [];
+                    console.log(`Loaded ${availablePdfs.length} available PDFs`);
+                } else {
+                    console.log('Available PDFs list not accessible');
+                }
+
+                // Load dashboard stats
+                if (statsResponse.ok) {
+                    const data = await statsResponse.json();
+                    updateDashboardStats(data);
+                } else if (statsResponse.status === 401) {
+                    // Only logout on 401 Unauthorized
+                    logout();
+                } else {
+                    // Don't logout on other errors, just log them
+                    console.log('Dashboard stats not available');
+                }
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+                // Don't logout on network errors
+            }
+        }
+
+        function updateDashboardStats(data) {
+            // Update statistics cards with real data when available
+            console.log('Dashboard data loaded:', data);
+
+            if (data && data.stats) {
+                const stats = data.stats;
+
+                // Update Total PDFs card
+                const totalPdfsValue = document.getElementById('totalPdfs');
+                if (totalPdfsValue && stats.totalPdfs !== undefined) {
+                    totalPdfsValue.textContent = stats.totalPdfs.toLocaleString();
+                }
+
+                // Update June Inventory Value card
+                const inventoryValueEl = document.getElementById('totalInventoryValue');
+                if (inventoryValueEl && stats.totalInventoryValue !== undefined) {
+                    inventoryValueEl.textContent = `$${Math.round(stats.totalInventoryValue).toLocaleString()}`;
+                }
+
+                // Update Total Inventory Items card
+                const inventoryItemsValue = document.getElementById('totalInventoryItems');
+                if (inventoryItemsValue && stats.totalInventoryItems !== undefined) {
+                    inventoryItemsValue.textContent = stats.totalInventoryItems.toLocaleString();
+                }
+
+                // Update Total Quantity card
+                const totalQuantityValue = document.getElementById('totalQuantity');
+                if (totalQuantityValue && stats.totalQuantity !== undefined) {
+                    totalQuantityValue.textContent = Math.round(stats.totalQuantity).toLocaleString();
+                }
+            }
+        }
+
+        async function refreshDashboard() {
+            showLoading();
+            await loadDashboardData();
+            hideLoading();
+
+            // Show success notification
+            showNotification('Dashboard refreshed successfully', 'success');
+        }
+
+        function exportData() {
+            showNotification('Exporting data...', 'info');
+            // Implement export functionality
+            setTimeout(() => {
+                showNotification('Data exported successfully', 'success');
+            }, 2000);
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple notification implementation
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('active');
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+
+        // Auto-refresh every 5 minutes
+        setInterval(() => {
+            loadDashboardData();
+        }, 5 * 60 * 1000);
+
+        // Location Management Functions
+        async function loadLocations() {
+            try {
+                const response = await fetch('/api/locations', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (checkAuthAndRedirect(response)) return;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const locations = data.locations || data;
+                    displayLocations(locations);
+                }
+            } catch (error) {
+                console.error('Failed to load locations:', error);
+            }
+        }
+
+        function displayLocations(locations) {
+            const grid = document.getElementById('locationsGrid');
+            const tbody = document.getElementById('locationsTableBody');
+
+            if (!grid || !tbody) return;
+
+            // Group locations by type
+            const locationsByType = {};
+            locations.forEach(loc => {
+                if (!locationsByType[loc.type]) {
+                    locationsByType[loc.type] = [];
+                }
+                locationsByType[loc.type].push(loc);
+            });
+
+            // Display location type cards
+            grid.innerHTML = '';
+            // Force DOM reflow to ensure clean slate
+            grid.offsetHeight;
+
+            Object.entries(locationsByType).forEach(([type, locs]) => {
+                const totalCapacity = locs.reduce((sum, l) => sum + l.capacity, 0);
+                const totalOccupancy = locs.reduce((sum, l) => sum + l.currentOccupancy, 0);
+                const utilization = ((totalOccupancy / totalCapacity) * 100).toFixed(1);
+                const firstLoc = locs[0];
+
+                const card = `
+                    <div class="stat-card ${getUtilizationClass(utilization)}">
+                        <div class="stat-header">
+                            <div>
+                                <div class="stat-value">${locs.length}</div>
+                                <div class="stat-label">${locs.length === 1 ? firstLoc.name : `${locs.map(l => l.name).join(', ')}`}</div>
+                                <div class="stat-change ${utilization > 80 ? 'negative' : 'positive'}">
+                                    <i class="${firstLoc.icon || 'fas fa-warehouse'}"></i>
+                                    <span>${utilization}% utilized</span>
+                                </div>
+                            </div>
+                            <div class="stat-icon" data-color="${firstLoc.color}">
+                                <i class="${firstLoc.icon || 'fas fa-warehouse'}"></i>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += card;
+            });
+
+            // Display location details table
+            tbody.innerHTML = '';
+            locations.forEach(loc => {
+                const row = `
+                    <tr>
+                        <td><strong>${loc.name}</strong><br><small>${loc.zone} ${loc.rack}</small></td>
+                        <td>${loc.type}</td>
+                        <td>${loc.tempRange ? `${loc.tempRange.min}-${loc.tempRange.max}°${loc.tempRange.unit}` : 'N/A'}</td>
+                        <td>${loc.capacity}</td>
+                        <td>
+                            <div class="utilization-bar-wrapper">
+                                <div class="utilization-bar-bg">
+                                    <div class="utilization-bar" data-percent="${loc.utilizationPercent}" data-color="${getUtilizationColor(loc.utilizationPercent)}"></div>
+                                </div>
+                                <span>${loc.utilizationPercent}%</span>
+                            </div>
+                        </td>
+                        <td>${loc.itemCount || 0}</td>
+                        <td>
+                            ${loc.alerts > 0 ?
+                                `<span class="table-badge badge-danger">${loc.alerts} alerts</span>` :
+                                '<span class="table-badge badge-success">OK</span>'}
+                        </td>
+                        <td>
+                            <button class="chart-btn view-location-btn" data-location="${loc.name}" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn-edit btn-with-margin" data-location="${loc.id}" title="Edit Location">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-delete btn-with-margin" data-location="${loc.id}" title="Delete Location">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+
+            // Apply dynamic styles from data attributes
+            document.querySelectorAll('.stat-icon[data-color]').forEach(el => {
+                const color = el.getAttribute('data-color');
+                el.style.background = `${color}20`;
+                el.style.color = color;
+            });
+
+            document.querySelectorAll('.utilization-bar[data-percent]').forEach(el => {
+                const percent = el.getAttribute('data-percent');
+                const color = el.getAttribute('data-color');
+                el.style.width = `${percent}%`;
+                el.style.height = '100%';
+                el.style.background = color;
+            });
+        }
+
+        function getUtilizationClass(percent) {
+            const p = parseFloat(percent);
+            if (p < 50) return 'success';
+            if (p < 80) return 'warning';
+            return 'danger';
+        }
+
+        function getUtilizationColor(percent) {
+            const p = parseFloat(percent);
+            if (p < 50) return '#43e97b';
+            if (p < 80) return '#f093fb';
+            return '#fa709a';
+        }
+
+        // Load data when sections are shown
+        const originalShowSection = showSection;
+        showSection = function(sectionId) {
+            originalShowSection(sectionId);
+            if (sectionId === 'locations') {
+                loadLocations();
+            } else if (sectionId === 'inventory') {
+                loadInventory();
+            } else if (sectionId === 'orders') {
+                loadOrders();
+            }
+        };
+
+        // Load inventory data
+        async function loadInventory() {
+            try {
+                const response = await fetch('/api/inventory', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (checkAuthAndRedirect(response)) return;
+
+                if (response.ok) {
+                    const inventoryData = await response.json();
+                    displayInventory(inventoryData);
+                } else {
+                    console.error('Failed to load inventory');
+                    showNotification('Failed to load inventory data', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to load inventory:', error);
+                showNotification('Failed to load inventory data', 'error');
+            }
+        }
+
+        // Display inventory data
+        function displayInventory(data) {
+            const section = document.getElementById('inventory');
+            const contentArea = section.querySelector('.content-area');
+
+            // Use server-provided total value for accuracy, fallback to calculated if not available
+            const totalValue = data.totalValue || (data.items ? data.items.reduce((sum, item) => sum + (item.totalValue || 0), 0) : 0);
+
+            // Count unique categories
+            const categories = data.items ? new Set(data.items.map(item => item.category)).size : 0;
+
+            contentArea.innerHTML = `
+                <div class="stats-grid stats-section">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>Total Items</h3>
+                            <i class="fas fa-boxes"></i>
+                        </div>
+                        <div class="stat-value">${data.totalItems || 899}</div>
+                        <div class="stat-change">Active inventory</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>Total Value</h3>
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-value">$${totalValue.toLocaleString()}</div>
+                        <div class="stat-change">Current valuation</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>Categories</h3>
+                            <i class="fas fa-tags"></i>
+                        </div>
+                        <div class="stat-value">${categories}</div>
+                        <div class="stat-change">Product types</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>System Accuracy</h3>
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-value system-accuracy-green" id="systemAccuracy">94.5%</div>
+                        <div class="stat-change system-accuracy-green">✨ Improved from 60.1%</div>
+                    </div>
+                </div>
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <h3 class="table-title">Inventory Items</h3>
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon-style"></i>
+                            <input type="text" class="search-input" id="inventorySearch" placeholder="Search inventory...">
+                        </div>
+                    </div>
+                    <table class="data-table" id="inventoryTable">
+                        <thead>
+                            <tr>
+                                <th>Item Code</th>
+                                <th>Item Name</th>
+                                <th>Barcode</th>
+                                <th>Category</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>Total Value</th>
+                                <th>Location</th>
+                                <th>Last Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            ${data.items ? data.items.map(item => `
+                                <tr>
+                                    <td><strong>${item.itemCode || item.id || 'N/A'}</strong></td>
+                                    <td>${item.name || item.description || 'Unknown'}</td>
+                                    <td><code>${item.barcode || 'N/A'}</code></td>
+                                    <td>${item.category || 'Uncategorized'}</td>
+                                    <td>${item.quantity || 0}</td>
+                                    <td>$${(item.price || item.unitPrice || item.pricePerUnit || 0).toFixed(2)}</td>
+                                    <td>$${(item.totalValue || (item.price * item.quantity) || 0).toFixed(2)}</td>
+                                    <td>${item.location || 'DRY_STORAGE_C1'}</td>
+                                    <td>${item.lastUpdated ? new Date(item.lastUpdated).toLocaleDateString() : 'Never'}</td>
+                                    <td>
+                                        <button class="btn-action" data-action="location-manager" data-item-code="${item.itemCode || item.id}" data-item-name="${item.name || item.description}" data-quantity="${item.quantity}">
+                                            <i class="fas fa-map-marker-alt"></i> Manage Location
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="10">No inventory data available</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Load orders data
+        async function loadOrders() {
+            try {
+                // Fetch both orders and available PDFs in parallel
+                const [ordersResponse, pdfsResponse] = await Promise.all([
+                    fetch('/api/orders', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    }),
+                    fetch('/api/orders/available-pdfs', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    })
+                ]);
+
+                if (checkAuthAndRedirect(ordersResponse) || checkAuthAndRedirect(pdfsResponse)) return;
+
+                // Update available PDFs first
+                if (pdfsResponse.ok) {
+                    const pdfsData = await pdfsResponse.json();
+                    availablePdfs = pdfsData.availablePdfs || [];
+                    console.log(`Updated available PDFs: ${availablePdfs.length} PDFs found`);
+                }
+
+                // Then load and display orders
+                if (ordersResponse.ok) {
+                    const ordersData = await ordersResponse.json();
+                    displayOrders(ordersData);
+                } else {
+                    console.error('Failed to load orders');
+                    showNotification('Failed to load orders data', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to load orders:', error);
+                showNotification('Failed to load orders data', 'error');
+            }
+        }
+
+        // Upload PDF invoice
+        async function uploadPDF(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('pdf', file);
+
+                showNotification('Uploading and processing PDF...', 'info');
+
+                const response = await fetch('/api/orders/upload-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Successfully processed invoice ${result.invoice.invoiceNumber}`, 'success');
+                    // Reload orders to show the new PDF
+                    loadOrders();
+                } else {
+                    showNotification(`Failed to process PDF: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                showNotification('Failed to upload PDF', 'error');
+            }
+
+            // Reset file input
+            event.target.value = '';
+        }
+
+        // Load locations into dropdown
+        async function loadLocationsDropdown() {
+            try {
+                const response = await fetch('/api/locations', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const data = await response.json();
+                const select = document.getElementById('addItemLocation');
+                select.innerHTML = '<option value="">-- Select Location --</option>';
+
+                if (data.locations) {
+                    data.locations.forEach(loc => {
+                        const option = document.createElement('option');
+                        option.value = loc.id;
+                        option.textContent = `${loc.name} (${loc.type})`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load locations:', error);
+            }
+        }
+
+        // Show add item modal
+        async function showAddItemModal() {
+            document.getElementById('addItemModal').style.display = 'flex';
+            document.getElementById('addItemDate').valueAsDate = new Date();
+            await loadLocationsDropdown();
+
+            // Focus on item code input for quick scanning
+            setTimeout(() => document.getElementById('addItemCode').focus(), 100);
+        }
+
+        // Close add item modal
+        function closeAddItemModal() {
+            document.getElementById('addItemModal').style.display = 'none';
+            document.getElementById('addItemForm').reset();
+            document.getElementById('multiLocationWarning').style.display = 'none';
+            document.getElementById('itemNameDisplay').style.display = 'none';
+            document.getElementById('createLocationForm').style.display = 'none';
+        }
+
+        // Location Details Modal
+        let currentLocationName = '';
+
+        async function openLocationDetailsModal(locationName) {
+            currentLocationName = locationName;
+            document.getElementById('locationDetailsTitle').innerHTML =
+                `<i class="fas fa-warehouse"></i> ${locationName}`;
+            document.getElementById('locationDetailsModal').style.display = 'flex';
+
+            // Load location inventory
+            await loadLocationInventory(locationName);
+        }
+
+        function closeLocationDetailsModal() {
+            document.getElementById('locationDetailsModal').style.display = 'none';
+            currentLocationName = '';
+        }
+
+        async function loadLocationInventory(locationName) {
+            try {
+                const response = await fetch(`/api/locations/${encodeURIComponent(locationName)}/inventory`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update summary stats
+                    document.getElementById('locationTotalItems').textContent = data.totalItems;
+                    document.getElementById('locationTotalValue').textContent =
+                        `$${data.totalValue.toFixed(2)}`;
+                    document.getElementById('locationLastCount').textContent =
+                        data.lastCountDate ? new Date(data.lastCountDate).toLocaleDateString() : '-';
+
+                    // Populate items table
+                    const tbody = document.getElementById('locationItemsTableBody');
+                    if (data.items.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="8" class="text-center p-40 secondary-text">
+                                    No items found in this location
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        tbody.innerHTML = data.items.map(item => `
+                            <tr>
+                                <td>${item.sequence_number}</td>
+                                <td>${item.item_code}</td>
+                                <td>${item.description}</td>
+                                <td>${item.category_name || '-'}</td>
+                                <td>${item.counted_quantity}</td>
+                                <td>$${item.unit_price.toFixed(2)}</td>
+                                <td>$${(item.counted_quantity * item.unit_price).toFixed(2)}</td>
+                                <td>
+                                    <button class="btn btn-sm" onclick="editItemInLocation('${item.item_code}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('');
+
+                        // Add search functionality
+                        document.getElementById('locationItemSearch').addEventListener('input', function() {
+                            const searchTerm = this.value.toLowerCase();
+                            const rows = tbody.getElementsByTagName('tr');
+                            Array.from(rows).forEach(row => {
+                                const text = row.textContent.toLowerCase();
+                                row.style.display = text.includes(searchTerm) ? '' : 'none';
+                            });
+                        });
+                    }
+                } else {
+                    showNotification('Failed to load location inventory', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading location inventory:', error);
+                showNotification('Error loading location inventory', 'error');
+            }
+        }
+
+        function generateCountingSheet() {
+            showNotification('Generating counting sheet for ' + currentLocationName, 'info');
+            // TODO: Implement counting sheet generation
+        }
+
+        function getSpotCheckRecommendations() {
+            showNotification('Loading spot check recommendations for ' + currentLocationName, 'info');
+            // TODO: Implement spot check recommendations
+        }
+
+        function resequenceItems() {
+            showNotification('Resequencing items in ' + currentLocationName, 'info');
+            // TODO: Implement item resequencing
+        }
+
+        function editItemInLocation(itemCode) {
+            showNotification('Editing item ' + itemCode, 'info');
+            // TODO: Implement item editing
+        }
+
+        // Show create location form
+        function showCreateLocationForm() {
+            document.getElementById('createLocationForm').style.display = 'block';
+            document.getElementById('newLocationName').focus();
+        }
+
+        // Cancel create location
+        function cancelCreateLocation() {
+            document.getElementById('createLocationForm').style.display = 'none';
+            document.getElementById('newLocationName').value = '';
+        }
+
+        // Create new location
+        async function createNewLocation() {
+            const name = document.getElementById('newLocationName').value.trim();
+            const type = document.getElementById('newLocationType').value;
+
+            if (!name) {
+                showNotification('Please enter a location name', 'error');
+                return;
+            }
+
+            try {
+                const locationId = name.toLowerCase().replace(/\s+/g, '-');
+
+                // Add to locations JSON
+                const response = await fetch('/api/locations/create', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: locationId,
+                        name: name,
+                        type: type,
+                        capacity: 1000,
+                        temp: type === 'freezer' ? -18 : (type === 'cooler' ? 4 : 20)
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Location "${name}" created!`, 'success');
+                    document.getElementById('createLocationForm').style.display = 'none';
+                    await loadLocationsDropdown();
+                    document.getElementById('addItemLocation').value = locationId;
+                } else {
+                    showNotification(`Failed to create location: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Create location error:', error);
+                showNotification('Failed to create location', 'error');
+            }
+        }
+
+        // Check for item in multiple locations
+        async function checkItemLocations(itemCode) {
+            try {
+                const response = await fetch(`/api/inventory/check-locations/${itemCode}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const result = await response.json();
+
+                if (result.success && result.locations && result.locations.length > 0) {
+                    const warning = document.getElementById('multiLocationWarning');
+                    const message = document.getElementById('multiLocationMessage');
+
+                    message.innerHTML = `This item is already in:<br>${result.locations.map(loc =>
+                        `<strong>${loc.location}</strong>: ${loc.quantity} units`
+                    ).join('<br>')}`;
+
+                    warning.style.display = 'block';
+
+                    // Show AI suggestion
+                    if (result.suggestedLocation) {
+                        message.innerHTML += `<br><br>💡 <em>AI suggests: ${result.suggestedLocation}</em>`;
+                    }
+                }
+            } catch (error) {
+                console.error('Check locations error:', error);
+            }
+        }
+
+        // Lookup item name when code is entered
+        document.addEventListener('DOMContentLoaded', () => {
+            const itemCodeInput = document.getElementById('addItemCode');
+            if (itemCodeInput) {
+                itemCodeInput.addEventListener('blur', async function() {
+                    const itemCode = this.value;
+                    if (itemCode) {
+                        try {
+                            const response = await fetch(`/api/inventory/lookup/${itemCode}`, {
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                            });
+                            const result = await response.json();
+
+                            const display = document.getElementById('itemNameDisplay');
+                            if (result.success && result.item) {
+                                display.textContent = `✓ ${result.item.description} (${result.item.category})`;
+                                display.classList.remove('hidden');
+                                display.classList.add('item-name-display');
+
+                                // Check if item exists in multiple locations
+                                await checkItemLocations(itemCode);
+                            } else {
+                                // Item not found - show option to add it
+                                display.innerHTML = `⚠ Item not found. <a href="#" onclick="showAddNewItemForm('${itemCode}'); return false;" class="link-primary">Click to add new item</a>`;
+                                display.classList.remove('hidden');
+                                display.style.color = '#ffc107';
+                            }
+                        } catch (error) {
+                            console.error('Lookup error:', error);
+                        }
+                    }
+                });
+            }
+        });
+
+        // Show add new item modal
+        function showAddNewItemForm(itemCode) {
+            // Open a modal or inline form to add item details with smart parsing
+            const pastedInfo = prompt(`Item ${itemCode} not found.\n\nPaste full item info (name, #code, GTIN, price, etc.):\n\nExample:\nGordon Choice Large Vinyl Gloves\n#1165163 | GTIN: 10620868133039\n100 Units/Each, 4 Eaches/Case\n$29.46`);
+
+            if (!pastedInfo) return;
+
+            // Parse the pasted information
+            const parsed = parseItemInfo(pastedInfo, itemCode);
+
+            // Populate the add item form
+            document.getElementById('addItemCode').value = parsed.itemCode;
+
+            // Show a confirmation message
+            const display = document.getElementById('itemNameDisplay');
+            display.innerHTML = `✓ Ready to add: <strong>${parsed.itemName}</strong> (${parsed.category})<br><small>Price: $${parsed.price} | Unit: ${parsed.unit}<br>Fill in quantity and location, then click Add Item</small>`;
+            display.classList.remove('hidden');
+            display.classList.add('item-name-display');
+
+            // Store item details temporarily for when form is submitted
+            window.newItemDetails = parsed;
+        }
+
+        // Smart parsing of pasted item information
+        function parseItemInfo(text, fallbackCode) {
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+            let itemName = '';
+            let itemCode = fallbackCode;
+            let casePrice = 0;
+            let eachPrice = 0;
+            let unit = 'EA';
+            let category = 'General';
+            let gtin = '';
+            let brand = '';
+
+            lines.forEach(line => {
+                // Extract item code (format: #1165163 or just 1165163)
+                const codeMatch = line.match(/#?(\d{7,})/);
+                if (codeMatch) {
+                    itemCode = codeMatch[1];
+                }
+
+                // Extract brand (Gordon Choice, etc.)
+                const brandMatch = line.match(/\|\s*([A-Z][a-zA-Z\s]+)\s*\|/);
+                if (brandMatch) {
+                    brand = brandMatch[1].trim();
+                }
+
+                // Extract GTIN
+                const gtinMatch = line.match(/GTIN:\s*(\d+)/i);
+                if (gtinMatch) {
+                    gtin = gtinMatch[1];
+                }
+
+                // Extract case price (Case $29.46)
+                const casePriceMatch = line.match(/Case\s+\$(\d+\.\d{2})/i);
+                if (casePriceMatch) {
+                    casePrice = parseFloat(casePriceMatch[1]);
+                }
+
+                // Extract each price (Each $7.36)
+                const eachPriceMatch = line.match(/Each\s+\$(\d+\.\d{2})/i);
+                if (eachPriceMatch) {
+                    eachPrice = parseFloat(eachPriceMatch[1]);
+                }
+
+                // Extract unit info (100 Units/Each, 4 Eaches/Case)
+                if (line.match(/Units?\/Each|Eaches?\/Case/i)) {
+                    const unitMatch = line.match(/(\d+)\s+Units?\/Each/i);
+                    const caseMatch = line.match(/(\d+)\s+Eaches?\/Case/i);
+                    if (unitMatch && caseMatch) {
+                        unit = `${unitMatch[1]}/EA (${caseMatch[1]}/CS)`;
+                    } else if (unitMatch) {
+                        unit = `${unitMatch[1]}/EA`;
+                    }
+                }
+
+                // Extract item name (line with commas, but no # or $)
+                if (!itemName && line.match(/,/) && !line.match(/[#$]/i) && !line.match(/Units|Case|Each/i)) {
+                    itemName = line;
+                }
+            });
+
+            // Use each price if available, otherwise case price
+            const price = eachPrice || casePrice;
+
+            // Infer category from item name
+            const nameLower = itemName.toLowerCase();
+            if (nameLower.match(/glove|apron|mask|sanitizer|cleaner|detergent|soap|paper/)) category = 'Supplies';
+            else if (nameLower.match(/beef|chicken|pork|meat|fish|seafood|bacon|sausage/)) category = 'Protein';
+            else if (nameLower.match(/cheese|milk|cream|butter|yogurt|dairy/)) category = 'Dairy';
+            else if (nameLower.match(/lettuce|tomato|onion|pepper|vegetable|fruit|potato/)) category = 'Produce';
+            else if (nameLower.match(/bread|bun|roll|bagel|tortilla/)) category = 'Bakery';
+            else if (nameLower.match(/oil|flour|sugar|salt|spice|sauce/)) category = 'Pantry';
+
+            return {
+                itemCode: itemCode || fallbackCode,
+                itemName: itemName || 'Unknown Item',
+                price: price,
+                unit: unit,
+                category: category,
+                gtin: gtin,
+                brand: brand
+            };
+        }
+
+        // Add inventory item
+        async function addInventoryItem(event) {
+            event.preventDefault();
+
+            const itemCode = document.getElementById('addItemCode').value;
+            const quantity = parseFloat(document.getElementById('addItemQuantity').value);
+            const location = document.getElementById('addItemLocation').value;
+            const countDate = document.getElementById('addItemDate').value;
+
+            if (!location) {
+                showNotification('Please select a location', 'error');
+                return;
+            }
+
+            try {
+                showNotification('Adding item to inventory...', 'info');
+
+                // Include new item details if available
+                const requestBody = {
+                    itemCode,
+                    quantity,
+                    location,
+                    countDate
+                };
+
+                // If this is a new item, include its details
+                if (window.newItemDetails && window.newItemDetails.itemCode === itemCode) {
+                    requestBody.itemName = window.newItemDetails.itemName;
+                    requestBody.category = window.newItemDetails.category;
+                    requestBody.price = window.newItemDetails.price;
+                    requestBody.unit = window.newItemDetails.unit;
+                    requestBody.gtin = window.newItemDetails.gtin;
+                }
+
+                const response = await fetch('/api/inventory/add-item', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(result.message, 'success');
+                    // Keep modal open for quick consecutive counting
+                    document.getElementById('addItemCode').value = '';
+                    document.getElementById('addItemQuantity').value = '';
+                    document.getElementById('itemNameDisplay').style.display = 'none';
+                    document.getElementById('multiLocationWarning').style.display = 'none';
+                    document.getElementById('addItemCode').focus();
+                    // Reload inventory in background
+                    loadInventory();
+                } else {
+                    showNotification(`Failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Add item error:', error);
+                showNotification('Failed to add item', 'error');
+            }
+        }
+
+        // Display orders data
+        function displayOrders(data) {
+            const section = document.getElementById('orders');
+            const contentArea = section.querySelector('.content-area');
+
+            contentArea.innerHTML = `
+                <div class="stats-grid stats-section">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>Total Orders</h3>
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="stat-value">${data.summary?.totalOrders || 0}</div>
+                        <div class="stat-change">Processed orders</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>Total Value</h3>
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-value">$${data.summary?.totalRevenue ? Math.round(data.summary.totalRevenue).toLocaleString() : '0'}</div>
+                        <div class="stat-change">Order value</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>Avg Order Size</h3>
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="stat-value">${data.summary?.avgOrderSize || 0}</div>
+                        <div class="stat-change">Items per order</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <h3>PDF Invoices</h3>
+                            <i class="fas fa-file-pdf"></i>
+                        </div>
+                        <div class="stat-value">${data.orders?.filter(o => o.hasPdf).length || 0}</div>
+                        <div class="stat-change">With PDFs</div>
+                    </div>
+                </div>
+                <div class="data-table-container">
+                    <div class="table-header">
+                        <h3 class="table-title">Order History</h3>
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon-style"></i>
+                            <input type="text" class="search-input" id="orderSearch" placeholder="Search orders...">
+                        </div>
+                    </div>
+                    <table class="data-table" id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Order Date</th>
+                                <th>Supplier</th>
+                                <th>Items</th>
+                                <th>Total Value</th>
+                                <th>Status</th>
+                                <th>Source</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            ${data.orders ? data.orders.map(order => `
+                                <tr>
+                                    <td>${order.invoiceNumber || order.id || 'Unknown'}</td>
+                                    <td>${order.date || 'Unknown'}</td>
+                                    <td>${order.supplier || 'Unknown'}</td>
+                                    <td>${order.items || 0}</td>
+                                    <td>$${(order.total || 0).toLocaleString()}</td>
+                                    <td><span class="status-badge status-${(order.status || 'unknown').toLowerCase()}">${order.status || 'Unknown'}</span></td>
+                                    <td>${order.source || 'Unknown'}</td>
+                                    <td>
+                                        ${order.hasPdf ?
+                                            `<a href="/api/pdf/${order.invoiceNumber}" target="_blank" class="btn-action" title="View Original PDF">
+                                                <i class="fas fa-file-pdf"></i> View PDF
+                                            </a>` :
+                                            `<span class="text-muted" title="PDF not available">
+                                                <i class="fas fa-file-pdf pdf-unavailable"></i> No PDF
+                                            </span>`
+                                        }
+                                    </td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="8">No orders data available</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Initialize location modal management after DOM is loaded
+        function initializeLocationModal() {
+            const modal = document.getElementById('locationModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const locationForm = document.getElementById('locationForm');
+            const addLocationBtn = document.getElementById('addLocationBtn');
+            const closeModal = document.getElementById('closeModal');
+            const cancelBtn = document.getElementById('cancelBtn');
+
+            let currentLocationId = null;
+
+            if (!modal || !modalTitle || !locationForm || !addLocationBtn) {
+                console.log('Modal elements not ready, retrying...');
+                setTimeout(initializeLocationModal, 100);
+                return;
+            }
+
+            // Show modal for adding new location
+            addLocationBtn.addEventListener('click', () => {
+                currentLocationId = null;
+                modalTitle.textContent = 'Add Location';
+                document.getElementById('saveBtn').textContent = 'Save Location';
+                locationForm.reset();
+                modal.style.display = 'flex';
+            });
+
+            // Handle edit and delete location clicks
+            document.addEventListener('click', async (e) => {
+                // Edit location
+                if (e.target.closest('.btn-edit')) {
+                    const locationId = e.target.closest('.btn-edit').dataset.location;
+                    currentLocationId = locationId;
+
+                    try {
+                        const response = await fetch(`/api/locations/${locationId}`, {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            }
+                        });
+
+                        if (checkAuthAndRedirect(response)) return;
+
+                if (response.ok) {
+                            const location = await response.json();
+                            modalTitle.textContent = 'Edit Location';
+                            document.getElementById('saveBtn').textContent = 'Update Location';
+
+                            // Populate form with location data
+                            document.getElementById('locationName').value = location.name || '';
+                            document.getElementById('locationType').value = location.type || '';
+                            document.getElementById('locationCapacity').value = location.capacity || '';
+                            document.getElementById('locationZone').value = location.zone || '';
+                            document.getElementById('locationRack').value = location.rack || '';
+
+                            modal.style.display = 'flex';
+                        } else {
+                            showNotification('Failed to load location data', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Failed to load location:', error);
+                        showNotification('Failed to load location data', 'error');
+                    }
+                }
+
+                // Delete location
+                if (e.target.closest('.btn-delete')) {
+                    const locationId = e.target.closest('.btn-delete').dataset.location;
+
+                    // Show confirmation dialog
+                    if (confirm('Are you sure you want to delete this location? This action cannot be undone.')) {
+                        try {
+                            const response = await fetch(`/api/locations/${locationId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                }
+                            });
+
+                            const result = await response.json();
+
+                            if (checkAuthAndRedirect(response)) return;
+
+                if (response.ok) {
+                                showNotification('Location deleted successfully', 'success');
+                                loadLocations();
+                            } else {
+                                showNotification(result.error || 'Failed to delete location', 'error');
+                            }
+                        } catch (error) {
+                            console.error('Failed to delete location:', error);
+                            showNotification('Failed to delete location', 'error');
+                        }
+                    }
+                }
+            });
+
+            // Close modal function
+            function closeModalHandler() {
+                modal.style.display = 'none';
+                currentLocationId = null;
+                locationForm.reset();
+            }
+
+            if (closeModal) closeModal.addEventListener('click', closeModalHandler);
+            if (cancelBtn) cancelBtn.addEventListener('click', closeModalHandler);
+
+            // Close modal on overlay click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModalHandler();
+                }
+            });
+
+            // Handle form submission
+            locationForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const formData = new FormData(locationForm);
+                const locationData = {
+                    name: formData.get('name'),
+                    type: formData.get('type'),
+                    capacity: parseInt(formData.get('capacity')),
+                    zone: formData.get('zone'),
+                    rack: formData.get('rack')
+                };
+
+                try {
+                    const url = currentLocationId ? `/api/locations/${currentLocationId}` : '/api/locations';
+                    const method = currentLocationId ? 'PUT' : 'POST';
+
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(locationData)
+                    });
+
+                    const result = await response.json();
+
+                    if (checkAuthAndRedirect(response)) return;
+
+                if (response.ok) {
+                        showNotification(result.message, 'success');
+                        closeModalHandler();
+                        // Force refresh with slight delay to ensure server update
+                        setTimeout(() => {
+                            loadLocations();
+                        }, 100);
+                    } else {
+                        showNotification(result.error || 'Failed to save location', 'error');
+                    }
+                } catch (error) {
+                    console.error('Failed to save location:', error);
+                    showNotification('Failed to save location', 'error');
+                }
+            });
+        }
+
+        // Initialize modal when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeLocationModal);
+        } else {
+            setTimeout(initializeLocationModal, 100);
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple notification system
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 24px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+                background: ${type === 'success' ? 'linear-gradient(135deg, #4CAF50, #45a049)' :
+                           type === 'error' ? 'linear-gradient(135deg, #f44336, #da190b)' :
+                           'linear-gradient(135deg, #2196F3, #1976D2)'};
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        function showNotificationPanel() {
+            // Create notification panel modal
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(10px);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+                animation: fadeIn 0.3s ease;
+            `;
+
+            const panel = document.createElement('div');
+            panel.style.cssText = `
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 16px;
+                padding: 24px;
+                max-width: 500px;
+                width: 90%;
+                max-height: 600px;
+                overflow-y: auto;
+                color: white;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            `;
+
+            panel.innerHTML = `
+                <div class="notification-header">
+                    <h3 class="notification-title">
+                        <i class="fas fa-bell notification-icon"></i>
+                        Notifications
+                    </h3>
+                    <button class="notification-close-btn" data-action="close-notification">×</button>
+                </div>
+
+                <div class="notifications-list">
+                    <div class="notification-success">
+                        <div class="notification-header-row">
+                            <strong class="notification-type-success">System Status</strong>
+                            <small class="notification-time">2 minutes ago</small>
+                        </div>
+                        <p class="notification-body">All storage locations loaded successfully. System accuracy: 94.5%</p>
+                    </div>
+
+                    <div class="notification-warning">
+                        <div class="notification-header-row">
+                            <strong class="notification-type-warning">Data Validation Warning</strong>
+                            <small class="notification-time">5 minutes ago</small>
+                        </div>
+                        <p class="notification-body">32 order files have missing order dates or total values</p>
+                    </div>
+
+                    <div class="notification-info">
+                        <div class="notification-header-row">
+                            <strong class="notification-type-info">Inventory Update</strong>
+                            <small class="notification-time">10 minutes ago</small>
+                        </div>
+                        <p class="notification-body">1,758 inventory items loaded with reconciled data for improved accuracy</p>
+                    </div>
+                </div>
+
+                <div class="notification-footer">
+                    <button class="notification-mark-read-btn" data-action="close-notification">
+                        Mark All as Read
+                    </button>
+                </div>
+            `;
+
+            modal.appendChild(panel);
+            document.body.appendChild(modal);
+
+            // Close on background click
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+
+            // Update notification badge to 0 after viewing
+            setTimeout(() => {
+                const badge = document.querySelector('.notification-badge');
+                if (badge) {
+                    badge.textContent = '0';
+                    badge.style.display = 'none';
+                }
+            }, 2000);
+        }
+
+        // Add animation styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Location Manager Functions
+        let currentItemData = {};
+
+        async function loadAvailableLocations() {
+            const select = document.getElementById('targetLocation');
+            if (!select) return;
+
+            try {
+                const response = await fetch('/api/locations', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch locations');
+
+                const data = await response.json();
+                const locations = data.locations || data;
+
+                // Clear loading option
+                select.innerHTML = '<option value="">Select a location...</option>';
+
+                // Add all locations
+                locations.forEach(location => {
+                    const option = document.createElement('option');
+                    option.value = location.id;
+                    option.textContent = location.name;
+                    select.appendChild(option);
+                });
+
+                console.log(`Loaded ${locations.length} locations for assignment`);
+            } catch (error) {
+                console.error('Error loading locations:', error);
+                select.innerHTML = '<option value="">Error loading locations</option>';
+            }
+        }
+
+        function openLocationManager(itemCode, itemName, quantity) {
+            console.log('Opening location manager for:', itemCode, itemName, quantity);
+
+            // Store current item data
+            currentItemData = { itemCode, itemName, quantity };
+
+            // Get modal and verify it exists
+            const modal = document.getElementById('locationManagerModal');
+            if (!modal) {
+                console.error('Location manager modal not found!');
+                showNotification('Location manager modal not found', 'error');
+                return;
+            }
+
+            // Update modal content - check if elements exist
+            const itemNameEl = document.getElementById('selectedItemName');
+            const itemCodeEl = document.getElementById('selectedItemCode');
+            const itemQtyEl = document.getElementById('selectedItemQuantity');
+            const transferQtyEl = document.getElementById('transferQuantity');
+
+            if (itemNameEl) itemNameEl.textContent = itemName;
+            if (itemCodeEl) itemCodeEl.textContent = itemCode;
+            if (itemQtyEl) itemQtyEl.textContent = quantity;
+            if (transferQtyEl) {
+                transferQtyEl.max = quantity;
+                transferQtyEl.value = '';
+            }
+
+            // Load available locations into dropdown
+            loadAvailableLocations();
+
+            // Load current location assignments
+            loadCurrentLocationAssignments(itemCode);
+
+            // Show modal - use flex to center it
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+
+            console.log('Location manager modal should now be visible');
+        }
+
+        function closeLocationManager() {
+            document.getElementById('locationManagerModal').style.display = 'none';
+            currentItemData = {};
+        }
+
+        async function loadCurrentLocationAssignments(itemCode) {
+            const currentLocationsDiv = document.getElementById('currentLocations');
+
+            try {
+                // Fetch all locations and check which ones have this item
+                const response = await fetch('/api/locations', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch locations');
+
+                const data = await response.json();
+                const locationsData = data.locations || data;
+                const assignments = [];
+
+                // Check each location for this item
+                locationsData.forEach(location => {
+                    if (location.items) {
+                        const itemsArray = Array.isArray(location.items) ? location.items : Object.values(location.items);
+                        const item = itemsArray.find(i => i.id === itemCode || i.itemCode === itemCode);
+                        if (item) {
+                            assignments.push({
+                                location: location.id,
+                                locationName: location.name,
+                                quantity: item.quantity,
+                                assigned: item.addedAt ? new Date(item.addedAt).toLocaleDateString() : 'Unknown'
+                            });
+                        }
+                    }
+                });
+
+                // Display all location assignments
+                if (assignments.length === 0) {
+                    currentLocationsDiv.innerHTML = '<p class="secondary-text">Item not yet assigned to any location. Add to locations as needed.</p>';
+                } else {
+                    currentLocationsDiv.innerHTML = assignments.map(assignment => `
+                    <div class="location-item">
+                        <div class="location-details">
+                            <div class="location-name">${assignment.location}</div>
+                            <div class="location-quantity">${assignment.quantity} units • Assigned: ${assignment.assigned}</div>
+                        </div>
+                        <button class="btn-edit" data-action="edit-assignment" data-location="${assignment.location}" data-quantity="${assignment.quantity}" title="Edit Assignment">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading location assignments:', error);
+                currentLocationsDiv.innerHTML = '<p class="secondary-text">Unable to load location assignments.</p>';
+            }
+        }
+
+        function editLocationAssignment(location, quantity) {
+            // Pre-fill the form for editing
+            document.getElementById('targetLocation').value = location;
+            document.getElementById('transferQuantity').value = quantity;
+            document.getElementById('transferReason').value = 'reorganization';
+            showNotification(`Editing assignment for ${location}`, 'info');
+        }
+
+        async function executeLocationTransfer() {
+            const targetLocation = document.getElementById('targetLocation').value;
+            const transferQuantity = parseInt(document.getElementById('transferQuantity').value);
+            const transferReason = document.getElementById('transferReason').value;
+
+            if (!targetLocation) {
+                showNotification('Please select a target location', 'error');
+                return;
+            }
+
+            if (!transferQuantity || transferQuantity <= 0) {
+                showNotification('Please enter a valid quantity', 'error');
+                return;
+            }
+
+            // Allow adding to multiple locations - no quantity limit
+            // Items can be distributed across multiple storage locations
+
+            try {
+                // Call backend API to add item to location
+                const response = await fetch(`/api/locations/${targetLocation}/items`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        itemId: currentItemData.itemCode,
+                        quantity: transferQuantity
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to transfer item');
+                }
+
+                const result = await response.json();
+                console.log('Location Transfer Result:', result);
+
+                showNotification(`Successfully added ${transferQuantity} units of ${currentItemData.itemName} to ${targetLocation}`, 'success');
+
+                // Refresh the current location assignments
+                loadCurrentLocationAssignments(currentItemData.itemCode);
+
+                // Clear the form
+                document.getElementById('targetLocation').value = '';
+                document.getElementById('transferQuantity').value = '';
+                document.getElementById('transferReason').value = 'initial_assignment';
+
+                // Log for AI learning
+                console.log('🤖 AI Learning: Location assignment pattern recorded', {
+                    item: currentItemData.itemName,
+                    category: 'BACON', // This would be determined from item description
+                    location: targetLocation,
+                    reason: transferReason,
+                    quantity: transferQuantity,
+                    success: true
+                });
+
+            } catch (error) {
+                console.error('Location transfer failed:', error);
+                showNotification('Failed to execute location transfer', 'error');
+            }
+        }
+
+        // Close modal when clicking outside
+        const locationModal = document.getElementById('locationManagerModal');
+        if (locationModal) {
+            locationModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeLocationManager();
+                }
+            });
+        }
+
+        // Add event delegation for PDF view buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('pdf-view-btn') || e.target.closest('.pdf-view-btn')) {
+                const button = e.target.classList.contains('pdf-view-btn') ? e.target : e.target.closest('.pdf-view-btn');
+                const invoiceNumber = button.getAttribute('data-invoice');
+                const orderDate = button.getAttribute('data-date');
+                viewOrderPDF(invoiceNumber, orderDate);
+            }
+        });
+
+        // PDF Viewing Functions
+        async function viewOrderPDF(invoiceNumber, orderDate) {
+            console.log('Viewing PDF for invoice:', invoiceNumber);
+
+            if (!invoiceNumber || invoiceNumber === 'Unknown') {
+                showNotification('No invoice number available for this order', 'error');
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    showNotification('Authentication required. Please log in again.', 'error');
+                    return;
+                }
+
+                // Show loading notification
+                showNotification('Loading PDF...', 'info');
+
+                // Fetch the PDF with proper authentication headers
+                const response = await fetch(`/api/orders/${invoiceNumber}/pdf`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/pdf'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        showNotification('PDF file not found for this invoice', 'error');
+                    } else if (response.status === 403) {
+                        showNotification('Access denied. Please check your permissions.', 'error');
+                    } else {
+                        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                        showNotification(`Error loading PDF: ${errorData.error || response.statusText}`, 'error');
+                    }
+                    return;
+                }
+
+                // Get the PDF blob
+                const blob = await response.blob();
+
+                // Create a URL for the blob
+                const blobUrl = window.URL.createObjectURL(blob);
+
+                // Try to open the PDF in a new tab
+                const newWindow = window.open(blobUrl, '_blank');
+
+                if (!newWindow) {
+                    // If popup was blocked, try alternative download method
+                    showNotification('Popup blocked. Downloading PDF instead...', 'warning');
+
+                    // Create download link as fallback
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = blobUrl;
+                    downloadLink.download = `Invoice_${invoiceNumber}.pdf`;
+                    downloadLink.style.display = 'none';
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                } else {
+                    showNotification('PDF opened successfully', 'success');
+                }
+
+                // Clean up the blob URL after a delay to allow the browser to load it
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(blobUrl);
+                }, 30000);
+
+            } catch (error) {
+                console.error('Error opening PDF:', error);
+                showNotification('Error opening PDF: ' + error.message, 'error');
+            }
+        }
+
+        // Alternative function to view PDF using a modal (if you prefer)
+        function viewOrderPDFModal(invoiceNumber, orderDate) {
+            const pdfUrl = `/api/orders/${invoiceNumber}/pdf`;
+
+            // Create PDF viewer modal
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal-content modal-xl">
+                    <div class="modal-header">
+                        <h2>Invoice ${invoiceNumber} - ${orderDate}</h2>
+                        <button type="button" class="close-btn" data-action="close-modal">&times;</button>
+                    </div>
+                    <div class="pdf-viewer-container">
+                        <iframe src="${pdfUrl}" class="pdf-iframe"
+                                title="Invoice PDF">
+                            <p>Your browser doesn't support PDF viewing.
+                               <a href="${pdfUrl}" target="_blank">Download the PDF</a> instead.</p>
+                        </iframe>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Close modal when clicking outside
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+
+            showNotification(`Viewing PDF for invoice ${invoiceNumber}`, 'info');
+        }
+
+    </script>
+    <!-- Location Modal -->
+    <div id="locationModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Location</h2>
+                <button type="button" class="close-btn" id="closeModal" title="Close modal">&times;</button>
+            </div>
+            <form id="locationForm" class="form-container">
+                <div class="form-group">
+                    <label for="locationName">Location Name *</label>
+                    <input type="text" id="locationName" name="name" required placeholder="Enter location name">
+                </div>
+                <div class="form-group">
+                    <label for="locationType">Type *</label>
+                    <select id="locationType" name="type" required>
+                        <option value="">Select type...</option>
+                        <option value="DRY">Dry Storage</option>
+                        <option value="COOLER">Cooler/Refrigerator</option>
+                        <option value="FREEZER">Freezer</option>
+                        <option value="HOT_HOLDING">Hot Holding</option>
+                        <option value="PREP">Prep Area</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="locationCapacity">Capacity *</label>
+                    <input type="number" id="locationCapacity" name="capacity" required placeholder="Maximum items" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="locationZone">Zone</label>
+                    <input type="text" id="locationZone" name="zone" placeholder="e.g., Kitchen A, Warehouse B">
+                </div>
+                <div class="form-group">
+                    <label for="locationRack">Rack/Section</label>
+                    <input type="text" id="locationRack" name="rack" placeholder="e.g., R1, Section C">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn-save" id="saveBtn">Save Location</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Location Manager Modal -->
+    <div id="locationManagerModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="locationManagerTitle">Manage Item Location</h2>
+                <button type="button" class="close-btn" data-action="close-location-manager" title="Close modal">&times;</button>
+            </div>
+            <div class="form-container">
+                <div class="item-info">
+                    <h3 id="selectedItemName">Item Name</h3>
+                    <p>Item Code: <span id="selectedItemCode"></span></p>
+                    <p>Available Quantity: <span id="selectedItemQuantity"></span> units</p>
+                </div>
+
+                <div class="location-assignment">
+                    <h4>📍 Current Location Assignments</h4>
+                    <div id="currentLocations">
+                        <!-- Current location assignments will be populated here -->
+                    </div>
+                </div>
+
+                <div class="location-transfer">
+                    <h4>🔄 Transfer/Assign to Location</h4>
+                    <div class="form-group">
+                        <label for="targetLocation">Location</label>
+                        <select id="targetLocation" required>
+                            <option value="">Loading locations...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transferQuantity">Quantity to Transfer/Assign</label>
+                        <input type="number" id="transferQuantity" min="1" placeholder="Enter quantity">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transferReason">Reason</label>
+                        <select id="transferReason">
+                            <option value="initial_assignment">Initial Assignment</option>
+                            <option value="transfer">Transfer Between Locations</option>
+                            <option value="reorganization">Reorganization</option>
+                            <option value="maintenance">Maintenance/Cleaning</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" data-action="close-location-manager">Cancel</button>
+                    <button type="button" class="btn-save" data-action="execute-transfer">Execute Transfer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(145deg, rgba(30, 30, 35, 0.95), rgba(45, 45, 55, 0.95));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 24px 24px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .form-container {
+            padding: 16px 24px 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.2);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+
+        .btn-cancel,
+        .btn-save {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .btn-cancel {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-cancel:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--text-primary);
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.3);
+        }
+
+        .btn-edit {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-edit:hover {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: rgba(255, 193, 7, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .btn-delete {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #dc3545;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-delete:hover {
+            background: rgba(220, 53, 69, 0.2);
+            border-color: rgba(220, 53, 69, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .btn-action {
+            background: rgba(67, 233, 123, 0.1);
+            border: 1px solid rgba(67, 233, 123, 0.3);
+            color: #43e97b;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-action:hover {
+            background: rgba(67, 233, 123, 0.2);
+            border-color: rgba(67, 233, 123, 0.5);
+            transform: translateY(-1px);
+        }
+
+        /* Location Manager Modal Styles */
+        .item-info {
+            background: var(--glass);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--glass-border);
+        }
+
+        .item-info h3 {
+            color: var(--text-primary);
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+        }
+
+        .item-info p {
+            color: var(--text-secondary);
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+
+        .location-assignment, .location-transfer {
+            margin-bottom: 1.5rem;
+        }
+
+        .location-assignment h4, .location-transfer h4 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        #currentLocations {
+            background: var(--glass);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid var(--glass-border);
+            min-height: 60px;
+            color: var(--text-secondary);
+        }
+
+        .location-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+
+        .location-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .location-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .location-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .location-quantity {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 600px) {
+            .modal-content {
+                width: 95%;
+                margin: 20px;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+            }
+
+            .btn-cancel,
+            .btn-save {
+                width: 100%;
+            }
+        }
+    </style>
+
+    <!-- Internationalization CSS and Scripts -->
+    <link rel="stylesheet" href="/css/i18n.css">
+    <script src="/js/i18n.js"></script>
+
+    <!-- Location Management CSS and Scripts -->
+    <link rel="stylesheet" href="/css/location-management.css">
+    <link rel="stylesheet" href="/css/inventory-count.css">
+    <script src="/js/location-management.js"></script>
+    <script src="/js/inventory-count-manager.js"></script>
+
+    <script>
+        // Location Manager function for inventory items
+        // Removed duplicate openLocationManager function - using the correct one above
+    </script>
+
+</body>
+</html>

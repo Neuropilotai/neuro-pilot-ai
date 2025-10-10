@@ -1,0 +1,361 @@
+/**
+ * Owner PDF Invoice Manager API
+ * Owner-only routes for managing PDF invoices
+ */
+
+const express = require('express');
+const router = express.Router();
+const fs = require('fs').promises;
+const path = require('path');
+const { authenticateToken } = require('../middleware/auth');
+const { requireOwner } = require('../middleware/requireOwner');
+const db = require('../config/database');
+const metricsExporter = require('../utils/metricsExporter');
+const promClient = require('prom-client');
+
+// Prometheus metrics
+const pdfListCounter = new promClient.Counter({
+  name: 'owner_pdf_list_requests_total',
+  help: 'Total number of PDF list requests by owner',
+  labelNames: ['status_filter', 'has_cutoff']
+});
+
+const pdfMarkProcessedCounter = new promClient.Counter({
+  name: 'owner_pdf_mark_processed_total',
+  help: 'Total number of PDFs marked as processed',
+  labelNames: ['count_id', 'bulk_size']
+});
+
+const pdfPreviewCounter = new promClient.Counter({
+  name: 'owner_pdf_preview_requests_total',
+  help: 'Total number of PDF preview requests',
+  labelNames: ['document_id']
+});
+
+const pdfRouteLatency = new promClient.Histogram({
+  name: 'owner_pdf_route_latency_seconds',
+  help: 'Latency of owner PDF routes in seconds',
+  labelNames: ['route', 'method'],
+  buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5]
+});
+
+metricsExporter.register.registerMetric(pdfListCounter);
+metricsExporter.register.registerMetric(pdfMarkProcessedCounter);
+metricsExporter.register.registerMetric(pdfPreviewCounter);
+metricsExporter.register.registerMetric(pdfRouteLatency);
+
+// GET /api/owner/pdfs - List PDFs with filtering
+router.get('/pdfs', authenticateToken, requireOwner, async (req, res) => {
+  const timer = pdfRouteLatency.startTimer({ route: '/pdfs', method: 'GET' });
+
+  try {
+    const { status = 'all', cutoff } = req.query;
+    const hasCutoff = !!cutoff;
+
+    pdfListCounter.inc({ status_filter: status, has_cutoff: hasCutoff.toString() });
+
+    // Base query to get all PDF documents
+    let query = `
+      SELECT
+        d.document_id,
+        d.file_name,
+        d.file_path,
+        d.file_size,
+        d.mime_type,
+        d.sha256_hash,
+        d.created_at,
+        d.uploaded_by,
+        pi.invoice_id,
+        pi.invoice_number,
+        pi.invoice_date,
+        pi.total_amount,
+        pi.processed_at,
+        cp.count_id as linked_count_id
+      FROM documents d
+      LEFT JOIN processed_invoices pi ON d.document_id = pi.invoice_id
+      LEFT JOIN count_pdfs cp ON d.document_id = cp.document_id
+      WHERE d.mime_type = 'application/pdf'
+        AND d.deleted_at IS NULL
+    `;
+
+    const params = [];
+
+    // Apply cutoff filter
+    if (cutoff && status === 'unprocessed') {
+      query += ' AND d.created_at <= ? AND pi.invoice_id IS NULL';
+      params.push(cutoff);
+    } else if (status === 'unprocessed') {
+      query += ' AND pi.invoice_id IS NULL';
+    } else if (status === 'processed') {
+      query += ' AND pi.invoice_id IS NOT NULL';
+    }
+
+    query += ' ORDER BY d.created_at DESC';
+
+    const documents = db.prepare(query).all(...params);
+
+    // Enrich with derived fields
+    const enriched = documents.map(doc => ({
+      ...doc,
+      isProcessed: !!doc.invoice_id,
+      sha256_truncated: doc.sha256_hash ? doc.sha256_hash.substring(0, 16) : null,
+      preview_url: `/api/owner/pdfs/${doc.document_id}/preview`,
+      file_size_mb: doc.file_size ? (doc.file_size / 1024 / 1024).toFixed(2) : null
+    }));
+
+    timer();
+
+    res.json({
+      success: true,
+      data: enriched,
+      summary: {
+        total: enriched.length,
+        processed: enriched.filter(d => d.isProcessed).length,
+        unprocessed: enriched.filter(d => !d.isProcessed).length,
+        cutoff_applied: hasCutoff ? cutoff : null
+      }
+    });
+  } catch (error) {
+    console.error('Error listing PDFs:', error);
+    timer();
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to list PDF invoices',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/owner/pdfs/mark-processed - Bulk mark PDFs as processed
+router.post('/pdfs/mark-processed', authenticateToken, requireOwner, async (req, res) => {
+  const timer = pdfRouteLatency.startTimer({ route: '/mark-processed', method: 'POST' });
+
+  try {
+    const { invoiceIds, countId, processedAt } = req.body;
+
+    // Validation
+    if (!invoiceIds || !Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+      timer();
+      return res.status(400).json({
+        success: false,
+        error: 'invoiceIds array is required and must not be empty'
+      });
+    }
+
+    if (!countId) {
+      timer();
+      return res.status(400).json({
+        success: false,
+        error: 'countId is required'
+      });
+    }
+
+    const processedTimestamp = processedAt || new Date().toISOString();
+    const userId = req.user?.user_id || req.owner?.id;
+    const userEmail = req.user?.email || req.owner?.email || 'unknown';
+
+    pdfMarkProcessedCounter.inc({
+      count_id: countId,
+      bulk_size: invoiceIds.length.toString()
+    });
+
+    // Begin transaction
+    const insertProcessedInvoice = db.prepare(`
+      INSERT OR IGNORE INTO processed_invoices (
+        invoice_id,
+        invoice_number,
+        invoice_date,
+        total_amount,
+        status,
+        processed_by,
+        processed_at,
+        created_at
+      )
+      SELECT
+        d.document_id,
+        COALESCE(d.file_name, 'Unknown'),
+        d.created_at,
+        0.0,
+        'processed',
+        ?,
+        ?,
+        ?
+      FROM documents d
+      WHERE d.document_id = ?
+    `);
+
+    const insertCountPdf = db.prepare(`
+      INSERT OR IGNORE INTO count_pdfs (
+        count_id,
+        document_id,
+        linked_at
+      ) VALUES (?, ?, ?)
+    `);
+
+    // Collect SHA256 hashes for audit
+    const sha256Hashes = [];
+    let processedCount = 0;
+    let linkedCount = 0;
+
+    const transaction = db.transaction((ids) => {
+      for (const invoiceId of ids) {
+        // Get document details for audit
+        const doc = db.prepare('SELECT sha256_hash FROM documents WHERE document_id = ?').get(invoiceId);
+        if (doc && doc.sha256_hash) {
+          sha256Hashes.push(doc.sha256_hash.substring(0, 16));
+        }
+
+        // Insert into processed_invoices
+        const result1 = insertProcessedInvoice.run(userId, processedTimestamp, processedTimestamp, invoiceId);
+        if (result1.changes > 0) processedCount++;
+
+        // Insert into count_pdfs
+        const result2 = insertCountPdf.run(countId, invoiceId, processedTimestamp);
+        if (result2.changes > 0) linkedCount++;
+      }
+    });
+
+    transaction(invoiceIds);
+
+    // Audit logging
+    const auditLog = db.prepare(`
+      INSERT INTO owner_console_events (
+        owner_id,
+        event_type,
+        event_data,
+        ip_address,
+        user_agent,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    try {
+      auditLog.run(
+        userId,
+        'PDF_MARK_PROCESSED',
+        JSON.stringify({
+          action: 'PDF_MARK_PROCESSED',
+          count_id: countId,
+          invoice_ids: invoiceIds,
+          sha256_hashes: sha256Hashes,
+          processed_count: processedCount,
+          linked_count: linkedCount,
+          user: userEmail,
+          timestamp: processedTimestamp
+        }),
+        req.ip || req.connection?.remoteAddress || 'unknown',
+        req.get('User-Agent') || 'unknown',
+        new Date().toISOString()
+      );
+    } catch (auditError) {
+      console.error('Audit log failed:', auditError);
+      // Don't fail the request if audit fails
+    }
+
+    timer();
+
+    res.json({
+      success: true,
+      data: {
+        processed_count: processedCount,
+        linked_count: linkedCount,
+        count_id: countId,
+        processed_at: processedTimestamp,
+        invoice_ids: invoiceIds
+      }
+    });
+  } catch (error) {
+    console.error('Error marking PDFs as processed:', error);
+    timer();
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to mark PDFs as processed',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/owner/pdfs/:documentId/preview - Stream PDF for preview
+router.get('/pdfs/:documentId/preview', authenticateToken, requireOwner, async (req, res) => {
+  const timer = pdfRouteLatency.startTimer({ route: '/preview', method: 'GET' });
+
+  try {
+    const { documentId } = req.params;
+
+    pdfPreviewCounter.inc({ document_id: documentId });
+
+    // Get document from database
+    const document = db.prepare(`
+      SELECT document_id, file_name, file_path, mime_type, file_size
+      FROM documents
+      WHERE document_id = ? AND mime_type = 'application/pdf' AND deleted_at IS NULL
+    `).get(documentId);
+
+    if (!document) {
+      timer();
+      return res.status(404).json({
+        success: false,
+        error: 'PDF document not found'
+      });
+    }
+
+    // Resolve file path
+    const filePath = path.isAbsolute(document.file_path)
+      ? document.file_path
+      : path.join(__dirname, '..', document.file_path);
+
+    // Check if file exists
+    try {
+      await fs.access(filePath);
+    } catch {
+      timer();
+      return res.status(404).json({
+        success: false,
+        error: 'PDF file not found on disk',
+        path: document.file_path
+      });
+    }
+
+    // Stream PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${document.file_name}"`);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+
+    if (document.file_size) {
+      res.setHeader('Content-Length', document.file_size);
+    }
+
+    const fileStream = require('fs').createReadStream(filePath);
+    fileStream.pipe(res);
+
+    fileStream.on('end', () => {
+      timer();
+    });
+
+    fileStream.on('error', (error) => {
+      console.error('Error streaming PDF:', error);
+      timer();
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to stream PDF'
+        });
+      }
+    });
+  } catch (error) {
+    console.error('Error previewing PDF:', error);
+    timer();
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to preview PDF',
+        message: error.message
+      });
+    }
+  }
+});
+
+module.exports = router;

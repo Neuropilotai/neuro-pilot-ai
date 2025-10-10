@@ -1,0 +1,90 @@
+/* Language Toggle Styles */
+.language-toggle {
+    background: var(--primary-gradient);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    margin-right: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.language-toggle:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+}
+
+.language-toggle:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.flag-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.lang-text {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .language-toggle {
+        padding: 6px 10px;
+        margin-right: 8px;
+    }
+
+    .flag-icon {
+        font-size: 14px;
+    }
+
+    .lang-text {
+        font-size: 11px;
+    }
+}
+
+/* Animation for language switch */
+@keyframes languageSwitch {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.language-toggle.switching {
+    animation: languageSwitch 0.3s ease;
+}
+
+/* RTL support (if needed for future languages) */
+[dir="rtl"] .language-toggle {
+    margin-left: 12px;
+    margin-right: 0;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .language-toggle {
+        border: 2px solid white;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .language-toggle {
+        transition: none;
+    }
+
+    .language-toggle.switching {
+        animation: none;
+    }
+}

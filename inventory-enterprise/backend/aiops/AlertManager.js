@@ -1,0 +1,484 @@
+/**
+ * Alert Manager - Multi-Channel Alerting
+ * Version: v2.6.0-2025-10-07
+ *
+ * Sends alerts via multiple channels: Slack, Email, PagerDuty
+ *
+ * @module aiops/AlertManager
+ */
+
+const axios = require('axios');
+const logger = require('../config/logger').logger;
+
+class AlertManager {
+  constructor(config = {}) {
+    this.config = {
+      slack: config.slack || {
+        enabled: false,
+        webhookUrl: process.env.SLACK_WEBHOOK_URL,
+        channel: process.env.SLACK_CHANNEL || '#alerts'
+      },
+      email: config.email || {
+        enabled: false,
+        smtp: {
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT || 587,
+          secure: false,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+          }
+        },
+        from: process.env.ALERT_EMAIL_FROM || 'aiops@example.com',
+        to: process.env.ALERT_EMAIL_TO || 'ops@example.com'
+      },
+      pagerduty: config.pagerduty || {
+        enabled: false,
+        integrationKey: process.env.PAGERDUTY_INTEGRATION_KEY,
+        serviceKey: process.env.PAGERDUTY_SERVICE_KEY
+      },
+      ...config
+    };
+
+    this.alertHistory = [];
+    this.rateLimits = new Map(); // Prevent alert spam
+  }
+
+  /**
+   * Initialize alert manager
+   */
+  async initialize() {
+    logger.info('Initializing Alert Manager');
+
+    const enabledChannels = [];
+    if (this.config.slack.enabled && this.config.slack.webhookUrl) {
+      enabledChannels.push('Slack');
+    }
+    if (this.config.email.enabled && this.config.email.smtp.host) {
+      enabledChannels.push('Email');
+    }
+    if (this.config.pagerduty.enabled && this.config.pagerduty.integrationKey) {
+      enabledChannels.push('PagerDuty');
+    }
+
+    logger.info(`Alert channels enabled: ${enabledChannels.join(', ') || 'None'}`);
+
+    if (enabledChannels.length === 0) {
+      logger.warn('No alert channels configured - alerts will only be logged');
+    }
+  }
+
+  /**
+   * Send alert through configured channels
+   */
+  async sendAlert(alert) {
+    const {
+      type,
+      severity = 'medium',
+      message,
+      confidence,
+      predictedTime,
+      currentMetrics,
+      actions,
+      error
+    } = alert;
+
+    // Check rate limiting
+    if (this._isRateLimited(type)) {
+      logger.debug(`Alert ${type} rate limited, skipping`);
+      return {
+        sent: false,
+        reason: 'rate_limited'
+      };
+    }
+
+    logger.info(`Sending ${severity} alert: ${type}`);
+
+    const results = {
+      slack: { sent: false },
+      email: { sent: false },
+      pagerduty: { sent: false }
+    };
+
+    // Determine which channels to use based on severity
+    const channels = this._selectChannels(severity);
+
+    // Send through each channel
+    if (channels.includes('slack')) {
+      results.slack = await this._sendSlack(alert);
+    }
+
+    if (channels.includes('email')) {
+      results.email = await this._sendEmail(alert);
+    }
+
+    if (channels.includes('pagerduty')) {
+      results.pagerduty = await this._sendPagerDuty(alert);
+    }
+
+    // Log alert
+    this._logAlert(alert, results);
+
+    // Update rate limit
+    this._updateRateLimit(type);
+
+    return results;
+  }
+
+  /**
+   * Send alert via Slack
+   * @private
+   */
+  async _sendSlack(alert) {
+    if (!this.config.slack.enabled || !this.config.slack.webhookUrl) {
+      return { sent: false, reason: 'not_configured' };
+    }
+
+    try {
+      const payload = this._formatSlackMessage(alert);
+
+      await axios.post(this.config.slack.webhookUrl, payload, {
+        timeout: 5000
+      });
+
+      logger.debug('Slack alert sent successfully');
+      return { sent: true };
+    } catch (error) {
+      logger.error('Failed to send Slack alert:', error.message);
+      return { sent: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send alert via Email
+   * @private
+   */
+  async _sendEmail(alert) {
+    if (!this.config.email.enabled || !this.config.email.smtp.host) {
+      return { sent: false, reason: 'not_configured' };
+    }
+
+    try {
+      const nodemailer = require('nodemailer'); // Will need to add dependency
+
+      const transporter = nodemailer.createTransport(this.config.email.smtp);
+
+      const mailOptions = {
+        from: this.config.email.from,
+        to: this.config.email.to,
+        subject: this._formatEmailSubject(alert),
+        text: this._formatEmailBody(alert, 'text'),
+        html: this._formatEmailBody(alert, 'html')
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      logger.debug('Email alert sent successfully');
+      return { sent: true };
+    } catch (error) {
+      logger.error('Failed to send email alert:', error.message);
+      return { sent: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send alert via PagerDuty
+   * @private
+   */
+  async _sendPagerDuty(alert) {
+    if (!this.config.pagerduty.enabled || !this.config.pagerduty.integrationKey) {
+      return { sent: false, reason: 'not_configured' };
+    }
+
+    try {
+      const payload = {
+        routing_key: this.config.pagerduty.integrationKey,
+        event_action: 'trigger',
+        dedup_key: `aiops_${alert.type}_${Date.now()}`,
+        payload: {
+          summary: alert.message.split('\n')[0],
+          severity: this._mapSeverityToPagerDuty(alert.severity),
+          source: 'AI Ops Agent',
+          timestamp: new Date().toISOString(),
+          custom_details: {
+            type: alert.type,
+            confidence: alert.confidence,
+            predicted_time: alert.predictedTime,
+            current_metrics: alert.currentMetrics
+          }
+        }
+      };
+
+      await axios.post('https://events.pagerduty.com/v2/enqueue', payload, {
+        timeout: 5000
+      });
+
+      logger.debug('PagerDuty alert sent successfully');
+      return { sent: true };
+    } catch (error) {
+      logger.error('Failed to send PagerDuty alert:', error.message);
+      return { sent: false, error: error.message };
+    }
+  }
+
+  /**
+   * Format Slack message
+   * @private
+   */
+  _formatSlackMessage(alert) {
+    const color = this._getSeverityColor(alert.severity);
+    const emoji = this._getSeverityEmoji(alert.severity);
+
+    const fields = [];
+
+    if (alert.confidence) {
+      fields.push({
+        title: 'Confidence',
+        value: `${(alert.confidence * 100).toFixed(1)}%`,
+        short: true
+      });
+    }
+
+    if (alert.predictedTime) {
+      const timeToIncident = Math.round(
+        (new Date(alert.predictedTime) - Date.now()) / (1000 * 60 * 60)
+      );
+      fields.push({
+        title: 'Predicted In',
+        value: `${timeToIncident}h`,
+        short: true
+      });
+    }
+
+    if (alert.actions) {
+      fields.push({
+        title: 'Actions Taken',
+        value: alert.actions.map(a => `• ${a.description || a.type}`).join('\n'),
+        short: false
+      });
+    }
+
+    return {
+      channel: this.config.slack.channel,
+      username: 'AI Ops Agent',
+      icon_emoji: ':robot_face:',
+      attachments: [
+        {
+          color,
+          title: `${emoji} ${alert.type.toUpperCase()}`,
+          text: alert.message,
+          fields,
+          footer: 'AI Ops v2.6.0',
+          ts: Math.floor(Date.now() / 1000)
+        }
+      ]
+    };
+  }
+
+  /**
+   * Format email subject
+   * @private
+   */
+  _formatEmailSubject(alert) {
+    return `[AI Ops ${alert.severity.toUpperCase()}] ${alert.type}`;
+  }
+
+  /**
+   * Format email body
+   * @private
+   */
+  _formatEmailBody(alert, format = 'text') {
+    if (format === 'html') {
+      return `
+        <html>
+          <body style="font-family: Arial, sans-serif;">
+            <h2 style="color: ${this._getSeverityColor(alert.severity)}">
+              ${alert.type.toUpperCase()}
+            </h2>
+            <p>${alert.message.replace(/\n/g, '<br>')}</p>
+            <hr>
+            <p style="color: #666; font-size: 12px;">
+              Generated by AI Ops Agent v2.6.0<br>
+              ${new Date().toISOString()}
+            </p>
+          </body>
+        </html>
+      `;
+    }
+
+    return `
+${alert.type.toUpperCase()}
+${'='.repeat(50)}
+
+${alert.message}
+
+---
+Generated by AI Ops Agent v2.6.0
+${new Date().toISOString()}
+    `.trim();
+  }
+
+  /**
+   * Select channels based on severity
+   * @private
+   */
+  _selectChannels(severity) {
+    const channels = [];
+
+    switch (severity) {
+      case 'critical':
+        // Critical: All channels
+        channels.push('slack', 'email', 'pagerduty');
+        break;
+      case 'high':
+        // High: Slack + PagerDuty
+        channels.push('slack', 'pagerduty');
+        break;
+      case 'medium':
+        // Medium: Slack + Email
+        channels.push('slack', 'email');
+        break;
+      case 'low':
+      case 'info':
+        // Low/Info: Slack only
+        channels.push('slack');
+        break;
+    }
+
+    // Filter to only enabled channels
+    return channels.filter(channel => {
+      const config = this.config[channel];
+      return config && config.enabled;
+    });
+  }
+
+  /**
+   * Get severity color
+   * @private
+   */
+  _getSeverityColor(severity) {
+    const colors = {
+      critical: '#FF0000',
+      high: '#FF6600',
+      medium: '#FFAA00',
+      low: '#00AA00',
+      info: '#0099FF'
+    };
+
+    return colors[severity] || '#808080';
+  }
+
+  /**
+   * Get severity emoji
+   * @private
+   */
+  _getSeverityEmoji(severity) {
+    const emojis = {
+      critical: '🚨',
+      high: '⚠️',
+      medium: '⚡',
+      low: 'ℹ️',
+      info: '💡'
+    };
+
+    return emojis[severity] || '📢';
+  }
+
+  /**
+   * Map severity to PagerDuty
+   * @private
+   */
+  _mapSeverityToPagerDuty(severity) {
+    const mapping = {
+      critical: 'critical',
+      high: 'error',
+      medium: 'warning',
+      low: 'info',
+      info: 'info'
+    };
+
+    return mapping[severity] || 'info';
+  }
+
+  /**
+   * Check if alert is rate limited
+   * @private
+   */
+  _isRateLimited(type) {
+    const now = Date.now();
+    const lastSent = this.rateLimits.get(type);
+
+    // Rate limit: 1 alert per type per 5 minutes
+    const rateLimitWindow = 5 * 60 * 1000;
+
+    if (lastSent && (now - lastSent) < rateLimitWindow) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Update rate limit
+   * @private
+   */
+  _updateRateLimit(type) {
+    this.rateLimits.set(type, Date.now());
+
+    // Clean up old entries
+    const now = Date.now();
+    const rateLimitWindow = 5 * 60 * 1000;
+
+    for (const [key, timestamp] of this.rateLimits.entries()) {
+      if ((now - timestamp) > rateLimitWindow) {
+        this.rateLimits.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Log alert to history
+   * @private
+   */
+  _logAlert(alert, results) {
+    this.alertHistory.push({
+      timestamp: new Date().toISOString(),
+      type: alert.type,
+      severity: alert.severity,
+      results
+    });
+
+    // Keep only last 100 alerts
+    if (this.alertHistory.length > 100) {
+      this.alertHistory.shift();
+    }
+  }
+
+  /**
+   * Get alert history
+   */
+  getHistory() {
+    return this.alertHistory;
+  }
+
+  /**
+   * Test alert channels
+   */
+  async testAlerts() {
+    logger.info('Testing alert channels...');
+
+    const testAlert = {
+      type: 'test-alert',
+      severity: 'info',
+      message: 'This is a test alert from AI Ops Agent v2.6.0',
+      confidence: 1.0
+    };
+
+    const results = await this.sendAlert(testAlert);
+
+    logger.info('Alert test results:', results);
+    return results;
+  }
+}
+
+module.exports = AlertManager;

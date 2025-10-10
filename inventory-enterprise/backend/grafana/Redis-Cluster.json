@@ -1,0 +1,224 @@
+{
+  "dashboard": {
+    "title": "Redis Cluster Performance - v2.8.0",
+    "tags": ["redis", "cache", "v2.8.0"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Redis Status",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "redis_up",
+            "legendFormat": "Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "value": 0, "text": "DOWN", "color": "red" },
+              { "value": 1, "text": "UP", "color": "green" }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "redis_hit_rate * 100",
+            "legendFormat": "Hit Rate %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 70, "color": "yellow" },
+                { "value": 90, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Operations Per Second",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "redis_ops_per_sec",
+            "legendFormat": "Ops/sec",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Operations/sec" },
+          { "show": false }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Redis Latency",
+        "type": "graph",
+        "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "redis_latency_ms",
+            "legendFormat": "Ping Latency",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency (ms)" },
+          { "show": false }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [10], "type": "gt" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "message": "Redis latency above 10ms"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes",
+            "legendFormat": "Used Memory",
+            "refId": "A"
+          },
+          {
+            "expr": "redis_memory_peak_bytes",
+            "legendFormat": "Peak Memory",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "bytes", "label": "Memory" },
+          { "show": false }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Connected Clients",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "redis_connected_clients",
+            "legendFormat": "Clients",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Clients" },
+          { "show": false }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Evictions & Expirations",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 10, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(redis_evicted_keys_total[5m])",
+            "legendFormat": "Evictions/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(redis_expired_keys_total[5m])",
+            "legendFormat": "Expirations/sec",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Keys/sec" },
+          { "show": false }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [100], "type": "gt" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "message": "High eviction rate detected"
+        }
+      },
+      {
+        "id": 8,
+        "title": "Keyspace by Database",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 10, "w": 12, "h": 6 },
+        "targets": [
+          {
+            "expr": "redis_keys_total",
+            "legendFormat": "{{db}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Keys" },
+          { "show": false }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Network I/O",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 16, "w": 24, "h": 6 },
+        "targets": [
+          {
+            "expr": "rate(redis_net_input_bytes_total[5m])",
+            "legendFormat": "Input",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(redis_net_output_bytes_total[5m])",
+            "legendFormat": "Output",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "Bps", "label": "Bytes/sec" },
+          { "show": false }
+        ]
+      }
+    ]
+  }
+}

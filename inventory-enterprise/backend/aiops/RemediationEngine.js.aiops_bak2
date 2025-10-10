@@ -1,0 +1,614 @@
+/**
+ * Remediation Engine - Automated Incident Response
+ * Version: v2.6.0-2025-10-07
+ *
+ * Executes remediation playbooks based on incident type.
+ * Supports Docker/Kubernetes actions, cache invalidation, service restarts.
+ *
+ * @module aiops/RemediationEngine
+ */
+
+const fs = require('fs').promises;
+const path = require('path');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
+const logger = require('../config/logger').logger('remediation-engine');
+const yaml = require('js-yaml'); // Will need to add this dependency
+
+class RemediationEngine {
+  constructor(config = {}) {
+    this.config = {
+      playbooksPath: config.playbooksPath || path.join(__dirname, 'playbooks'),
+      dryRun: config.dryRun || false,
+      timeout: config.timeout || 30000,
+      ...config
+    };
+
+    this.playbooks = {};
+    this.executionHistory = [];
+  }
+
+  /**
+   * Initialize engine and load playbooks
+   */
+  async initialize() {
+    logger.info('Initializing Remediation Engine');
+    logger.info(`Playbooks path: ${this.config.playbooksPath}`);
+    logger.info(`Dry run mode: ${this.config.dryRun}`);
+
+    try {
+      // Create playbooks directory if it doesn't exist
+      await fs.mkdir(this.config.playbooksPath, { recursive: true });
+
+      // Load all playbooks
+      await this._loadPlaybooks();
+
+      logger.info(`Loaded ${Object.keys(this.playbooks).length} remediation playbooks`);
+    } catch (error) {
+      logger.error('Failed to initialize Remediation Engine:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute remediation for incident
+   */
+  async execute(incidentType, incident) {
+    const startTime = Date.now();
+    logger.info(`Executing remediation for ${incidentType}`);
+
+    const playbook = this.playbooks[incidentType];
+
+    if (!playbook) {
+      logger.warn(`No playbook found for incident type: ${incidentType}`);
+      return {
+        success: false,
+        error: `No playbook configured for ${incidentType}`,
+        duration: Date.now() - startTime
+      };
+    }
+
+    // Check conditions
+    if (!this._checkConditions(playbook.conditions, incident)) {
+      logger.info(`Conditions not met for ${incidentType}, skipping remediation`);
+      return {
+        success: false,
+        error: 'Remediation conditions not met',
+        skipped: true,
+        duration: Date.now() - startTime
+      };
+    }
+
+    // Execute actions
+    const actions = [];
+    const errors = [];
+
+    try {
+      for (const action of playbook.actions) {
+        logger.info(`Executing action: ${action.type}`);
+
+        const result = await this._executeAction(action, incident);
+
+        actions.push({
+          type: action.type,
+          description: action.description,
+          success: result.success,
+          output: result.output,
+          error: result.error
+        });
+
+        if (!result.success) {
+          errors.push(`Action ${action.type} failed: ${result.error}`);
+
+          // Stop on critical failures
+          if (action.critical !== false) {
+            break;
+          }
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      const success = errors.length === 0;
+
+      const result = {
+        success,
+        playbook: incidentType,
+        actions,
+        errors: errors.length > 0 ? errors : undefined,
+        duration
+      };
+
+      // Log execution
+      this._logExecution(incidentType, incident, result);
+
+      return result;
+    } catch (error) {
+      logger.error(`Remediation execution failed for ${incidentType}:`, error);
+      return {
+        success: false,
+        playbook: incidentType,
+        error: error.message,
+        duration: Date.now() - startTime
+      };
+    }
+  }
+
+  /**
+   * Execute single action
+   * @private
+   */
+  async _executeAction(action, incident) {
+    if (this.config.dryRun) {
+      logger.info(`[DRY RUN] Would execute: ${action.type}`);
+      return {
+        success: true,
+        output: '[DRY RUN] Action simulated'
+      };
+    }
+
+    try {
+      switch (action.type) {
+        case 'restart-service':
+          return await this._restartService(action.params);
+
+        case 'scale-container':
+          return await this._scaleContainer(action.params);
+
+        case 'invalidate-cache':
+          return await this._invalidateCache(action.params);
+
+        case 'kill-process':
+          return await this._killProcess(action.params);
+
+        case 'clear-queue':
+          return await this._clearQueue(action.params);
+
+        case 'execute-command':
+          return await this._executeCommand(action.params);
+
+        case 'api-call':
+          return await this._apiCall(action.params);
+
+        case 'database-query':
+          return await this._databaseQuery(action.params);
+
+        case 'send-notification':
+          return await this._sendNotification(action.params);
+
+        default:
+          throw new Error(`Unknown action type: ${action.type}`);
+      }
+    } catch (error) {
+      logger.error(`Action ${action.type} failed:`, error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Restart service
+   * @private
+   */
+  async _restartService(params) {
+    const { service, method = 'systemctl' } = params;
+
+    logger.info(`Restarting service: ${service} (method: ${method})`);
+
+    try {
+      let command;
+
+      switch (method) {
+        case 'systemctl':
+          command = `sudo systemctl restart ${service}`;
+          break;
+        case 'docker':
+          command = `docker restart ${service}`;
+          break;
+        case 'kubernetes':
+          command = `kubectl rollout restart deployment/${service}`;
+          break;
+        case 'pm2':
+          command = `pm2 restart ${service}`;
+          break;
+        default:
+          throw new Error(`Unknown restart method: ${method}`);
+      }
+
+      const { stdout, stderr } = await execAsync(command, {
+        timeout: this.config.timeout
+      });
+
+      return {
+        success: true,
+        output: stdout || stderr
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Scale container
+   * @private
+   */
+  async _scaleContainer(params) {
+    const { container, replicas, platform = 'kubernetes' } = params;
+
+    logger.info(`Scaling ${container} to ${replicas} replicas (${platform})`);
+
+    try {
+      let command;
+
+      switch (platform) {
+        case 'kubernetes':
+          command = `kubectl scale deployment/${container} --replicas=${replicas}`;
+          break;
+        case 'docker-compose':
+          command = `docker-compose up -d --scale ${container}=${replicas}`;
+          break;
+        case 'docker-swarm':
+          command = `docker service scale ${container}=${replicas}`;
+          break;
+        default:
+          throw new Error(`Unknown platform: ${platform}`);
+      }
+
+      const { stdout, stderr } = await execAsync(command, {
+        timeout: this.config.timeout
+      });
+
+      return {
+        success: true,
+        output: `Scaled to ${replicas} replicas: ${stdout || stderr}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Invalidate cache
+   * @private
+   */
+  async _invalidateCache(params) {
+    const { pattern = '*', host = 'localhost', port = 6379 } = params;
+
+    logger.info(`Invalidating Redis cache: ${pattern}`);
+
+    try {
+      const redis = require('../cache'); // Assuming Redis client is available
+
+      // Flush matching keys
+      const keys = await redis.keys(pattern);
+
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+
+      return {
+        success: true,
+        output: `Invalidated ${keys.length} cache keys`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Kill process
+   * @private
+   */
+  async _killProcess(params) {
+    const { processName, signal = 'SIGTERM' } = params;
+
+    logger.warn(`Killing process: ${processName} with ${signal}`);
+
+    try {
+      const { stdout } = await execAsync(`pkill -${signal} ${processName}`, {
+        timeout: this.config.timeout
+      });
+
+      return {
+        success: true,
+        output: `Process ${processName} terminated`
+      };
+    } catch (error) {
+      // pkill returns non-zero if no processes found
+      if (error.code === 1) {
+        return {
+          success: true,
+          output: 'No matching processes found'
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Clear queue
+   * @private
+   */
+  async _clearQueue(params) {
+    const { queueName, type = 'redis' } = params;
+
+    logger.info(`Clearing queue: ${queueName} (${type})`);
+
+    try {
+      if (type === 'redis') {
+        const redis = require('../cache');
+        await redis.del(queueName);
+      }
+
+      return {
+        success: true,
+        output: `Queue ${queueName} cleared`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Execute command
+   * @private
+   */
+  async _executeCommand(params) {
+    const { command, shell = '/bin/bash' } = params;
+
+    logger.info(`Executing command: ${command}`);
+
+    try {
+      const { stdout, stderr } = await execAsync(command, {
+        timeout: this.config.timeout,
+        shell
+      });
+
+      return {
+        success: true,
+        output: stdout || stderr
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        output: error.stdout || error.stderr
+      };
+    }
+  }
+
+  /**
+   * Action: API call
+   * @private
+   */
+  async _apiCall(params) {
+    const { url, method = 'POST', headers = {}, body = {} } = params;
+
+    logger.info(`Making API call: ${method} ${url}`);
+
+    try {
+      const axios = require('axios');
+
+      const response = await axios({
+        method,
+        url,
+        headers,
+        data: body,
+        timeout: this.config.timeout
+      });
+
+      return {
+        success: true,
+        output: `API call succeeded: ${response.status}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Database query
+   * @private
+   */
+  async _databaseQuery(params) {
+    const { query, params: queryParams = [] } = params;
+
+    logger.info(`Executing database query: ${query}`);
+
+    try {
+      const db = require('../database');
+      const result = await db.run(query, queryParams);
+
+      return {
+        success: true,
+        output: `Query executed successfully, affected rows: ${result.changes || 0}`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Action: Send notification
+   * @private
+   */
+  async _sendNotification(params) {
+    const { message, channel = 'slack' } = params;
+
+    logger.info(`Sending notification via ${channel}`);
+
+    // This would integrate with AlertManager
+    return {
+      success: true,
+      output: `Notification sent via ${channel}`
+    };
+  }
+
+  /**
+   * Check if conditions are met
+   * @private
+   */
+  _checkConditions(conditions, incident) {
+    if (!conditions || conditions.length === 0) {
+      return true;
+    }
+
+    for (const condition of conditions) {
+      const { field, operator, value } = condition;
+
+      const actualValue = this._getFieldValue(field, incident);
+
+      if (!this._evaluateCondition(actualValue, operator, value)) {
+        logger.debug(`Condition not met: ${field} ${operator} ${value} (actual: ${actualValue})`);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Get field value from incident
+   * @private
+   */
+  _getFieldValue(field, incident) {
+    const parts = field.split('.');
+    let value = incident;
+
+    for (const part of parts) {
+      if (value && typeof value === 'object') {
+        value = value[part];
+      } else {
+        return undefined;
+      }
+    }
+
+    return value;
+  }
+
+  /**
+   * Evaluate condition
+   * @private
+   */
+  _evaluateCondition(actualValue, operator, expectedValue) {
+    switch (operator) {
+      case 'equals':
+      case '==':
+        return actualValue == expectedValue;
+      case 'not_equals':
+      case '!=':
+        return actualValue != expectedValue;
+      case 'greater_than':
+      case '>':
+        return actualValue > expectedValue;
+      case 'less_than':
+      case '<':
+        return actualValue < expectedValue;
+      case 'greater_or_equal':
+      case '>=':
+        return actualValue >= expectedValue;
+      case 'less_or_equal':
+      case '<=':
+        return actualValue <= expectedValue;
+      case 'contains':
+        return String(actualValue).includes(expectedValue);
+      case 'matches':
+        return new RegExp(expectedValue).test(String(actualValue));
+      default:
+        logger.warn(`Unknown operator: ${operator}`);
+        return false;
+    }
+  }
+
+  /**
+   * Load playbooks from YAML files
+   * @private
+   */
+  async _loadPlaybooks() {
+    try {
+      const files = await fs.readdir(this.config.playbooksPath);
+      const yamlFiles = files.filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
+
+      for (const file of yamlFiles) {
+        const filePath = path.join(this.config.playbooksPath, file);
+        const content = await fs.readFile(filePath, 'utf8');
+
+        try {
+          const playbook = yaml.load(content);
+          const playbookName = path.basename(file, path.extname(file));
+
+          this.playbooks[playbookName] = playbook;
+          logger.debug(`Loaded playbook: ${playbookName}`);
+        } catch (error) {
+          logger.error(`Failed to parse playbook ${file}:`, error);
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to load playbooks:', error);
+    }
+  }
+
+  /**
+   * Log execution to history
+   * @private
+   */
+  _logExecution(incidentType, incident, result) {
+    this.executionHistory.push({
+      timestamp: new Date().toISOString(),
+      incidentType,
+      incidentId: incident.id,
+      success: result.success,
+      duration: result.duration,
+      actions: result.actions
+    });
+
+    // Keep only last 100 executions in memory
+    if (this.executionHistory.length > 100) {
+      this.executionHistory.shift();
+    }
+  }
+
+  /**
+   * Get execution history
+   */
+  getHistory() {
+    return this.executionHistory;
+  }
+
+  /**
+   * Get loaded playbooks
+   */
+  getPlaybooks() {
+    return Object.keys(this.playbooks).map(name => ({
+      name,
+      description: this.playbooks[name].description || 'No description',
+      actions: this.playbooks[name].actions.length
+    }));
+  }
+}
+
+module.exports = RemediationEngine;

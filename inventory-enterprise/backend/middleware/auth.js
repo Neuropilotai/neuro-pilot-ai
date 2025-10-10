@@ -14,18 +14,18 @@ const ROLES = {
 // Role permissions
 const PERMISSIONS = {
   [ROLES.ADMIN]: [
-    'inventory:read', 'inventory:write', 'inventory:delete',
+    'inventory:read', 'inventory:write', 'inventory:delete', 'inventory:count', 'inventory:approve',
     'orders:read', 'orders:write', 'orders:delete',
     'users:read', 'users:write', 'users:delete',
     'reports:read', 'audit:read', 'settings:write'
   ],
   [ROLES.MANAGER]: [
-    'inventory:read', 'inventory:write',
+    'inventory:read', 'inventory:write', 'inventory:count', 'inventory:approve',
     'orders:read', 'orders:write',
     'users:read', 'reports:read'
   ],
   [ROLES.STAFF]: [
-    'inventory:read', 'inventory:write',
+    'inventory:read', 'inventory:write', 'inventory:count',
     'orders:read', 'orders:write'
   ],
   [ROLES.VIEWER]: [
@@ -38,9 +38,11 @@ const users = new Map();
 const refreshTokens = new Map();
 
 // Initialize default admin user
+// Note: Email stored in normalized form (neuropilotai@gmail.com) to match express-validator's normalizeEmail()
+// which removes dots from Gmail addresses. User can login with neuro.pilot.ai@gmail.com
 const defaultAdmin = {
   id: 'admin-1',
-  email: 'admin@neuro-pilot.ai',
+  email: 'neuropilotai@gmail.com', // Normalized form (dots removed for Gmail)
   password: bcrypt.hashSync('Admin123!@#', 10),
   role: ROLES.ADMIN,
   firstName: 'System',

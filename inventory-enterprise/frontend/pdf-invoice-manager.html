@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Invoice Manager - NeuroInnovate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 16px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            color: #718096;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            min-height: 600px;
+        }
+
+        .invoice-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .invoice-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 15px;
+            padding: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .invoice-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .invoice-card.processed {
+            opacity: 0.7;
+            background: #e6f7ff;
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .invoice-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .invoice-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-unprocessed {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .status-processed {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-pending {
+            background: #feebc8;
+            color: #c05621;
+        }
+
+        .invoice-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        .invoice-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #2d3748;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .pdf-viewer-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .pdf-viewer-modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pdf-viewer-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            height: 90%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+        }
+
+        .pdf-viewer-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pdf-viewer-header h2 {
+            color: #2d3748;
+            font-size: 20px;
+        }
+
+        .close-btn {
+            background: #fc8181;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .pdf-viewer-body {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .pdf-viewer-body iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .bulk-actions {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .bulk-actions.active {
+            display: block;
+        }
+
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📄 PDF Invoice Manager</h1>
+            <p>View, manage, and process PDF invoices for inventory counts</p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value" id="stat-total">0</div>
+                <div class="label">Total Invoices</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="stat-unprocessed">0</div>
+                <div class="label">Unprocessed</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="stat-processed">0</div>
+                <div class="label">Processed</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="stat-pending">0</div>
+                <div class="label">Pending Count</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('all')">All Invoices</button>
+            <button class="tab" onclick="switchTab('unprocessed')">Unprocessed</button>
+            <button class="tab" onclick="switchTab('processed')">Processed</button>
+            <button class="tab" onclick="switchTab('pending')">Pending Count</button>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="search-box">
+                <input type="text" id="search" placeholder="Search by invoice number, date, or amount..." oninput="filterInvoices()">
+            </div>
+
+            <div class="bulk-actions" id="bulk-actions">
+                <h3 style="margin-bottom: 15px;">Bulk Actions</h3>
+                <button class="btn btn-primary" onclick="markSelectedAsProcessed()">Mark Selected as Processed</button>
+                <button class="btn btn-secondary" onclick="clearSelection()">Clear Selection</button>
+                <span style="margin-left: 15px; color: #718096;" id="selected-count">0 selected</span>
+            </div>
+
+            <div id="loading" class="loading">
+                Loading invoices...
+            </div>
+
+            <div id="error" class="error" style="display: none;"></div>
+
+            <div id="invoice-list" class="invoice-grid"></div>
+        </div>
+    </div>
+
+    <!-- PDF Viewer Modal -->
+    <div class="pdf-viewer-modal" id="pdf-viewer">
+        <div class="pdf-viewer-content">
+            <div class="pdf-viewer-header">
+                <h2 id="pdf-title">Invoice PDF</h2>
+                <button class="close-btn" onclick="closePDFViewer()">Close</button>
+            </div>
+            <div class="pdf-viewer-body">
+                <iframe id="pdf-iframe" src=""></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allInvoices = {};
+        let currentTab = 'all';
+        let selectedInvoices = new Set();
+
+        // Load invoices on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInvoices();
+        });
+
+        async function loadInvoices() {
+            try {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch('http://localhost:8083/api/invoices/pdfs', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load invoices');
+                }
+
+                const result = await response.json();
+                allInvoices = result.data;
+
+                // Update statistics
+                document.getElementById('stat-total').textContent = result.summary.total;
+                document.getElementById('stat-unprocessed').textContent = result.summary.unprocessed;
+                document.getElementById('stat-processed').textContent = result.summary.processed;
+                document.getElementById('stat-pending').textContent = result.summary.pending_count;
+
+                // Display invoices
+                document.getElementById('loading').style.display = 'none';
+                displayInvoices();
+            } catch (error) {
+                console.error('Error loading invoices:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Failed to load invoices. Please refresh the page.';
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Display invoices for selected tab
+            displayInvoices();
+        }
+
+        function displayInvoices() {
+            const listElement = document.getElementById('invoice-list');
+            let invoices = [];
+
+            // Get invoices based on current tab
+            if (currentTab === 'all') {
+                invoices = [...allInvoices.unprocessed, ...allInvoices.processed, ...allInvoices.pending_count];
+            } else if (currentTab === 'unprocessed') {
+                invoices = allInvoices.unprocessed || [];
+            } else if (currentTab === 'processed') {
+                invoices = allInvoices.processed || [];
+            } else if (currentTab === 'pending') {
+                invoices = allInvoices.pending_count || [];
+            }
+
+            // Apply search filter
+            const searchTerm = document.getElementById('search').value.toLowerCase();
+            if (searchTerm) {
+                invoices = invoices.filter(inv =>
+                    inv.order_number.toLowerCase().includes(searchTerm) ||
+                    inv.order_date.includes(searchTerm) ||
+                    String(inv.total_amount).includes(searchTerm)
+                );
+            }
+
+            // Render invoices
+            listElement.innerHTML = invoices.length === 0 ?
+                '<p class="loading">No invoices found</p>' :
+                invoices.map(invoice => renderInvoiceCard(invoice)).join('');
+        }
+
+        function renderInvoiceCard(invoice) {
+            const isSelected = selectedInvoices.has(invoice.order_id);
+            return `
+                <div class="invoice-card ${invoice.is_processed ? 'processed' : ''}" data-order-id="${invoice.order_id}">
+                    <div class="invoice-header">
+                        <div style="display: flex; align-items: center;">
+                            ${!invoice.is_processed ? `<input type="checkbox" class="checkbox" ${isSelected ? 'checked' : ''} onclick="toggleInvoiceSelection(${invoice.order_id}, event)">` : ''}
+                            <div class="invoice-number">${invoice.order_number || 'N/A'}</div>
+                        </div>
+                        <span class="invoice-status status-${invoice.status_label.toLowerCase().replace(' ', '-')}">${invoice.status_label}</span>
+                    </div>
+
+                    <div class="invoice-details">
+                        <div>
+                            <strong>Date:</strong><br>
+                            ${new Date(invoice.order_date).toLocaleDateString()}
+                        </div>
+                        <div>
+                            <strong>Amount:</strong><br>
+                            $${parseFloat(invoice.total_amount || 0).toFixed(2)}
+                        </div>
+                        <div>
+                            <strong>Items:</strong><br>
+                            ${invoice.item_count} items
+                        </div>
+                    </div>
+
+                    <div class="invoice-actions">
+                        ${invoice.pdf_available ?
+                            `<button class="btn btn-primary" onclick="viewPDF(${invoice.order_id}, '${invoice.order_number}')">View PDF</button>` :
+                            '<span style="color: #fc8181;">PDF not available</span>'
+                        }
+                        ${!invoice.is_processed ?
+                            `<button class="btn btn-secondary" onclick="markAsProcessed(${invoice.order_id})">Mark Processed</button>` :
+                            ''
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleInvoiceSelection(orderId, event) {
+            event.stopPropagation();
+
+            if (selectedInvoices.has(orderId)) {
+                selectedInvoices.delete(orderId);
+            } else {
+                selectedInvoices.add(orderId);
+            }
+
+            updateBulkActions();
+        }
+
+        function updateBulkActions() {
+            const bulkActions = document.getElementById('bulk-actions');
+            const selectedCount = document.getElementById('selected-count');
+
+            selectedCount.textContent = `${selectedInvoices.size} selected`;
+
+            if (selectedInvoices.size > 0) {
+                bulkActions.classList.add('active');
+            } else {
+                bulkActions.classList.remove('active');
+            }
+        }
+
+        function clearSelection() {
+            selectedInvoices.clear();
+            displayInvoices();
+            updateBulkActions();
+        }
+
+        async function markSelectedAsProcessed() {
+            if (selectedInvoices.size === 0) return;
+
+            const countId = prompt('Enter Count ID to associate these invoices with:');
+            if (!countId) return;
+
+            try {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch('http://localhost:8083/api/invoices/mark-processed', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        orderIds: Array.from(selectedInvoices),
+                        countId,
+                        countDate: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to mark invoices as processed');
+                }
+
+                alert(`Successfully marked ${selectedInvoices.size} invoices as processed`);
+                selectedInvoices.clear();
+                loadInvoices();
+            } catch (error) {
+                console.error('Error marking invoices:', error);
+                alert('Failed to mark invoices as processed');
+            }
+        }
+
+        async function markAsProcessed(orderId) {
+            const countId = prompt('Enter Count ID to associate this invoice with:');
+            if (!countId) return;
+
+            try {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch('http://localhost:8083/api/invoices/mark-processed', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        orderIds: [orderId],
+                        countId,
+                        countDate: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to mark invoice as processed');
+                }
+
+                alert('Successfully marked invoice as processed');
+                loadInvoices();
+            } catch (error) {
+                console.error('Error marking invoice:', error);
+                alert('Failed to mark invoice as processed');
+            }
+        }
+
+        function viewPDF(orderId, orderNumber) {
+            const token = localStorage.getItem('accessToken');
+            const pdfUrl = `http://localhost:8083/api/invoices/pdf/${orderId}?token=${token}`;
+
+            document.getElementById('pdf-title').textContent = `Invoice: ${orderNumber}`;
+            document.getElementById('pdf-iframe').src = pdfUrl;
+            document.getElementById('pdf-viewer').classList.add('active');
+        }
+
+        function closePDFViewer() {
+            document.getElementById('pdf-viewer').classList.remove('active');
+            document.getElementById('pdf-iframe').src = '';
+        }
+
+        function filterInvoices() {
+            displayInvoices();
+        }
+    </script>
+</body>
+</html>

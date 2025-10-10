@@ -1,0 +1,336 @@
+/**
+ * AI Feedback Ingestion Module
+ * Version: v2.2.0-2025-10-07
+ *
+ * Captures ground truth vs forecasts and computes accuracy metrics (MAPE, RMSE)
+ * for drift detection and model retraining triggers.
+ */
+
+const db = require('../../config/database');
+const logger = require('../../config/logger');
+const metricsExporter = require('../../utils/metricsExporter');
+
+class FeedbackIngestor {
+  /**
+   * Ingest ground truth data and compare with forecasts
+   * @param {Array<Object>} feedbackData - Array of {item_code, date, actual, source, notes}
+   * @returns {Promise<Object>} Ingestion results
+   */
+  async ingestBatch(feedbackData) {
+    const startTime = Date.now();
+    const results = {
+      success: 0,
+      failed: 0,
+      skipped: 0,
+      errors: []
+    };
+
+    logger.info(`[FeedbackIngest] Starting batch ingest of ${feedbackData.length} records`);
+
+    for (const record of feedbackData) {
+      try {
+        const result = await this.ingestSingle(record);
+        if (result.success) {
+          results.success++;
+        } else if (result.skipped) {
+          results.skipped++;
+        } else {
+          results.failed++;
+          results.errors.push({ record, error: result.error });
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push({ record, error: error.message });
+        logger.error(`[FeedbackIngest] Error processing record:`, error);
+      }
+    }
+
+    const duration = (Date.now() - startTime) / 1000;
+    logger.info(`[FeedbackIngest] Batch complete: ${results.success} success, ${results.failed} failed, ${results.skipped} skipped (${duration}s)`);
+
+    // Record metrics
+    metricsExporter.recordFeedbackIngest(results.success, 'success');
+    metricsExporter.recordFeedbackIngest(results.failed, 'failed');
+    metricsExporter.recordFeedbackIngest(results.skipped, 'skipped');
+
+    return results;
+  }
+
+  /**
+   * Ingest single feedback record
+   * @param {Object} record - {item_code, date, actual, source, notes}
+   * @returns {Promise<Object>} Result
+   */
+  async ingestSingle(record) {
+    const { item_code, date, actual, source = 'manual', notes = null } = record;
+
+    // Validate input
+    if (!item_code || !date || actual === undefined || actual === null) {
+      return { success: false, error: 'Missing required fields' };
+    }
+
+    // Get forecast for this item/date (if exists)
+    const forecast = await this.getForecast(item_code, date);
+
+    if (!forecast) {
+      // No forecast available for comparison - still store actual
+      await this.storeFeedback({
+        item_code,
+        date,
+        forecast: null,
+        actual,
+        mape: null,
+        rmse: null,
+        source,
+        notes
+      });
+      return { success: true, skipped: true, reason: 'No forecast available' };
+    }
+
+    // Compute accuracy metrics
+    const mape = this.computeMAPE(forecast, actual);
+    const rmse = this.computeRMSE(forecast, actual);
+
+    // Store feedback
+    await this.storeFeedback({
+      item_code,
+      date,
+      forecast,
+      actual,
+      mape,
+      rmse,
+      source,
+      notes
+    });
+
+    // Update metrics
+    metricsExporter.recordAccuracyMetric(item_code, mape, rmse);
+
+    logger.debug(`[FeedbackIngest] Recorded: ${item_code} @ ${date} - MAPE: ${mape.toFixed(2)}%, RMSE: ${rmse.toFixed(2)}`);
+
+    return { success: true, mape, rmse };
+  }
+
+  /**
+   * Get forecast for item/date from ai_forecasts table
+   * @param {string} itemCode - Item code
+   * @param {string} date - Date (YYYY-MM-DD)
+   * @returns {Promise<number|null>} Forecast value
+   */
+  async getForecast(itemCode, date) {
+    try {
+      const query = `
+        SELECT predicted_value
+        FROM ai_forecasts
+        WHERE entity_id = ?
+          AND entity_type = 'item'
+          AND forecast_date = ?
+          AND model_type IN ('prophet', 'arima')
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+
+      const result = await db.query(query, [itemCode, date]);
+      return result.rows && result.rows.length > 0 ? result.rows[0].predicted_value : null;
+    } catch (error) {
+      logger.error(`[FeedbackIngest] Error fetching forecast for ${itemCode}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Store feedback record
+   * @param {Object} data - Feedback data
+   */
+  async storeFeedback(data) {
+    const query = `
+      INSERT INTO ai_feedback (item_code, date, forecast, actual, mape, rmse, source, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (item_code, date, source) DO UPDATE SET
+        forecast = EXCLUDED.forecast,
+        actual = EXCLUDED.actual,
+        mape = EXCLUDED.mape,
+        rmse = EXCLUDED.rmse,
+        notes = EXCLUDED.notes,
+        created_at = CURRENT_TIMESTAMP
+    `;
+
+    await db.query(query, [
+      data.item_code,
+      data.date,
+      data.forecast,
+      data.actual,
+      data.mape,
+      data.rmse,
+      data.source,
+      data.notes
+    ]);
+  }
+
+  /**
+   * Compute Mean Absolute Percentage Error
+   * @param {number} forecast - Forecasted value
+   * @param {number} actual - Actual value
+   * @returns {number} MAPE as percentage
+   */
+  computeMAPE(forecast, actual) {
+    if (actual === 0) {
+      // Avoid division by zero - use absolute error instead
+      return Math.abs(forecast - actual) * 100;
+    }
+    return (Math.abs((actual - forecast) / actual) * 100);
+  }
+
+  /**
+   * Compute Root Mean Square Error
+   * @param {number} forecast - Forecasted value
+   * @param {number} actual - Actual value
+   * @returns {number} RMSE
+   */
+  computeRMSE(forecast, actual) {
+    return Math.sqrt(Math.pow(forecast - actual, 2));
+  }
+
+  /**
+   * Get accuracy metrics for an item over a time window
+   * @param {string} itemCode - Item code
+   * @param {number} windowDays - Number of days to look back (7, 28, 90)
+   * @returns {Promise<Object>} Metrics
+   */
+  async getAccuracyMetrics(itemCode, windowDays = 28) {
+    const query = `
+      SELECT
+        item_code,
+        COUNT(*) as total_records,
+        AVG(mape) as avg_mape,
+        AVG(rmse) as avg_rmse,
+        MIN(mape) as min_mape,
+        MAX(mape) as max_mape,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY mape) as median_mape,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY rmse) as median_rmse
+      FROM ai_feedback
+      WHERE item_code = ?
+        AND date >= DATE('now', '-' || ? || ' days')
+        AND mape IS NOT NULL
+        AND rmse IS NOT NULL
+      GROUP BY item_code
+    `;
+
+    const result = await db.query(query, [itemCode, windowDays]);
+
+    if (result.rows && result.rows.length > 0) {
+      return result.rows[0];
+    }
+
+    return null;
+  }
+
+  /**
+   * Get accuracy time series for an item
+   * @param {string} itemCode - Item code
+   * @param {number} windowDays - Number of days to look back
+   * @returns {Promise<Array>} Time series data
+   */
+  async getAccuracyTimeSeries(itemCode, windowDays = 28) {
+    const query = `
+      SELECT
+        date,
+        forecast,
+        actual,
+        mape,
+        rmse,
+        source
+      FROM ai_feedback
+      WHERE item_code = ?
+        AND date >= DATE('now', '-' || ? || ' days')
+      ORDER BY date ASC
+    `;
+
+    const result = await db.query(query, [itemCode, windowDays]);
+    return result.rows || [];
+  }
+
+  /**
+   * Ingest from sales/invoice data
+   * @param {Array<Object>} salesData - Array of sales records
+   * @returns {Promise<Object>} Ingestion results
+   */
+  async ingestFromSales(salesData) {
+    const feedbackData = salesData.map(sale => ({
+      item_code: sale.item_code,
+      date: sale.sale_date,
+      actual: sale.quantity_sold,
+      source: 'sales',
+      notes: `Order: ${sale.order_id || 'N/A'}`
+    }));
+
+    return await this.ingestBatch(feedbackData);
+  }
+
+  /**
+   * Ingest from stock count data
+   * @param {Array<Object>} stockCounts - Array of stock count records
+   * @returns {Promise<Object>} Ingestion results
+   */
+  async ingestFromStockCount(stockCounts) {
+    const feedbackData = stockCounts.map(count => ({
+      item_code: count.item_code,
+      date: count.count_date,
+      actual: count.quantity,
+      source: 'stock_count',
+      notes: `Count ID: ${count.count_id || 'N/A'}`
+    }));
+
+    return await this.ingestBatch(feedbackData);
+  }
+
+  /**
+   * Ingest from order fulfillment data
+   * @param {Array<Object>} orders - Array of order records
+   * @returns {Promise<Object>} Ingestion results
+   */
+  async ingestFromOrders(orders) {
+    const feedbackData = orders.map(order => ({
+      item_code: order.item_code,
+      date: order.delivery_date,
+      actual: order.quantity_delivered,
+      source: 'order_fulfillment',
+      notes: `Invoice: ${order.invoice_number || 'N/A'}`
+    }));
+
+    return await this.ingestBatch(feedbackData);
+  }
+
+  /**
+   * Refresh daily rollup (for PostgreSQL materialized view)
+   */
+  async refreshDailyRollup() {
+    try {
+      if (db.type === 'postgres') {
+        await db.query('SELECT refresh_ai_feedback_rollup()');
+        logger.info('[FeedbackIngest] Daily rollup refreshed');
+      } else {
+        // SQLite: Update rollup table manually
+        await db.query(`
+          INSERT OR REPLACE INTO ai_feedback_daily_rollup (item_code, date, avg_mape, avg_rmse, forecast_count, actual_count, updated_at)
+          SELECT
+            item_code,
+            date,
+            AVG(mape) as avg_mape,
+            AVG(rmse) as avg_rmse,
+            COUNT(CASE WHEN forecast IS NOT NULL THEN 1 END) as forecast_count,
+            COUNT(CASE WHEN actual IS NOT NULL THEN 1 END) as actual_count,
+            CURRENT_TIMESTAMP as updated_at
+          FROM ai_feedback
+          WHERE date >= DATE('now', '-90 days')
+          GROUP BY item_code, date
+        `);
+        logger.info('[FeedbackIngest] Daily rollup updated (SQLite)');
+      }
+    } catch (error) {
+      logger.error('[FeedbackIngest] Error refreshing daily rollup:', error);
+    }
+  }
+}
+
+module.exports = new FeedbackIngestor();

@@ -1,0 +1,76 @@
+# AI Ops Playbook: Tenant Traffic Overload
+# Version: v2.6.0-2025-10-07
+#
+# Triggered when a single tenant generates excessive traffic
+# Remediation: Rate limit tenant, scale resources, alert account team
+
+name: tenant-overload
+description: Remediate tenant traffic overload with rate limiting and scaling
+
+conditions:
+  - field: prediction.anomalyScore
+    operator: greater_than
+    value: 0.85
+  - field: prediction.value
+    operator: greater_than
+    value: 1000  # 1000 req/s from single tenant
+
+actions:
+  - type: execute-command
+    description: Identify top traffic tenants
+    params:
+      command: >
+        curl -s http://localhost:8083/api/metrics |
+        grep 'http_requests_total{tenant=' |
+        sort -t= -k2 -nr |
+        head -n 5
+    critical: false
+
+  - type: api-call
+    description: Apply rate limiting to tenant
+    params:
+      url: "http://localhost:8083/api/admin/tenants/${incident.tenantId}/rate-limit"
+      method: POST
+      headers:
+        Authorization: "Bearer ${INTERNAL_API_TOKEN}"
+      body:
+        maxRequestsPerMinute: 500
+        burstSize: 100
+        duration: 3600  # 1 hour
+    critical: false
+
+  - type: database-query
+    description: Log tenant activity for review
+    params:
+      query: >
+        INSERT INTO tenant_activity_log (tenant_id, event_type, details, timestamp)
+        VALUES (?, 'rate_limit_applied', ?, NOW())
+      params:
+        - "${incident.tenantId}"
+        - "Excessive traffic detected: ${prediction.value} req/s"
+    critical: false
+
+  - type: scale-container
+    description: Scale up API servers to handle load
+    params:
+      container: inventory-api
+      replicas: 8
+      platform: kubernetes
+    critical: false
+
+  - type: api-call
+    description: Notify account manager
+    params:
+      url: "http://localhost:8083/api/notifications/account-manager"
+      method: POST
+      body:
+        tenantId: "${incident.tenantId}"
+        subject: "Tenant Traffic Alert"
+        message: "Tenant generating ${prediction.value} req/s. Rate limit applied."
+    critical: false
+
+  - type: send-notification
+    description: Alert ops and account teams
+    params:
+      message: "Tenant overload remediation: rate limit applied, scaled to 8 replicas, account team notified"
+      channel: slack

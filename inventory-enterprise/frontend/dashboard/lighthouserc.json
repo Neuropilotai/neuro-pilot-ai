@@ -1,0 +1,176 @@
+{
+  "ci": {
+    "collect": {
+      "url": [
+        "http://localhost:3000/login",
+        "http://localhost:3000/dashboard/overview",
+        "http://localhost:3000/dashboard/tenants",
+        "http://localhost:3000/dashboard/roles",
+        "http://localhost:3000/dashboard/ai",
+        "http://localhost:3000/dashboard/security"
+      ],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "throttling": {
+          "rttMs": 40,
+          "throughputKbps": 10240,
+          "cpuSlowdownMultiplier": 1,
+          "requestLatencyMs": 0,
+          "downloadThroughputKbps": 0,
+          "uploadThroughputKbps": 0
+        },
+        "screenEmulation": {
+          "mobile": false,
+          "width": 1350,
+          "height": 940,
+          "deviceScaleFactor": 1,
+          "disabled": false
+        },
+        "formFactor": "desktop",
+        "onlyCategories": [
+          "performance",
+          "accessibility",
+          "best-practices",
+          "seo"
+        ]
+      }
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "categories:performance": ["error", {"minScore": 0.85}],
+        "categories:accessibility": ["error", {"minScore": 0.90}],
+        "categories:best-practices": ["error", {"minScore": 0.95}],
+        "categories:seo": ["warn", {"minScore": 0.80}],
+
+        "first-contentful-paint": ["warn", {"maxNumericValue": 2000}],
+        "largest-contentful-paint": ["error", {"maxNumericValue": 3000}],
+        "interactive": ["error", {"maxNumericValue": 3000}],
+        "cumulative-layout-shift": ["warn", {"maxNumericValue": 0.1}],
+        "total-blocking-time": ["warn", {"maxNumericValue": 300}],
+        "speed-index": ["warn", {"maxNumericValue": 3000}],
+
+        "uses-responsive-images": "warn",
+        "offscreen-images": "warn",
+        "unminified-css": "error",
+        "unminified-javascript": "error",
+        "unused-css-rules": "warn",
+        "unused-javascript": "warn",
+        "modern-image-formats": "warn",
+        "uses-optimized-images": "warn",
+        "uses-text-compression": "error",
+        "uses-long-cache-ttl": "warn",
+
+        "color-contrast": "error",
+        "html-has-lang": "error",
+        "meta-viewport": "error",
+        "document-title": "error",
+        "aria-allowed-attr": "error",
+        "aria-required-attr": "error",
+        "aria-valid-attr-value": "error",
+        "button-name": "error",
+        "image-alt": "error",
+        "label": "error",
+        "link-name": "error",
+
+        "is-on-https": "off",
+        "redirects-http": "off"
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage",
+      "reportFilenamePattern": "lighthouse-%%PATHNAME%%-%%DATETIME%%.report.html"
+    }
+  },
+  "budgets": [
+    {
+      "path": "/*",
+      "resourceSizes": [
+        {
+          "resourceType": "script",
+          "budget": 400
+        },
+        {
+          "resourceType": "stylesheet",
+          "budget": 50
+        },
+        {
+          "resourceType": "image",
+          "budget": 200
+        },
+        {
+          "resourceType": "font",
+          "budget": 100
+        },
+        {
+          "resourceType": "document",
+          "budget": 50
+        },
+        {
+          "resourceType": "total",
+          "budget": 800
+        }
+      ],
+      "resourceCounts": [
+        {
+          "resourceType": "script",
+          "budget": 20
+        },
+        {
+          "resourceType": "stylesheet",
+          "budget": 10
+        },
+        {
+          "resourceType": "image",
+          "budget": 30
+        },
+        {
+          "resourceType": "font",
+          "budget": 5
+        },
+        {
+          "resourceType": "third-party",
+          "budget": 10
+        }
+      ],
+      "timings": [
+        {
+          "metric": "interactive",
+          "budget": 3000,
+          "tolerance": 500
+        },
+        {
+          "metric": "first-contentful-paint",
+          "budget": 2000,
+          "tolerance": 300
+        },
+        {
+          "metric": "largest-contentful-paint",
+          "budget": 3000,
+          "tolerance": 500
+        },
+        {
+          "metric": "max-potential-fid",
+          "budget": 200,
+          "tolerance": 50
+        },
+        {
+          "metric": "cumulative-layout-shift",
+          "budget": 0.1,
+          "tolerance": 0.02
+        },
+        {
+          "metric": "total-blocking-time",
+          "budget": 300,
+          "tolerance": 100
+        },
+        {
+          "metric": "speed-index",
+          "budget": 3000,
+          "tolerance": 500
+        }
+      ]
+    }
+  ]
+}

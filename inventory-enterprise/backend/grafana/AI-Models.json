@@ -1,0 +1,375 @@
+{
+  "dashboard": {
+    "title": "NeuroInnovate Inventory Enterprise - AI Models & Forecasting",
+    "tags": ["ai", "ml", "forecasting", "prophet", "arima"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "1m",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Model Accuracy (MAPE) by Model Type",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "ai_model_accuracy_mape{model_type=\"prophet\"}",
+            "legendFormat": "Prophet - {{entity_id}}",
+            "refId": "A"
+          },
+          {
+            "expr": "ai_model_accuracy_mape{model_type=\"arima\"}",
+            "legendFormat": "ARIMA - {{entity_id}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "MAPE (%)" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [20], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "5m",
+          "handler": 1,
+          "name": "AI Model Accuracy Alert (MAPE > 20%)",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 2,
+        "title": "Training Duration Histogram",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(ai_train_duration_seconds_bucket[5m])",
+            "legendFormat": "{{le}}",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ],
+        "dataFormat": "tsbuckets",
+        "yAxis": {
+          "format": "s",
+          "min": "0",
+          "max": "600"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Active Models by Type",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "ai_models_active_total{model_type=\"prophet\"}",
+            "legendFormat": "Prophet",
+            "refId": "A"
+          },
+          {
+            "expr": "ai_models_active_total{model_type=\"arima\"}",
+            "legendFormat": "ARIMA",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Training Success Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(ai_train_total{status=\"success\"}[1h])) / sum(rate(ai_train_total[1h])) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 80, "color": "yellow" },
+                { "value": 95, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Predictions Generated (24h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(increase(ai_predict_total{status=\"success\"}[24h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Anomalies Detected (24h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(increase(ai_anomalies_detected_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 5, "color": "yellow" },
+                { "value": 20, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Training Jobs Over Time",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "rate(ai_train_total{status=\"success\"}[5m])",
+            "legendFormat": "Success - {{model_type}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(ai_train_total{status=\"failed\"}[5m])",
+            "legendFormat": "Failed - {{model_type}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Jobs/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Prediction Latency (p95)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(ai_predict_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{model_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Duration" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Consumption Records Derived",
+        "type": "graph",
+        "gridPos": { "h": 6, "w": 12, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "expr": "rate(ai_consumption_derived_total{status=\"success\"}[5m])",
+            "legendFormat": "Success",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(ai_consumption_derived_total{status=\"error\"}[5m])",
+            "legendFormat": "Error",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Records/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Top Anomalous Items",
+        "type": "table",
+        "gridPos": { "h": 6, "w": 12, "x": 12, "y": 20 },
+        "targets": [
+          {
+            "expr": "topk(10, sum(increase(ai_anomalies_detected_total[24h])) by (item_code))",
+            "legendFormat": "{{item_code}}",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "__name__": true
+              },
+              "renameByName": {
+                "item_code": "Item Code",
+                "Value": "Anomalies (24h)"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Model Training Duration by Type",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+        "targets": [
+          {
+            "expr": "avg(rate(ai_train_duration_seconds_sum{model_type=\"prophet\"}[5m])) / avg(rate(ai_train_duration_seconds_count{model_type=\"prophet\"}[5m]))",
+            "legendFormat": "Prophet Avg",
+            "refId": "A"
+          },
+          {
+            "expr": "avg(rate(ai_train_duration_seconds_sum{model_type=\"arima\"}[5m])) / avg(rate(ai_train_duration_seconds_count{model_type=\"arima\"}[5m]))",
+            "legendFormat": "ARIMA Avg",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Duration" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Forecasting Accuracy Trends",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+        "targets": [
+          {
+            "expr": "avg(ai_model_accuracy_mape) by (model_type)",
+            "legendFormat": "{{model_type}} Avg MAPE",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "MAPE (%)", "max": 30 },
+          { "format": "short" }
+        ],
+        "thresholds": [
+          {
+            "value": 15,
+            "colorMode": "critical",
+            "op": "gt",
+            "fill": true,
+            "line": true
+          },
+          {
+            "value": 20,
+            "colorMode": "custom",
+            "fillColor": "rgba(255, 0, 0, 0.3)",
+            "lineColor": "rgb(255, 0, 0)",
+            "op": "gt"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Prediction Throughput",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 12, "x": 0, "y": 34 },
+        "targets": [
+          {
+            "expr": "sum(rate(ai_predict_total[5m]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "decimals": 2,
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "id": 14,
+        "title": "AI System Health",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 12, "x": 12, "y": 34 },
+        "targets": [
+          {
+            "expr": "system_health_status{component=~\"ai.*\"}",
+            "legendFormat": "{{component}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "value": 0, "text": "Unhealthy", "color": "red" },
+              { "value": 1, "text": "Healthy", "color": "green" }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "value_and_name"
+        }
+      }
+    ]
+  }
+}

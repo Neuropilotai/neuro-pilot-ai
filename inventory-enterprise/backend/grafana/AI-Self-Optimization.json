@@ -1,0 +1,500 @@
+{
+  "dashboard": {
+    "title": "NeuroInnovate Inventory Enterprise - AI Self-Optimization (v2.2.0)",
+    "tags": ["ai", "ml", "self-optimization", "rl", "feedback-loop", "drift-detection"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "1m",
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Forecast Accuracy (MAPE) Trend by Item",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "description": "Mean Absolute Percentage Error (MAPE) for each item over time. Lower is better.",
+        "targets": [
+          {
+            "expr": "ai_accuracy_mape",
+            "legendFormat": "{{item_code}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "pointSize": 5
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 15, "color": "yellow" },
+                { "value": 20, "color": "red" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": ["lastNotNull", "mean"]
+          },
+          "tooltip": {
+            "mode": "multi"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Forecast Accuracy (RMSE) Trend by Item",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "description": "Root Mean Square Error (RMSE) for each item over time. Lower is better.",
+        "targets": [
+          {
+            "expr": "ai_accuracy_rmse",
+            "legendFormat": "{{item_code}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "pointSize": 5
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": ["lastNotNull", "mean"]
+          },
+          "tooltip": {
+            "mode": "multi"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Autotrain Triggers (by Reason)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 8, "x": 0, "y": 8 },
+        "description": "Total autotrain jobs triggered, broken down by reason",
+        "targets": [
+          {
+            "expr": "sum(increase(ai_autotrain_triggers_total[7d])) by (reason)",
+            "legendFormat": "{{reason}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "blue" },
+                { "value": 5, "color": "green" },
+                { "value": 20, "color": "yellow" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Autotrain Success Rate (Last 7d)",
+        "type": "gauge",
+        "gridPos": { "h": 4, "w": 8, "x": 8, "y": 8 },
+        "description": "Percentage of successful autotrain jobs in the last 7 days",
+        "targets": [
+          {
+            "expr": "100 * sum(increase(ai_autotrain_duration_seconds_count{status=\"success\"}[7d])) / sum(increase(ai_autotrain_duration_seconds_count[7d]))",
+            "legendFormat": "Success Rate",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 70, "color": "yellow" },
+                { "value": 90, "color": "green" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 5,
+        "title": "Autotrain Failures (Last 24h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 8, "x": 16, "y": 8 },
+        "description": "Count of autotrain failures in the last 24 hours by trigger",
+        "targets": [
+          {
+            "expr": "sum(increase(ai_retrain_failures_total[24h])) by (trigger)",
+            "legendFormat": "{{trigger}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 1, "color": "yellow" },
+                { "value": 5, "color": "red" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 6,
+        "title": "Autotrain Duration Distribution",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "description": "Distribution of autotrain job durations over time",
+        "targets": [
+          {
+            "expr": "rate(ai_autotrain_duration_seconds_bucket[5m])",
+            "legendFormat": "{{le}}",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ],
+        "dataFormat": "tsbuckets",
+        "yAxis": {
+          "format": "s",
+          "min": "0",
+          "max": "600"
+        },
+        "options": {
+          "calculate": true,
+          "calculation": {
+            "xBuckets": {
+              "mode": "size",
+              "value": "1m"
+            }
+          },
+          "cellGap": 2,
+          "color": {
+            "mode": "scheme",
+            "scheme": "Spectral"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "RL Policy Reward Trend by Item",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "description": "Reinforcement learning reward values for reorder policies. Higher is better.",
+        "targets": [
+          {
+            "expr": "ai_rl_reward_gauge",
+            "legendFormat": "{{item_code}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "pointSize": 5
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "red" },
+                { "value": 0, "color": "yellow" },
+                { "value": 100, "color": "green" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "calcs": ["lastNotNull", "mean", "delta"]
+          },
+          "tooltip": {
+            "mode": "multi"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "RL Policy Commits (Last 7d)",
+        "type": "bargauge",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+        "description": "Number of policy updates committed by RL agent per item in the last 7 days",
+        "targets": [
+          {
+            "expr": "sum(increase(ai_rl_policy_commits_total[7d])) by (item_code)",
+            "legendFormat": "{{item_code}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "min": 0,
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "blue" },
+                { "value": 1, "color": "green" },
+                { "value": 3, "color": "yellow" },
+                { "value": 10, "color": "orange" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true
+        }
+      },
+      {
+        "id": 9,
+        "title": "Feedback Ingestion Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "description": "Rate of feedback records ingested per minute by source",
+        "targets": [
+          {
+            "expr": "rate(ai_feedback_ingest_total{status=\"success\"}[5m])",
+            "legendFormat": "{{source}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "lineInterpolation": "smooth",
+              "lineWidth": 2,
+              "fillOpacity": 20,
+              "spanNulls": true
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi"
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Feedback Ingestion Total (by Status)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 12, "x": 0, "y": 28 },
+        "description": "Total feedback records ingested in the last 24h, broken down by status",
+        "targets": [
+          {
+            "expr": "sum(increase(ai_feedback_ingest_total[24h])) by (status)",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "gray" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "error" },
+              "properties": [
+                {
+                  "id": "color",
+                  "value": {
+                    "mode": "fixed",
+                    "fixedColor": "red"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 11,
+        "title": "System Health: Model Accuracy vs Threshold",
+        "type": "timeseries",
+        "gridPos": { "h": 4, "w": 12, "x": 12, "y": 28 },
+        "description": "Average MAPE across all items vs alert threshold (15% / 20%)",
+        "targets": [
+          {
+            "expr": "avg(ai_accuracy_mape)",
+            "legendFormat": "Avg MAPE",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "lineWidth": 3,
+              "fillOpacity": 20
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 15, "color": "yellow" },
+                { "value": 20, "color": "red" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          }
+        }
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(ai_rl_policy_commits_total[1m]) > 0",
+          "iconColor": "blue",
+          "name": "Policy Changes",
+          "tagKeys": "item_code",
+          "textFormat": "Policy updated for {{item_code}}",
+          "titleFormat": "RL Policy Change"
+        },
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(ai_autotrain_triggers_total[1m]) > 0",
+          "iconColor": "orange",
+          "name": "Autotrain Triggers",
+          "tagKeys": "reason",
+          "textFormat": "Autotrain triggered: {{reason}}",
+          "titleFormat": "Model Retrain"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "item_code",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(ai_accuracy_mape, item_code)",
+          "label": "Item Code",
+          "multi": true,
+          "includeAll": true,
+          "refresh": 1
+        },
+        {
+          "name": "time_window",
+          "type": "interval",
+          "label": "Time Window",
+          "auto": true,
+          "auto_count": 30,
+          "auto_min": "10s",
+          "options": [
+            { "text": "1m", "value": "1m", "selected": false },
+            { "text": "5m", "value": "5m", "selected": true },
+            { "text": "15m", "value": "15m", "selected": false },
+            { "text": "1h", "value": "1h", "selected": false },
+            { "text": "6h", "value": "6h", "selected": false },
+            { "text": "1d", "value": "1d", "selected": false }
+          ]
+        }
+      ]
+    }
+  }
+}

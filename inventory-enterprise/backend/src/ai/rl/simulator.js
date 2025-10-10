@@ -1,0 +1,180 @@
+/**
+ * Inventory Policy Simulator
+ * Version: v2.2.0-2025-10-07
+ *
+ * Simulates inventory behavior under different policies using historical data
+ * to evaluate RL agent decisions before committing to production.
+ */
+
+const { logger } = require('../../config/logger');
+
+class InventorySimulator {
+  /**
+   * Simulate inventory behavior under a given policy
+   * @param {Object} params - {itemCode, policy, historicalData, days}
+   * @returns {Promise<Object>} Simulation results
+   */
+  async simulate(params) {
+    const { itemCode, policy, historicalData, days = 90 } = params;
+
+    logger.debug(`[Simulator] Simulating ${itemCode} for ${days} days with policy:`, policy);
+
+    // Initialize simulation state
+    const state = {
+      currentStock: this.estimateInitialStock(historicalData, policy),
+      onOrder: 0,
+      stockouts: 0,
+      waste: 0,
+      orders: 0,
+      totalDemandSatisfied: 0,
+      totalDemand: 0,
+      holdingCosts: [],
+      orderCosts: []
+    };
+
+    // Run simulation day by day
+    const simData = historicalData.slice(0, Math.min(days, historicalData.length));
+
+    for (let i = 0; i < simData.length; i++) {
+      const day = simData[i];
+      const demand = day.consumption || 0;
+
+      // 1. Receive any orders (simplified: assume 7-day lead time)
+      if (i >= 7 && state.onOrder > 0) {
+        state.currentStock += state.onOrder;
+        state.onOrder = 0;
+      }
+
+      // 2. Check if we need to reorder
+      if (state.currentStock <= policy.reorder_point && state.onOrder === 0) {
+        const orderQty = this.calculateOrderQuantity(policy, state, demand);
+        state.onOrder = orderQty;
+        state.orders++;
+        state.orderCosts.push(this.calculateOrderCost(orderQty));
+      }
+
+      // 3. Fulfill demand
+      if (state.currentStock >= demand) {
+        state.currentStock -= demand;
+        state.totalDemandSatisfied += demand;
+      } else {
+        // Stockout
+        state.totalDemandSatisfied += state.currentStock;
+        state.stockouts += (demand - state.currentStock);
+        state.currentStock = 0;
+      }
+
+      state.totalDemand += demand;
+
+      // 4. Check for waste (spoilage/obsolescence)
+      // Simplified: if stock > safety_stock * 5, consider excess as potential waste
+      const excessStock = state.currentStock - (policy.safety_stock * 5);
+      if (excessStock > 0) {
+        state.waste += excessStock * 0.05; // 5% of excess becomes waste
+      }
+
+      // 5. Calculate holding cost for the day
+      const holdingCost = this.calculateHoldingCost(state.currentStock);
+      state.holdingCosts.push(holdingCost);
+    }
+
+    // Compute final metrics
+    const serviceLevel = state.totalDemand > 0 ? (state.totalDemandSatisfied / state.totalDemand) * 100 : 100;
+    const avgHoldingCost = state.holdingCosts.length > 0
+      ? state.holdingCosts.reduce((a, b) => a + b, 0) / state.holdingCosts.length
+      : 0;
+    const totalOrderCost = state.orderCosts.reduce((a, b) => a + b, 0);
+
+    const result = {
+      stockouts: state.stockouts,
+      waste: state.waste,
+      serviceLevel,
+      avgHoldingCost,
+      totalOrderCost,
+      ordersPlaced: state.orders,
+      finalStock: state.currentStock
+    };
+
+    logger.debug(`[Simulator] ${itemCode} results:`, result);
+
+    return result;
+  }
+
+  /**
+   * Estimate initial stock level based on historical average
+   * @param {Array} historicalData - Historical data
+   * @param {Object} policy - Policy
+   * @returns {number} Initial stock
+   */
+  estimateInitialStock(historicalData, policy) {
+    if (historicalData.length === 0) {
+      return policy.safety_stock * 2;
+    }
+
+    const avgConsumption = historicalData.reduce((sum, d) => sum + (d.consumption || 0), 0) / historicalData.length;
+    return Math.max(avgConsumption * 7, policy.reorder_point + policy.safety_stock);
+  }
+
+  /**
+   * Calculate order quantity using EOQ formula (simplified)
+   * @param {Object} policy - Policy
+   * @param {Object} state - Current state
+   * @param {number} currentDemand - Current demand
+   * @returns {number} Order quantity
+   */
+  calculateOrderQuantity(policy, state, currentDemand) {
+    // Simplified EOQ: Order enough to reach target stock level
+    const targetStock = policy.reorder_point + policy.safety_stock;
+    const orderQty = (targetStock - state.currentStock) * policy.eoq_factor;
+    return Math.max(0, orderQty);
+  }
+
+  /**
+   * Calculate order cost (fixed + variable)
+   * @param {number} quantity - Order quantity
+   * @returns {number} Order cost
+   */
+  calculateOrderCost(quantity) {
+    const fixedCost = 50;  // Fixed order cost
+    const variableCost = 2; // Cost per unit
+    return fixedCost + (quantity * variableCost);
+  }
+
+  /**
+   * Calculate holding cost per unit per day
+   * @param {number} stock - Current stock
+   * @returns {number} Holding cost
+   */
+  calculateHoldingCost(stock) {
+    const holdingCostPerUnit = 0.5; // $0.50 per unit per day
+    return stock * holdingCostPerUnit;
+  }
+
+  /**
+   * Batch simulate multiple policies
+   * @param {Object} params - {itemCode, policies, historicalData, days}
+   * @returns {Promise<Array>} Results for each policy
+   */
+  async batchSimulate(params) {
+    const { itemCode, policies, historicalData, days } = params;
+    const results = [];
+
+    for (const policy of policies) {
+      const result = await this.simulate({
+        itemCode,
+        policy,
+        historicalData,
+        days
+      });
+
+      results.push({
+        policy,
+        ...result
+      });
+    }
+
+    return results;
+  }
+}
+
+module.exports = new InventorySimulator();

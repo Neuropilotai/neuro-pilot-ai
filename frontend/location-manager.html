@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Manager - Inventory System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        
+        #lang-select {
+            padding: 0.5rem;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #lang-select option {
+            background: #2c3e50;
+            color: white;
+        }
+        
+        .nav-tabs {
+            background: white;
+            padding: 0 2rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 2rem;
+        }
+        
+        .nav-tab {
+            padding: 1rem 0;
+            border-bottom: 3px solid transparent;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .nav-tab:hover {
+            color: #333;
+        }
+        
+        .nav-tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        #location-manager-container {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            min-height: 500px;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #999;
+        }
+        
+        .btn-logout {
+            padding: 0.5rem 1rem;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .btn-logout:hover {
+            background: #c82333;
+        }
+        
+        /* Quick stats */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1 data-i18n="location_manager">Location Manager</h1>
+        <div class="header-controls">
+            <div class="user-info">
+                <span>👤</span>
+                <span id="user-email">admin@secure-inventory.dev</span>
+            </div>
+            <select id="lang-select">
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+            </select>
+            <button class="btn-logout" data-i18n="sign_out" onclick="logout()">Sign Out</button>
+        </div>
+    </div>
+    
+    <!-- Navigation -->
+    <div class="nav-tabs">
+        <a href="/inventory" class="nav-tab" data-i18n="inventory">Inventory</a>
+        <a href="#" class="nav-tab active" data-i18n="locations">Locations</a>
+        <a href="/orders" class="nav-tab" data-i18n="orders">Orders</a>
+        <a href="/reports" class="nav-tab" data-i18n="reports">Reports</a>
+        <a href="/settings" class="nav-tab" data-i18n="settings">Settings</a>
+    </div>
+    
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Quick Stats -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-value" id="total-locations">7</div>
+                <div class="stat-label" data-i18n="locations">Locations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-items">1,525</div>
+                <div class="stat-label" data-i18n="total_items">Total Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="items-assigned">0</div>
+                <div class="stat-label" data-i18n="items_assigned">Items Assigned</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="last-update">Today</div>
+                <div class="stat-label" data-i18n="last_update">Last Update</div>
+            </div>
+        </div>
+        
+        <!-- Location Manager Component Container -->
+        <div id="location-manager-container">
+            <div class="loading" data-i18n="loading">Loading...</div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script type="module">
+        // Import i18n initialization
+        import i18n from './js/i18n-init.js';
+        
+        // Import Location Manager
+        import LocationManager from './js/location-manager.js';
+        
+        // Check authentication
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login.html';
+                return false;
+            }
+            return true;
+        }
+        
+        // Logout function
+        window.logout = function() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login.html';
+        };
+        
+        // Initialize the application
+        async function init() {
+            if (!checkAuth()) return;
+            
+            // Get user info
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (user.email) {
+                document.getElementById('user-email').textContent = user.email;
+            }
+            
+            // Initialize Location Manager
+            const container = document.getElementById('location-manager-container');
+            if (container) {
+                // Clear loading message
+                container.innerHTML = '';
+                
+                // Create location manager instance
+                window.locationManager = new LocationManager(container);
+            }
+            
+            // Update stats (you can fetch real data here)
+            updateStats();
+        }
+        
+        // Update statistics
+        async function updateStats() {
+            try {
+                const token = localStorage.getItem('token');
+                
+                // Fetch location summary
+                const response = await fetch('/api/location/locations/summary', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('total-locations').textContent = 
+                            data.totalLocations || '7';
+                        
+                        const totalAssigned = data.locations.reduce((sum, loc) => 
+                            sum + loc.itemCount, 0);
+                        document.getElementById('items-assigned').textContent = 
+                            totalAssigned.toLocaleString();
+                    }
+                }
+                
+                // Update last update time
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString(i18n.getLang() === 'fr' ? 'fr-FR' : 'en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                document.getElementById('last-update').textContent = timeStr;
+                
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+        
+        // Listen for language changes
+        window.addEventListener('languageChanged', (e) => {
+            console.log('Language changed to:', e.detail.language);
+            // Location manager will update automatically through its own listener
+        });
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+        
+        // Auto-refresh stats every 30 seconds
+        setInterval(updateStats, 30000);
+    </script>
+</body>
+</html>

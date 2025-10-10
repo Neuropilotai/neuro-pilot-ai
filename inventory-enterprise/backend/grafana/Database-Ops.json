@@ -1,0 +1,322 @@
+{
+  "dashboard": {
+    "title": "NeuroInnovate Inventory Enterprise - Database Operations",
+    "tags": ["database", "performance", "postgresql", "sqlite"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Database Query Latency (p95) by Type",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket{db_type=\"sqlite\"}[5m]))",
+            "legendFormat": "SQLite - {{operation}}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket{db_type=\"postgres\"}[5m]))",
+            "legendFormat": "PostgreSQL - {{operation}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Query Duration" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [0.5], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "Database Latency Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 2,
+        "title": "Query Rate by Operation",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(db_queries_total{operation=\"SELECT\"}[5m])",
+            "legendFormat": "{{db_type}} - SELECT",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(db_queries_total{operation=\"INSERT\"}[5m])",
+            "legendFormat": "{{db_type}} - INSERT",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(db_queries_total{operation=\"UPDATE\"}[5m])",
+            "legendFormat": "{{db_type}} - UPDATE",
+            "refId": "C"
+          },
+          {
+            "expr": "rate(db_queries_total{operation=\"DELETE\"}[5m])",
+            "legendFormat": "{{db_type}} - DELETE",
+            "refId": "D"
+          }
+        ],
+        "yaxes": [
+          { "format": "qps", "label": "Queries/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Current Database Latency",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "db_latency_seconds{db_type=\"sqlite\"}",
+            "legendFormat": "SQLite",
+            "refId": "A"
+          },
+          {
+            "expr": "db_latency_seconds{db_type=\"postgres\"}",
+            "legendFormat": "PostgreSQL",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.1, "color": "yellow" },
+                { "value": 0.5, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Dual-Write Errors (Secondary DB)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(increase(db_dual_write_errors_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "yellow" },
+                { "value": 10, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Connection Pool Size",
+        "type": "graph",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "db_connection_pool_size",
+            "legendFormat": "{{db_type}} - Pool Size",
+            "refId": "A"
+          },
+          {
+            "expr": "db_connection_pool_active",
+            "legendFormat": "{{db_type}} - Active",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Query Success Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(db_queries_total{status=\"success\"}[5m])) / sum(rate(db_queries_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 95, "color": "yellow" },
+                { "value": 99, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Query Duration Histogram",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "rate(db_query_duration_seconds_bucket[5m])",
+            "legendFormat": "{{le}}",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ],
+        "dataFormat": "tsbuckets",
+        "yAxis": {
+          "format": "s"
+        }
+      },
+      {
+        "id": 8,
+        "title": "Queries by Table (Top 10)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "expr": "topk(10, rate(db_queries_total[5m]))",
+            "legendFormat": "{{table}} - {{operation}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "qps", "label": "Queries/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "SQLite vs PostgreSQL Performance Comparison",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "expr": "avg(rate(db_query_duration_seconds_sum{db_type=\"sqlite\"}[5m])) / avg(rate(db_query_duration_seconds_count{db_type=\"sqlite\"}[5m]))",
+            "legendFormat": "SQLite Avg Latency",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "avg(rate(db_query_duration_seconds_sum{db_type=\"postgres\"}[5m])) / avg(rate(db_query_duration_seconds_count{db_type=\"postgres\"}[5m]))",
+            "legendFormat": "PostgreSQL Avg Latency",
+            "refId": "B",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "sum(rate(db_queries_total{db_type=\"sqlite\"}[5m]))",
+            "legendFormat": "SQLite QPS",
+            "refId": "C",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "sum(rate(db_queries_total{db_type=\"postgres\"}[5m]))",
+            "legendFormat": "PostgreSQL QPS",
+            "refId": "D",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "Value #A": "SQLite Latency (s)",
+                "Value #B": "Postgres Latency (s)",
+                "Value #C": "SQLite QPS",
+                "Value #D": "Postgres QPS"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Query Errors by Type",
+        "type": "graph",
+        "gridPos": { "h": 6, "w": 12, "x": 0, "y": 28 },
+        "targets": [
+          {
+            "expr": "rate(db_queries_total{status=\"error\"}[5m])",
+            "legendFormat": "{{db_type}} - {{operation}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "qps", "label": "Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Database Health Status",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 12, "x": 12, "y": 28 },
+        "targets": [
+          {
+            "expr": "system_health_status{component=~\"database.*\"}",
+            "legendFormat": "{{component}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "value": 0, "text": "Unhealthy", "color": "red" },
+              { "value": 1, "text": "Healthy", "color": "green" }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

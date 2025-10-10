@@ -1,0 +1,178 @@
+# PostgreSQL Exporter Custom Queries for Prometheus
+# v2.8.0 - Custom metrics for inventory system
+
+# Database size metrics
+pg_database:
+  query: "SELECT pg_database.datname, pg_database_size(pg_database.datname) as size_bytes FROM pg_database"
+  master: true
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Name of the database"
+    - size_bytes:
+        usage: "GAUGE"
+        description: "Disk space used by the database in bytes"
+
+# Table sizes and row counts
+pg_table_stats:
+  query: |
+    SELECT
+      schemaname,
+      tablename,
+      pg_total_relation_size(schemaname||'.'||tablename) as total_bytes,
+      pg_relation_size(schemaname||'.'||tablename) as table_bytes,
+      pg_indexes_size(schemaname||'.'||tablename) as indexes_bytes,
+      n_live_tup as row_estimate
+    FROM pg_stat_user_tables
+    WHERE schemaname = 'public'
+  master: true
+  metrics:
+    - schemaname:
+        usage: "LABEL"
+        description: "Schema name"
+    - tablename:
+        usage: "LABEL"
+        description: "Table name"
+    - total_bytes:
+        usage: "GAUGE"
+        description: "Total size of table including indexes"
+    - table_bytes:
+        usage: "GAUGE"
+        description: "Size of table data"
+    - indexes_bytes:
+        usage: "GAUGE"
+        description: "Size of indexes"
+    - row_estimate:
+        usage: "GAUGE"
+        description: "Estimated row count"
+
+# Replication lag
+pg_replication_lag:
+  query: |
+    SELECT
+      client_addr,
+      state,
+      EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp())) as lag_seconds
+    FROM pg_stat_replication
+  master: true
+  metrics:
+    - client_addr:
+        usage: "LABEL"
+        description: "Replica IP address"
+    - state:
+        usage: "LABEL"
+        description: "Replication state"
+    - lag_seconds:
+        usage: "GAUGE"
+        description: "Replication lag in seconds"
+
+# Multi-tenant metrics
+pg_tenant_stats:
+  query: |
+    SELECT
+      'item_master' as table_name,
+      tenant_id,
+      COUNT(*) as row_count,
+      SUM(CASE WHEN active = true THEN 1 ELSE 0 END) as active_count
+    FROM item_master
+    GROUP BY tenant_id
+  master: true
+  metrics:
+    - table_name:
+        usage: "LABEL"
+        description: "Table name"
+    - tenant_id:
+        usage: "LABEL"
+        description: "Tenant identifier"
+    - row_count:
+        usage: "GAUGE"
+        description: "Total rows for tenant"
+    - active_count:
+        usage: "GAUGE"
+        description: "Active rows for tenant"
+
+# Slow queries
+pg_slow_queries:
+  query: |
+    SELECT
+      query,
+      calls,
+      total_exec_time / 1000 as total_time_seconds,
+      mean_exec_time / 1000 as mean_time_seconds,
+      max_exec_time / 1000 as max_time_seconds
+    FROM pg_stat_statements
+    WHERE mean_exec_time > 100
+    ORDER BY mean_exec_time DESC
+    LIMIT 20
+  master: true
+  metrics:
+    - query:
+        usage: "LABEL"
+        description: "Query text"
+    - calls:
+        usage: "GAUGE"
+        description: "Number of times executed"
+    - total_time_seconds:
+        usage: "GAUGE"
+        description: "Total execution time in seconds"
+    - mean_time_seconds:
+        usage: "GAUGE"
+        description: "Mean execution time in seconds"
+    - max_time_seconds:
+        usage: "GAUGE"
+        description: "Maximum execution time in seconds"
+
+# Connection pool stats
+pg_connection_stats:
+  query: |
+    SELECT
+      datname,
+      COUNT(*) as connections,
+      COUNT(*) FILTER (WHERE state = 'active') as active_connections,
+      COUNT(*) FILTER (WHERE state = 'idle') as idle_connections,
+      COUNT(*) FILTER (WHERE state = 'idle in transaction') as idle_in_transaction
+    FROM pg_stat_activity
+    WHERE datname IS NOT NULL
+    GROUP BY datname
+  master: true
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "Database name"
+    - connections:
+        usage: "GAUGE"
+        description: "Total connections"
+    - active_connections:
+        usage: "GAUGE"
+        description: "Active connections"
+    - idle_connections:
+        usage: "GAUGE"
+        description: "Idle connections"
+    - idle_in_transaction:
+        usage: "GAUGE"
+        description: "Idle in transaction connections"
+
+# Inventory-specific metrics
+pg_inventory_metrics:
+  query: |
+    SELECT
+      'inventory' as metric_type,
+      COUNT(*) as total_items,
+      SUM(par_level * unit_cost) as total_value,
+      COUNT(*) FILTER (WHERE par_level <= reorder_point) as low_stock_items
+    FROM item_master
+    WHERE active = true
+  master: true
+  metrics:
+    - metric_type:
+        usage: "LABEL"
+        description: "Metric type"
+    - total_items:
+        usage: "GAUGE"
+        description: "Total active inventory items"
+    - total_value:
+        usage: "GAUGE"
+        description: "Total inventory value"
+    - low_stock_items:
+        usage: "GAUGE"
+        description: "Items below reorder point"

@@ -1,0 +1,276 @@
+version: '3.8'
+
+# PostgreSQL Configuration for v2.8.0
+# Primary + Read Replica with streaming replication
+# Target: Zero-downtime migration from SQLite
+
+networks:
+  postgres-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.26.0.0/16
+
+volumes:
+  postgres-primary-data:
+    driver: local
+  postgres-replica-data:
+    driver: local
+  postgres-backups:
+    driver: local
+  pgadmin-data:
+    driver: local
+
+services:
+  # ============================================
+  # PostgreSQL Primary (Master)
+  # ============================================
+  postgres-primary:
+    image: postgres:16-alpine
+    container_name: inventory-postgres-primary
+    hostname: postgres-primary
+    networks:
+      postgres-network:
+        ipv4_address: 172.26.0.2
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-primary-data:/var/lib/postgresql/data
+      - ./config/postgres/postgresql-primary.conf:/etc/postgresql/postgresql.conf
+      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./migrations:/docker-entrypoint-initdb.d
+      - postgres-backups:/backups
+    environment:
+      - POSTGRES_USER=inventory_admin
+      - POSTGRES_PASSWORD=SecureInventory2025!
+      - POSTGRES_DB=inventory_enterprise
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=en_US.UTF-8
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      # Replication settings
+      - POSTGRES_REPLICATION_USER=replicator
+      - POSTGRES_REPLICATION_PASSWORD=ReplicateSecure2025!
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_admin -d inventory_enterprise"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=postgres-primary"
+      - "com.neuro-pilot.version=v2.8.0"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+
+  # ============================================
+  # PostgreSQL Read Replica
+  # ============================================
+  postgres-replica:
+    image: postgres:16-alpine
+    container_name: inventory-postgres-replica
+    hostname: postgres-replica
+    networks:
+      postgres-network:
+        ipv4_address: 172.26.0.3
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-replica-data:/var/lib/postgresql/data
+      - ./config/postgres/postgresql-replica.conf:/etc/postgresql/postgresql.conf
+      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+    environment:
+      - POSTGRES_USER=inventory_admin
+      - POSTGRES_PASSWORD=SecureInventory2025!
+      - POSTGRES_DB=inventory_enterprise
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_MASTER_SERVICE_HOST=postgres-primary
+      - POSTGRES_MASTER_SERVICE_PORT=5432
+      - POSTGRES_REPLICATION_USER=replicator
+      - POSTGRES_REPLICATION_PASSWORD=ReplicateSecure2025!
+    command: |
+      bash -c "
+      if [ ! -f /var/lib/postgresql/data/pgdata/PG_VERSION ]; then
+        echo 'Setting up replication from primary...'
+        until pg_isready -h postgres-primary -p 5432 -U inventory_admin; do
+          echo 'Waiting for primary to be ready...'
+          sleep 2
+        done
+        pg_basebackup -h postgres-primary -U replicator -p 5432 -D /var/lib/postgresql/data/pgdata -Fp -Xs -P -R
+        echo 'Replication setup complete'
+      fi
+      postgres -c config_file=/etc/postgresql/postgresql.conf
+      "
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_admin -d inventory_enterprise"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=postgres-replica"
+      - "com.neuro-pilot.version=v2.8.0"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 768M
+        reservations:
+          cpus: '0.5'
+          memory: 384M
+
+  # ============================================
+  # pgAdmin (Web UI for database management)
+  # ============================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: inventory-pgadmin
+    hostname: pgadmin
+    networks:
+      postgres-network:
+        ipv4_address: 172.26.0.10
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./config/postgres/servers.json:/pgadmin4/servers.json
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@neuro-pilot.ai
+      - PGADMIN_DEFAULT_PASSWORD=PgAdmin2025!
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    depends_on:
+      - postgres-primary
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=pgadmin"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # PostgreSQL Backup Service
+  # ============================================
+  postgres-backup:
+    image: postgres:16-alpine
+    container_name: inventory-postgres-backup
+    hostname: postgres-backup
+    networks:
+      postgres-network:
+        ipv4_address: 172.26.0.11
+    volumes:
+      - postgres-backups:/backups
+      - ./scripts/postgres-backup.sh:/usr/local/bin/backup.sh
+    environment:
+      - POSTGRES_HOST=postgres-primary
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=inventory_admin
+      - POSTGRES_PASSWORD=SecureInventory2025!
+      - POSTGRES_DB=inventory_enterprise
+      - BACKUP_RETENTION_DAYS=30
+    command: |
+      sh -c "
+      echo '0 2 * * * /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' > /etc/crontabs/root &&
+      crond -f -l 2
+      "
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=postgres-backup"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # PostgreSQL Exporter (Prometheus metrics)
+  # ============================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: inventory-postgres-exporter
+    hostname: postgres-exporter
+    networks:
+      postgres-network:
+        ipv4_address: 172.26.0.12
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://inventory_admin:SecureInventory2025!@postgres-primary:5432/inventory_enterprise?sslmode=disable
+      - PG_EXPORTER_EXTEND_QUERY_PATH=/etc/postgres_exporter/queries.yaml
+    volumes:
+      - ./config/postgres/exporter-queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=postgres-metrics"
+      - "com.neuro-pilot.version=v2.8.0"
+
+# ============================================
+# Usage Instructions
+# ============================================
+#
+# Start PostgreSQL cluster:
+#   docker-compose -f docker-compose.postgres.yml up -d
+#
+# View logs:
+#   docker-compose -f docker-compose.postgres.yml logs -f postgres-primary
+#
+# Check replication status:
+#   docker exec -it inventory-postgres-primary psql -U inventory_admin -d inventory_enterprise -c "SELECT * FROM pg_stat_replication;"
+#
+# Access database via psql:
+#   docker exec -it inventory-postgres-primary psql -U inventory_admin -d inventory_enterprise
+#
+# Run migration manually:
+#   docker exec -i inventory-postgres-primary psql -U inventory_admin -d inventory_enterprise < migrations/migration_006_postgres.sql
+#
+# Create manual backup:
+#   docker exec inventory-postgres-primary pg_dump -U inventory_admin inventory_enterprise > backup_$(date +%Y%m%d_%H%M%S).sql
+#
+# Restore from backup:
+#   docker exec -i inventory-postgres-primary psql -U inventory_admin -d inventory_enterprise < backup_20251008_120000.sql
+#
+# Access pgAdmin UI:
+#   http://localhost:5050
+#   Email: admin@neuro-pilot.ai
+#   Password: PgAdmin2025!
+#
+# Prometheus metrics:
+#   http://localhost:9187/metrics
+#
+# Check replication lag:
+#   docker exec inventory-postgres-primary psql -U inventory_admin -d inventory_enterprise -c \
+#     "SELECT client_addr, state, sent_lsn, write_lsn, flush_lsn, replay_lsn, \
+#      write_lag, flush_lag, replay_lag FROM pg_stat_replication;"
+#
+# Promote replica to primary (manual failover):
+#   docker exec inventory-postgres-replica pg_ctl promote -D /var/lib/postgresql/data/pgdata
+#
+# Stop the cluster:
+#   docker-compose -f docker-compose.postgres.yml down
+#
+# Stop and remove volumes (data loss):
+#   docker-compose -f docker-compose.postgres.yml down -v
+#
+# Connection strings for application:
+#   Primary (read/write): postgresql://inventory_admin:SecureInventory2025!@localhost:5432/inventory_enterprise
+#   Replica (read-only):  postgresql://inventory_admin:SecureInventory2025!@localhost:5433/inventory_enterprise

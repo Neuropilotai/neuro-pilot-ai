@@ -1,0 +1,315 @@
+version: '3.8'
+
+# Redis Cluster Configuration for v2.8.0
+# 3-node cluster with Sentinel for high availability
+# Target: 95%+ cache hit rate, sub-5ms latency
+
+networks:
+  redis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+volumes:
+  redis-data-1:
+    driver: local
+  redis-data-2:
+    driver: local
+  redis-data-3:
+    driver: local
+  sentinel-data-1:
+    driver: local
+  sentinel-data-2:
+    driver: local
+  sentinel-data-3:
+    driver: local
+
+services:
+  # ============================================
+  # Redis Master Node
+  # ============================================
+  redis-master:
+    image: redis:7.2-alpine
+    container_name: inventory-redis-master
+    hostname: redis-master
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.2
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data-1:/data
+      - ./config/redis/redis-master.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-master"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # Redis Replica Node 1
+  # ============================================
+  redis-replica-1:
+    image: redis:7.2-alpine
+    container_name: inventory-redis-replica-1
+    hostname: redis-replica-1
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.3
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data-2:/data
+      - ./config/redis/redis-replica.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --replicaof redis-master 6379
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+    depends_on:
+      - redis-master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-replica"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # Redis Replica Node 2
+  # ============================================
+  redis-replica-2:
+    image: redis:7.2-alpine
+    container_name: inventory-redis-replica-2
+    hostname: redis-replica-2
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.4
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis-data-3:/data
+      - ./config/redis/redis-replica.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --replicaof redis-master 6379
+    environment:
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=redis-master
+      - REDIS_MASTER_PORT=6379
+    depends_on:
+      - redis-master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-replica"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # Redis Sentinel 1 (Primary)
+  # ============================================
+  redis-sentinel-1:
+    image: redis:7.2-alpine
+    container_name: inventory-redis-sentinel-1
+    hostname: redis-sentinel-1
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.10
+    ports:
+      - "26379:26379"
+    volumes:
+      - sentinel-data-1:/data
+      - ./config/redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    environment:
+      - SENTINEL_QUORUM=2
+      - SENTINEL_DOWN_AFTER=5000
+      - SENTINEL_FAILOVER_TIMEOUT=10000
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-sentinel"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # Redis Sentinel 2
+  # ============================================
+  redis-sentinel-2:
+    image: redis:7.2-alpine
+    container_name: inventory-redis-sentinel-2
+    hostname: redis-sentinel-2
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.11
+    ports:
+      - "26380:26379"
+    volumes:
+      - sentinel-data-2:/data
+      - ./config/redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    environment:
+      - SENTINEL_QUORUM=2
+      - SENTINEL_DOWN_AFTER=5000
+      - SENTINEL_FAILOVER_TIMEOUT=10000
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-sentinel"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # Redis Sentinel 3
+  # ============================================
+  redis-sentinel-3:
+    image: redis:7.2-alpine
+    container_name: inventory-redis-sentinel-3
+    hostname: redis-sentinel-3
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.12
+    ports:
+      - "26381:26379"
+    volumes:
+      - sentinel-data-3:/data
+      - ./config/redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+    environment:
+      - SENTINEL_QUORUM=2
+      - SENTINEL_DOWN_AFTER=5000
+      - SENTINEL_FAILOVER_TIMEOUT=10000
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-sentinel"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # Redis Commander (Web UI for monitoring)
+  # ============================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: inventory-redis-commander
+    hostname: redis-commander
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.20
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=master:redis-master:6379,replica1:redis-replica-1:6379,replica2:redis-replica-2:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=RedisAdmin2025!
+    depends_on:
+      - redis-master
+      - redis-replica-1
+      - redis-replica-2
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-ui"
+      - "com.neuro-pilot.version=v2.8.0"
+
+  # ============================================
+  # Redis Exporter (Prometheus metrics)
+  # ============================================
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: inventory-redis-exporter
+    hostname: redis-exporter
+    networks:
+      redis-network:
+        ipv4_address: 172.25.0.21
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis-master:6379
+      - REDIS_EXPORTER_CHECK_KEYS=cache:*,session:*,forecast:*
+    depends_on:
+      - redis-master
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9121/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "com.neuro-pilot.service=redis-metrics"
+      - "com.neuro-pilot.version=v2.8.0"
+
+# ============================================
+# Usage Instructions
+# ============================================
+#
+# Start the Redis cluster:
+#   docker-compose -f docker-compose.redis.yml up -d
+#
+# View logs:
+#   docker-compose -f docker-compose.redis.yml logs -f
+#
+# Check cluster status:
+#   docker exec -it inventory-redis-master redis-cli INFO replication
+#
+# Test failover:
+#   docker stop inventory-redis-master
+#   docker exec -it inventory-redis-sentinel-1 redis-cli -p 26379 SENTINEL masters
+#
+# Access Redis Commander UI:
+#   http://localhost:8081
+#   Username: admin
+#   Password: RedisAdmin2025!
+#
+# Prometheus metrics:
+#   http://localhost:9121/metrics
+#
+# Stop the cluster:
+#   docker-compose -f docker-compose.redis.yml down
+#
+# Stop and remove volumes (data loss):
+#   docker-compose -f docker-compose.redis.yml down -v

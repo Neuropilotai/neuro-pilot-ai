@@ -59,7 +59,7 @@ const securityConfig = {
   speedLimiter: slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
     delayAfter: 50, // Allow 50 requests at full speed
-    delayMs: 500 // Add 500ms delay after delayAfter is reached
+    delayMs: () => 500 // Add 500ms delay after delayAfter is reached
   }),
 
   // CORS configuration

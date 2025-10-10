@@ -1,0 +1,75 @@
+# AI Ops Playbook: High API Latency
+# Version: v2.6.0-2025-10-07
+#
+# Triggered when API p95 latency exceeds thresholds
+# Remediation: Clear cache, restart service, scale up
+
+name: high-latency
+description: Remediate high API latency by clearing cache and scaling resources
+
+# Trigger conditions
+conditions:
+  - field: prediction.anomalyScore
+    operator: greater_than
+    value: 0.85
+  - field: prediction.value
+    operator: greater_than
+    value: 1000  # 1000ms
+
+# Remediation actions (executed in order)
+actions:
+  - type: invalidate-cache
+    description: Clear Redis cache to force fresh data
+    params:
+      pattern: "api:*"
+      host: localhost
+      port: 6379
+    critical: false  # Continue if this fails
+
+  - type: database-query
+    description: Kill long-running database queries
+    params:
+      query: >
+        SELECT pg_terminate_backend(pid)
+        FROM pg_stat_activity
+        WHERE state = 'active'
+        AND query_start < NOW() - INTERVAL '5 minutes'
+      params: []
+    critical: false
+
+  - type: restart-service
+    description: Restart API service
+    params:
+      service: inventory-api
+      method: pm2
+    critical: true  # Stop if this fails
+
+  - type: scale-container
+    description: Scale up API containers
+    params:
+      container: inventory-api
+      replicas: 5
+      platform: kubernetes
+    critical: false
+
+  - type: send-notification
+    description: Notify ops team
+    params:
+      message: "High latency remediation completed: cache cleared, service restarted, scaled to 5 replicas"
+      channel: slack
+
+# Post-remediation validation
+validation:
+  - metric: api_latency_p95_ms
+    operator: less_than
+    value: 500
+    timeout: 300  # Wait 5 minutes to validate
+
+# Rollback actions if remediation fails
+rollback:
+  - type: scale-container
+    description: Scale back to original size
+    params:
+      container: inventory-api
+      replicas: 3
+      platform: kubernetes

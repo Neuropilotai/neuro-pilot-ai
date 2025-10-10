@@ -2,11 +2,476 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Secure Inventory System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Enterprise - AI-Powered System</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-wrapper {
+      display: flex;
+      max-width: 1200px;
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .login-left {
+      flex: 1;
+      padding: 60px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .login-right {
+      flex: 1;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .logo {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    .tagline {
+      font-size: 18px;
+      opacity: 0.9;
+      margin-bottom: 40px;
+    }
+
+    .feature-section {
+      margin-bottom: 30px;
+    }
+
+    .feature-section h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      opacity: 0.95;
+    }
+
+    .feature-list {
+      list-style: none;
+    }
+
+    .feature-list li {
+      padding: 8px 0;
+      font-size: 14px;
+      opacity: 0.85;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-list li:before {
+      content: "✓";
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .coming-soon {
+      opacity: 0.7;
+    }
+
+    .coming-soon:before {
+      content: "→";
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.15);
+      padding: 15px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .login-form h2 {
+      font-size: 28px;
+      color: #1a202c;
+      margin-bottom: 10px;
+    }
+
+    .login-form .subtitle {
+      color: #718096;
+      margin-bottom: 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #4a5568;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .login-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .login-btn:active {
+      transform: translateY(0);
+    }
+
+    .error-message {
+      color: #e53e3e;
+      background: #fff5f5;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 15px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    #dashboardContainer {
+      display: none;
+    }
+
+    @media (max-width: 968px) {
+      .login-wrapper {
+        flex-direction: column;
+      }
+
+      .login-left, .login-right {
+        padding: 40px;
+      }
+    }
+
+    /* Floating Contact Bubble */
+    .contact-bubble {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 50px;
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .contact-bubble:hover {
+      box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
+      transform: translateX(-50%) translateY(-2px);
+    }
+
+    .contact-bubble-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .contact-bubble-content {
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+
+    .contact-bubble-email {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .contact-bubble-attribution {
+      font-size: 11px;
+      opacity: 0.95;
+    }
+
+    @media (max-width: 768px) {
+      .contact-bubble {
+        bottom: 15px;
+        font-size: 11px;
+        padding: 10px 18px;
+        gap: 8px;
+      }
+
+      .contact-bubble-icon {
+        font-size: 18px;
+      }
+
+      .contact-bubble-attribution {
+        font-size: 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .contact-bubble {
+        padding: 8px 14px;
+        font-size: 10px;
+      }
+
+      .contact-bubble-email {
+        font-size: 10px;
+      }
+
+      .contact-bubble-attribution {
+        font-size: 9px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h1>Secure Inventory System</h1>
-  <p id="status">Loading...</p>
+  <div id="loginContainer">
+    <div class="login-wrapper">
+      <!-- Left Panel - System Info -->
+      <div class="login-left">
+        <div>
+          <div class="logo">
+            🧠 Inventory Enterprise
+            <span class="version-badge">v3.0.0</span>
+          </div>
+          <div class="tagline">AI-Powered Self-Optimizing Inventory Management</div>
+
+          <!-- Latest Accomplishments -->
+          <div class="feature-section">
+            <h3>🎯 Latest: Phase 3 - Autonomous Learning Layer (Oct 2025)</h3>
+            <ul class="feature-list">
+              <li>AI Tuner with confidence-scored YAML proposals</li>
+              <li>24h health prediction & risk forecasting</li>
+              <li>Security anomaly detection (5 threat types)</li>
+              <li>Automated governance reporting (weekly)</li>
+              <li>6 autonomous cron jobs + 9 new Prometheus metrics</li>
+            </ul>
+          </div>
+
+          <!-- System Stats -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">≥85%</div>
+              <div class="stat-label">Test Coverage</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">&lt;15%</div>
+              <div class="stat-label">Forecast MAPE</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">~2min</div>
+              <div class="stat-label">Drift Detection</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">100%</div>
+              <div class="stat-label">Uptime SLA</div>
+            </div>
+          </div>
+
+          <!-- Previous Achievements -->
+          <div class="feature-section" style="margin-top: 30px;">
+            <h3>✨ Previous Releases</h3>
+            <ul class="feature-list">
+              <li>Self-optimization engine (v2.2.0)</li>
+              <li>Drift detection & auto-retraining (v2.2.0)</li>
+              <li>Prophet/ARIMA forecasting (v2.1.0)</li>
+              <li>Redis caching layer (v2.1.0)</li>
+              <li>PostgreSQL support (v2.1.0)</li>
+              <li>Enterprise security & 2FA (v2.0.0)</li>
+            </ul>
+          </div>
+
+          <!-- Active Features -->
+          <div class="feature-section">
+            <h3>🚀 Active Enterprise Features</h3>
+            <ul class="feature-list">
+              <li>WebSocket real-time updates</li>
+              <li>Multi-tenancy support</li>
+              <li>Advanced RBAC with custom roles</li>
+              <li>Webhook notifications</li>
+              <li>Real-time monitoring (Prometheus/Grafana)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer">
+          © 2025 NeuroInnovate · Proprietary System · Owned and operated by David Mikulis
+        </div>
+      </div>
+
+      <!-- Right Panel - Login Form -->
+      <div class="login-right">
+        <div class="login-form">
+          <h2>Welcome Back</h2>
+          <p class="subtitle">Sign in to access your AI-powered inventory system</p>
+
+          <form id="loginForm">
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                placeholder="neuro.pilot.ai@gmail.com"
+                autocomplete="email"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                placeholder="Enter your password"
+                autocomplete="current-password"
+              >
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">
+              Sign In
+            </button>
+
+            <div style="margin-top: 15px; padding: 12px; background: #f0f7ff; border-left: 4px solid #667eea; border-radius: 4px; font-size: 13px; color: #333;">
+              <strong>📝 Default Admin Credentials:</strong><br>
+              <code style="background: white; padding: 2px 6px; border-radius: 3px; font-size: 12px;">neuro.pilot.ai@gmail.com</code><br>
+              <code style="background: white; padding: 2px 6px; border-radius: 3px; font-size: 12px;">Admin123!@#</code>
+            </div>
+
+            <div id="loginError" class="error-message"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Container (hidden until login) -->
+  <div id="dashboardContainer" style="display: none;">
+    <div class="header">
+      <h1>Inventory Enterprise Dashboard</h1>
+      <div class="user-info">
+        <span id="userInfo"></span>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+    <div class="content">
+      <p id="status">Loading...</p>
+      <div id="inventoryData"></div>
+    </div>
+  </div>
+
+  <!-- Floating Contact Bubble -->
+  <a href="mailto:Neuro.Pilot.AI@gmail.com" class="contact-bubble" title="Contact Developer">
+    <span class="contact-bubble-icon">✉️</span>
+    <div class="contact-bubble-content">
+      <div class="contact-bubble-email">Neuro.Pilot.AI@gmail.com</div>
+      <div class="contact-bubble-attribution">© 2025 NeuroInnovate · Proprietary System · Owned and operated by David Mikulis</div>
+    </div>
+  </a>
+
   <script src="app.js"></script>
+  <script>
+    // Update copyright year dynamically
+    document.addEventListener('DOMContentLoaded', function() {
+      const currentYear = new Date().getFullYear();
+      const footerElements = document.querySelectorAll('.footer, .contact-bubble-attribution');
+      footerElements.forEach(el => {
+        if (el.textContent.includes('2025') || el.textContent.includes('2024')) {
+          el.innerHTML = el.innerHTML.replace(/©\s*\d{4}/, `© ${currentYear}`);
+        }
+      });
+    });
+  </script>
 </body>
 </html>

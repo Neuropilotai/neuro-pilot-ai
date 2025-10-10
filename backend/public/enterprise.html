@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Secure Inventory System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .security-badge {
+            background: #f8f9fa;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .security-badge h3 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-form {
+            margin: 2rem 0;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+        }
+
+        .status {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .features {
+            margin-top: 2rem;
+            text-align: left;
+        }
+
+        .features h3 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features li {
+            padding: 0.5rem 0;
+            color: #666;
+        }
+
+        .features li::before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .user-management {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .role-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .role-card h4 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .role-card p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Enterprise Secure Inventory</h1>
+            <p class="subtitle">Multi-User Management System</p>
+        </div>
+
+        <div class="security-badge">
+            <h3>🛡️ Enterprise Security</h3>
+            <p>2FA Authentication • Role-Based Access • Complete Audit Trails</p>
+        </div>
+
+        <form class="login-form" id="loginForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+
+            <div class="form-group" id="twoFactorGroup" style="display: none;">
+                <label for="twoFactorToken">Two-Factor Authentication Code</label>
+                <input type="text" id="twoFactorToken" name="twoFactorToken" placeholder="Enter 6-digit code" maxlength="6">
+            </div>
+
+            <button type="submit" class="btn">🚀 Access Enterprise System</button>
+        </form>
+
+        <div id="status" class="status"></div>
+
+        <div class="user-management">
+            <h3>👥 User Management System</h3>
+            <p>As a superuser, you can create and manage users with different roles and restrictions:</p>
+
+            <div class="role-grid">
+                <div class="role-card">
+                    <h4>SUPER_ADMIN</h4>
+                    <p>Complete system control with user management capabilities</p>
+                </div>
+                <div class="role-card">
+                    <h4>ADMIN</h4>
+                    <p>Manage inventory, orders, and lower-level users</p>
+                </div>
+                <div class="role-card">
+                    <h4>MANAGER</h4>
+                    <p>Update inventory and orders, view users</p>
+                </div>
+                <div class="role-card">
+                    <h4>OPERATOR</h4>
+                    <p>Basic operations and order receiving</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="features">
+            <h3>🎯 Enterprise Features</h3>
+            <ul>
+                <li>Role-Based Access Control (RBAC) with 5 security levels</li>
+                <li>Multi-Factor Authentication (2FA) support</li>
+                <li>Complete audit trails and security monitoring</li>
+                <li>User restrictions and permission management</li>
+                <li>Session management with automatic timeouts</li>
+                <li>Real-time accuracy tracking with AI verification</li>
+                <li>PDF processing and data validation</li>
+                <li>HACCP and FDA compliance tracking</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const twoFactorToken = document.getElementById('twoFactorToken').value;
+
+            const statusDiv = document.getElementById('status');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = 'Authenticating...';
+            statusDiv.className = 'status warning';
+
+            try {
+                const loginData = { email, password };
+                if (twoFactorToken) {
+                    loginData.twoFactorToken = twoFactorToken;
+                }
+
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(loginData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.requiresTwoFactor) {
+                        statusDiv.innerHTML = `
+                            <strong>🔐 Two-Factor Authentication Required</strong><br>
+                            Please enter your 6-digit authenticator code below.<br>
+                            <small>Use Google Authenticator, Authy, or similar app</small>
+                        `;
+                        statusDiv.className = 'status warning';
+                        document.getElementById('twoFactorGroup').style.display = 'block';
+                        document.getElementById('twoFactorToken').focus();
+                    } else if (data.token) {
+                        statusDiv.innerHTML = `
+                            <strong>✅ Login Successful!</strong><br>
+                            Welcome ${data.user.email} (${data.user.role})<br>
+                            <small>Token stored for API access</small>
+                        `;
+                        statusDiv.className = 'status success';
+
+                        // Store token for API calls
+                        localStorage.setItem('authToken', data.token);
+
+                        // Show user capabilities
+                        setTimeout(() => {
+                            statusDiv.innerHTML = `
+                                <strong>🎯 Your Capabilities:</strong><br>
+                                • Role: ${data.user.role}<br>
+                                • Permissions: ${data.user.permissions.slice(0, 3).join(', ')}${data.user.permissions.length > 3 ? '...' : ''}<br>
+                                • Session Timeout: ${Math.floor(data.user.sessionTimeout / 60000)} minutes<br><br>
+                                <strong>📡 API Access:</strong><br>
+                                You can now use API endpoints with your stored token.<br>
+                                Try: <code>GET /api/users</code> to see all users.<br><br>
+                                <strong>👥 User Management:</strong><br>
+                                Use <code>POST /api/users</code> to create new users.
+                            `;
+                        }, 2000);
+                    }
+                } else {
+                    statusDiv.textContent = data.error || 'Authentication failed';
+                    statusDiv.className = 'status error';
+                }
+            } catch (error) {
+                statusDiv.textContent = 'Connection error: ' + error.message;
+                statusDiv.className = 'status error';
+            }
+        });
+
+        // Auto-fill demo credentials for testing (remove in production)
+        if (window.location.hostname === 'localhost') {
+            document.getElementById('email').value = 'neuro.pilot.ai@gmail.com';
+            // Don't auto-fill password for security
+        }
+    </script>
+</body>
+</html>

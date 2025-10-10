@@ -1,0 +1,296 @@
+{
+  "dashboard": {
+    "title": "NeuroInnovate Inventory Enterprise - Overview",
+    "tags": ["inventory", "overview", "business"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "API Throughput (req/s)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{route}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "label": "Requests/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "API Latency (p95)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{route}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Duration" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [0.2], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "API Latency Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 3,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(cache_hits_total[5m])) / (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m]))) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 60, "color": "yellow" },
+                { "value": 85, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Cache Operations",
+        "type": "graph",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[5m])",
+            "legendFormat": "Hits - {{cache_key_prefix}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(cache_misses_total[5m])",
+            "legendFormat": "Misses - {{cache_key_prefix}}",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "AI Model Accuracy (MAPE)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "ai_model_accuracy_mape",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 15, "color": "yellow" },
+                { "value": 20, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "AI Training Jobs",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(increase(ai_train_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Inventory Items & Value",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "inventory_items_total",
+            "legendFormat": "Items",
+            "refId": "A",
+            "yAxis": 1
+          },
+          {
+            "expr": "inventory_value_total",
+            "legendFormat": "Value ($)",
+            "refId": "B",
+            "yAxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Items" },
+          { "format": "currencyUSD", "label": "Value" }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Reorder Recommendations",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 6, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "expr": "inventory_reorder_recommendations_total",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 25, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Stockout Events (24h)",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 6, "x": 18, "y": 12 },
+        "targets": [
+          {
+            "expr": "sum(increase(inventory_stockouts_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "yellow" },
+                { "value": 5, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "System Health Status",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 24, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "expr": "system_health_status",
+            "legendFormat": "{{component}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              { "value": 0, "text": "Unhealthy", "color": "red" },
+              { "value": 1, "text": "Healthy", "color": "green" }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "id": 11,
+        "title": "Active Users & Sessions",
+        "type": "graph",
+        "gridPos": { "h": 6, "w": 12, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "users_active_total",
+            "legendFormat": "Active Users",
+            "refId": "A"
+          },
+          {
+            "expr": "sessions_active_total",
+            "legendFormat": "Active Sessions",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Authentication Events",
+        "type": "graph",
+        "gridPos": { "h": 6, "w": 12, "x": 12, "y": 24 },
+        "targets": [
+          {
+            "expr": "rate(auth_attempts_total{status=\"success\"}[5m])",
+            "legendFormat": "Successful Logins",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(auth_attempts_total{status=\"failed\"}[5m])",
+            "legendFormat": "Failed Logins",
+            "refId": "B"
+          }
+        ]
+      }
+    ]
+  }
+}
