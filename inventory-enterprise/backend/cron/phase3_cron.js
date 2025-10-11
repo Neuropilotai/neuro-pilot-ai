@@ -1,8 +1,9 @@
 /**
  * Phase 3 Cron Jobs - Autonomous Learning Layer
  * Scheduled tasks for AI tuning, health prediction, security scanning, governance
+ * v13.0.1: Added self-healing watchdog for job recovery
  *
- * @version 3.0.0
+ * @version 13.0.1
  * @author NeuroInnovate AI Team
  */
 
@@ -22,6 +23,12 @@ const FeedbackTrainer = require('../src/ai/forecast/FeedbackTrainer');
 // NeuroPilot v13.0: In-memory timestamp tracking
 let _lastForecastRun = null;
 let _lastLearningRun = null;
+
+// NeuroPilot v13.0.1: Watchdog tracking and re-entrancy guards
+let _forecastRunning = false;
+let _learningRunning = false;
+let _lastWatchdogCheck = null;
+let _watchdogRecoveries = []; // Track recoveries in last 24h
 
 class Phase3CronScheduler {
   constructor(db, metricsExporter, realtimeBus = null) {
@@ -113,6 +120,12 @@ class Phase3CronScheduler {
 
     // ========== DAILY 06:00: Generate AI Forecast (NeuroPilot v12.5) ==========
     const forecastJob = cron.schedule('0 6 * * *', async () => {
+      if (_forecastRunning) {
+        logger.warn('Phase3Cron: Forecast already running, skipping scheduled run');
+        return;
+      }
+
+      _forecastRunning = true;
       const jobStart = Date.now();
       logger.info('Phase3Cron: [DAILY 06:00] 🔮 Generating AI forecast for today');
 
@@ -159,6 +172,8 @@ class Phase3CronScheduler {
         if (this.metricsExporter?.recordPhase3CronExecution) {
           this.metricsExporter.recordPhase3CronExecution('ai_forecast', 'error', (Date.now() - jobStart) / 1000);
         }
+      } finally {
+        _forecastRunning = false;
       }
     });
 
@@ -166,6 +181,12 @@ class Phase3CronScheduler {
 
     // ========== DAILY 21:00: Process AI Learning Feedback (NeuroPilot v12.5) ==========
     const learningJob = cron.schedule('0 21 * * *', async () => {
+      if (_learningRunning) {
+        logger.warn('Phase3Cron: Learning already running, skipping scheduled run');
+        return;
+      }
+
+      _learningRunning = true;
       const jobStart = Date.now();
       logger.info('Phase3Cron: [DAILY 21:00] 🧠 Processing AI learning feedback');
 
@@ -213,6 +234,8 @@ class Phase3CronScheduler {
         if (this.metricsExporter?.recordPhase3CronExecution) {
           this.metricsExporter.recordPhase3CronExecution('ai_learning', 'error', (Date.now() - jobStart) / 1000);
         }
+      } finally {
+        _learningRunning = false;
       }
     });
 
@@ -406,6 +429,88 @@ class Phase3CronScheduler {
 
     this.jobs.push({ name: 'cleanup', schedule: '0 */6 * * *', job: cleanupJob });
 
+    // ========== EVERY 10 MINUTES: Self-Healing Watchdog (v13.0.1) ==========
+    const watchdogJob = cron.schedule('*/10 * * * *', async () => {
+      _lastWatchdogCheck = new Date().toISOString();
+      const now = Date.now();
+      const STALE_THRESHOLD = 26 * 60 * 60 * 1000; // 26 hours in ms
+
+      try {
+        // Clean up old recoveries (keep last 24h)
+        _watchdogRecoveries = _watchdogRecoveries.filter(r => {
+          const age = now - new Date(r.at).getTime();
+          return age < 24 * 60 * 60 * 1000;
+        });
+
+        // Check forecast staleness
+        if (_lastForecastRun) {
+          const forecastAge = now - new Date(_lastForecastRun).getTime();
+          if (forecastAge > STALE_THRESHOLD && !_forecastRunning) {
+            logger.warn('Phase3Cron: Watchdog detected stale forecast, triggering recovery');
+            _forecastRunning = true;
+            try {
+              await MenuPredictor.generateDailyForecast();
+              _lastForecastRun = new Date().toISOString();
+              await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
+
+              const recovery = { job: 'forecast', at: _lastForecastRun, reason: 'stale_26h' };
+              _watchdogRecoveries.push(recovery);
+
+              if (this.realtimeBus) {
+                this.realtimeBus.emit('ai_event', {
+                  type: 'watchdog:recovery',
+                  job: 'forecast',
+                  when: _lastForecastRun,
+                  reason: 'stale_26h'
+                });
+              }
+              logger.info('Phase3Cron: Watchdog recovery successful', { job: 'forecast' });
+            } catch (err) {
+              logger.error('Phase3Cron: Watchdog forecast recovery failed', { error: err.message });
+            } finally {
+              _forecastRunning = false;
+            }
+          }
+        }
+
+        // Check learning staleness
+        if (_lastLearningRun) {
+          const learningAge = now - new Date(_lastLearningRun).getTime();
+          if (learningAge > STALE_THRESHOLD && !_learningRunning) {
+            logger.warn('Phase3Cron: Watchdog detected stale learning, triggering recovery');
+            _learningRunning = true;
+            try {
+              await FeedbackTrainer.processComments();
+              _lastLearningRun = new Date().toISOString();
+              await this.recordBreadcrumb('ai_learning', _lastLearningRun);
+
+              const recovery = { job: 'learning', at: _lastLearningRun, reason: 'stale_26h' };
+              _watchdogRecoveries.push(recovery);
+
+              if (this.realtimeBus) {
+                this.realtimeBus.emit('ai_event', {
+                  type: 'watchdog:recovery',
+                  job: 'learning',
+                  when: _lastLearningRun,
+                  reason: 'stale_26h'
+                });
+              }
+              logger.info('Phase3Cron: Watchdog recovery successful', { job: 'learning' });
+            } catch (err) {
+              logger.error('Phase3Cron: Watchdog learning recovery failed', { error: err.message });
+            } finally {
+              _learningRunning = false;
+            }
+          }
+        }
+
+      } catch (error) {
+        logger.error('Phase3Cron: Watchdog check failed', { error: error.message });
+      }
+    });
+
+    this.jobs.push({ name: 'watchdog', schedule: '*/10 * * * *', job: watchdogJob });
+
     this.isRunning = true;
 
     logger.info('Phase3Cron: All jobs started', {
@@ -497,6 +602,21 @@ class Phase3CronScheduler {
   }
 
   /**
+   * Get watchdog status (v13.0.1)
+   * Returns last check time and recent recoveries
+   */
+  getWatchdogStatus() {
+    return {
+      last_check_iso: _lastWatchdogCheck,
+      last_recovery_iso: _watchdogRecoveries.length > 0
+        ? _watchdogRecoveries[_watchdogRecoveries.length - 1].at
+        : null,
+      recoveries_24h: _watchdogRecoveries.length,
+      recent_recoveries: _watchdogRecoveries.slice(-5) // Last 5
+    };
+  }
+
+  /**
    * Get next run time for a cron schedule
    * @private
    */
@@ -554,20 +674,36 @@ class Phase3CronScheduler {
           break;
 
         case 'ai_forecast':
-          await MenuPredictor.generateDailyForecast();
-          _lastForecastRun = new Date().toISOString();
-          await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
-          if (this.realtimeBus) {
-            this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: Date.now() - jobStart });
+          if (_forecastRunning) {
+            return { success: false, error: 'Forecast already running' };
+          }
+          _forecastRunning = true;
+          try {
+            await MenuPredictor.generateDailyForecast();
+            _lastForecastRun = new Date().toISOString();
+            await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
+            if (this.realtimeBus) {
+              this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: Date.now() - jobStart });
+            }
+          } finally {
+            _forecastRunning = false;
           }
           break;
 
         case 'ai_learning':
-          await FeedbackTrainer.processComments();
-          _lastLearningRun = new Date().toISOString();
-          await this.recordBreadcrumb('ai_learning', _lastLearningRun);
-          if (this.realtimeBus) {
-            this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: Date.now() - jobStart });
+          if (_learningRunning) {
+            return { success: false, error: 'Learning already running' };
+          }
+          _learningRunning = true;
+          try {
+            await FeedbackTrainer.processComments();
+            _lastLearningRun = new Date().toISOString();
+            await this.recordBreadcrumb('ai_learning', _lastLearningRun);
+            if (this.realtimeBus) {
+              this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: Date.now() - jobStart });
+            }
+          } finally {
+            _learningRunning = false;
           }
           break;
 

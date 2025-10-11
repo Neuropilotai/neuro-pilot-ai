@@ -1,9 +1,9 @@
 /**
- * Owner AI Ops Monitoring API (NeuroPilot v13.0)
+ * Owner AI Ops Monitoring API (NeuroPilot v13.0.1)
  * The Living Inventory Intelligence Console
  * Real-time system health, cognitive analytics, and autonomous operations
  *
- * @version 13.0.0
+ * @version 13.0.1
  * @author NeuroInnovate AI Team
  */
 
@@ -241,6 +241,16 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
     const realtimeHealth = realtimeBus.getHealth();
     const aiEventChannel = realtimeHealth.channels?.ai_ops || realtimeHealth.channels?.ai_event || {};
 
+    // v13.0.1: Get watchdog status from phase3Cron
+    let watchdogStatus = null;
+    if (req.app.locals.phase3Cron && typeof req.app.locals.phase3Cron.getWatchdogStatus === 'function') {
+      try {
+        watchdogStatus = req.app.locals.phase3Cron.getWatchdogStatus();
+      } catch (err) {
+        logger.debug('Watchdog status not available:', err.message);
+      }
+    }
+
     res.json({
       success: true,
       healthy,
@@ -256,6 +266,9 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       active_modules: activeModules,
       pending_feedback_count: pendingCount,
       financial_anomaly_count: financialAnomalyCount,
+
+      // v13.0.1: Self-healing watchdog status
+      watchdog_status: watchdogStatus,
 
       // Real-time status (top-level, spec format)
       realtime: {

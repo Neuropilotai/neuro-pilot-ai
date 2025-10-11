@@ -39,9 +39,9 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
 
     // Get version info
     const versionInfo = {
-      current: '2.8.0',
-      next: '2.9.0',
-      releaseDate: '2025-10-08',
+      current: '13.0.1',
+      next: '13.1.0',
+      releaseDate: '2025-10-11',
       features: {
         completed: [
           'AI Forecasting (ARIMA + Prophet)',
@@ -318,8 +318,8 @@ async function getSystemHealth() {
 
     return {
       status: 'ok',
-      app: 'inventory-enterprise-v2.8.0',
-      version: '2.8.0',
+      app: 'inventory-enterprise-v13.0.1',
+      version: '13.0.1',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       features: {
@@ -495,35 +495,54 @@ async function getAIModuleStatus(phase3Cron, db) {
     }
   }
 
+  // v13.0.1: Calculate status based on lastRun age
+  // IDLE = never run, ACTIVE = run within 24h, DEGRADED = > 24h
+  const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  let forecastStatus = 'IDLE';
+  if (lastForecastRun) {
+    const age = now - new Date(lastForecastRun).getTime();
+    forecastStatus = age <= DAY_MS ? 'ACTIVE' : 'DEGRADED';
+  }
+
+  let learningStatus = 'IDLE';
+  if (lastLearningRun) {
+    const age = now - new Date(lastLearningRun).getTime();
+    learningStatus = age <= DAY_MS ? 'ACTIVE' : 'DEGRADED';
+  }
+
   return {
     forecasting: {
       enabled: process.env.AI_FORECAST_ENABLED === 'true',
       models: ['ARIMA', 'Prophet'],
-      status: lastForecastRun ? 'active' : 'idle',
+      status: forecastStatus,
       lastRun: lastForecastRun,
+      lastRunIso: lastForecastRun, // v13.0.1: explicit ISO field for frontend
       nextScheduled: '06:00 UTC daily'
     },
     governance: {
       enabled: process.env.GOVERNANCE_ENABLED === 'true',
       learningCycles: 1,
-      status: lastLearningRun ? 'active' : 'idle',
+      status: learningStatus,
       lastRun: lastLearningRun,
+      lastRunIso: lastLearningRun, // v13.0.1: explicit ISO field for frontend
       nextScheduled: '21:00 UTC daily'
     },
     insights: {
       enabled: process.env.INSIGHT_ENABLED === 'true',
       provider: process.env.INSIGHT_PROVIDER || 'openai',
-      status: 'active'
+      status: 'ACTIVE'
     },
     compliance: {
       enabled: process.env.COMPLIANCE_ENABLED === 'true',
       frameworks: ['iso27001', 'soc2', 'owasp'],
-      status: 'active'
+      status: 'ACTIVE'
     },
     aiOps: {
       enabled: process.env.AIOPS_ENABLED === 'true',
       autoRemediation: process.env.AIOPS_AUTO_REMEDIATION === 'true',
-      status: 'active'
+      status: 'ACTIVE'
     }
   };
 }
