@@ -54,6 +54,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Initial data loads
   loadDashboard();
   loadCountLocations();
+
+  // v13.0: Auto-refresh AI Ops status and cognitive intelligence every 15 seconds
+  setInterval(() => {
+    if (currentTab === 'aiops') {
+      loadAIOpsStatus();
+      loadCognitiveIntelligence();
+      loadActivityFeed();
+    }
+  }, 15000);
 });
 
 // ============================================================================
@@ -188,6 +197,10 @@ async function loadDashboard() {
   console.log('🔄 Loading dashboard...');
 
   try {
+    // v13.0: Load Cognitive Intelligence & Activity Feed
+    loadCognitiveIntelligence();
+    loadActivityFeed();
+
     // System Health
     console.log('📊 Fetching system health...');
     const health = await fetchAPI('http://127.0.0.1:8083/health');
@@ -1149,10 +1162,10 @@ async function loadPDFs() {
         <thead>
           <tr>
             <th width="30"><input type="checkbox" onchange="toggleAllPDFs(this.checked)"></th>
-            <th>Filename</th>
             <th>Invoice #</th>
-            <th>Created</th>
+            <th>Invoice Date</th>
             <th>Status</th>
+            <th>Size</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -1161,14 +1174,21 @@ async function loadPDFs() {
 
     pdfs.forEach(pdf => {
       const statusBadge = pdf.isProcessed ? '<span class="badge badge-success">Included</span>' : '<span class="badge badge-warning">Pending</span>';
+      const invoiceNum = pdf.invoiceNumber || pdf.filename;
+      const sizeDisplay = pdf.sizeMB ? `${pdf.sizeMB} MB` : 'N/A';
+      const dateDisplay = pdf.invoiceDate
+        ? new Date(pdf.invoiceDate).toLocaleDateString()
+        : (pdf.receivedDate ? new Date(pdf.receivedDate).toLocaleDateString() : 'N/A');
+      // Escape single quotes for onclick handler
+      const escapedInvoiceNum = invoiceNum.replace(/'/g, "\\'");
       html += `
         <tr>
           <td><input type="checkbox" class="pdf-checkbox" data-pdf-id="${pdf.id}" ${pdf.isProcessed ? 'disabled' : ''}></td>
-          <td>${pdf.filename}</td>
-          <td>${pdf.invoiceNumber || 'N/A'}</td>
-          <td>${new Date(pdf.createdAt).toLocaleDateString()}</td>
+          <td><strong>${invoiceNum}</strong></td>
+          <td>${dateDisplay}</td>
           <td>${statusBadge}</td>
-          <td><button type="button" class="btn btn-sm btn-primary" onclick="viewPDF(${pdf.id})">👁️ View</button></td>
+          <td>${sizeDisplay}</td>
+          <td><button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${pdf.id}', '${escapedInvoiceNum}')">👁️ View</button></td>
         </tr>
       `;
     });
@@ -1188,12 +1208,25 @@ function toggleAllPDFs(checked) {
   });
 }
 
-function viewPDF(pdfId, filename) {
-  document.getElementById('pdfModalTitle').textContent = filename || `PDF #${pdfId}`;
-  // Add token as query parameter for iframe authentication
-  const previewUrl = `/api/owner/pdfs/${pdfId}/preview?token=${encodeURIComponent(token)}`;
-  document.getElementById('pdfFrame').src = previewUrl;
-  document.getElementById('pdfModal').classList.add('active');
+function viewPDF(pdfId, invoiceNum) {
+  // Get access token from local storage (stored as 'authToken')
+  const accessToken = localStorage.getItem('authToken');
+
+  if (!accessToken) {
+    alert('Authentication token missing. Please refresh the page and login again.');
+    return;
+  }
+
+  // Construct API URL with token for authentication
+  const apiUrl = `${API_BASE}/owner/pdfs/${pdfId}/preview?token=${encodeURIComponent(accessToken)}`;
+
+  // Open PDF in new tab using API endpoint
+  const newWindow = window.open(apiUrl, '_blank');
+
+  // If blocked by browser, show helpful message
+  if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+    alert(`Browser blocked popup. Please allow popups for this site to view PDFs.\n\nInvoice: ${invoiceNum}`);
+  }
 }
 
 function closePDFModal() {
@@ -1231,10 +1264,14 @@ async function loadUnprocessedPDFsForInclude() {
 
     let html = '';
     pdfs.forEach(pdf => {
+      const displayName = pdf.invoiceNumber || pdf.filename;
+      const dateDisplay = pdf.invoiceDate
+        ? new Date(pdf.invoiceDate).toLocaleDateString()
+        : (pdf.receivedDate ? new Date(pdf.receivedDate).toLocaleDateString() : 'N/A');
       html += `
         <label class="checkbox-item">
           <input type="checkbox" value="${pdf.id}">
-          <span>${pdf.filename} ${pdf.invoiceNumber ? `(#${pdf.invoiceNumber})` : ''}</span>
+          <span><strong>${displayName}</strong> <small style="color: var(--text-light);">(${dateDisplay})</small></span>
         </label>
       `;
     });
@@ -1426,7 +1463,8 @@ async function loadActiveCount() {
       html += '<h4 style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.875rem;">Attached PDFs:</h4>';
       html += '<div style="font-size: 0.875rem;">';
       pdfs.forEach(pdf => {
-        html += `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><a href="#" onclick="viewPDF(${pdf.document_id})" style="color: var(--primary);">${pdf.filename}</a></div>`;
+        const escapedFilename = pdf.filename.replace(/'/g, "\\'");
+        html += `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" style="color: var(--primary);">${pdf.filename}</a></div>`;
       });
       html += '</div>';
     }
@@ -1528,7 +1566,10 @@ async function closeCount() {
       </div>
       <h4>PDFs attached: ${pdfs.length}</h4>
       <div style="max-height: 200px; overflow-y: auto; margin: 1rem 0;">
-        ${pdfs.map(pdf => `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><a href="#" onclick="viewPDF(${pdf.document_id})" style="color: var(--primary);">${pdf.filename}</a></div>`).join('')}
+        ${pdfs.map(pdf => {
+          const escapedFilename = pdf.filename.replace(/'/g, "\\'");
+          return `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" style="color: var(--primary);">${pdf.filename}</a></div>`;
+        }).join('')}
       </div>
       <div style="display: flex; gap: 1rem; margin-top: 1rem;">
         <button class="btn btn-success" onclick="confirmCloseCount()">✓ Confirm & Close</button>
@@ -1571,6 +1612,13 @@ function cancelCloseCount() {
 // ============================================================================
 
 async function loadAIConsole() {
+  // v12.5: Load AI Ops status first (includes health, cron schedule, real-time status)
+  loadAIOpsStatus();
+
+  // v12.5: Load learning timeline
+  loadLearningTimeline();
+
+  // Load existing panels
   loadAIReorder();
   loadAIAnomalies();
   loadAIUpgrade();
@@ -2735,6 +2783,407 @@ async function trainFromNudge(nudgeId) {
     loadFeedbackHistory();
   } catch (error) {
     alert('Error training: ' + error.message);
+  }
+}
+
+// ============================================================================
+// NEUROPILOT V12.5 - AI OPS & REAL-TIME FEATURES
+// ============================================================================
+
+/**
+ * Load AI Ops System Health Status
+ */
+async function loadAIOpsStatus() {
+  const healthScoreEl = document.getElementById('opsHealthScore');
+  const forecastStatusEl = document.getElementById('opsForecastStatus');
+  const learningStatusEl = document.getElementById('opsLearningStatus');
+  const realtimeClientsEl = document.getElementById('opsRealtimeClients');
+  const checksEl = document.getElementById('aiOpsChecks');
+
+  try {
+    healthScoreEl.textContent = '...';
+    forecastStatusEl.textContent = '...';
+    learningStatusEl.textContent = '...';
+    realtimeClientsEl.textContent = '...';
+
+    const data = await fetchAPI('/owner/ops/status');
+
+    // Update health score
+    const healthPct = data.healthPct || 0;
+    healthScoreEl.textContent = `${healthPct}%`;
+    healthScoreEl.style.color = healthPct >= 75 ? 'var(--success)' : (healthPct >= 50 ? 'var(--warning)' : 'var(--danger)');
+
+    // Update forecast status
+    const forecastCheck = data.checks?.find(c => c.name === 'ai_forecast');
+    if (forecastCheck) {
+      forecastStatusEl.textContent = forecastCheck.status === 'ok' ? '✅ OK' : '⚠️ Warning';
+    } else {
+      forecastStatusEl.textContent = '--';
+    }
+
+    // Update learning status
+    const learningCheck = data.checks?.find(c => c.name === 'ai_learning');
+    if (learningCheck) {
+      learningStatusEl.textContent = learningCheck.status === 'ok' ? '✅ OK' : '⚠️ Warning';
+    } else {
+      learningStatusEl.textContent = '--';
+    }
+
+    // Update real-time clients
+    const rtClients = data.details?.realtime?.connectedClients || 0;
+    realtimeClientsEl.textContent = rtClients;
+
+    // Display detailed checks
+    let checksHTML = '<div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.875rem;">';
+    (data.checks || []).forEach(check => {
+      const icon = check.status === 'ok' ? '✅' : '⚠️';
+      const color = check.status === 'ok' ? 'var(--success)' : 'var(--warning)';
+      checksHTML += `
+        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+          <span style="font-size: 1.25rem;">${icon}</span>
+          <div style="flex: 1;">
+            <strong>${check.name}</strong>
+            <div style="color: ${color}; font-size: 0.8125rem;">${check.message}</div>
+          </div>
+        </div>
+      `;
+    });
+    checksHTML += '</div>';
+    checksEl.innerHTML = checksHTML;
+
+    // Update LIVE badge in header
+    const liveBadge = document.getElementById('liveBadge');
+    if (liveBadge) {
+      if (data.healthy) {
+        liveBadge.style.background = '#10b981';
+        liveBadge.textContent = 'LIVE 🟢';
+      } else {
+        liveBadge.style.background = '#ef4444';
+        liveBadge.textContent = 'DEGRADED 🔴';
+      }
+    }
+
+    // Update cron schedule (calculate next runs) - v13.0: use top-level timestamps
+    updateCronSchedule(data);
+
+  } catch (error) {
+    console.error('Failed to load AI Ops status:', error);
+    checksEl.innerHTML = showError('AI Ops Status', error.message);
+    healthScoreEl.textContent = 'ERR';
+    healthScoreEl.style.color = 'var(--danger)';
+  }
+}
+
+/**
+ * Update Cron Schedule display
+ */
+function updateCronSchedule(data) {
+  const forecastLastRunEl = document.getElementById('forecastLastRun');
+  const forecastNextRunEl = document.getElementById('forecastNextRun');
+  const learningLastRunEl = document.getElementById('learningLastRun');
+  const learningNextRunEl = document.getElementById('learningNextRun');
+
+  // v13.0: Use top-level last_forecast_ts and last_learning_ts
+  // Forecast schedule (06:00 daily)
+  if (data?.last_forecast_ts) {
+    const lastRun = new Date(data.last_forecast_ts);
+    forecastLastRunEl.textContent = `Last: ${formatTimeAgo(lastRun)}`;
+  } else {
+    forecastLastRunEl.textContent = 'Last: Never';
+  }
+
+  // Calculate next 06:00
+  const nextForecast = getNextCronTime(6, 0);
+  forecastNextRunEl.textContent = `Next: ${nextForecast.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+
+  // Learning schedule (21:00 daily)
+  if (data?.last_learning_ts) {
+    const lastRun = new Date(data.last_learning_ts);
+    learningLastRunEl.textContent = `Last: ${formatTimeAgo(lastRun)}`;
+  } else {
+    learningLastRunEl.textContent = 'Last: Never';
+  }
+
+  // Calculate next 21:00
+  const nextLearning = getNextCronTime(21, 0);
+  learningNextRunEl.textContent = `Next: ${nextLearning.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+}
+
+/**
+ * Calculate next cron time for given hour:minute
+ */
+function getNextCronTime(hour, minute) {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(hour, minute, 0, 0);
+
+  // If time has passed today, schedule for tomorrow
+  if (next <= now) {
+    next.setDate(next.getDate() + 1);
+  }
+
+  return next;
+}
+
+/**
+ * Format time ago helper
+ */
+function formatTimeAgo(date) {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/**
+ * Load Learning Timeline (Last 10 Insights)
+ */
+async function loadLearningTimeline() {
+  const timelineEl = document.getElementById('learningTimeline');
+
+  try {
+    timelineEl.innerHTML = '<div class="loading">Loading learning timeline...</div>';
+
+    // Try to get learning insights from the database
+    // NOTE: This endpoint may not exist yet, so we'll gracefully handle the error
+    try {
+      const data = await fetchAPI('/owner/forecast/history?limit=10');
+
+      if (!data.history || data.history.length === 0) {
+        timelineEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📚</div><div>No learning insights yet. Train the AI to see insights here!</div></div>';
+        return;
+      }
+
+      let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+      data.history.slice(0, 10).forEach(insight => {
+        const timestamp = new Date(insight.created_at || insight.timestamp);
+        const status = insight.status === 'applied' ? '✅' : (insight.status === 'pending' ? '⏳' : '📝');
+        html += `
+          <div style="padding: 0.75rem; background: var(--bg); border-left: 3px solid var(--primary); border-radius: 4px;">
+            <div style="display: flex; justify-content: between; align-items: start; gap: 0.5rem;">
+              <span style="font-size: 1.25rem;">${status}</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 500; font-size: 0.875rem;">${insight.comment || insight.feedback}</div>
+                <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
+                  ${formatTimeAgo(timestamp)} • ${insight.source || 'manual'}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      timelineEl.innerHTML = html;
+    } catch (apiError) {
+      // If endpoint doesn't exist or returns error, show a friendly message
+      timelineEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔧</div><div>Learning timeline will appear here once AI training begins.<br><br>Submit feedback below to start training!</div></div>';
+    }
+  } catch (error) {
+    console.error('Failed to load learning timeline:', error);
+    timelineEl.innerHTML = showError('Learning Timeline', error.message);
+  }
+}
+
+/**
+ * Manually trigger a cron job
+ */
+async function triggerJob(jobName) {
+  if (!confirm(`Manually trigger the ${jobName} job now?`)) {
+    return;
+  }
+
+  try {
+    const data = await fetchAPI(`/owner/ops/trigger/${jobName}`, { method: 'POST' });
+
+    if (data.success) {
+      alert(`✅ Job "${jobName}" completed successfully!\n\nDuration: ${(data.duration / 1000).toFixed(2)}s`);
+      // Refresh the AI Ops status after job runs
+      loadAIOpsStatus();
+    } else {
+      alert(`❌ Job "${jobName}" failed.\n\nCheck server logs for details.`);
+    }
+  } catch (error) {
+    alert(`❌ Failed to trigger job: ${error.message}`);
+  }
+}
+
+// ============================================================================
+// NEUROPILOT V13.0 - COGNITIVE INTELLIGENCE & LIVING CONSOLE
+// ============================================================================
+
+/**
+ * Load Cognitive Intelligence Overview (v13.0)
+ * Displays AI confidence trends, forecast accuracy, and active modules
+ */
+async function loadCognitiveIntelligence() {
+  try {
+    // Fetch cognitive intelligence data
+    const cogData = await fetchAPI('/owner/ops/cognitive-intelligence');
+    const statusData = await fetchAPI('/owner/ops/status');
+
+    // Update top-level metrics
+    document.getElementById('aiConfidenceAvg').textContent =
+      cogData.confidenceTrend.length > 0 ? `${cogData.confidenceTrend[cogData.confidenceTrend.length - 1].avgConfidence}%` : 'N/A';
+
+    document.getElementById('forecastAccuracyAvg').textContent =
+      cogData.accuracyTrend.length > 0 ? `${cogData.accuracyTrend[cogData.accuracyTrend.length - 1].avgAccuracy}%` : 'N/A';
+
+    const activeModules = Object.values(statusData.active_modules || {}).filter(v => v).length;
+    document.getElementById('activeModulesCount').textContent = `${activeModules}/4`;
+
+    document.getElementById('learningAppliedCount').textContent = cogData.recentFeedbacks.length;
+
+    // Render confidence and accuracy trend charts (ASCII bar chart)
+    const chartsEl = document.getElementById('cognitiveCharts');
+    let chartsHTML = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
+
+    // Confidence Trend Chart
+    chartsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 6px;">';
+    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">Confidence Trend (7 days)</div>';
+    if (cogData.confidenceTrend.length > 0) {
+      cogData.confidenceTrend.forEach(day => {
+        const barWidth = day.avgConfidence;
+        chartsHTML += `
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <div style="width: 60px; font-size: 0.75rem;">${day.date.substring(5)}</div>
+            <div style="flex: 1; background: rgba(255,255,255,0.2); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #10b981; width: ${barWidth}%; height: 100%; border-radius: 4px;"></div>
+              <div style="position: absolute; right: 4px; top: 2px; font-size: 0.75rem;">${barWidth}%</div>
+            </div>
+          </div>
+        `;
+      });
+    } else {
+      chartsHTML += '<div style="text-align: center; opacity: 0.7; font-size: 0.875rem;">No data yet</div>';
+    }
+    chartsHTML += '</div>';
+
+    // Forecast Accuracy Trend Chart
+    chartsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 6px;">';
+    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">Forecast Accuracy (7 days)</div>';
+    if (cogData.accuracyTrend.length > 0) {
+      cogData.accuracyTrend.forEach(day => {
+        const barWidth = day.avgAccuracy || 0;
+        chartsHTML += `
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <div style="width: 60px; font-size: 0.75rem;">${day.date.substring(5)}</div>
+            <div style="flex: 1; background: rgba(255,255,255,0.2); border-radius: 4px; height: 20px; position: relative;">
+              <div style="background: #3b82f6; width: ${barWidth}%; height: 100%; border-radius: 4px;"></div>
+              <div style="position: absolute; right: 4px; top: 2px; font-size: 0.75rem;">${barWidth}%</div>
+            </div>
+          </div>
+        `;
+      });
+    } else {
+      chartsHTML += '<div style="text-align: center; opacity: 0.7; font-size: 0.875rem;">No data yet</div>';
+    }
+    chartsHTML += '</div>';
+
+    chartsHTML += '</div>';
+    chartsEl.innerHTML = chartsHTML;
+
+  } catch (error) {
+    console.error('Failed to load cognitive intelligence:', error);
+    document.getElementById('aiConfidenceAvg').textContent = 'ERR';
+    document.getElementById('forecastAccuracyAvg').textContent = 'ERR';
+  }
+}
+
+/**
+ * Load Live AI Activity Feed (v13.0)
+ */
+async function loadActivityFeed() {
+  const feedEl = document.getElementById('activityFeed');
+
+  try {
+    feedEl.innerHTML = '<div class="loading"><div class="spinner"></div> Loading activity feed...</div>';
+
+    const data = await fetchAPI('/owner/ops/activity-feed?limit=20');
+
+    if (!data.activities || data.activities.length === 0) {
+      feedEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📡</div><div>No recent AI activity. System is warming up...</div></div>';
+      return;
+    }
+
+    let html = '<div style="max-height: 400px; overflow-y: auto; font-size: 0.875rem;">';
+    data.activities.forEach(activity => {
+      const icon = activity.type === 'learning_event' ? '🧠' : (activity.type === 'forecast_event' ? '📈' : '📡');
+      const timestamp = new Date(activity.timestamp);
+      const ageText = formatTimeAgo(timestamp);
+
+      html += `
+        <div style="display: flex; gap: 0.75rem; padding: 0.75rem; border-bottom: 1px solid var(--border);">
+          <div style="font-size: 1.5rem;">${icon}</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 500;">${activity.event || activity.type}</div>
+            <div style="color: var(--text-light); font-size: 0.8125rem; margin-top: 0.125rem;">
+              ${activity.description || ''} • ${ageText}
+            </div>
+            ${activity.metadata && activity.metadata.confidence ?
+              `<div class="badge badge-success" style="margin-top: 0.25rem;">Confidence: ${activity.metadata.confidence}%</div>` : ''}
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+
+    feedEl.innerHTML = html;
+
+  } catch (error) {
+    console.error('Failed to load activity feed:', error);
+    feedEl.innerHTML = showError('Activity Feed', error.message);
+  }
+}
+
+/**
+ * Load Learning Insights Panel (v13.0)
+ * For AI Console tab
+ */
+async function loadLearningInsights() {
+  const insightsEl = document.getElementById('learningInsightsPanel');
+
+  try {
+    insightsEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    const data = await fetchAPI('/owner/ops/learning-insights?limit=20');
+
+    if (!data.insights || data.insights.length === 0) {
+      insightsEl.innerHTML = '<div class="empty-state" style="padding: 2rem;"><div>No learning insights yet</div></div>';
+      return;
+    }
+
+    let html = '<table class="table"><thead><tr>';
+    html += '<th>Type</th><th>Title</th><th>Confidence</th><th>Status</th><th>Detected</th>';
+    html += '</tr></thead><tbody>';
+
+    data.insights.forEach(insight => {
+      const statusBadge = insight.status === 'applied' ?
+        '<span class="badge badge-success">Applied</span>' :
+        '<span class="badge badge-warning">Pending</span>';
+
+      const confidenceColor = insight.confidence >= 85 ? 'var(--success)' : (insight.confidence >= 70 ? 'var(--warning)' : 'var(--danger)');
+
+      html += `
+        <tr>
+          <td>${insight.type}</td>
+          <td>${insight.title || insight.description || 'N/A'}</td>
+          <td><strong style="color: ${confidenceColor};">${insight.confidence}%</strong></td>
+          <td>${statusBadge}</td>
+          <td>${new Date(insight.detectedAt).toLocaleDateString()}</td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    insightsEl.innerHTML = html;
+
+  } catch (error) {
+    console.error('Failed to load learning insights:', error);
+    insightsEl.innerHTML = showError('Learning Insights', error.message);
   }
 }
 

@@ -157,6 +157,10 @@
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
     .alert {
       padding: 1rem;
       border-radius: 6px;
@@ -240,7 +244,12 @@
 </head>
 <body>
   <header>
-    <div class="logo">🤖 Owner Super Console v3.2.0</div>
+    <div class="logo">
+      🧠 NeuroPilot v13.0 • The Living Inventory Intelligence Console
+      <span id="liveBadge" class="badge" style="margin-left: 0.75rem; background: #10b981; color: white; font-size: 0.75rem; padding: 0.25rem 0.5rem; animation: pulse 2s infinite;">
+        LIVE 🟢
+      </span>
+    </div>
     <div class="user-info">
       <span id="currentUser"></span>
       <span class="token-ttl" id="tokenTTL"></span>
@@ -263,6 +272,34 @@
   <div class="container content">
     <!-- Dashboard Tab -->
     <div id="dashboard" class="tab-panel active">
+      <!-- v13.0: Cognitive Overview -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <div class="card-header" style="border-bottom-color: rgba(255,255,255,0.2);">
+          <h3 class="card-title" style="color: white;">🧠 Cognitive Overview - AI Intelligence Status</h3>
+          <button type="button" class="btn btn-sm" style="background: rgba(255,255,255,0.3); color: white;" onclick="loadCognitiveIntelligence()">↻ Refresh</button>
+        </div>
+        <div class="grid grid-4">
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="aiConfidenceAvg">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">AI Confidence (7d avg)</div>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="forecastAccuracyAvg">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">Forecast Accuracy</div>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="activeModulesCount">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">Active AI Modules</div>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="learningAppliedCount">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">Learning Applied (7d)</div>
+          </div>
+        </div>
+        <div id="cognitiveCharts" style="margin-top: 1rem; padding: 0 1rem 1rem;"></div>
+      </div>
+
+      <!-- Original Stats -->
       <div class="grid grid-4">
         <div class="card stat-card">
           <div class="stat-value" id="systemHealth">--</div>
@@ -281,6 +318,16 @@
           <div class="stat-label">Last AI Training</div>
         </div>
       </div>
+
+      <!-- v13.0: AI Activity Feed -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">📡 Live AI Activity Feed</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadActivityFeed()">↻ Refresh</button>
+        </div>
+        <div id="activityFeed"></div>
+      </div>
+
       <div class="grid grid-2" style="margin-top: 1.5rem;">
         <div class="card">
           <div class="card-header">
@@ -387,6 +434,63 @@
 
     <!-- AI Console Tab -->
     <div id="ai" class="tab-panel">
+      <!-- AI Ops System Health Panel (v12.5) -->
+      <div class="card" style="margin-bottom: 1.5rem; border: 2px solid var(--primary);">
+        <div class="card-header">
+          <h3 class="card-title">🚀 AI Ops System Health (v12.5)</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadAIOpsStatus()">↻ Refresh</button>
+        </div>
+        <div class="grid grid-4" id="aiOpsHealthGrid">
+          <div class="stat-card">
+            <div class="stat-value" id="opsHealthScore" style="color: var(--success);">--</div>
+            <div class="stat-label">Health Score</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsForecastStatus" style="font-size: 1.5rem;">--</div>
+            <div class="stat-label">Forecast Status</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsLearningStatus" style="font-size: 1.5rem;">--</div>
+            <div class="stat-label">Learning Status</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsRealtimeClients" style="font-size: 1.5rem;">--</div>
+            <div class="stat-label">Real-Time Clients</div>
+          </div>
+        </div>
+        <div id="aiOpsChecks" style="margin-top: 1rem;"></div>
+      </div>
+
+      <!-- Cron Schedule Summary (v12.5) -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">⏰ Autonomous Cron Schedule</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_forecast')">▶️ Run Forecast Now</button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_learning')">▶️ Run Learning Now</button>
+        </div>
+        <div class="grid grid-2" id="cronSchedule">
+          <div>
+            <strong>🔮 Daily Forecast (06:00)</strong>
+            <div id="forecastLastRun" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">Last: --</div>
+            <div id="forecastNextRun" style="font-size: 0.875rem; color: var(--text-light);">Next: --</div>
+          </div>
+          <div>
+            <strong>🧠 Daily Learning (21:00)</strong>
+            <div id="learningLastRun" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">Last: --</div>
+            <div id="learningNextRun" style="font-size: 0.875rem; color: var(--text-light);">Next: --</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Learning Timeline (v12.5) -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">📚 Learning Timeline (Last 10 Insights)</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningTimeline()">↻ Refresh</button>
+        </div>
+        <div id="learningTimeline"></div>
+      </div>
+
       <div class="grid grid-3">
         <div class="card">
           <div class="card-header">

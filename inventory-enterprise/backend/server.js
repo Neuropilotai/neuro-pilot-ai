@@ -63,6 +63,9 @@ const ComplianceAudit = require('./aiops/ComplianceAudit');
 // Metrics Exporter
 const metricsExporter = require('./utils/metricsExporter');
 
+// NeuroPilot v12.5 - Real-Time Event Bus
+const realtimeBus = require('./utils/realtimeBus');
+
 // PASS P v2.8.0 - Infrastructure & Services
 const ForecastService = require('./src/ai/forecast/ForecastService');
 const TwoFactorAuth = require('./middleware/security_2fa');
@@ -166,6 +169,10 @@ const ownerReportsRoutes = require('./routes/owner-reports');
 app.use('/api/super/orchestrate', authenticateToken, requireOwnerDevice, ownerOrchestrateRoutes);
 app.use('/api/owner/recovery', authenticateToken, requireOwnerDevice, ownerRecoveryRoutes);
 app.use('/api/owner/reports', authenticateToken, requireOwnerDevice, ownerReportsRoutes);
+
+// v12.5 - AI Ops Monitoring & Real-Time Status (NeuroPilot v12.5)
+const ownerOpsRoutes = require('./routes/owner-ops');
+app.use('/api/owner/ops', authenticateToken, requireOwnerDevice, ownerOpsRoutes);
 
 app.get('/health', async (req, res) => {
   const feedbackStats = feedbackStream.getStats();
@@ -281,6 +288,9 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
 
   // Make database available to routes (for v6.7 forecast routes)
   app.locals.db = db;
+
+  // v13.0: Make realtimeBus available to routes
+  app.set('realtimeBus', realtimeBus);
 
   // Redis Connection (optional, graceful degradation if unavailable)
   if (process.env.REDIS_ENABLED === 'true') {
@@ -475,11 +485,13 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
   try {
     console.log('🧬 Initializing Phase 3: Autonomous Learning Layer (v3.0.0)...');
 
-    phase3Cron = new Phase3CronScheduler(db, metricsExporter);
+    // v13.0: Pass realtimeBus to Phase3CronScheduler
+    phase3Cron = new Phase3CronScheduler(db, metricsExporter, realtimeBus);
     phase3Cron.start();
 
     // Make available to routes
     app.locals.phase3Cron = phase3Cron;
+    app.set('phase3Cron', phase3Cron); // v13.0: For easy route access
 
     console.log('  ✅ AI Tuner Service ready (daily proposal generation)');
     console.log('  ✅ Health Prediction Service ready (hourly risk assessment)');

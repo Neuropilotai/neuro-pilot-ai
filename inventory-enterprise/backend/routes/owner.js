@@ -33,8 +33,9 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
     // Get database stats
     const dbStats = await getDatabaseStats(db);
 
-    // Get AI module status
-    const aiModules = getAIModuleStatus();
+    // Get AI module status with live timestamps
+    const phase3Cron = req.app.get('phase3Cron');
+    const aiModules = getAIModuleStatus(phase3Cron);
 
     // Get version info
     const versionInfo = {
@@ -452,19 +453,33 @@ async function getDatabaseStats(db) {
 }
 
 /**
- * Get AI module status
+ * Get AI module status with live timestamps from Phase3CronScheduler
  */
-function getAIModuleStatus() {
+function getAIModuleStatus(phase3Cron) {
+  // Get live run timestamps from cron scheduler
+  let lastForecastRun = null;
+  let lastLearningRun = null;
+
+  if (phase3Cron && typeof phase3Cron.getLastRuns === 'function') {
+    const lastRuns = phase3Cron.getLastRuns();
+    lastForecastRun = lastRuns.lastForecastRun;
+    lastLearningRun = lastRuns.lastLearningRun;
+  }
+
   return {
     forecasting: {
       enabled: process.env.AI_FORECAST_ENABLED === 'true',
       models: ['ARIMA', 'Prophet'],
-      status: 'active'
+      status: lastForecastRun ? 'active' : 'idle',
+      lastRun: lastForecastRun,
+      nextScheduled: '06:00 UTC daily'
     },
     governance: {
       enabled: process.env.GOVERNANCE_ENABLED === 'true',
       learningCycles: 1,
-      status: 'active'
+      status: lastLearningRun ? 'active' : 'idle',
+      lastRun: lastLearningRun,
+      nextScheduled: '21:00 UTC daily'
     },
     insights: {
       enabled: process.env.INSIGHT_ENABLED === 'true',

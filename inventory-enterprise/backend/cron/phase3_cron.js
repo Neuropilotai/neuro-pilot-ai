@@ -15,10 +15,19 @@ const HealthPredictionService = require('../src/ai/learning/HealthPredictionServ
 const SecurityScannerService = require('../src/ai/security/SecurityScannerService');
 const GovernanceReportService = require('../src/ai/governance/GovernanceReportService');
 
+// NeuroPilot v12.5: Real-Time AI Forecasting & Learning
+const MenuPredictor = require('../src/ai/forecast/MenuPredictor');
+const FeedbackTrainer = require('../src/ai/forecast/FeedbackTrainer');
+
+// NeuroPilot v13.0: In-memory timestamp tracking
+let _lastForecastRun = null;
+let _lastLearningRun = null;
+
 class Phase3CronScheduler {
-  constructor(db, metricsExporter) {
+  constructor(db, metricsExporter, realtimeBus = null) {
     this.db = db;
     this.metricsExporter = metricsExporter;
+    this.realtimeBus = realtimeBus || global.realtimeBus;
     this.jobs = [];
     this.isRunning = false;
   }
@@ -64,6 +73,111 @@ class Phase3CronScheduler {
     });
 
     this.jobs.push({ name: 'health_prediction', schedule: '0 * * * *', job: healthPredictionJob });
+
+    // ========== DAILY 06:00: Generate AI Forecast (NeuroPilot v12.5) ==========
+    const forecastJob = cron.schedule('0 6 * * *', async () => {
+      const jobStart = Date.now();
+      logger.info('Phase3Cron: [DAILY 06:00] 🔮 Generating AI forecast for today');
+
+      try {
+        const forecast = await MenuPredictor.generateDailyForecast();
+
+        // v13.0: Record timestamp in memory
+        _lastForecastRun = new Date().toISOString();
+
+        logger.info('Phase3Cron: AI forecast complete', {
+          date: forecast.date,
+          totalItems: forecast.items?.length || 0,
+          duration: (Date.now() - jobStart) / 1000
+        });
+
+        // Record cron job execution
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('ai_forecast', 'success', (Date.now() - jobStart) / 1000);
+        }
+
+        // v13.0: Emit AI event for activity feed
+        if (this.realtimeBus) {
+          this.realtimeBus.emit('ai_event', {
+            type: 'forecast_completed',
+            at: _lastForecastRun,
+            ms: Date.now() - jobStart,
+            itemCount: forecast.items?.length || 0
+          });
+        }
+
+        // Emit real-time update (legacy)
+        if (global.realtimeBus) {
+          global.realtimeBus.emit('forecast:generated', {
+            date: forecast.date,
+            itemCount: forecast.items?.length || 0,
+            timestamp: _lastForecastRun
+          });
+        }
+
+      } catch (error) {
+        logger.error('Phase3Cron: AI forecast failed', { error: error.message, stack: error.stack });
+
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('ai_forecast', 'error', (Date.now() - jobStart) / 1000);
+        }
+      }
+    });
+
+    this.jobs.push({ name: 'ai_forecast', schedule: '0 6 * * *', job: forecastJob });
+
+    // ========== DAILY 21:00: Process AI Learning Feedback (NeuroPilot v12.5) ==========
+    const learningJob = cron.schedule('0 21 * * *', async () => {
+      const jobStart = Date.now();
+      logger.info('Phase3Cron: [DAILY 21:00] 🧠 Processing AI learning feedback');
+
+      try {
+        const result = await FeedbackTrainer.processComments();
+
+        // v13.0: Record timestamp in memory
+        _lastLearningRun = new Date().toISOString();
+
+        logger.info('Phase3Cron: AI learning complete', {
+          processed: result.processed || 0,
+          applied: result.applied || 0,
+          duration: (Date.now() - jobStart) / 1000
+        });
+
+        // Record cron job execution
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('ai_learning', 'success', (Date.now() - jobStart) / 1000);
+        }
+
+        // v13.0: Emit AI event for activity feed
+        if (this.realtimeBus) {
+          this.realtimeBus.emit('ai_event', {
+            type: 'learning_completed',
+            at: _lastLearningRun,
+            ms: Date.now() - jobStart,
+            processed: result.processed || 0,
+            applied: result.applied || 0
+          });
+        }
+
+        // Emit real-time update (legacy)
+        if (global.realtimeBus) {
+          global.realtimeBus.emit('learning:processed', {
+            processed: result.processed || 0,
+            applied: result.applied || 0,
+            timestamp: _lastLearningRun
+          });
+        }
+
+      } catch (error) {
+        logger.error('Phase3Cron: AI learning failed', { error: error.message, stack: error.stack });
+
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('ai_learning', 'error', (Date.now() - jobStart) / 1000);
+        }
+      }
+    });
+
+    this.jobs.push({ name: 'ai_learning', schedule: '0 21 * * *', job: learningJob });
 
     // ========== DAILY 02:20: Generate AI Tuning Proposals ==========
     const generateProposalsJob = cron.schedule('20 2 * * *', async () => {
@@ -299,6 +413,16 @@ class Phase3CronScheduler {
   }
 
   /**
+   * Get last run timestamps (v13.0)
+   */
+  getLastRuns() {
+    return {
+      lastForecastRun: _lastForecastRun,
+      lastLearningRun: _lastLearningRun
+    };
+  }
+
+  /**
    * Get next run time for a cron schedule
    * @private
    */
@@ -353,6 +477,22 @@ class Phase3CronScheduler {
           const weekEnd = new Date();
           const weekStart = new Date(weekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
           await governanceService.generateWeeklyReport(weekStart, weekEnd);
+          break;
+
+        case 'ai_forecast':
+          await MenuPredictor.generateDailyForecast();
+          _lastForecastRun = new Date().toISOString();
+          if (this.realtimeBus) {
+            this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: Date.now() - jobStart });
+          }
+          break;
+
+        case 'ai_learning':
+          await FeedbackTrainer.processComments();
+          _lastLearningRun = new Date().toISOString();
+          if (this.realtimeBus) {
+            this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: Date.now() - jobStart });
+          }
           break;
 
         default:

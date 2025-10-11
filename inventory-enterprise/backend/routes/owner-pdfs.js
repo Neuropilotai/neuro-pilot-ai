@@ -125,10 +125,11 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         d.created_at,
         d.created_by,
         d.tenant_id,
-        pi.invoice_id as processed_invoice_id,
+        d.invoice_metadata,
+        pi.line_id as processed_invoice_id,
         pi.invoice_number as processed_invoice_number,
-        pi.invoice_date,
-        pi.total_amount,
+        pi.received_date,
+        pi.extended_cost as total_amount,
         pi.created_at as processed_at,
         cp.count_id as linked_count_id,
         cp.attached_at as linked_at
@@ -160,7 +161,32 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
 
     // Enrich with derived fields
     const enriched = documents.map(doc => {
-      const invoiceNumber = parseInvoiceNumber(doc.filename) || doc.processed_invoice_number;
+      let invoiceNumber = null;
+      let invoiceDate = doc.received_date; // fallback to received date
+      let totalAmount = doc.total_amount;
+
+      // Extract data from invoice_metadata JSON
+      if (doc.invoice_metadata) {
+        try {
+          const metadata = JSON.parse(doc.invoice_metadata);
+          if (metadata.invoice_number) {
+            invoiceNumber = metadata.invoice_number;
+          }
+          if (metadata.invoice_date) {
+            invoiceDate = metadata.invoice_date;
+          }
+          if (metadata.total_amount && !totalAmount) {
+            totalAmount = metadata.total_amount;
+          }
+        } catch (e) {
+          // Invalid JSON, use fallback
+        }
+      }
+
+      // Fallback to parsing filename or processed_invoice_number
+      if (!invoiceNumber) {
+        invoiceNumber = parseInvoiceNumber(doc.filename) || doc.processed_invoice_number || 'N/A';
+      }
 
       return {
         id: doc.id,
@@ -172,8 +198,9 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         linkedAt: doc.linked_at,
         processedInvoiceId: doc.processed_invoice_id,
         processedAt: doc.processed_at,
-        invoiceDate: doc.invoice_date,
-        totalAmount: doc.total_amount,
+        invoiceDate: invoiceDate,
+        receivedDate: doc.received_date,
+        totalAmount: totalAmount,
         sha256: doc.sha256,
         sha256Truncated: doc.sha256 ? doc.sha256.substring(0, 16) + '...' : null,
         sizeMB: doc.size_bytes ? (doc.size_bytes / 1024 / 1024).toFixed(2) : null,
@@ -330,12 +357,12 @@ router.post('/mark-processed', authenticateToken, requireOwner, async (req, res)
         // If invoice number exists, ensure it's in processed_invoices
         if (invoiceNumber) {
           const existingInvoice = await db.get(
-            'SELECT invoice_id FROM processed_invoices WHERE invoice_number = ?',
+            'SELECT line_id FROM processed_invoices WHERE invoice_number = ?',
             [invoiceNumber]
           );
 
           if (!existingInvoice) {
-            // Create processed_invoice entry
+            // Create processed_invoice entry (line item format)
             const insertInvoiceSql = `
               INSERT INTO processed_invoices (
                 document_id,
@@ -356,12 +383,12 @@ router.post('/mark-processed', authenticateToken, requireOwner, async (req, res)
               1,
               'ea',
               processedTimestamp,
-              `Processed via owner PDF manager`,
+              'Processed via owner PDF manager',
               processedTimestamp
             ]);
 
             processedInvoices.push({
-              invoiceId: result.lastID,
+              lineId: result.lastID,
               invoiceNumber: invoiceNumber,
               documentId: documentId
             });
@@ -455,33 +482,56 @@ router.get('/:documentId/preview', async (req, res) => {
   // Support token from query param for iframe viewing
   const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
 
-  if (token) {
-    req.headers.authorization = `Bearer ${token}`;
+  if (!token) {
+    return res.status(401).send(`
+      <html><body style="font-family: sans-serif; padding: 40px; text-align: center;">
+        <h1>🔒 Authentication Required</h1>
+        <p>Access token is missing. Please refresh the page and try again.</p>
+        <p style="color: #666; font-size: 14px;">Error Code: TOKEN_MISSING</p>
+      </body></html>
+    `);
   }
 
-  // Apply auth middleware inline
-  const authMiddleware = authenticateToken;
-  const ownerMiddleware = requireOwner;
+  // Verify JWT token directly (bypass middleware to avoid response conflicts)
+  const jwt = require('jsonwebtoken');
+  const { jwt: jwtConfig } = require('../config/security');
+  const { users } = require('../middleware/auth');
 
+  let user;
   try {
-    await new Promise((resolve, reject) => {
-      authMiddleware(req, res, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    const decoded = jwt.verify(token, jwtConfig.secret);
+    user = Array.from(users.values()).find(u => u.id === decoded.id);
 
-    await new Promise((resolve, reject) => {
-      ownerMiddleware(req, res, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  } catch (authError) {
-    return res.status(401).json({
-      success: false,
-      error: 'Authentication required'
-    });
+    if (!user || !user.isActive) {
+      return res.status(403).send(`
+        <html><body style="font-family: sans-serif; padding: 40px; text-align: center;">
+          <h1>🔒 Access Denied</h1>
+          <p>User account is inactive.</p>
+          <p style="color: #666; font-size: 14px;">Error Code: USER_INACTIVE</p>
+        </body></html>
+      `);
+    }
+
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      return res.status(403).send(`
+        <html><body style="font-family: sans-serif; padding: 40px; text-align: center;">
+          <h1>🔒 Access Denied</h1>
+          <p>Owner access required.</p>
+          <p style="color: #666; font-size: 14px;">Error Code: INSUFFICIENT_PERMISSIONS</p>
+        </body></html>
+      `);
+    }
+
+    // Set user on request for audit logging
+    req.user = user;
+  } catch (jwtError) {
+    return res.status(403).send(`
+      <html><body style="font-family: sans-serif; padding: 40px; text-align: center;">
+        <h1>🔒 Authentication Failed</h1>
+        <p>Invalid or expired token. Please refresh the page and login again.</p>
+        <p style="color: #666; font-size: 14px;">Error: ${jwtError.message}</p>
+      </body></html>
+    `);
   }
 
   const timer = pdfRouteLatency.startTimer({ route: '/preview', method: 'GET' });
@@ -491,7 +541,7 @@ router.get('/:documentId/preview', async (req, res) => {
 
     // Get document from database
     const document = await db.get(`
-      SELECT id, filename, path, mime_type, size_bytes
+      SELECT id, filename, path, mime_type, size_bytes, invoice_metadata
       FROM documents
       WHERE id = ? AND mime_type = 'application/pdf' AND deleted_at IS NULL
     `, [documentId]);
@@ -505,20 +555,43 @@ router.get('/:documentId/preview', async (req, res) => {
       });
     }
 
-    // Resolve file path - PDFs stored in OneDrive "gfs order" folder
+    // Extract invoice number from metadata
+    let invoiceNumber = null;
+    if (document.invoice_metadata) {
+      try {
+        const metadata = JSON.parse(document.invoice_metadata);
+        invoiceNumber = metadata.invoice_number;
+      } catch (e) {
+        // Invalid JSON, will try filename fallback
+      }
+    }
+
+    // Resolve file path - PDFs stored in OneDrive "GFS Order PDF" folder
     let filePath;
 
     // If path is absolute, use it
     if (path.isAbsolute(document.path)) {
       filePath = document.path;
     } else {
-      // Check OneDrive "gfs order" folder first
-      const oneDrivePath = path.join(
-        process.env.HOME || '/Users/davidmikulis',
-        'OneDrive',
-        'gfs order',
-        document.filename // Use just the filename
-      );
+      // Check OneDrive "GFS Order PDF" folder first
+      // Try invoice number first (files are named like "9020806184.pdf")
+      let oneDrivePath;
+      if (invoiceNumber) {
+        oneDrivePath = path.join(
+          process.env.HOME || '/Users/davidmikulis',
+          'OneDrive',
+          'GFS Order PDF',
+          `${invoiceNumber}.pdf`
+        );
+      } else {
+        // Fallback to hash filename
+        oneDrivePath = path.join(
+          process.env.HOME || '/Users/davidmikulis',
+          'OneDrive',
+          'GFS Order PDF',
+          document.filename
+        );
+      }
 
       // Try OneDrive location first
       try {

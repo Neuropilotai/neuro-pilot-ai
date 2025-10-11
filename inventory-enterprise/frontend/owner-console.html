@@ -379,19 +379,43 @@
             `;
         }
 
-        // Render AI modules
+        // Render AI modules with live status
         function renderAIModules(modules) {
             const container = document.getElementById('aiModules');
             let html = '';
 
             Object.entries(modules).forEach(([name, module]) => {
-                const statusColor = module.enabled ? 'bg-green-500' : 'bg-gray-500';
+                // Color based on actual status: idle (gray) vs active (green)
+                const statusColor = module.status === 'active' ? 'bg-green-500' : 'bg-yellow-500';
+                const statusText = module.status.toUpperCase();
+
+                // Format last run timestamp
+                let lastRunText = '';
+                if (module.lastRun) {
+                    const lastRun = new Date(module.lastRun);
+                    const now = new Date();
+                    const diffMs = now - lastRun;
+                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                    if (diffHours > 0) {
+                        lastRunText = `<div class="text-xs text-purple-200 mt-1">Last run: ${diffHours}h ${diffMins}m ago</div>`;
+                    } else {
+                        lastRunText = `<div class="text-xs text-purple-200 mt-1">Last run: ${diffMins}m ago</div>`;
+                    }
+                } else {
+                    lastRunText = `<div class="text-xs text-yellow-200 mt-1">Never run</div>`;
+                }
+
                 html += `
                     <div class="bg-white/10 rounded-lg p-4">
-                        <div class="flex justify-between items-center">
-                            <span class="text-white font-semibold capitalize">${name}</span>
-                            <span class="${statusColor} px-3 py-1 rounded-full text-xs text-white">
-                                ${module.status.toUpperCase()}
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <span class="text-white font-semibold capitalize">${name}</span>
+                                ${lastRunText}
+                            </div>
+                            <span class="${statusColor} px-3 py-1 rounded-full text-xs text-white whitespace-nowrap">
+                                ${statusText}
                             </span>
                         </div>
                     </div>
