@@ -119,29 +119,46 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
     const healthy = healthPct >= 75;
 
     // v13.0: Cognitive Intelligence Metrics with Fallback Logic
+    // Strategy: Cron in-memory → Breadcrumbs table → Database tables
 
-    // Get last learning timestamp (with fallback)
+    // Get last run timestamps from cron scheduler first (v13.0 live data)
     let lastLearningTs = null;
-    try {
-      const lr = await db.get(`SELECT MAX(applied_at) AS ts FROM ai_learning_insights WHERE applied_at IS NOT NULL`);
-      if (lr && lr.ts) {
-        lastLearningTs = lr.ts;
-      } else {
-        // Fallback to feedback comments
-        const fb = await db.get(`SELECT MAX(created_at) AS ts FROM ai_feedback_comments`);
-        if (fb && fb.ts) lastLearningTs = fb.ts;
+    let lastForecastTs = null;
+
+    if (req.app.locals.phase3Cron) {
+      try {
+        const cronRuns = await req.app.locals.phase3Cron.getLastRuns();
+        lastForecastTs = cronRuns.lastForecastRun;
+        lastLearningTs = cronRuns.lastLearningRun;
+        logger.debug('Using cron timestamps:', { lastForecastTs, lastLearningTs });
+      } catch (err) {
+        logger.debug('Cron timestamps not available:', err.message);
       }
-    } catch (err) {
-      logger.debug('Last learning timestamp not available:', err.message);
     }
 
-    // Get last forecast timestamp
-    let lastForecastTs = null;
-    try {
-      const fr = await db.get(`SELECT MAX(created_at) AS ts FROM ai_daily_forecast_cache`);
-      if (fr && fr.ts) lastForecastTs = fr.ts;
-    } catch (err) {
-      logger.debug('Last forecast timestamp not available:', err.message);
+    // Fallback to database tables if still null
+    if (!lastLearningTs) {
+      try {
+        const lr = await db.get(`SELECT MAX(applied_at) AS ts FROM ai_learning_insights WHERE applied_at IS NOT NULL`);
+        if (lr && lr.ts) {
+          lastLearningTs = lr.ts;
+        } else {
+          // Fallback to feedback comments
+          const fb = await db.get(`SELECT MAX(created_at) AS ts FROM ai_feedback_comments`);
+          if (fb && fb.ts) lastLearningTs = fb.ts;
+        }
+      } catch (err) {
+        logger.debug('Last learning timestamp not available:', err.message);
+      }
+    }
+
+    if (!lastForecastTs) {
+      try {
+        const fr = await db.get(`SELECT MAX(created_at) AS ts FROM ai_daily_forecast_cache`);
+        if (fr && fr.ts) lastForecastTs = fr.ts;
+      } catch (err) {
+        logger.debug('Last forecast timestamp not available:', err.message);
+      }
     }
 
     // 1. AI Confidence Average (7-day rolling, fallback to 30-day)

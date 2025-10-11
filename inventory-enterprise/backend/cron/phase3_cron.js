@@ -30,6 +30,43 @@ class Phase3CronScheduler {
     this.realtimeBus = realtimeBus || global.realtimeBus;
     this.jobs = [];
     this.isRunning = false;
+
+    // v13.0: Ensure ops breadcrumbs table exists for persistence across restarts
+    this.ensureOpsTable();
+  }
+
+  /**
+   * Ensure ai_ops_breadcrumbs table exists (v13.0)
+   * Stores last-run timestamps for jobs to survive server restarts
+   */
+  async ensureOpsTable() {
+    try {
+      await this.db.run(`
+        CREATE TABLE IF NOT EXISTS ai_ops_breadcrumbs (
+          job TEXT NOT NULL,
+          ran_at TEXT NOT NULL,
+          PRIMARY KEY (job)
+        )
+      `);
+      logger.debug('Phase3Cron: Breadcrumbs table ready');
+    } catch (error) {
+      logger.error('Phase3Cron: Failed to create breadcrumbs table:', error);
+    }
+  }
+
+  /**
+   * Record job completion breadcrumb (v13.0)
+   */
+  async recordBreadcrumb(jobName, timestamp) {
+    try {
+      await this.db.run(`
+        INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at)
+        VALUES (?, ?)
+      `, [jobName, timestamp]);
+      logger.debug(`Phase3Cron: Breadcrumb recorded for ${jobName}`);
+    } catch (error) {
+      logger.error(`Phase3Cron: Failed to record breadcrumb for ${jobName}:`, error);
+    }
   }
 
   /**
@@ -82,8 +119,9 @@ class Phase3CronScheduler {
       try {
         const forecast = await MenuPredictor.generateDailyForecast();
 
-        // v13.0: Record timestamp in memory
+        // v13.0: Record timestamp in memory and persist breadcrumb
         _lastForecastRun = new Date().toISOString();
+        await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
 
         logger.info('Phase3Cron: AI forecast complete', {
           date: forecast.date,
@@ -134,8 +172,9 @@ class Phase3CronScheduler {
       try {
         const result = await FeedbackTrainer.processComments();
 
-        // v13.0: Record timestamp in memory
+        // v13.0: Record timestamp in memory and persist breadcrumb
         _lastLearningRun = new Date().toISOString();
+        await this.recordBreadcrumb('ai_learning', _lastLearningRun);
 
         logger.info('Phase3Cron: AI learning complete', {
           processed: result.processed || 0,
@@ -414,11 +453,46 @@ class Phase3CronScheduler {
 
   /**
    * Get last run timestamps (v13.0)
+   * Returns in-memory timestamps, falls back to breadcrumbs table if null
    */
-  getLastRuns() {
+  async getLastRuns() {
+    let forecastRun = _lastForecastRun;
+    let learningRun = _lastLearningRun;
+
+    // Fallback to breadcrumbs table if in-memory is null (after restart)
+    if (!forecastRun) {
+      try {
+        const breadcrumb = await this.db.get(
+          `SELECT ran_at FROM ai_ops_breadcrumbs WHERE job = ?`,
+          ['ai_forecast']
+        );
+        forecastRun = breadcrumb?.ran_at || null;
+        if (forecastRun) {
+          _lastForecastRun = forecastRun; // Restore to memory
+        }
+      } catch (err) {
+        logger.debug('Phase3Cron: Breadcrumb read failed for ai_forecast:', err.message);
+      }
+    }
+
+    if (!learningRun) {
+      try {
+        const breadcrumb = await this.db.get(
+          `SELECT ran_at FROM ai_ops_breadcrumbs WHERE job = ?`,
+          ['ai_learning']
+        );
+        learningRun = breadcrumb?.ran_at || null;
+        if (learningRun) {
+          _lastLearningRun = learningRun; // Restore to memory
+        }
+      } catch (err) {
+        logger.debug('Phase3Cron: Breadcrumb read failed for ai_learning:', err.message);
+      }
+    }
+
     return {
-      lastForecastRun: _lastForecastRun,
-      lastLearningRun: _lastLearningRun
+      lastForecastRun: forecastRun,
+      lastLearningRun: learningRun
     };
   }
 
@@ -482,6 +556,7 @@ class Phase3CronScheduler {
         case 'ai_forecast':
           await MenuPredictor.generateDailyForecast();
           _lastForecastRun = new Date().toISOString();
+          await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
           if (this.realtimeBus) {
             this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: Date.now() - jobStart });
           }
@@ -490,6 +565,7 @@ class Phase3CronScheduler {
         case 'ai_learning':
           await FeedbackTrainer.processComments();
           _lastLearningRun = new Date().toISOString();
+          await this.recordBreadcrumb('ai_learning', _lastLearningRun);
           if (this.realtimeBus) {
             this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: Date.now() - jobStart });
           }
