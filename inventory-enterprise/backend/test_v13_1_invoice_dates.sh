@@ -33,7 +33,7 @@ AUTH_RESPONSE=$(curl -s -X POST "${API_BASE}/api/auth/login" \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"${EMAIL}\",\"password\":\"${PASSWORD}\"}")
 
-TOKEN=$(echo $AUTH_RESPONSE | jq -r '.token')
+TOKEN=$(echo $AUTH_RESPONSE | jq -r '.accessToken')
 
 if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
   echo -e "${RED}❌ Authentication failed${NC}"
@@ -111,7 +111,7 @@ echo ""
 # ============================================================================
 
 echo "🗄️  Step 5: Checking database schema..."
-DB_PATH="db/inventory_enterprise.db"
+DB_PATH="data/enterprise_inventory.db"
 
 if [ -f "$DB_PATH" ]; then
   echo "   Checking for new columns..."

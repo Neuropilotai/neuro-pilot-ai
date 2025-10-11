@@ -84,16 +84,31 @@ function parseInvoiceNumber(filename) {
 function parseInvoiceDate(filename) {
   if (!filename) return null;
 
-  // Try YYYY-MM-DD pattern first
+  // Try YYYY-MM-DD pattern first (with separators)
   const dashDateMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (dashDateMatch) {
-    return `${dashDateMatch[1]}-${dashDateMatch[2]}-${dashDateMatch[3]}`;
+    const year = parseInt(dashDateMatch[1]);
+    const month = parseInt(dashDateMatch[2]);
+    const day = parseInt(dashDateMatch[3]);
+
+    // Validate date ranges
+    if (year >= 2020 && year <= 2030 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${dashDateMatch[1]}-${dashDateMatch[2]}-${dashDateMatch[3]}`;
+    }
   }
 
-  // Try YYYYMMDD pattern (no separators)
-  const compactDateMatch = filename.match(/(\d{4})(\d{2})(\d{2})/);
+  // Try YYYYMMDD pattern (no separators) - must be preceded by _ or at start
+  // This prevents matching inside invoice numbers
+  const compactDateMatch = filename.match(/(?:^|_)(\d{4})(\d{2})(\d{2})(?:_|\.)/);
   if (compactDateMatch) {
-    return `${compactDateMatch[1]}-${compactDateMatch[2]}-${compactDateMatch[3]}`;
+    const year = parseInt(compactDateMatch[1]);
+    const month = parseInt(compactDateMatch[2]);
+    const day = parseInt(compactDateMatch[3]);
+
+    // Validate date ranges
+    if (year >= 2020 && year <= 2030 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${compactDateMatch[1]}-${compactDateMatch[2]}-${compactDateMatch[3]}`;
+    }
   }
 
   return null;
