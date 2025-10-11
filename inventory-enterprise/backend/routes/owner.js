@@ -7,40 +7,14 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken, requirePermission, PERMISSIONS } = require('../middleware/auth');
+const { requireOwner } = require('../middleware/requireOwner');
 const metricsExporter = require('../utils/metricsExporter');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
 
-// Owner email whitelist
-const OWNER_EMAIL = 'neuro.pilot.ai@gmail.com';
-
-/**
- * Middleware: Verify owner access
- */
-function requireOwnerAccess(req, res, next) {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  // Check if user is the owner
-  if (req.user.email !== OWNER_EMAIL) {
-    return res.status(403).json({
-      error: 'Access denied',
-      message: 'Owner console is restricted to system administrator'
-    });
-  }
-
-  // Check if user has admin role
-  if (!req.user.roles || !req.user.roles.includes('admin')) {
-    return res.status(403).json({
-      error: 'Insufficient permissions',
-      message: 'Admin role required for owner console'
-    });
-  }
-
-  next();
-}
+// Use the requireOwner middleware which handles email normalization
+const requireOwnerAccess = requireOwner;
 
 /**
  * GET /api/owner/dashboard
@@ -88,6 +62,7 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
       success: true,
       owner: req.user.email,
       timestamp: new Date().toISOString(),
+      stats: dbStats, // Frontend expects stats directly
       data: {
         health,
         auditLogs,
@@ -406,21 +381,57 @@ async function getDatabaseStats(db) {
   try {
     const stats = {};
 
-    // Get table counts
-    const tables = ['users', 'item_master', 'processed_invoices', 'audit_logs', 'forecast_results'];
+    // Get active items count
+    try {
+      const result = await db.get(`SELECT COUNT(*) as count FROM item_master WHERE active = 1`);
+      stats.totalItems = result.count;
+    } catch (error) {
+      stats.totalItems = 0;
+    }
 
-    for (const table of tables) {
-      try {
-        const result = await db.get(`SELECT COUNT(*) as count FROM ${table}`);
-        stats[table] = result.count;
-      } catch (error) {
-        stats[table] = 'N/A';
-      }
+    // Get active locations count
+    try {
+      const result = await db.get(`SELECT COUNT(*) as count FROM storage_locations WHERE active = 1`);
+      stats.activeLocations = result.count;
+    } catch (error) {
+      stats.activeLocations = 0;
+    }
+
+    // Get total PDFs/documents
+    try {
+      const result = await db.get(`SELECT COUNT(*) as count FROM documents WHERE mime_type = 'application/pdf' AND deleted_at IS NULL`);
+      stats.totalDocuments = result.count;
+    } catch (error) {
+      stats.totalDocuments = 0;
+    }
+
+    // Get pending (open) inventory counts
+    try {
+      const result = await db.get(`SELECT COUNT(*) as count FROM inventory_counts WHERE status = 'open'`);
+      stats.pendingCounts = result.count;
+    } catch (error) {
+      stats.pendingCounts = 0;
+    }
+
+    // Get closed counts this month
+    try {
+      const result = await db.get(`SELECT COUNT(*) as count FROM inventory_counts WHERE status = 'closed' AND strftime('%Y-%m', closed_at) = strftime('%Y-%m', 'now')`);
+      stats.closedCountsThisMonth = result.count;
+    } catch (error) {
+      stats.closedCountsThisMonth = 0;
+    }
+
+    // Get total inventory value from current snapshot
+    try {
+      const result = await db.get(`SELECT SUM(total_value) as total FROM v_current_inventory WHERE has_real_count = 1`);
+      stats.inventoryValue = result.total ? `$${(result.total).toFixed(2)}` : '$0.00';
+    } catch (error) {
+      stats.inventoryValue = '$0.00';
     }
 
     // Get database size (SQLite only)
     try {
-      const dbPath = path.join(__dirname, '../data/enterprise_inventory.db');
+      const dbPath = path.join(__dirname, '../db/inventory_enterprise.db');
       const stat = await fs.stat(dbPath);
       stats.databaseSize = `${(stat.size / 1024 / 1024).toFixed(2)} MB`;
     } catch (error) {
@@ -430,7 +441,13 @@ async function getDatabaseStats(db) {
     return stats;
   } catch (error) {
     console.error('Error getting database stats:', error);
-    return { error: error.message };
+    return {
+      error: error.message,
+      totalItems: 0,
+      activeLocations: 0,
+      totalDocuments: 0,
+      pendingCounts: 0
+    };
   }
 }
 

@@ -7,7 +7,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { logger } = require('./logger');
 
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'db', 'inventory_enterprise.db');
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'enterprise_inventory.db');
 
 class Database {
   constructor() {

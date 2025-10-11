@@ -21,7 +21,8 @@ const rolesRoutes = require('./routes/roles-api');
 const aiForecastRoutes = require('./routes/ai-forecast');
 const twoFARoutes = require('./routes/2fa');
 const ownerRoutes = require('./routes/owner');
-const ownerAIRoutes = require('./routes/owner-ai-learning'); // Phase 3: Autonomous Learning
+const ownerAIRoutes = require('./routes/owner-ai'); // Owner AI Widgets
+const ownerAILearningRoutes = require('./routes/owner-ai-learning'); // Phase 3: Autonomous Learning
 
 // v3.0.0 - Owner Mission Control Console
 const ownerConsoleRoutes = require('./routes/owner-console');
@@ -29,6 +30,9 @@ const ownerConsoleRoutes = require('./routes/owner-console');
 // v3.1.0 - Local AI Training on Apple Silicon
 const ownerTrainingRoutes = require('./routes/owner-training');
 const ownerReleaseRoutes = require('./routes/owner-release');
+
+// v6.7 - Daily Predictive Demand (Menu + Breakfast + Beverage Forecasting)
+const ownerForecastRoutes = require('./routes/owner-forecast');
 
 // Phase 3: Autonomous Learning & Optimization Layer
 const Phase3CronScheduler = require('./cron/phase3_cron');
@@ -40,6 +44,7 @@ const AutonomousCompliance = require('./security/autonomous_compliance');
 const i18n = require('./middleware/i18n');
 const { resolveTenant } = require('./middleware/tenantContext');
 const { authenticateToken } = require('./middleware/auth');
+const { requireOwnerDevice } = require('./middleware/deviceBinding');
 
 // PASS F v2.3.0 - Real-Time Intelligence Layer
 const realtimeAI = require('./server/websocket/RealtimeAI');
@@ -97,6 +102,18 @@ const path = require('path');
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/dashboard', express.static(path.join(__dirname, '../frontend/dashboard')));
 
+// Serve GFS Monthly Reports (Owner-only access, served statically)
+const gfsReportsPath = '/Users/davidmikulis/Desktop/GFS_Monthly_Reports';
+if (require('fs').existsSync(gfsReportsPath)) {
+  app.use('/gfs-reports', express.static(gfsReportsPath));
+  console.log('📊 GFS Monthly Reports available at /gfs-reports');
+}
+
+// Favicon route - serve favicon.svg for both /favicon.ico and /favicon.svg
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/favicon.svg'));
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 
@@ -116,19 +133,39 @@ app.use('/api/roles', authenticateToken, resolveTenant, rolesRoutes);
 // PASS P v2.8.0 - Next Generation APIs
 app.use('/api/ai/forecast', authenticateToken, resolveTenant, aiForecastRoutes.router);
 app.use('/api/2fa', authenticateToken, twoFARoutes.router);
-app.use('/api/owner', ownerRoutes);
-app.use('/api/owner/ai', ownerAIRoutes);
+
+// ============================================================================
+// OWNER ROUTES - DEVICE BINDING ENFORCED (MacBook Pro Only)
+// ============================================================================
+app.use('/api/owner', authenticateToken, requireOwnerDevice, ownerRoutes);
+app.use('/api/owner/ai', authenticateToken, requireOwnerDevice, ownerAIRoutes); // AI Widgets
+app.use('/api/owner/ai/learning', authenticateToken, requireOwnerDevice, ownerAILearningRoutes); // Autonomous Learning
 
 // v3.0.0 - Owner Mission Control Console
-app.use('/api/owner/console', ownerConsoleRoutes);
+app.use('/api/owner/console', authenticateToken, requireOwnerDevice, ownerConsoleRoutes);
 
 // v3.1.0 - Local AI Training & Release Management (Owner-only)
-app.use('/api/owner/training', ownerTrainingRoutes);
-app.use('/api/owner/release', ownerReleaseRoutes);
+app.use('/api/owner/training', authenticateToken, requireOwnerDevice, ownerTrainingRoutes);
+app.use('/api/owner/release', authenticateToken, requireOwnerDevice, ownerReleaseRoutes);
 
 // v4.1.0 - PDF Invoice Manager (Owner-Only)
 const ownerPdfsRoutes = require('./routes/owner-pdfs');
-app.use('/api/owner', ownerPdfsRoutes);
+app.use('/api/owner/pdfs', authenticateToken, requireOwnerDevice, ownerPdfsRoutes);
+
+// v6.7 - Daily Predictive Demand (Owner-only)
+app.use('/api/owner/forecast', authenticateToken, requireOwnerDevice, ownerForecastRoutes);
+
+// v3.3.0 - Owner Inventory (Zero-Count Smart Mode)
+const ownerInventoryRoutes = require('./routes/owner-inventory');
+app.use('/api/owner/inventory', authenticateToken, requireOwnerDevice, ownerInventoryRoutes);
+
+// v3.2.0 - Owner Super Console Extensions (One-Command, Recovery, Reports)
+const ownerOrchestrateRoutes = require('./routes/owner-orchestrate');
+const ownerRecoveryRoutes = require('./routes/owner-recovery');
+const ownerReportsRoutes = require('./routes/owner-reports');
+app.use('/api/super/orchestrate', authenticateToken, requireOwnerDevice, ownerOrchestrateRoutes);
+app.use('/api/owner/recovery', authenticateToken, requireOwnerDevice, ownerRecoveryRoutes);
+app.use('/api/owner/reports', authenticateToken, requireOwnerDevice, ownerReportsRoutes);
 
 app.get('/health', async (req, res) => {
   const feedbackStats = feedbackStream.getStats();
@@ -210,6 +247,12 @@ app.get('/', (req, res) => {
 
 // Catch-all route for SPA (after all API routes)
 app.get('*', (req, res) => {
+  // Don't catch requests for static files (.html, .js, .css, etc.)
+  if (req.path.match(/\.(html|js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
+    // Let express.static middleware handle these
+    return res.status(404).send('File not found');
+  }
+
   // Only serve frontend for non-API routes
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
@@ -235,6 +278,9 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
 
   // Initialize PASS P - Infrastructure (v2.8.0)
   const db = require('./config/database');
+
+  // Make database available to routes (for v6.7 forecast routes)
+  app.locals.db = db;
 
   // Redis Connection (optional, graceful degradation if unavailable)
   if (process.env.REDIS_ENABLED === 'true') {

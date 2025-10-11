@@ -257,59 +257,69 @@ router.get('/items',
     try {
       const { category, location, lowStock, page = 1, limit = 50 } = req.query;
 
-      // Build WHERE clause for tenant scoping and filters
-      let whereClauses = ['tenant_id = ?'];
-      let params = [tenantId];
+      // Build WHERE clause for filters (single-tenant mode)
+      let whereClauses = [];
+      let params = [];
+      let fromClause = 'inventory_items';
+      let joinClause = '';
 
       if (category) {
-        whereClauses.push('category LIKE ?');
+        whereClauses.push('inventory_items.category LIKE ?');
         params.push(`%${category}%`);
       }
 
       if (location) {
-        whereClauses.push('location_code = ?');
+        // JOIN with item_location_assignments to filter by location
+        joinClause = 'INNER JOIN item_location_assignments ON inventory_items.item_code = item_location_assignments.item_code';
+        whereClauses.push('item_location_assignments.location_code = ?');
         params.push(location);
       }
 
       if (lowStock === 'true') {
-        whereClauses.push('par_level > 0 AND par_level >= reorder_point');
+        whereClauses.push('inventory_items.par_level > 0 AND inventory_items.par_level >= inventory_items.reorder_point');
       }
 
-      const whereClause = whereClauses.join(' AND ');
+      const whereClause = whereClauses.length > 0 ? whereClauses.join(' AND ') : '1=1';
 
       // Get total count for pagination
-      const countSql = `SELECT COUNT(*) as count FROM item_master WHERE ${whereClause} AND active = 1`;
+      const countSql = `SELECT COUNT(DISTINCT inventory_items.item_id) as count FROM ${fromClause} ${joinClause} WHERE ${whereClause} AND inventory_items.is_active = 1`;
       const countResult = await db.get(countSql, params);
       const totalItems = countResult ? countResult.count : 0;
 
       // Get paginated items
       const offset = (parseInt(page) - 1) * parseInt(limit);
       const itemsSql = `
-        SELECT
-          item_id as id,
-          item_code as code,
-          item_name as name,
-          category,
-          unit,
-          barcode,
-          par_level as quantity,
-          reorder_point as minQuantity,
-          unit_cost as unitPrice,
-          (par_level * unit_cost) as totalValue,
-          tenant_id,
-          created_at as createdAt,
-          updated_at as updatedAt
-        FROM item_master
-        WHERE ${whereClause} AND active = 1
-        ORDER BY item_name ASC
+        SELECT DISTINCT
+          inventory_items.item_id as id,
+          inventory_items.item_code as code,
+          inventory_items.item_name as name,
+          inventory_items.category,
+          inventory_items.unit,
+          inventory_items.barcode,
+          inventory_items.current_quantity as quantity,
+          inventory_items.reorder_point as minQuantity,
+          COALESCE(
+            (SELECT AVG(unit_cost) FROM fifo_cost_layers WHERE item_code = inventory_items.item_code AND quantity_remaining > 0),
+            0
+          ) as unitPrice,
+          (inventory_items.current_quantity * COALESCE(
+            (SELECT AVG(unit_cost) FROM fifo_cost_layers WHERE item_code = inventory_items.item_code AND quantity_remaining > 0),
+            0
+          )) as totalValue,
+          inventory_items.created_at as createdAt,
+          inventory_items.updated_at as updatedAt
+        FROM ${fromClause}
+        ${joinClause}
+        WHERE ${whereClause} AND inventory_items.is_active = 1
+        ORDER BY inventory_items.item_name ASC
         LIMIT ? OFFSET ?
       `;
 
       const items = await db.all(itemsSql, [...params, parseInt(limit), offset]);
 
       // Get location count
-      const locationCountSql = 'SELECT COUNT(DISTINCT location_code) as count FROM storage_locations WHERE tenant_id = ? AND active = 1';
-      const locationCount = await db.get(locationCountSql, [tenantId]);
+      const locationCountSql = 'SELECT COUNT(*) as count FROM storage_locations WHERE is_active = 1';
+      const locationCount = await db.get(locationCountSql);
 
       const response = {
         items: items || [],
@@ -329,10 +339,6 @@ router.get('/items',
           totalItems,
           lowStockItems: items.filter(item => (item.quantity || 0) <= (item.minQuantity || 0)).length,
           locations: locationCount ? locationCount.count : 0
-        },
-        tenant: {
-          tenant_id: tenantId,
-          isolation_verified: true
         }
       };
 
@@ -852,46 +858,32 @@ router.get('/locations',
     const { tenantId } = req.tenant;
 
     try {
-      // Query storage locations from database
+      // Query storage locations from database (matching actual schema)
       const sql = `
         SELECT
-          location_id as id,
-          location_code as code,
-          location_name as name,
-          location_type as type,
-          capacity,
-          current_occupancy as currentUsage,
-          zone,
-          temp_min as tempMin,
-          temp_max as tempMax,
+          id,
+          name,
+          type,
+          sequence,
+          is_active as active,
           tenant_id,
+          latitude,
+          longitude,
           created_at as createdAt,
           updated_at as updatedAt
         FROM storage_locations
-        WHERE tenant_id = ? AND active = 1
-        ORDER BY location_name ASC
+        WHERE tenant_id = ? AND is_active = 1
+        ORDER BY sequence ASC, name ASC
       `;
 
       const locations = await db.all(sql, [tenantId]);
 
-      // Enrich locations with calculated fields
-      const enrichedLocations = locations.map(location => ({
-        ...location,
-        utilizationPercent: location.capacity > 0 ?
-          Math.round((location.currentUsage / location.capacity) * 100) : 0,
-        isNearCapacity: location.capacity > 0 ?
-          (location.currentUsage / location.capacity) > 0.8 : false
-      }));
-
       metricsExporter.recordTenantRequest(tenantId);
 
       res.json({
-        locations: enrichedLocations,
+        locations: locations || [],
         summary: {
-          totalLocations: enrichedLocations.length,
-          totalCapacity: enrichedLocations.reduce((sum, loc) => sum + (loc.capacity || 0), 0),
-          totalUsage: enrichedLocations.reduce((sum, loc) => sum + (loc.currentUsage || 0), 0),
-          nearCapacityCount: enrichedLocations.filter(loc => loc.isNearCapacity).length
+          totalLocations: locations.length
         },
         tenant: {
           tenant_id: tenantId,
@@ -904,6 +896,236 @@ router.get('/locations',
       res.status(500).json({
         error: 'Failed to retrieve storage locations',
         code: 'LOCATIONS_FETCH_ERROR',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/inventory/locations
+ * Create new storage location (tenant-scoped)
+ *
+ * Permission: INVENTORY_WRITE
+ * Tenant Scoping: Auto-assigns tenant_id
+ */
+router.post('/locations',
+  requirePermission(PERMISSIONS.INVENTORY_WRITE),
+  [
+    body('code').trim().isLength({ min: 1, max: 50 }).withMessage('Location code/ID is required'),
+    body('name').trim().isLength({ min: 1, max: 100 }).withMessage('Location name is required'),
+    body('type').optional().trim().isLength({ max: 50 })
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    const { tenantId } = req.tenant;
+
+    try {
+      const { code, name, type } = req.body;
+
+      // Check for duplicate location ID
+      const existing = await db.get(`
+        SELECT id FROM storage_locations
+        WHERE id = ? AND tenant_id = ?
+      `, [code, tenantId]);
+
+      if (existing) {
+        return res.status(409).json({
+          error: `Location ID ${code} already exists`,
+          code: 'DUPLICATE_LOCATION'
+        });
+      }
+
+      // Insert new location (matching actual database schema)
+      const result = await db.run(`
+        INSERT INTO storage_locations (
+          id, tenant_id, name, type, is_active, sequence, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, [
+        code,
+        tenantId,
+        name,
+        type || 'warehouse'
+      ]);
+
+      // Audit log
+      auditLog('storage_location_created', {
+        tenant_id: tenantId,
+        locationId: code,
+        locationName: name
+      }, req);
+
+      metricsExporter.recordTenantRequest(tenantId);
+
+      res.status(201).json({
+        success: true,
+        message: 'Storage location created successfully',
+        location: {
+          id: code,
+          name,
+          type: type || 'warehouse'
+        },
+        code: 'LOCATION_CREATED'
+      });
+
+    } catch (error) {
+      console.error('Error creating storage location:', error);
+      res.status(500).json({
+        error: 'Failed to create storage location',
+        code: 'LOCATION_CREATE_ERROR',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/inventory/locations/:code
+ * Update storage location (tenant-scoped)
+ *
+ * Permission: INVENTORY_WRITE
+ * Tenant Scoping: Verifies location belongs to tenant
+ */
+router.put('/locations/:code',
+  requirePermission(PERMISSIONS.INVENTORY_WRITE),
+  [
+    param('code').trim().isLength({ min: 1 }).withMessage('Location ID is required'),
+    body('name').optional().trim().isLength({ min: 1, max: 100 }),
+    body('type').optional().trim().isLength({ max: 50 })
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    const { tenantId } = req.tenant;
+    const { code } = req.params;
+
+    try {
+      // Check if location exists and belongs to tenant
+      const existing = await db.get(`
+        SELECT id FROM storage_locations
+        WHERE id = ? AND tenant_id = ?
+      `, [code, tenantId]);
+
+      if (!existing) {
+        return res.status(404).json({
+          error: 'Storage location not found',
+          code: 'LOCATION_NOT_FOUND'
+        });
+      }
+
+      const { name, type } = req.body;
+
+      // Build update query dynamically
+      const updates = [];
+      const params = [];
+
+      if (name !== undefined) {
+        updates.push('name = ?');
+        params.push(name);
+      }
+      if (type !== undefined) {
+        updates.push('type = ?');
+        params.push(type);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({
+          error: 'No valid fields to update',
+          code: 'NO_UPDATE_FIELDS'
+        });
+      }
+
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+      params.push(code, tenantId);
+
+      await db.run(`
+        UPDATE storage_locations
+        SET ${updates.join(', ')}
+        WHERE id = ? AND tenant_id = ?
+      `, params);
+
+      // Audit log
+      auditLog('storage_location_updated', {
+        tenant_id: tenantId,
+        locationId: code,
+        updates: req.body
+      }, req);
+
+      metricsExporter.recordTenantRequest(tenantId);
+
+      res.json({
+        success: true,
+        message: 'Storage location updated successfully',
+        code: 'LOCATION_UPDATED'
+      });
+
+    } catch (error) {
+      console.error('Error updating storage location:', error);
+      res.status(500).json({
+        error: 'Failed to update storage location',
+        code: 'LOCATION_UPDATE_ERROR',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/inventory/locations/:code
+ * Delete (deactivate) storage location (tenant-scoped)
+ *
+ * Permission: INVENTORY_DELETE
+ * Tenant Scoping: Verifies location belongs to tenant
+ */
+router.delete('/locations/:code',
+  requirePermission(PERMISSIONS.INVENTORY_DELETE),
+  [
+    param('code').trim().isLength({ min: 1 }).withMessage('Location code is required')
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    const { tenantId } = req.tenant;
+    const { code } = req.params;
+
+    try {
+      // Check if location exists and belongs to tenant
+      const existing = await db.get(`
+        SELECT id FROM storage_locations
+        WHERE id = ? AND tenant_id = ?
+      `, [code, tenantId]);
+
+      if (!existing) {
+        return res.status(404).json({
+          error: 'Storage location not found',
+          code: 'LOCATION_NOT_FOUND'
+        });
+      }
+
+      // Soft delete by setting is_active = 0
+      await db.run(`
+        UPDATE storage_locations
+        SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND tenant_id = ?
+      `, [code, tenantId]);
+
+      // Audit log
+      auditLog('storage_location_deleted', {
+        tenant_id: tenantId,
+        locationId: code
+      }, req);
+
+      metricsExporter.recordTenantRequest(tenantId);
+
+      res.json({
+        success: true,
+        message: 'Storage location deactivated successfully',
+        code: 'LOCATION_DELETED'
+      });
+
+    } catch (error) {
+      console.error('Error deleting storage location:', error);
+      res.status(500).json({
+        error: 'Failed to delete storage location',
+        code: 'LOCATION_DELETE_ERROR',
         message: error.message
       });
     }

@@ -164,6 +164,22 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       });
     }
 
+    // Auto-bind device for owner accounts (admin-1 / neuropilotai@gmail.com)
+    if (result.user.id === 'admin-1' || result.user.role === 'admin') {
+      try {
+        const { bindOwnerDevice } = require('../middleware/deviceBinding');
+        const bindResult = bindOwnerDevice(req);
+
+        if (bindResult.success) {
+          console.log('✅ Owner device bound:', bindResult.fingerprint.substring(0, 16) + '...');
+        } else {
+          console.log('ℹ️ Device binding skipped:', bindResult.message);
+        }
+      } catch (bindError) {
+        console.warn('⚠️ Device binding error:', bindError.message);
+      }
+    }
+
     // Set secure cookie for refresh token
     res.cookie('refreshToken', result.tokens.refreshToken, {
       httpOnly: true,
@@ -189,6 +205,91 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
     res.status(500).json({
       error: 'Login failed',
       code: 'LOGIN_ERROR'
+    });
+  }
+});
+
+// POST /api/auth/device-login
+// Owner device fingerprint authentication - no password required
+router.post('/device-login', async (req, res) => {
+  try {
+    const { verifyOwnerDevice } = require('../middleware/deviceBinding');
+    const { generateTokens } = require('../middleware/auth');
+
+    // Verify device fingerprint
+    const verification = verifyOwnerDevice(req);
+
+    if (!verification.verified) {
+      securityLog('device_login_failed', 'high', {
+        reason: verification.reason,
+        ip: req.ip,
+        userAgent: req.get('user-agent')
+      }, req);
+
+      return res.status(403).json({
+        success: false,
+        error: verification.message,
+        code: verification.reason,
+        hint: 'This device is not authorized for owner access. Please login with email/password from the authorized device first.'
+      });
+    }
+
+    // Device verified - find owner user and generate tokens
+    const ownerUser = Array.from(users.values()).find(u => u.id === 'admin-1');
+
+    if (!ownerUser || !ownerUser.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Owner account not found or inactive',
+        code: 'OWNER_NOT_FOUND'
+      });
+    }
+
+    // Update last login
+    ownerUser.lastLogin = new Date().toISOString();
+
+    // Generate JWT tokens
+    const tokens = generateTokens(ownerUser);
+
+    // Set secure cookie for refresh token
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    auditLog('device_login_success', {
+      userId: ownerUser.id,
+      email: ownerUser.email,
+      deviceVerified: true
+    }, req);
+
+    return res.json({
+      success: true,
+      message: 'Device authenticated successfully',
+      user: {
+        id: ownerUser.id,
+        email: ownerUser.email,
+        role: ownerUser.role,
+        firstName: ownerUser.firstName,
+        lastName: ownerUser.lastName
+      },
+      accessToken: tokens.accessToken,
+      expiresIn: '15m',
+      code: 'DEVICE_LOGIN_SUCCESS'
+    });
+
+  } catch (error) {
+    securityLog('device_login_error', 'high', {
+      error: error.message
+    }, req);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Device authentication failed',
+      details: error.message,
+      code: 'DEVICE_LOGIN_ERROR'
     });
   }
 });
@@ -284,6 +385,30 @@ router.post('/logout', authenticateToken, (req, res) => {
     res.status(500).json({
       error: 'Logout failed',
       code: 'LOGOUT_ERROR'
+    });
+  }
+});
+
+// GET /api/auth/device-status
+// Check device binding status (diagnostic endpoint)
+router.get('/device-status', (req, res) => {
+  try {
+    const { getDeviceBindingStatus, generateDeviceFingerprint } = require('../middleware/deviceBinding');
+    const status = getDeviceBindingStatus();
+    const currentFingerprint = generateDeviceFingerprint(req);
+
+    return res.json({
+      success: true,
+      ...status,
+      currentDeviceFingerprint: currentFingerprint.substring(0, 16) + '...',
+      currentDeviceMatches: status.ownerFingerprint === (currentFingerprint.substring(0, 16) + '...'),
+      userAgent: req.get('user-agent'),
+      ip: req.ip
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });

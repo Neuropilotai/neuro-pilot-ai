@@ -66,6 +66,31 @@ elif [ "$1" = "--restore" ]; then
   fi
   exec bash "$0" storage:restore "$2"
   exit $?
+elif [ "$1" = "--set-population" ]; then
+  if [ -z "$2" ]; then
+    echo -e "${RED}Error: --set-population requires a number${NC}"
+    echo "Usage: $0 --set-population <count>"
+    exit 1
+  fi
+  exec bash "$0" forecast:set-population "$2"
+  exit $?
+elif [ "$1" = "--set-indian-population" ]; then
+  if [ -z "$2" ]; then
+    echo -e "${RED}Error: --set-indian-population requires a number${NC}"
+    echo "Usage: $0 --set-indian-population <count>"
+    exit 1
+  fi
+  exec bash "$0" forecast:set-indian-population "$2"
+  exit $?
+elif [ "$1" = "--run-menu-forecast" ]; then
+  exec bash "$0" forecast:menu
+  exit $?
+elif [ "$1" = "--run-breakfast-forecast" ]; then
+  exec bash "$0" forecast:breakfast
+  exit $?
+elif [ "$1" = "--ai-train-feedback" ]; then
+  exec bash "$0" forecast:train
+  exit $?
 fi
 
 # Storage Guardian Functions
@@ -401,6 +426,321 @@ if [ "$1" = "storage:restore" ]; then
     storage_log_event "RESTORE" "$FILE_TO_RESTORE" "FAIL" "{\"reason\":\"copy_failed\"}"
     exit 1
   fi
+fi
+
+# =====================================================================
+# FORECAST COMMANDS (v6.7)
+# =====================================================================
+
+# Forecast Command: SET POPULATION
+if [ "$1" = "forecast:set-population" ]; then
+  POPULATION=$2
+
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}  Daily Predictive Demand v6.7 - SET POPULATION${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  echo "Setting total population to: ${YELLOW}${POPULATION}${NC}"
+  echo ""
+
+  RESULT=$(node -e "
+    const MenuPredictor = require('./src/ai/forecast/MenuPredictor');
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database('./db/inventory_enterprise.db');
+    const predictor = new MenuPredictor(db);
+    predictor.updatePopulation($POPULATION)
+      .then(result => {
+        console.log(JSON.stringify(result));
+        db.close();
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error('Error:', err.message);
+        db.close();
+        process.exit(1);
+      });
+  " 2>&1)
+
+  if echo "$RESULT" | grep -q '"success":true'; then
+    echo -e "${GREEN}✅ Population updated successfully${NC}"
+    echo ""
+    echo "$RESULT" | node -e "
+      const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      console.log('  Total count:    ' + data.total_count);
+      console.log('  Indian count:   ' + data.indian_count);
+      console.log('  Effective date: ' + data.effective_date);
+    "
+  else
+    echo -e "${RED}❌ Failed to update population${NC}"
+    echo "$RESULT"
+    exit 1
+  fi
+
+  echo ""
+  exit 0
+fi
+
+# Forecast Command: SET INDIAN POPULATION
+if [ "$1" = "forecast:set-indian-population" ]; then
+  INDIAN_COUNT=$2
+
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}  Daily Predictive Demand v6.7 - SET INDIAN POPULATION${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  echo "Setting Indian sub-population to: ${YELLOW}${INDIAN_COUNT}${NC}"
+  echo ""
+
+  # Get current total population first
+  CURRENT_TOTAL=$(node -e "
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database('./db/inventory_enterprise.db');
+    db.get('SELECT total_count FROM site_population WHERE effective_date = DATE(\"now\")', (err, row) => {
+      if (err) {
+        console.log('250');
+        db.close();
+        process.exit(1);
+      }
+      console.log(row ? row.total_count : 250);
+      db.close();
+      process.exit(0);
+    });
+  " 2>&1)
+
+  RESULT=$(node -e "
+    const MenuPredictor = require('./src/ai/forecast/MenuPredictor');
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database('./db/inventory_enterprise.db');
+    const predictor = new MenuPredictor(db);
+    predictor.updatePopulation($CURRENT_TOTAL, $INDIAN_COUNT)
+      .then(result => {
+        console.log(JSON.stringify(result));
+        db.close();
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error('Error:', err.message);
+        db.close();
+        process.exit(1);
+      });
+  " 2>&1)
+
+  if echo "$RESULT" | grep -q '"success":true'; then
+    echo -e "${GREEN}✅ Indian population updated successfully${NC}"
+    echo ""
+    echo "$RESULT" | node -e "
+      const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      console.log('  Total population: ' + data.total_count);
+      console.log('  Indian count:     ' + data.indian_count);
+      console.log('  Effective date:   ' + data.effective_date);
+    "
+  else
+    echo -e "${RED}❌ Failed to update Indian population${NC}"
+    echo "$RESULT"
+    exit 1
+  fi
+
+  echo ""
+  exit 0
+fi
+
+# Forecast Command: RUN MENU FORECAST
+if [ "$1" = "forecast:menu" ]; then
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}  Daily Predictive Demand v6.7 - MENU FORECAST${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  RESULT=$(node -e "
+    const MenuPredictor = require('./src/ai/forecast/MenuPredictor');
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database('./db/inventory_enterprise.db');
+    const predictor = new MenuPredictor(db);
+    predictor.getPredictedUsageForToday()
+      .then(result => {
+        console.log(JSON.stringify(result, null, 2));
+        db.close();
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error('Error:', err.message);
+        db.close();
+        process.exit(1);
+      });
+  " 2>&1)
+
+  if echo "$RESULT" | grep -q '"success":true'; then
+    echo -e "${GREEN}✅ Menu forecast generated${NC}"
+    echo ""
+
+    # Display summary
+    echo "$RESULT" | node -e "
+      const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      console.log('Date:             ' + data.date);
+      console.log('Total items:      ' + data.summary.total_items);
+      console.log('Stock-out items:  ' + data.summary.stock_out_items);
+      console.log('Avg confidence:   ' + (data.summary.avg_confidence * 100).toFixed(1) + '%');
+      console.log('');
+      console.log('Forecast sources:');
+      console.log('  Menu:           ' + data.summary.sources.menu);
+      console.log('  Breakfast:      ' + data.summary.sources.breakfast);
+      console.log('  Beverage:       ' + data.summary.sources.beverage);
+    "
+
+    echo ""
+    echo "Top 5 stock-out risks:"
+    echo "$RESULT" | node -e "
+      const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      const stockOuts = data.items.filter(i => i.stock_out_risk === 1).slice(0, 5);
+      stockOuts.forEach(item => {
+        console.log('  📦 ' + item.item_name + ' (' + item.item_code + ')');
+        console.log('     Shortage: ' + item.shortage_qty + ' ' + item.unit);
+      });
+    "
+  else
+    echo -e "${RED}❌ Failed to generate menu forecast${NC}"
+    echo "$RESULT"
+    exit 1
+  fi
+
+  echo ""
+  exit 0
+fi
+
+# Forecast Command: RUN BREAKFAST FORECAST
+if [ "$1" = "forecast:breakfast" ]; then
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}  Daily Predictive Demand v6.7 - BREAKFAST FORECAST${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  RESULT=$(node -e "
+    const BreakfastPredictor = require('./src/ai/forecast/BreakfastPredictor');
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database('./db/inventory_enterprise.db');
+    const predictor = new BreakfastPredictor(db);
+
+    Promise.all([
+      predictor.getBreakfastDemandForToday(),
+      predictor.getBeverageDemandForToday()
+    ]).then(([breakfast, beverage]) => {
+      console.log(JSON.stringify({ breakfast, beverage }, null, 2));
+      db.close();
+      process.exit(0);
+    }).catch(err => {
+      console.error('Error:', err.message);
+      db.close();
+      process.exit(1);
+    });
+  " 2>&1)
+
+  if echo "$RESULT" | grep -q '"success":true'; then
+    echo -e "${GREEN}✅ Breakfast & Beverage forecast generated${NC}"
+    echo ""
+
+    # Display breakfast summary
+    echo -e "${YELLOW}Breakfast Demand:${NC}"
+    echo "$RESULT" | node -e "
+      const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      const bf = data.breakfast;
+      console.log('  Population:      ' + bf.population.total + ' (Indian: ' + bf.population.indian + ')');
+      console.log('  Items:           ' + bf.summary.total_items);
+      console.log('  Stock-out items: ' + bf.summary.stock_out_items);
+      console.log('');
+      console.log('  Top demands:');
+      bf.demands.slice(0, 5).forEach(d => {
+        console.log('    • ' + d.item + ': ' + d.total_demand + ' ' + d.unit);
+      });
+    "
+
+    echo ""
+
+    # Display beverage summary
+    echo -e "${YELLOW}Beverage Demand:${NC}"
+    echo "$RESULT" | node -e "
+      const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      const bev = data.beverage;
+      console.log('  Population:      ' + bev.population.total);
+      console.log('  Items:           ' + bev.summary.total_items);
+      console.log('  Stock-out items: ' + bev.summary.stock_out_items);
+      console.log('');
+      console.log('  Top demands:');
+      bev.beverages.slice(0, 5).forEach(b => {
+        console.log('    • ' + b.item + ': ' + b.total_demand + ' ' + b.unit);
+      });
+    "
+  else
+    echo -e "${RED}❌ Failed to generate breakfast forecast${NC}"
+    echo "$RESULT"
+    exit 1
+  fi
+
+  echo ""
+  exit 0
+fi
+
+# Forecast Command: AI TRAIN FEEDBACK
+if [ "$1" = "forecast:train" ]; then
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${CYAN}  Daily Predictive Demand v6.7 - AI FEEDBACK TRAINING${NC}"
+  echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  echo "Training AI from pending owner comments..."
+  echo ""
+
+  RESULT=$(node -e "
+    const FeedbackTrainer = require('./src/ai/forecast/FeedbackTrainer');
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database('./db/inventory_enterprise.db');
+    const trainer = new FeedbackTrainer(db);
+    trainer.applyAllPendingComments()
+      .then(result => {
+        console.log(JSON.stringify(result, null, 2));
+        db.close();
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error('Error:', err.message);
+        db.close();
+        process.exit(1);
+      });
+  " 2>&1)
+
+  if echo "$RESULT" | grep -q '"success":true'; then
+    echo -e "${GREEN}✅ AI training completed${NC}"
+    echo ""
+
+    echo "$RESULT" | node -e "
+      const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+      console.log('  Total comments:    ' + data.total);
+      console.log('  Successfully applied: ' + data.applied);
+      console.log('  Failed:            ' + data.failed);
+      console.log('');
+      if (data.details && data.details.length > 0) {
+        console.log('Details:');
+        data.details.forEach((d, i) => {
+          if (d.success) {
+            console.log('  ' + (i+1) + '. ✅ Comment ' + d.comment_id + ': ' + (d.parsed?.intent || 'unknown'));
+            if (d.changes) {
+              console.log('     Changed: ' + d.changes.field + ' from ' + d.changes.old_value + ' to ' + d.changes.new_value);
+            }
+          } else {
+            console.log('  ' + (i+1) + '. ❌ Comment ' + d.comment_id + ': ' + (d.error || 'unknown error'));
+          }
+        });
+      }
+    "
+  else
+    echo -e "${RED}❌ AI training failed${NC}"
+    echo "$RESULT"
+    exit 1
+  fi
+
+  echo ""
+  exit 0
 fi
 
 # Default: Run v4 verification tests

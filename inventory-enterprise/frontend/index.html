@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventory Enterprise - AI-Powered System</title>
+  <title>Inventory Management System - Login</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <style>
     * {
@@ -22,135 +22,39 @@
       padding: 20px;
     }
 
-    .login-wrapper {
-      display: flex;
-      max-width: 1200px;
-      width: 100%;
+    .login-container {
       background: white;
-      border-radius: 16px;
+      border-radius: 20px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      overflow: hidden;
-    }
-
-    .login-left {
-      flex: 1;
-      padding: 60px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .login-right {
-      flex: 1;
-      padding: 60px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      width: 100%;
+      max-width: 450px;
+      padding: 50px 40px;
     }
 
     .logo {
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .version-badge {
-      display: inline-block;
-      background: rgba(255,255,255,0.2);
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-left: 10px;
-    }
-
-    .tagline {
-      font-size: 18px;
-      opacity: 0.9;
+      text-align: center;
       margin-bottom: 40px;
     }
 
-    .feature-section {
-      margin-bottom: 30px;
-    }
-
-    .feature-section h3 {
-      font-size: 16px;
-      font-weight: 600;
+    .logo-icon {
+      font-size: 64px;
       margin-bottom: 15px;
-      opacity: 0.95;
     }
 
-    .feature-list {
-      list-style: none;
-    }
-
-    .feature-list li {
-      padding: 8px 0;
-      font-size: 14px;
-      opacity: 0.85;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .feature-list li:before {
-      content: "✓";
-      font-weight: bold;
-      font-size: 16px;
-    }
-
-    .coming-soon {
-      opacity: 0.7;
-    }
-
-    .coming-soon:before {
-      content: "→";
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 15px;
-      margin-top: 20px;
-    }
-
-    .stat-card {
-      background: rgba(255,255,255,0.15);
-      padding: 15px;
-      border-radius: 8px;
-      backdrop-filter: blur(10px);
-    }
-
-    .stat-value {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 5px;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      opacity: 0.8;
-    }
-
-    .login-form h2 {
+    .logo-text {
       font-size: 28px;
+      font-weight: 700;
       color: #1a202c;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
-    .login-form .subtitle {
+    .logo-subtitle {
+      font-size: 14px;
       color: #718096;
-      margin-bottom: 30px;
     }
 
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
 
     .form-group label {
@@ -163,286 +67,260 @@
 
     .form-group input {
       width: 100%;
-      padding: 12px 16px;
+      padding: 14px 16px;
       border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 14px;
+      border-radius: 10px;
+      font-size: 15px;
       transition: all 0.3s;
     }
 
     .form-group input:focus {
       outline: none;
       border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
     }
 
     .login-btn {
       width: 100%;
-      padding: 14px;
+      padding: 16px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      transition: transform 0.2s;
+      transition: all 0.3s;
+      margin-top: 10px;
     }
 
     .login-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
     }
 
     .login-btn:active {
       transform: translateY(0);
     }
 
+    .login-btn:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     .error-message {
       color: #e53e3e;
       background: #fff5f5;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 12px 16px;
+      border-radius: 10px;
       margin-top: 15px;
       font-size: 14px;
       display: none;
+      border-left: 4px solid #e53e3e;
     }
 
     .error-message.show {
       display: block;
     }
 
+    .divider {
+      text-align: center;
+      margin: 30px 0 20px;
+      position: relative;
+    }
+
+    .divider:before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 100%;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    .divider span {
+      background: white;
+      padding: 0 15px;
+      position: relative;
+      color: #a0aec0;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .owner-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+      background: #f7fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+      cursor: pointer;
+      border: none;
+      width: 100%;
+    }
+
+    .owner-link:hover {
+      background: #edf2f7;
+      border-color: #667eea;
+      transform: translateY(-1px);
+    }
+
+    .owner-link:disabled {
+      background: #e2e8f0;
+      color: #a0aec0;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .success-message {
+      color: #38a169;
+      background: #f0fff4;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-top: 15px;
+      font-size: 14px;
+      display: none;
+      border-left: 4px solid #38a169;
+    }
+
+    .success-message.show {
+      display: block;
+    }
+
     .footer {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255,255,255,0.2);
+      text-align: center;
+      margin-top: 35px;
+      padding-top: 25px;
+      border-top: 1px solid #e2e8f0;
       font-size: 12px;
-      opacity: 0.7;
+      color: #a0aec0;
+    }
+
+    .footer a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     #dashboardContainer {
       display: none;
     }
 
-    @media (max-width: 968px) {
-      .login-wrapper {
-        flex-direction: column;
-      }
-
-      .login-left, .login-right {
-        padding: 40px;
-      }
-    }
-
-    /* Floating Contact Bubble */
-    .contact-bubble {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 50px;
-      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-      cursor: pointer;
-      transition: all 0.3s ease;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 13px;
-      text-decoration: none;
-    }
-
-    .contact-bubble:hover {
-      box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
-      transform: translateX(-50%) translateY(-2px);
-    }
-
-    .contact-bubble-icon {
-      font-size: 20px;
-      flex-shrink: 0;
-    }
-
-    .contact-bubble-content {
-      white-space: nowrap;
-      line-height: 1.4;
-    }
-
-    .contact-bubble-email {
-      font-weight: 600;
-      margin-bottom: 2px;
-    }
-
-    .contact-bubble-attribution {
-      font-size: 11px;
-      opacity: 0.95;
-    }
-
-    @media (max-width: 768px) {
-      .contact-bubble {
-        bottom: 15px;
-        font-size: 11px;
-        padding: 10px 18px;
-        gap: 8px;
-      }
-
-      .contact-bubble-icon {
-        font-size: 18px;
-      }
-
-      .contact-bubble-attribution {
-        font-size: 10px;
-      }
-    }
-
     @media (max-width: 480px) {
-      .contact-bubble {
-        padding: 8px 14px;
-        font-size: 10px;
+      .login-container {
+        padding: 40px 30px;
       }
 
-      .contact-bubble-email {
-        font-size: 10px;
+      .logo-icon {
+        font-size: 48px;
       }
 
-      .contact-bubble-attribution {
-        font-size: 9px;
+      .logo-text {
+        font-size: 24px;
       }
     }
   </style>
 </head>
 <body>
   <div id="loginContainer">
-    <div class="login-wrapper">
-      <!-- Left Panel - System Info -->
-      <div class="login-left">
-        <div>
-          <div class="logo">
-            🧠 Inventory Enterprise
-            <span class="version-badge">v3.0.0</span>
-          </div>
-          <div class="tagline">AI-Powered Self-Optimizing Inventory Management</div>
-
-          <!-- Latest Accomplishments -->
-          <div class="feature-section">
-            <h3>🎯 Latest: Phase 3 - Autonomous Learning Layer (Oct 2025)</h3>
-            <ul class="feature-list">
-              <li>AI Tuner with confidence-scored YAML proposals</li>
-              <li>24h health prediction & risk forecasting</li>
-              <li>Security anomaly detection (5 threat types)</li>
-              <li>Automated governance reporting (weekly)</li>
-              <li>6 autonomous cron jobs + 9 new Prometheus metrics</li>
-            </ul>
-          </div>
-
-          <!-- System Stats -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value">≥85%</div>
-              <div class="stat-label">Test Coverage</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">&lt;15%</div>
-              <div class="stat-label">Forecast MAPE</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">~2min</div>
-              <div class="stat-label">Drift Detection</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">100%</div>
-              <div class="stat-label">Uptime SLA</div>
-            </div>
-          </div>
-
-          <!-- Previous Achievements -->
-          <div class="feature-section" style="margin-top: 30px;">
-            <h3>✨ Previous Releases</h3>
-            <ul class="feature-list">
-              <li>Self-optimization engine (v2.2.0)</li>
-              <li>Drift detection & auto-retraining (v2.2.0)</li>
-              <li>Prophet/ARIMA forecasting (v2.1.0)</li>
-              <li>Redis caching layer (v2.1.0)</li>
-              <li>PostgreSQL support (v2.1.0)</li>
-              <li>Enterprise security & 2FA (v2.0.0)</li>
-            </ul>
-          </div>
-
-          <!-- Active Features -->
-          <div class="feature-section">
-            <h3>🚀 Active Enterprise Features</h3>
-            <ul class="feature-list">
-              <li>WebSocket real-time updates</li>
-              <li>Multi-tenancy support</li>
-              <li>Advanced RBAC with custom roles</li>
-              <li>Webhook notifications</li>
-              <li>Real-time monitoring (Prometheus/Grafana)</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="footer">
-          © 2025 NeuroInnovate · Proprietary System · Owned and operated by David Mikulis
-        </div>
+    <div class="login-container">
+      <!-- Logo & Branding -->
+      <div class="logo">
+        <div class="logo-icon">📦</div>
+        <div class="logo-text">Inventory System</div>
+        <div class="logo-subtitle">Enterprise Management Platform</div>
       </div>
 
-      <!-- Right Panel - Login Form -->
-      <div class="login-right">
-        <div class="login-form">
-          <h2>Welcome Back</h2>
-          <p class="subtitle">Sign in to access your AI-powered inventory system</p>
-
-          <form id="loginForm">
-            <div class="form-group">
-              <label for="email">Email Address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                placeholder="neuro.pilot.ai@gmail.com"
-                autocomplete="email"
-              >
-            </div>
-
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                placeholder="Enter your password"
-                autocomplete="current-password"
-              >
-            </div>
-
-            <button type="submit" class="login-btn" id="loginBtn">
-              Sign In
-            </button>
-
-            <div style="margin-top: 15px; padding: 12px; background: #f0f7ff; border-left: 4px solid #667eea; border-radius: 4px; font-size: 13px; color: #333;">
-              <strong>📝 Default Admin Credentials:</strong><br>
-              <code style="background: white; padding: 2px 6px; border-radius: 3px; font-size: 12px;">neuro.pilot.ai@gmail.com</code><br>
-              <code style="background: white; padding: 2px 6px; border-radius: 3px; font-size: 12px;">Admin123!@#</code>
-            </div>
-
-            <div id="loginError" class="error-message"></div>
-          </form>
+      <!-- Login Form -->
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            placeholder="Enter your email"
+            autocomplete="email"
+          >
         </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            placeholder="Enter your password"
+            autocomplete="current-password"
+          >
+        </div>
+
+        <button type="submit" class="login-btn" id="loginBtn">
+          Sign In
+        </button>
+
+        <div id="loginError" class="error-message"></div>
+      </form>
+
+      <!-- Divider -->
+      <div class="divider">
+        <span>or</span>
+      </div>
+
+      <!-- Owner Device Quick Login -->
+      <button type="button" class="owner-link" id="ownerQuickLoginBtn" onclick="handleOwnerDeviceLogin()">
+        <span>🔐</span>
+        <span>Owner Quick Login (Device)</span>
+        <span>→</span>
+      </button>
+
+      <div id="ownerLoginMessage" class="success-message"></div>
+
+      <!-- Footer -->
+      <div class="footer">
+        © 2025 NeuroInnovate · <a href="mailto:Neuro.Pilot.AI@gmail.com">Support</a>
       </div>
     </div>
   </div>
 
   <!-- Dashboard Container (hidden until login) -->
-  <div id="dashboardContainer" style="display: none;">
+  <div id="dashboardContainer">
     <div class="header">
-      <h1>Inventory Enterprise Dashboard</h1>
+      <h1>Inventory Dashboard</h1>
       <div class="user-info">
         <span id="userInfo"></span>
-        <button id="logoutBtn">Logout</button>
+        <button type="button" id="logoutBtn">Logout</button>
       </div>
     </div>
     <div class="content">
@@ -451,27 +329,81 @@
     </div>
   </div>
 
-  <!-- Floating Contact Bubble -->
-  <a href="mailto:Neuro.Pilot.AI@gmail.com" class="contact-bubble" title="Contact Developer">
-    <span class="contact-bubble-icon">✉️</span>
-    <div class="contact-bubble-content">
-      <div class="contact-bubble-email">Neuro.Pilot.AI@gmail.com</div>
-      <div class="contact-bubble-attribution">© 2025 NeuroInnovate · Proprietary System · Owned and operated by David Mikulis</div>
-    </div>
-  </a>
-
   <script src="app.js"></script>
   <script>
     // Update copyright year dynamically
     document.addEventListener('DOMContentLoaded', function() {
       const currentYear = new Date().getFullYear();
-      const footerElements = document.querySelectorAll('.footer, .contact-bubble-attribution');
-      footerElements.forEach(el => {
-        if (el.textContent.includes('2025') || el.textContent.includes('2024')) {
-          el.innerHTML = el.innerHTML.replace(/©\s*\d{4}/, `© ${currentYear}`);
-        }
-      });
+      const footerElement = document.querySelector('.footer');
+      if (footerElement) {
+        footerElement.innerHTML = footerElement.innerHTML.replace(/©\s*\d{4}/, `© ${currentYear}`);
+      }
     });
+
+    // Owner Device Quick Login Handler
+    async function handleOwnerDeviceLogin() {
+      const btn = document.getElementById('ownerQuickLoginBtn');
+      const messageDiv = document.getElementById('ownerLoginMessage');
+      const errorDiv = document.getElementById('loginError');
+
+      // Reset messages
+      errorDiv.classList.remove('show');
+      messageDiv.classList.remove('show');
+
+      // Disable button and show loading state
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span><span>Authenticating device...</span>';
+
+      try {
+        const response = await fetch('http://localhost:8083/api/auth/device-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          // Store auth token
+          localStorage.setItem('authToken', data.accessToken);
+
+          // Show success message
+          messageDiv.textContent = '✅ Device authenticated! Redirecting to Owner Console...';
+          messageDiv.classList.add('show');
+
+          // Redirect to owner console after short delay
+          setTimeout(() => {
+            window.location.href = '/owner-super-console.html';
+          }, 800);
+
+        } else {
+          // Show error message
+          errorDiv.textContent = data.error || 'Device authentication failed';
+          errorDiv.innerHTML = `
+            <strong>Device Not Authorized</strong><br>
+            ${data.error || 'This device is not registered for owner access.'}<br>
+            <small style="margin-top: 8px; display: block;">
+              ${data.hint || 'Please login with email/password from the authorized device first to register it.'}
+            </small>
+          `;
+          errorDiv.classList.add('show');
+
+          // Re-enable button
+          btn.disabled = false;
+          btn.innerHTML = '<span>🔐</span><span>Owner Quick Login (Device)</span><span>→</span>';
+        }
+
+      } catch (error) {
+        console.error('Device login error:', error);
+        errorDiv.textContent = 'Network error: ' + error.message;
+        errorDiv.classList.add('show');
+
+        // Re-enable button
+        btn.disabled = false;
+        btn.innerHTML = '<span>🔐</span><span>Owner Quick Login (Device)</span><span>→</span>';
+      }
+    }
   </script>
 </body>
 </html>

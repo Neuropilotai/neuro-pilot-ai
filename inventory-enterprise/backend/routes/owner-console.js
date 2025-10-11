@@ -119,19 +119,22 @@ router.get('/locations', authenticateToken, requireOwner, (req, res) => {
   const startTime = Date.now();
 
   try {
-    const db = new sqlite3.Database(DB_PATH);
+    // Use the correct database path
+    const dbPath = path.join(__dirname, '../data/enterprise_inventory.db');
+    const db = new sqlite3.Database(dbPath);
 
     db.all(`
       SELECT
-        location_id,
-        location_name,
-        location_type,
+        id,
+        name,
+        type,
         sequence,
-        active,
+        is_active as active,
         created_at,
         updated_at
       FROM storage_locations
-      ORDER BY sequence ASC, location_name ASC
+      WHERE is_active = 1
+      ORDER BY sequence ASC, name ASC
     `, [], (err, rows) => {
       db.close();
 

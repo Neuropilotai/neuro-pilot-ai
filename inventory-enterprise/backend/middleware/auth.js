@@ -2,17 +2,26 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { jwt: jwtConfig, password: passwordConfig } = require('../config/security');
 const { logger } = require('../config/logger');
+const { bindOwnerDevice, verifyOwnerDevice } = require('./deviceBinding');
 
 // User roles for RBAC
 const ROLES = {
+  OWNER: 'owner',
   ADMIN: 'admin',
-  MANAGER: 'manager', 
+  MANAGER: 'manager',
   STAFF: 'staff',
   VIEWER: 'viewer'
 };
 
 // Role permissions
 const PERMISSIONS = {
+  [ROLES.OWNER]: [
+    'inventory:read', 'inventory:write', 'inventory:delete', 'inventory:count', 'inventory:approve',
+    'orders:read', 'orders:write', 'orders:delete',
+    'users:read', 'users:write', 'users:delete',
+    'reports:read', 'audit:read', 'settings:write',
+    'system:admin', 'owner:console'
+  ],
   [ROLES.ADMIN]: [
     'inventory:read', 'inventory:write', 'inventory:delete', 'inventory:count', 'inventory:approve',
     'orders:read', 'orders:write', 'orders:delete',
@@ -37,16 +46,16 @@ const PERMISSIONS = {
 const users = new Map();
 const refreshTokens = new Map();
 
-// Initialize default admin user
+// Initialize default owner user
 // Note: Email stored in normalized form (neuropilotai@gmail.com) to match express-validator's normalizeEmail()
 // which removes dots from Gmail addresses. User can login with neuro.pilot.ai@gmail.com
 const defaultAdmin = {
   id: 'admin-1',
   email: 'neuropilotai@gmail.com', // Normalized form (dots removed for Gmail)
-  password: bcrypt.hashSync('Admin123!@#', 10),
-  role: ROLES.ADMIN,
-  firstName: 'System',
-  lastName: 'Administrator',
+  password: bcrypt.hashSync('NeuroPilot2025!', 10),
+  role: ROLES.OWNER,
+  firstName: 'David',
+  lastName: 'Owner',
   isActive: true,
   createdAt: new Date().toISOString(),
   lastLogin: null,
@@ -285,17 +294,56 @@ const authenticateUser = async (email, password, req) => {
   user.lockedUntil = null;
   user.lastLogin = new Date().toISOString();
 
+  // OWNER DEVICE BINDING - Restrict owner account to specific MacBook Pro
+  if (user.role === ROLES.OWNER || (user.role === ROLES.ADMIN && user.id === 'admin-1')) {
+    // Try to bind device (will succeed only on first login)
+    const bindResult = bindOwnerDevice(req);
+
+    // If device was just bound, log it
+    if (bindResult.success) {
+      logger.warn('OWNER DEVICE BINDING: MacBook Pro registered', {
+        userId: user.id,
+        ip: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    }
+
+    // Verify current device matches owner's MacBook Pro
+    const verification = verifyOwnerDevice(req);
+
+    if (!verification.verified) {
+      logger.error('SECURITY ALERT: Owner login attempt from unauthorized device', {
+        reason: verification.reason,
+        ip: req.ip,
+        userAgent: req.get('user-agent')
+      });
+
+      return {
+        success: false,
+        error: verification.message,
+        code: verification.reason
+      };
+    }
+
+    logger.info('Owner login successful - device verified', {
+      userId: user.id,
+      email: user.email,
+      deviceVerified: true,
+      ip: req.ip
+    });
+  }
+
   const tokens = generateTokens(user);
 
-  logger.info('Successful login', { 
+  logger.info('Successful login', {
     userId: user.id,
     email: user.email,
     role: user.role,
     ip: req.ip
   });
 
-  return { 
-    success: true, 
+  return {
+    success: true,
     user: {
       id: user.id,
       email: user.email,

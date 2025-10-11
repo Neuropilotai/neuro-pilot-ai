@@ -104,7 +104,7 @@ function getBulkSizeRange(count) {
  *   summary: { total, processed, unprocessed, cutoff_applied }
  * }
  */
-router.get('/pdfs', authenticateToken, requireOwner, async (req, res) => {
+router.get('/', authenticateToken, requireOwner, async (req, res) => {
   const timer = pdfRouteLatency.startTimer({ route: '/pdfs', method: 'GET' });
 
   try {
@@ -133,8 +133,8 @@ router.get('/pdfs', authenticateToken, requireOwner, async (req, res) => {
         cp.count_id as linked_count_id,
         cp.attached_at as linked_at
       FROM documents d
-      LEFT JOIN count_pdfs cp ON d.id = cp.document_id
-      LEFT JOIN processed_invoices pi ON cp.invoice_number = pi.invoice_number
+      LEFT JOIN count_documents cp ON d.id = cp.document_id
+      LEFT JOIN processed_invoices pi ON pi.document_id = d.id
       WHERE d.mime_type = 'application/pdf'
         AND d.deleted_at IS NULL
     `;
@@ -232,7 +232,7 @@ router.get('/pdfs', authenticateToken, requireOwner, async (req, res) => {
  *   }
  * }
  */
-router.post('/pdfs/mark-processed', authenticateToken, requireOwner, async (req, res) => {
+router.post('/mark-processed', authenticateToken, requireOwner, async (req, res) => {
   const timer = pdfRouteLatency.startTimer({ route: '/mark-processed', method: 'POST' });
 
   try {
@@ -296,7 +296,7 @@ router.post('/pdfs/mark-processed', authenticateToken, requireOwner, async (req,
 
         // Check if already linked to this count
         const existingLink = await db.get(
-          'SELECT count_pdf_id FROM count_pdfs WHERE count_id = ? AND document_id = ?',
+          'SELECT count_id FROM count_documents WHERE count_id = ? AND document_id = ?',
           [countId, documentId]
         );
 
@@ -306,22 +306,20 @@ router.post('/pdfs/mark-processed', authenticateToken, requireOwner, async (req,
           continue;
         }
 
-        // Insert into count_pdfs (linking document to count)
-        const insertCountPdfSql = `
-          INSERT INTO count_pdfs (
+        // Insert into count_documents (linking document to count)
+        const insertCountDocSql = `
+          INSERT INTO count_documents (
             count_id,
             document_id,
-            invoice_number,
             attached_at,
             attached_by,
             notes
-          ) VALUES (?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?)
         `;
 
-        await db.run(insertCountPdfSql, [
+        await db.run(insertCountDocSql, [
           countId,
           documentId,
-          invoiceNumber,
           processedTimestamp,
           userEmail,
           `Bulk processed by owner ${userEmail}`
@@ -340,27 +338,25 @@ router.post('/pdfs/mark-processed', authenticateToken, requireOwner, async (req,
             // Create processed_invoice entry
             const insertInvoiceSql = `
               INSERT INTO processed_invoices (
+                document_id,
                 invoice_number,
-                invoice_date,
-                total_amount,
-                status,
-                pdf_path,
-                processed_by,
+                item_description,
+                quantity,
+                unit,
+                received_date,
                 notes,
-                created_at,
-                updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const result = await db.run(insertInvoiceSql, [
+              documentId,
               invoiceNumber,
+              'Bulk invoice entry',
+              1,
+              'ea',
               processedTimestamp,
-              0.0,
-              'processed',
-              doc.path,
-              userId,
               `Processed via owner PDF manager`,
-              processedTimestamp,
               processedTimestamp
             ]);
 
@@ -450,10 +446,44 @@ router.post('/pdfs/mark-processed', authenticateToken, requireOwner, async (req,
  *
  * Params:
  * - documentId: document ID from documents table
+ * Query:
+ * - token: JWT token (for iframe authentication)
  *
  * Response: PDF file stream (Content-Type: application/pdf)
  */
-router.get('/pdfs/:documentId/preview', authenticateToken, requireOwner, async (req, res) => {
+router.get('/:documentId/preview', async (req, res) => {
+  // Support token from query param for iframe viewing
+  const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+
+  if (token) {
+    req.headers.authorization = `Bearer ${token}`;
+  }
+
+  // Apply auth middleware inline
+  const authMiddleware = authenticateToken;
+  const ownerMiddleware = requireOwner;
+
+  try {
+    await new Promise((resolve, reject) => {
+      authMiddleware(req, res, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      ownerMiddleware(req, res, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  } catch (authError) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required'
+    });
+  }
+
   const timer = pdfRouteLatency.startTimer({ route: '/preview', method: 'GET' });
 
   try {
@@ -475,10 +505,30 @@ router.get('/pdfs/:documentId/preview', authenticateToken, requireOwner, async (
       });
     }
 
-    // Resolve file path
-    const filePath = path.isAbsolute(document.path)
-      ? document.path
-      : path.join(__dirname, '..', document.path);
+    // Resolve file path - PDFs stored in OneDrive "gfs order" folder
+    let filePath;
+
+    // If path is absolute, use it
+    if (path.isAbsolute(document.path)) {
+      filePath = document.path;
+    } else {
+      // Check OneDrive "gfs order" folder first
+      const oneDrivePath = path.join(
+        process.env.HOME || '/Users/davidmikulis',
+        'OneDrive',
+        'gfs order',
+        document.filename // Use just the filename
+      );
+
+      // Try OneDrive location first
+      try {
+        await fs.access(oneDrivePath);
+        filePath = oneDrivePath;
+      } catch {
+        // Fallback to original relative path
+        filePath = path.join(__dirname, '..', document.path);
+      }
+    }
 
     // Check if file exists
     try {
@@ -533,6 +583,177 @@ router.get('/pdfs/:documentId/preview', authenticateToken, requireOwner, async (
         message: error.message
       });
     }
+  }
+});
+
+/**
+ * POST /api/owner/pdfs/upload
+ * Upload a PDF invoice document
+ *
+ * Body (multipart/form-data):
+ * - file: PDF file
+ * - invoiceNumber: (optional) invoice number
+ * - notes: (optional) notes
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   data: { documentId, filename, sha256, size }
+ * }
+ */
+router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
+  const timer = pdfRouteLatency.startTimer({ route: '/upload', method: 'POST' });
+
+  try {
+    const multer = require('multer');
+    const crypto = require('crypto');
+    const { v4: uuidv4 } = require('uuid');
+
+    // Configure multer for PDF uploads
+    const storage = multer.diskStorage({
+      destination: async (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '..', 'data', 'pdfs', new Date().getFullYear().toString());
+        try {
+          await fs.mkdir(uploadDir, { recursive: true });
+        } catch (err) {
+          return cb(err);
+        }
+        cb(null, uploadDir);
+      },
+      filename: (req, file, cb) => {
+        const timestamp = Date.now();
+        const sanitized = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+        cb(null, `${timestamp}_${sanitized}`);
+      }
+    });
+
+    const upload = multer({
+      storage: storage,
+      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new Error('Only PDF files are allowed'));
+        }
+      }
+    }).single('file');
+
+    // Handle upload
+    upload(req, res, async (uploadErr) => {
+      if (uploadErr) {
+        timer();
+        return res.status(400).json({
+          success: false,
+          error: 'Upload failed',
+          message: uploadErr.message
+        });
+      }
+
+      if (!req.file) {
+        timer();
+        return res.status(400).json({
+          success: false,
+          error: 'No file provided'
+        });
+      }
+
+      try {
+        // Calculate SHA256
+        const fileBuffer = await fs.readFile(req.file.path);
+        const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+        // Check for duplicates
+        const existingDoc = await db.get(
+          'SELECT id FROM documents WHERE sha256 = ? AND deleted_at IS NULL',
+          [sha256]
+        );
+
+        if (existingDoc) {
+          // Delete uploaded file (it's a duplicate)
+          await fs.unlink(req.file.path);
+          timer();
+          return res.status(409).json({
+            success: false,
+            error: 'Duplicate document',
+            message: 'This PDF has already been uploaded',
+            existingDocumentId: existingDoc.id
+          });
+        }
+
+        // Get tenant_id from user
+        const tenantId = req.user.tenant_id || 'default';
+        const userId = req.user.id || 'unknown';
+
+        // Insert into documents table
+        const documentId = uuidv4();
+        const relativePath = path.relative(
+          path.join(__dirname, '..'),
+          req.file.path
+        );
+
+        const insertSql = `
+          INSERT INTO documents (
+            id,
+            tenant_id,
+            path,
+            filename,
+            mime_type,
+            size_bytes,
+            sha256,
+            created_by,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        await db.run(insertSql, [
+          documentId,
+          tenantId,
+          relativePath,
+          req.file.originalname,
+          'application/pdf',
+          req.file.size,
+          sha256,
+          userId,
+          new Date().toISOString()
+        ]);
+
+        timer();
+
+        res.status(201).json({
+          success: true,
+          message: 'PDF uploaded successfully',
+          data: {
+            documentId: documentId,
+            filename: req.file.originalname,
+            sha256: sha256,
+            sha256Truncated: sha256.substring(0, 16) + '...',
+            sizeMB: (req.file.size / 1024 / 1024).toFixed(2),
+            sizeBytes: req.file.size,
+            path: relativePath,
+            invoiceNumber: parseInvoiceNumber(req.file.originalname)
+          }
+        });
+
+      } catch (dbError) {
+        console.error('Database error during upload:', dbError);
+        timer();
+        res.status(500).json({
+          success: false,
+          error: 'Failed to save document metadata',
+          message: dbError.message
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error('Upload endpoint error:', error);
+    timer();
+    res.status(500).json({
+      success: false,
+      error: 'Upload failed',
+      message: error.message
+    });
   }
 });
 

@@ -207,15 +207,7 @@ router.post('/anomalies/triage', authenticateToken, requireOwner, async (req, re
 
     const db = require('../config/database');
 
-    // Update anomaly status
-    await db.run(
-      `UPDATE ai_anomaly_predictions
-       SET triage_action = ?, triage_by = ?, triage_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [action, req.user.id, id]
-    );
-
-    // Execute action
+    // Execute action (also updates the anomaly record)
     const result = await executeTriageAction(db, id, action, req.user.id);
 
     // Audit log
@@ -296,27 +288,33 @@ router.post('/upgrade/apply', authenticateToken, requireOwner, async (req, res) 
  */
 async function generateReorderRecommendations(db, n = 20) {
   try {
-    // Get items with current stock and forecasts
+    // Get items with current stock and forecasts from view
     const sql = `
       SELECT
-        im.item_code,
-        im.item_name,
-        im.current_quantity as currentStock,
-        im.par_level as safetyStock,
-        im.lead_time_days as leadTimeDays,
-        COALESCE(fr.predicted_quantity, im.par_level * 2) as predictedDemand,
-        COALESCE(fr.confidence, 0.75) as confidence,
-        COALESCE(fr.horizon_days, 30) as horizonDays
-      FROM item_master im
-      LEFT JOIN forecast_results fr ON im.item_code = fr.item_code
-      WHERE im.current_quantity > 0
-        AND im.lead_time_days > 0
+        v.item_code,
+        v.item_name,
+        v.current_stock as currentStock,
+        v.par_level as safetyStock,
+        5 as leadTimeDays, -- Default lead time
+        COALESCE(af.predicted_value, v.par_level * 2) as predictedDemand,
+        COALESCE(af.confidence_level, 0.75) as confidence,
+        30 as horizonDays
+      FROM v_current_inventory v
+      LEFT JOIN (
+        SELECT entity_id as item_code, predicted_value, confidence_level
+        FROM ai_forecasts
+        WHERE entity_type = 'item'
+          AND forecast_date = DATE('now')
+        ORDER BY generated_at DESC
+      ) af ON v.item_code = af.item_code
+      WHERE v.current_stock > 0
+        AND v.active = 1
       ORDER BY
         CASE
-          WHEN im.current_quantity < im.par_level THEN 0
+          WHEN v.current_stock < v.par_level THEN 0
           ELSE 1
         END,
-        im.current_quantity / NULLIF(im.par_level, 0) ASC
+        v.current_stock / NULLIF(v.par_level, 0) ASC
       LIMIT ?
     `;
 
@@ -410,25 +408,24 @@ async function detectRecentAnomalies(db, window) {
 
     const sql = `
       SELECT
-        id,
+        anomaly_id as id,
         item_code,
-        anomaly_type as type,
-        severity,
-        detected_at as when,
-        explanation,
-        confidence,
-        metadata
-      FROM ai_anomaly_predictions
-      WHERE detected_at >= datetime('now', '-${daysPast} days')
-        AND triage_action IS NULL
+        'consumption_deviation' as type,
+        UPPER(severity) as severity,
+        created_at as detectedAt,
+        ai_hypothesis as explanation,
+        ABS(deviation_pct / 100.0) as confidence
+      FROM ai_anomaly_log
+      WHERE created_at >= datetime('now', '-${daysPast} days')
+        AND resolved_at IS NULL
       ORDER BY
         CASE severity
-          WHEN 'critical' THEN 0
-          WHEN 'high' THEN 1
-          WHEN 'medium' THEN 2
-          WHEN 'low' THEN 3
+          WHEN 'CRITICAL' THEN 0
+          WHEN 'HIGH' THEN 1
+          WHEN 'MEDIUM' THEN 2
+          WHEN 'LOW' THEN 3
         END,
-        detected_at DESC
+        created_at DESC
       LIMIT 50
     `;
 
@@ -438,11 +435,11 @@ async function detectRecentAnomalies(db, window) {
       id: anom.id,
       itemCode: anom.item_code,
       type: anom.type || 'consumption_spike',
-      severity: anom.severity || 'medium',
-      when: anom.when,
+      severity: anom.severity || 'MEDIUM',
+      when: anom.detectedAt,
       explanation: anom.explanation || 'Anomalous pattern detected',
       suggestedActions: getSuggestedActions(anom.type, anom.severity),
-      confidence: parseFloat((anom.confidence || 0.8).toFixed(2))
+      confidence: Math.min(1.0, parseFloat((anom.confidence || 0.8).toFixed(2)))
     }));
 
   } catch (error) {
@@ -468,16 +465,17 @@ async function detectRecentAnomalies(db, window) {
  */
 function getSuggestedActions(type, severity) {
   const actions = [];
+  const sev = (severity || '').toUpperCase();
 
-  if (severity === 'critical' || severity === 'high') {
+  if (sev === 'CRITICAL' || sev === 'HIGH') {
     actions.push('open_spot_check');
   }
 
-  if (type === 'consumption_spike' || type === 'shrinkage') {
+  if (type === 'consumption_spike' || type === 'shrinkage' || type === 'consumption_deviation') {
     actions.push('freeze_reorder');
   }
 
-  if (type === 'data_quality' || severity === 'low') {
+  if (type === 'data_quality' || sev === 'LOW') {
     actions.push('ignore_once');
   }
 
@@ -626,7 +624,7 @@ function analyze2FAAdoption() {
  * Execute triage action
  */
 async function executeTriageAction(db, anomalyId, action, userId) {
-  const anomaly = await db.get('SELECT * FROM ai_anomaly_predictions WHERE id = ?', [anomalyId]);
+  const anomaly = await db.get('SELECT * FROM ai_anomaly_log WHERE anomaly_id = ?', [anomalyId]);
 
   if (!anomaly) {
     throw new Error('Anomaly not found');
@@ -646,17 +644,24 @@ async function executeTriageAction(db, anomalyId, action, userId) {
       break;
 
     case 'freeze_reorder':
-      // Temporarily freeze reorders for this item
+      // Mark anomaly as resolved with freeze action
       await db.run(
-        `UPDATE item_master SET reorder_frozen = 1, reorder_freeze_until = datetime('now', '+7 days')
-         WHERE item_code = ?`,
-        [anomaly.item_code]
+        `UPDATE ai_anomaly_log
+         SET resolved_at = CURRENT_TIMESTAMP, resolution = ?
+         WHERE anomaly_id = ?`,
+        [`Reorder frozen for item ${anomaly.item_code}`, anomalyId]
       );
-      result.message = 'Reorder frozen for 7 days';
+      result.message = 'Anomaly marked as resolved with reorder freeze';
       break;
 
     case 'ignore_once':
-      // Mark as reviewed
+      // Mark as reviewed/resolved
+      await db.run(
+        `UPDATE ai_anomaly_log
+         SET resolved_at = CURRENT_TIMESTAMP, resolution = ?
+         WHERE anomaly_id = ?`,
+        ['Reviewed and ignored by owner', anomalyId]
+      );
       result.message = 'Anomaly marked as reviewed';
       break;
 

@@ -75,7 +75,13 @@ async function handleLogin(e) {
             authToken = data.accessToken;
             currentUser = data.user;
             localStorage.setItem('authToken', authToken);
-            showDashboard();
+
+            // Redirect owner users to owner console
+            if (currentUser.role === 'owner') {
+                window.location.href = '/owner-super-console.html';
+            } else {
+                showDashboard();
+            }
         } else {
             showError(data.message || 'Login failed');
         }
@@ -98,7 +104,13 @@ async function validateToken() {
         if (response.ok) {
             const data = await response.json();
             currentUser = data.user;
-            showDashboard();
+
+            // Redirect owner users to owner console
+            if (currentUser.role === 'owner') {
+                window.location.href = '/owner-super-console.html';
+            } else {
+                showDashboard();
+            }
         } else {
             // Token is invalid, clear it and show login
             console.log('Token validation failed:', response.status);

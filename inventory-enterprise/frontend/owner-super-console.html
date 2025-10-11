@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Super Console | NeuroInnovate Inventory v3.2.0</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #1f2937;
+      --text-light: #6b7280;
+      --bg: #f9fafb;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container { max-width: 1920px; margin: 0 auto; }
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+    .logo { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
+    .user-info { display: flex; align-items: center; gap: 1rem; font-size: 0.875rem; }
+    .token-ttl { color: var(--text-light); }
+    .token-ttl.warning { color: var(--danger); font-weight: 600; }
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      padding: 0 2rem;
+      overflow-x: auto;
+    }
+    .tab {
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+      font-weight: 500;
+      color: var(--text-light);
+    }
+    .tab:hover { color: var(--primary); background: var(--bg); }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .content { padding: 2rem; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .grid { display: grid; gap: 1.5rem; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    .card {
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-size: 1.125rem; font-weight: 600; }
+    .stat-card { text-align: center; }
+    .stat-card[style*="cursor: pointer"]:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transition: all 0.2s;
+    }
+    .stat-value { font-size: 2.5rem; font-weight: 700; color: var(--primary); }
+    .stat-label { font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem; }
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-warning { background: var(--warning); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
+    .input, .select, .textarea {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+    .input:focus, .select:focus, .textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    .input:disabled, .select:disabled, .textarea:disabled {
+      background-color: #f3f4f6;
+      color: #9ca3af;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .textarea { min-height: 80px; resize: vertical; }
+    .table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .table th { background: var(--bg); padding: 0.75rem; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); }
+    .table td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
+    .table tr:hover { background: var(--bg); }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-success { background: #d1fae5; color: #065f46; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-light);
+    }
+    .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+    .loading { text-align: center; padding: 2rem; color: var(--text-light); }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .alert {
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+    .alert-warning { background: #fef3c7; color: #92400e; border-left: 4px solid var(--warning); }
+    .alert-danger { background: #fee2e2; color: #991b1b; border-left: 4px solid var(--danger); }
+    .alert-info { background: #dbeafe; color: #1e40af; border-left: 4px solid var(--primary); }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: var(--surface);
+      border-radius: 8px;
+      max-width: 900px;
+      max-height: 90vh;
+      width: 90%;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body { padding: 1.5rem; }
+    .modal-footer {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.875rem; }
+    .checkbox-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto; }
+    .checkbox-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; }
+    .checkbox-item:hover { background: var(--bg); }
+    .pagination {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1.5rem;
+    }
+    .toolbar {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .toolbar-search { flex: 1; min-width: 250px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      font-size: 0.8125rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .chip:hover { background: var(--border); }
+    .chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">🤖 Owner Super Console v3.2.0</div>
+    <div class="user-info">
+      <span id="currentUser"></span>
+      <span class="token-ttl" id="tokenTTL"></span>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
+    <div class="tab" onclick="switchTab('inventory')">📦 Inventory</div>
+    <div class="tab" onclick="switchTab('locations')">📍 Locations</div>
+    <div class="tab" onclick="switchTab('pdfs')">📄 Orders/PDFs</div>
+    <div class="tab" onclick="switchTab('count')">🔢 Count</div>
+    <div class="tab" onclick="switchTab('ai')">🤖 AI Console</div>
+    <div class="tab" onclick="switchTab('forecast')">📈 Forecast</div>
+    <div class="tab" onclick="switchTab('reports')">📋 Reports</div>
+    <div class="tab" onclick="switchTab('settings')">⚙️ Settings</div>
+  </nav>
+
+  <div class="container content">
+    <!-- Dashboard Tab -->
+    <div id="dashboard" class="tab-panel active">
+      <div class="grid grid-4">
+        <div class="card stat-card">
+          <div class="stat-value" id="systemHealth">--</div>
+          <div class="stat-label">System Health</div>
+        </div>
+        <div class="card stat-card" style="cursor: pointer;" onclick="showForecastDetail()" title="Click to see details">
+          <div class="stat-value" id="forecastCoverage">--</div>
+          <div class="stat-label">Forecast Coverage</div>
+        </div>
+        <div class="card stat-card" style="cursor: pointer;" onclick="showStockoutDetail()" title="Click to see details">
+          <div class="stat-value" id="stockoutCount">--</div>
+          <div class="stat-label">Stockout Risk</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="lastAIRun">--</div>
+          <div class="stat-label">Last AI Training</div>
+        </div>
+      </div>
+      <div class="grid grid-2" style="margin-top: 1.5rem;">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Database Statistics</h3>
+          </div>
+          <div id="dbStats"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Recent Activity</h3>
+          </div>
+          <div id="recentActivity"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory Tab -->
+    <div id="inventory" class="tab-panel">
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="inventorySearch" placeholder="Search items...">
+          <button type="button" class="btn btn-primary" onclick="loadInventory()">🔍 Search</button>
+          <button type="button" class="btn btn-secondary" onclick="openSpotCheckModal()">📋 Spot Check</button>
+        </div>
+        <div id="inventoryTable"></div>
+      </div>
+    </div>
+
+    <!-- Locations Tab -->
+    <div id="locations" class="tab-panel">
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Storage Locations</h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-sm btn-success" onclick="openAddLocationModal()">➕ Add New</button>
+              <button type="button" class="btn btn-sm btn-primary" onclick="loadLocations()">↻ Refresh</button>
+            </div>
+          </div>
+          <div id="locationsList"></div>
+        </div>
+        <div class="card" style="grid-column: span 2;">
+          <div class="card-header">
+            <h3 class="card-title">Items at Location</h3>
+            <span id="selectedLocation"></span>
+          </div>
+          <div id="locationItems"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDFs Tab -->
+    <div id="pdfs" class="tab-panel">
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="pdfSearch" placeholder="Search invoice number...">
+          <select class="select" id="pdfStatus" onchange="loadPDFs()">
+            <option value="all">All PDFs</option>
+            <option value="unprocessed">Unprocessed</option>
+            <option value="processed">Processed</option>
+          </select>
+          <button type="button" class="btn btn-primary" onclick="loadPDFs()">🔍 Search</button>
+          <button type="button" class="btn btn-success" onclick="openUploadPDFModal()">📤 Upload PDF</button>
+          <button type="button" class="btn btn-success" onclick="openIncludeOrdersModal()">✓ Include in Count</button>
+        </div>
+        <div id="pdfTable"></div>
+      </div>
+    </div>
+
+    <!-- Count Tab -->
+    <div id="count" class="tab-panel">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Start New Count</h3>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location (optional)</label>
+            <select class="select" id="countLocation">
+              <option value="">Select location...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="textarea" id="countNotes" placeholder="Count notes..."></textarea>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="startCount()" style="width: 100%;">🎯 Start Count</button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Active Count</h3>
+            <span id="activeCountId"></span>
+          </div>
+          <div id="activeCountDetails"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 1.5rem;" id="countProcessPanel" style="display: none;">
+        <div class="card-header">
+          <h3 class="card-title">Count Process Panel</h3>
+        </div>
+        <div id="countProcessDetails"></div>
+      </div>
+    </div>
+
+    <!-- AI Console Tab -->
+    <div id="ai" class="tab-panel">
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Reorder Recommendations</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIReorder()">↻</button>
+          </div>
+          <div id="aiReorderList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Anomaly Watchlist</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIAnomalies()">↻</button>
+          </div>
+          <div id="aiAnomalyList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">System Upgrade Advisor</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIUpgrade()">↻</button>
+          </div>
+          <div id="aiUpgradeAdvice"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Owner Feedback & Training</h3>
+        </div>
+        <div class="form-group">
+          <textarea class="textarea" id="aiFeedback" placeholder="Enter feedback (e.g., 'coffee 1.5 cups/person', 'eggs 2 per person for breakfast')"></textarea>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <button type="button" class="btn btn-primary" onclick="submitFeedback()">💬 Submit Feedback</button>
+          <button type="button" class="btn btn-success" onclick="trainAI()">🚀 Train Now</button>
+          <button type="button" class="btn btn-secondary" onclick="loadFeedbackHistory()">📜 History</button>
+        </div>
+        <div id="feedbackHistory" style="margin-top: 1rem;"></div>
+      </div>
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">AI Learning Nudge</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningNudges()">↻ Refresh</button>
+        </div>
+        <div id="learningNudges"></div>
+      </div>
+    </div>
+
+    <!-- Forecast Tab -->
+    <div id="forecast" class="tab-panel">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Population Controls</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadPopulation()">↻</button>
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <div>
+            <label class="form-label">Total Population</label>
+            <input type="number" class="input" id="totalPopulation" style="width: 120px;">
+          </div>
+          <div>
+            <label class="form-label">Indian Meals</label>
+            <input type="number" class="input" id="indianCount" style="width: 120px;">
+          </div>
+          <button type="button" class="btn btn-primary" onclick="updatePopulation()">💾 Update</button>
+          <div class="chip" onclick="adjustPopulation(25, 0)">+25 People</div>
+          <div class="chip" onclick="adjustPopulation(-25, 0)">-25 People</div>
+          <div class="chip" onclick="adjustPopulation(0, 5)">+5 Indian</div>
+          <div class="chip" onclick="adjustPopulation(0, -5)">-5 Indian</div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Stockout Alerts</h3>
+        </div>
+        <div id="stockoutAlerts"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Today's Predictions</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadDailyForecast()">↻ Refresh</button>
+        </div>
+        <div id="forecastTable"></div>
+      </div>
+    </div>
+
+    <!-- Reports Tab -->
+    <div id="reports" class="tab-panel">
+      <!-- GFS Monthly Reports Quick Access -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="card-header" style="border-bottom-color: rgba(255,255,255,0.2);">
+          <h3 class="card-title" style="color: white;">📊 GFS Monthly Accounting Reports</h3>
+          <span class="badge" style="background: rgba(255,255,255,0.3); color: white;">181 Invoices | $2.13M</span>
+        </div>
+        <div style="padding: 0.5rem 0;">
+          <p style="opacity: 0.95; font-size: 0.875rem; margin-bottom: 1rem;">
+            Access all monthly GFS accounting reports (Jan-Sep 2025) with clickable PDF links, cost code breakdowns, and copy/paste ready format.
+          </p>
+          <button type="button" class="btn" style="background: white; color: #667eea; width: 100%; font-weight: 600; font-size: 1rem;" onclick="openGFSReports()">
+            🚀 Open GFS Monthly Reports Dashboard
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Tiered Reporting Center</h3>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+          <div class="chip active" id="reportTab-executive" onclick="switchReportTab('executive')">👔 Executive</div>
+          <div class="chip" id="reportTab-ops" onclick="switchReportTab('ops')">📊 Ops Manager</div>
+          <div class="chip" id="reportTab-production" onclick="switchReportTab('production')">👨‍🍳 Production</div>
+          <div class="chip" id="reportTab-purchasing" onclick="switchReportTab('purchasing')">🛒 Purchasing</div>
+          <div class="chip" id="reportTab-finance" onclick="switchReportTab('finance')">💰 Finance</div>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()" style="margin-bottom: 1rem;">📥 Export CSV</button>
+        <div id="reportContent"></div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="settings" class="tab-panel">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Device Binding</h3>
+          </div>
+          <div id="deviceInfo"></div>
+          <button type="button" class="btn btn-primary" onclick="rebindDevice()" style="width: 100%; margin-top: 1rem;">🔐 Rebind Device</button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Console Preferences</h3>
+          </div>
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 0.5rem;">
+              <input type="checkbox" id="warmCache">
+              <span>Warm Forecast Cache on Load</span>
+            </label>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="exportDailyCSV()" style="width: 100%;">📥 Export Daily Summary CSV</button>
+        </div>
+      </div>
+      <div class="grid grid-2" style="margin-top: 1.5rem;">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">System Orchestration</h3>
+          </div>
+          <button type="button" class="btn btn-success" onclick="orchestrateStart()" style="width: 100%; margin-bottom: 0.5rem;">🚀 Start All Services</button>
+          <button type="button" class="btn btn-warning" onclick="orchestrateStop()" style="width: 100%;">🛑 Stop All Services (Safe)</button>
+          <div id="orchestrationStatus" style="margin-top: 1rem;"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Backup & Recovery</h3>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="createRecoveryKit()" style="width: 100%; margin-bottom: 0.5rem;">💾 Create Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" onclick="verifyRecoveryKit()" style="width: 100%; margin-bottom: 0.5rem;">🔍 Verify Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" onclick="dryRunRestore()" style="width: 100%;">🔄 Dry-Run Restore</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Audit Chain</h3>
+        </div>
+        <div id="auditInfo"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="pdfModal" class="modal">
+    <div class="modal-content" style="max-width: 95%; max-height: 95%;">
+      <div class="modal-header">
+        <h3 id="pdfModalTitle">PDF Viewer</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closePDFModal()">✕ Close</button>
+      </div>
+      <div class="modal-body" style="padding: 0; height: 80vh;">
+        <iframe id="pdfFrame" style="width: 100%; height: 100%; border: none;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div id="includeOrdersModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Include PDFs in Count</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeIncludeOrdersModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          Select PDFs to include in the month-end count. Only unprocessed PDFs are shown.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Count ID</label>
+          <input type="text" class="input" id="includeCountId" placeholder="Enter count ID">
+        </div>
+        <div class="checkbox-list" id="pdfCheckboxList"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeIncludeOrdersModal()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="includeSelectedPDFs()">✓ Include Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="orchestrationModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="orchestrationModalTitle">System Orchestration</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeOrchestrationModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="orchestrationSteps"></div>
+        <div id="orchestrationCurl" style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 4px; font-family: monospace; font-size: 0.8125rem; overflow-x: auto;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeOrchestrationModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="recoveryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="recoveryModalTitle">Recovery Operation</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecoveryModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="recoveryDetails"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeRecoveryModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="recoveryInputModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="recoveryInputModalTitle">Recovery Input</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecoveryInputModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="recoveryInputForm" onsubmit="event.preventDefault(); submitRecoveryInput();">
+          <div class="form-group">
+            <label class="form-label" id="recoveryInputLabel">Path to Recovery Kit</label>
+            <input type="text" class="input" id="recoveryPath" placeholder="/path/to/recovery_kit.tar.gz.enc" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passphrase (min 12 characters)</label>
+            <input type="password" class="input" id="recoveryPassphrase" placeholder="Enter passphrase" autocomplete="current-password">
+          </div>
+          <div class="form-group" id="recoveryDestGroup" style="display: none;">
+            <label class="form-label">Destination Path (USB)</label>
+            <input type="text" class="input" id="recoveryDest" placeholder="/Volumes/USB/backup" autocomplete="off">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeRecoveryInputModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="recoveryInputSubmit" onclick="submitRecoveryInput()">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forecast Coverage Detail Modal -->
+  <div id="forecastDetailModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📈 Forecast Coverage Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeForecastDetailModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="forecastDetailContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeForecastDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stockout Risk Detail Modal -->
+  <div id="stockoutDetailModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚠️ Stockout Risk Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeStockoutDetailModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="stockoutDetailContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeStockoutDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Upload Modal -->
+  <div id="uploadPDFModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Upload PDF Invoice</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeUploadPDFModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="uploadPDFForm" onsubmit="event.preventDefault(); uploadPDF();">
+          <div class="form-group">
+            <label class="form-label">Select PDF File *</label>
+            <input type="file" class="input" id="pdfFile" accept="application/pdf" required>
+            <small style="color: var(--text-light); font-size: 0.75rem;">Max size: 50MB. Only PDF files are allowed.</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="textarea" id="pdfNotes" placeholder="e.g., GFS invoice, weekly order, etc."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeUploadPDFModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="uploadPDF()">📤 Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location Create/Edit Modal -->
+  <div id="locationModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="locationModalTitle">Add New Location</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeLocationModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="locationForm" onsubmit="event.preventDefault(); saveLocation();">
+          <input type="hidden" id="locationEditCode">
+          <div class="form-group">
+            <label class="form-label">Location ID *</label>
+            <input type="text" class="input" id="locationCode" placeholder="e.g., cooler-01" required>
+            <small style="color: var(--text-light); font-size: 0.75rem;">Use lowercase with hyphens (e.g., "freezer-a2", "walk-in-d1")</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location Name *</label>
+            <input type="text" class="input" id="locationName" placeholder="e.g., Walk-in Freezer 1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="select" id="locationType">
+              <option value="warehouse">Warehouse</option>
+              <option value="refrigerated">Refrigerated</option>
+              <option value="frozen">Frozen</option>
+              <option value="dry">Dry Storage</option>
+              <option value="kitchen">Kitchen</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeLocationModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveLocation()">💾 Save Location</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="owner-super-console.js"></script>
+</body>
+</html>
