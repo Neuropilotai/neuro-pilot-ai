@@ -34,8 +34,8 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
     const dbStats = await getDatabaseStats(db);
 
     // Get AI module status with live timestamps
-    const phase3Cron = req.app.get('phase3Cron');
-    const aiModules = getAIModuleStatus(phase3Cron);
+    const phase3Cron = req.app.locals.phase3Cron;
+    const aiModules = await getAIModuleStatus(phase3Cron, db);
 
     // Get version info
     const versionInfo = {
@@ -454,16 +454,45 @@ async function getDatabaseStats(db) {
 
 /**
  * Get AI module status with live timestamps from Phase3CronScheduler
+ * v13.0: 3-tier fallback (in-memory → breadcrumbs → database)
  */
-function getAIModuleStatus(phase3Cron) {
+async function getAIModuleStatus(phase3Cron, db) {
   // Get live run timestamps from cron scheduler
   let lastForecastRun = null;
   let lastLearningRun = null;
 
+  // Tier 1: Try in-memory/breadcrumbs via phase3Cron.getLastRuns() (async)
   if (phase3Cron && typeof phase3Cron.getLastRuns === 'function') {
-    const lastRuns = phase3Cron.getLastRuns();
-    lastForecastRun = lastRuns.lastForecastRun;
-    lastLearningRun = lastRuns.lastLearningRun;
+    try {
+      const lastRuns = await phase3Cron.getLastRuns();
+      lastForecastRun = lastRuns.lastForecastRun;
+      lastLearningRun = lastRuns.lastLearningRun;
+    } catch (err) {
+      console.error('Failed to get cron last runs:', err.message);
+    }
+  }
+
+  // Tier 2 & 3: Fallback to database tables if still null
+  if (!lastForecastRun) {
+    try {
+      const result = await db.get(`SELECT MAX(created_at) AS ts FROM ai_daily_forecast_cache WHERE created_at IS NOT NULL`);
+      if (result && result.ts) {
+        lastForecastRun = result.ts;
+      }
+    } catch (err) {
+      console.debug('Forecast timestamp fallback failed:', err.message);
+    }
+  }
+
+  if (!lastLearningRun) {
+    try {
+      const result = await db.get(`SELECT MAX(applied_at) AS ts FROM ai_learning_insights WHERE applied_at IS NOT NULL`);
+      if (result && result.ts) {
+        lastLearningRun = result.ts;
+      }
+    } catch (err) {
+      console.debug('Learning timestamp fallback failed:', err.message);
+    }
   }
 
   return {
