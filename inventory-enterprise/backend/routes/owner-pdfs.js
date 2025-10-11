@@ -74,6 +74,85 @@ function parseInvoiceNumber(filename) {
 }
 
 /**
+ * Parse invoice date from filename (v13.1)
+ * Handles patterns like:
+ *   GFS_2025-05-14_9027091040.pdf → 2025-05-14
+ *   9027091040_2025-05-14.pdf → 2025-05-14
+ *   2025-05-14_invoice.pdf → 2025-05-14
+ *   GFS_20250514_invoice.pdf → 2025-05-14
+ */
+function parseInvoiceDate(filename) {
+  if (!filename) return null;
+
+  // Try YYYY-MM-DD pattern first
+  const dashDateMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (dashDateMatch) {
+    return `${dashDateMatch[1]}-${dashDateMatch[2]}-${dashDateMatch[3]}`;
+  }
+
+  // Try YYYYMMDD pattern (no separators)
+  const compactDateMatch = filename.match(/(\d{4})(\d{2})(\d{2})/);
+  if (compactDateMatch) {
+    return `${compactDateMatch[1]}-${compactDateMatch[2]}-${compactDateMatch[3]}`;
+  }
+
+  return null;
+}
+
+/**
+ * Parse vendor from filename (v13.1)
+ * Defaults to GFS if not specified
+ */
+function parseVendor(filename) {
+  if (!filename) return 'GFS';
+
+  const upper = filename.toUpperCase();
+  if (upper.includes('SYSCO')) return 'Sysco';
+  if (upper.includes('USF')) return 'US Foods';
+  if (upper.includes('GFS') || upper.includes('GORDON')) return 'GFS';
+
+  // Default to GFS for unrecognized vendors
+  return 'GFS';
+}
+
+/**
+ * Persist invoice metadata to documents table (v13.1)
+ * Updates invoice_date, invoice_number, vendor columns for quick queries
+ */
+async function persistInvoiceMetadata(documentId, { invoiceNumber, invoiceDate, vendor, amount }) {
+  try {
+    const updates = [];
+    const params = [];
+
+    if (invoiceNumber) {
+      updates.push('invoice_number = ?');
+      params.push(invoiceNumber);
+    }
+    if (invoiceDate) {
+      updates.push('invoice_date = ?');
+      params.push(invoiceDate);
+    }
+    if (vendor) {
+      updates.push('vendor = ?');
+      params.push(vendor);
+    }
+    if (amount) {
+      updates.push('invoice_amount = ?');
+      params.push(amount);
+    }
+
+    if (updates.length === 0) return;
+
+    params.push(documentId);
+    const sql = `UPDATE documents SET ${updates.join(', ')} WHERE id = ?`;
+    await db.run(sql, params);
+  } catch (err) {
+    console.error(`Failed to persist invoice metadata for ${documentId}:`, err);
+    // Don't throw - this is a best-effort optimization
+  }
+}
+
+/**
  * Categorize bulk size for metrics
  */
 function getBulkSizeRange(count) {
@@ -91,29 +170,33 @@ function getBulkSizeRange(count) {
 
 /**
  * GET /api/owner/pdfs
- * List all PDF documents with filtering options
+ * List all PDF documents with filtering options (v13.1 enhanced)
  *
  * Query params:
  * - status: 'all' | 'processed' | 'unprocessed' (default: 'all')
  * - cutoff: ISO8601 date string (filters unprocessed PDFs by created_at <= cutoff)
+ * - from: YYYY-MM-DD (filters by invoice_date >= from)
+ * - to: YYYY-MM-DD (filters by invoice_date <= to)
+ * - vendor: vendor name filter (e.g., 'GFS', 'Sysco')
+ * - limit: number of results (default: 500)
  *
  * Response:
  * {
  *   success: true,
- *   data: [{ id, filename, created_at, isProcessed, linkedCountId, sha256, ... }],
- *   summary: { total, processed, unprocessed, cutoff_applied }
+ *   data: [{ id, filename, invoiceNumber, invoiceDate, vendor, amount, isProcessed, ... }],
+ *   summary: { total, with_date, missing_date, included, not_included, period: {from, to} }
  * }
  */
 router.get('/', authenticateToken, requireOwner, async (req, res) => {
   const timer = pdfRouteLatency.startTimer({ route: '/pdfs', method: 'GET' });
 
   try {
-    const { status = 'all', cutoff } = req.query;
+    const { status = 'all', cutoff, from, to, vendor, limit = 500 } = req.query;
     const hasCutoff = !!cutoff;
 
     pdfListCounter.inc({ status_filter: status, has_cutoff: hasCutoff.toString() });
 
-    // Base query: get all PDF documents with processing status
+    // v13.1: Base query with new invoice columns
     let query = `
       SELECT DISTINCT
         d.id,
@@ -125,7 +208,11 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         d.created_at,
         d.created_by,
         d.tenant_id,
-        d.invoice_metadata,
+        d.metadata as invoice_metadata,
+        d.invoice_date,
+        d.invoice_number,
+        d.vendor,
+        d.invoice_amount,
         pi.line_id as processed_invoice_id,
         pi.invoice_number as processed_invoice_number,
         pi.received_date,
@@ -142,6 +229,22 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
 
     const params = [];
 
+    // v13.1: Apply vendor filter
+    if (vendor) {
+      query += ' AND d.vendor = ?';
+      params.push(vendor);
+    }
+
+    // v13.1: Apply period filter (from/to dates)
+    if (from) {
+      query += ' AND d.invoice_date >= ?';
+      params.push(from);
+    }
+    if (to) {
+      query += ' AND d.invoice_date <= ?';
+      params.push(to);
+    }
+
     // Apply status filter
     if (status === 'unprocessed') {
       query += ' AND cp.document_id IS NULL';
@@ -155,27 +258,40 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
       query += ' AND cp.document_id IS NOT NULL';
     }
 
-    query += ' ORDER BY d.created_at DESC';
+    // v13.1: Order by invoice_date DESC (most recent first), fallback to created_at
+    query += ' ORDER BY COALESCE(d.invoice_date, d.created_at) DESC';
+
+    // Apply limit
+    query += ' LIMIT ?';
+    params.push(parseInt(limit, 10));
 
     const documents = await db.all(query, params);
 
-    // Enrich with derived fields
-    const enriched = documents.map(doc => {
-      let invoiceNumber = null;
-      let invoiceDate = doc.received_date; // fallback to received date
-      let totalAmount = doc.total_amount;
+    // v13.1: Enrich with derived fields and parse missing dates
+    const enriched = [];
+    const toPersist = []; // Track docs that need metadata persisted
 
-      // Extract data from invoice_metadata JSON
+    for (const doc of documents) {
+      // Start with database columns (already normalized)
+      let invoiceNumber = doc.invoice_number;
+      let invoiceDate = doc.invoice_date;
+      let vendorName = doc.vendor || 'GFS';
+      let totalAmount = doc.invoice_amount;
+
+      // If columns are null, try parsing from metadata JSON (legacy)
       if (doc.invoice_metadata) {
         try {
           const metadata = JSON.parse(doc.invoice_metadata);
-          if (metadata.invoice_number) {
+          if (!invoiceNumber && metadata.invoice_number) {
             invoiceNumber = metadata.invoice_number;
           }
-          if (metadata.invoice_date) {
+          if (!invoiceDate && metadata.invoice_date) {
             invoiceDate = metadata.invoice_date;
           }
-          if (metadata.total_amount && !totalAmount) {
+          if (!vendorName && metadata.vendor) {
+            vendorName = metadata.vendor;
+          }
+          if (!totalAmount && metadata.total_amount) {
             totalAmount = metadata.total_amount;
           }
         } catch (e) {
@@ -183,24 +299,57 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         }
       }
 
-      // Fallback to parsing filename or processed_invoice_number
+      // If still missing, parse from filename
+      let needsPersist = false;
       if (!invoiceNumber) {
-        invoiceNumber = parseInvoiceNumber(doc.filename) || doc.processed_invoice_number || 'N/A';
+        invoiceNumber = parseInvoiceNumber(doc.filename) || doc.processed_invoice_number;
+        if (invoiceNumber) needsPersist = true;
       }
 
-      return {
+      if (!invoiceDate) {
+        // Try parsing date from filename first
+        invoiceDate = parseInvoiceDate(doc.filename);
+        if (!invoiceDate) {
+          // Fallback to received_date or processed_at
+          invoiceDate = doc.received_date || doc.processed_at;
+        }
+        if (invoiceDate) needsPersist = true;
+      }
+
+      if (!vendorName || vendorName === 'GFS') {
+        const parsed = parseVendor(doc.filename);
+        if (parsed && parsed !== vendorName) {
+          vendorName = parsed;
+          needsPersist = true;
+        }
+      }
+
+      // If we parsed new data, queue for persistence
+      if (needsPersist) {
+        toPersist.push({
+          documentId: doc.id,
+          invoiceNumber,
+          invoiceDate,
+          vendor: vendorName,
+          amount: totalAmount
+        });
+      }
+
+      enriched.push({
         id: doc.id,
         filename: doc.filename,
-        invoiceNumber: invoiceNumber,
+        invoiceNumber: invoiceNumber || 'N/A',
+        invoiceDate: invoiceDate,
+        vendor: vendorName,
+        amount: totalAmount,
         createdAt: doc.created_at,
         isProcessed: !!doc.linked_count_id,
+        includedInCount: !!doc.linked_count_id, // v13.1: explicit inclusion flag
         linkedCountId: doc.linked_count_id,
         linkedAt: doc.linked_at,
         processedInvoiceId: doc.processed_invoice_id,
         processedAt: doc.processed_at,
-        invoiceDate: invoiceDate,
         receivedDate: doc.received_date,
-        totalAmount: totalAmount,
         sha256: doc.sha256,
         sha256Truncated: doc.sha256 ? doc.sha256.substring(0, 16) + '...' : null,
         sizeMB: doc.size_bytes ? (doc.size_bytes / 1024 / 1024).toFixed(2) : null,
@@ -209,8 +358,29 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         previewUrl: `/api/owner/pdfs/${doc.id}/preview`,
         tenantId: doc.tenant_id,
         createdBy: doc.created_by
-      };
-    });
+      });
+    }
+
+    // v13.1: Persist parsed metadata asynchronously (don't block response)
+    if (toPersist.length > 0) {
+      setImmediate(async () => {
+        for (const item of toPersist) {
+          await persistInvoiceMetadata(item.documentId, item);
+        }
+        console.log(`📅 Persisted invoice metadata for ${toPersist.length} documents`);
+      });
+    }
+
+    // v13.1: Calculate enhanced statistics
+    const stats = {
+      total: enriched.length,
+      with_date: enriched.filter(d => d.invoiceDate).length,
+      missing_date: enriched.filter(d => !d.invoiceDate).length,
+      included_in_count: enriched.filter(d => d.includedInCount).length,
+      not_included: enriched.filter(d => !d.includedInCount).length,
+      processed: enriched.filter(d => d.isProcessed).length,
+      unprocessed: enriched.filter(d => !d.isProcessed).length
+    };
 
     timer();
 
@@ -218,11 +388,11 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
       success: true,
       data: enriched,
       summary: {
-        total: enriched.length,
-        processed: enriched.filter(d => d.isProcessed).length,
-        unprocessed: enriched.filter(d => !d.isProcessed).length,
+        ...stats,
         cutoffApplied: hasCutoff ? cutoff : null,
-        filterApplied: status
+        filterApplied: status,
+        period: { from: from || null, to: to || null },
+        vendor: vendor || null
       }
     });
   } catch (error) {
@@ -614,6 +784,38 @@ router.get('/:documentId/preview', async (req, res) => {
         error: 'PDF file not found on disk',
         path: document.path
       });
+    }
+
+    // v13.1: Audit hook for PDF viewing
+    try {
+      const auditSql = `
+        INSERT INTO owner_console_events (
+          owner_id,
+          event_type,
+          event_data,
+          ip_address,
+          user_agent,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      await db.run(auditSql, [
+        req.user.id || 'unknown',
+        'INVOICE_VIEWED',
+        JSON.stringify({
+          action: 'INVOICE_VIEWED',
+          document_id: documentId,
+          filename: document.filename,
+          invoice_number: invoiceNumber,
+          timestamp: new Date().toISOString()
+        }),
+        req.ip || req.connection?.remoteAddress || 'unknown',
+        req.get('User-Agent') || 'unknown',
+        new Date().toISOString()
+      ]);
+    } catch (auditError) {
+      console.error('Audit log failed (non-fatal):', auditError);
+      // Don't block PDF viewing if audit fails
     }
 
     // Stream PDF
