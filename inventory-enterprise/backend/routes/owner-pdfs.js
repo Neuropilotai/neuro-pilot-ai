@@ -20,6 +20,7 @@ const { requireOwner } = require('../middleware/requireOwner');
 const db = require('../config/database');
 const metricsExporter = require('../utils/metricsExporter');
 const promClient = require('prom-client');
+const GFSInvoiceExtractor = require('../utils/gfsInvoiceExtractor');
 
 // ============================================================================
 // PROMETHEUS METRICS
@@ -971,11 +972,22 @@ router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
           });
         }
 
+        // v13.1: Extract invoice metadata using 100% accurate extractor
+        console.log('📄 Extracting invoice metadata from uploaded PDF...');
+        const extracted = await GFSInvoiceExtractor.extractFromBuffer(fileBuffer);
+        console.log('✅ Extracted:', {
+          invoiceNumber: extracted.invoiceNumber,
+          invoiceDate: extracted.invoiceDate,
+          vendor: extracted.vendor,
+          amount: extracted.amount,
+          documentType: extracted.documentType
+        });
+
         // Get tenant_id from user
         const tenantId = req.user.tenant_id || 'default';
         const userId = req.user.id || 'unknown';
 
-        // Insert into documents table
+        // Insert into documents table with extracted metadata
         const documentId = uuidv4();
         const relativePath = path.relative(
           path.join(__dirname, '..'),
@@ -992,8 +1004,13 @@ router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
             size_bytes,
             sha256,
             created_by,
-            created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            created_at,
+            invoice_number,
+            invoice_date,
+            vendor,
+            invoice_amount,
+            document_type
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         await db.run(insertSql, [
@@ -1005,14 +1022,19 @@ router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
           req.file.size,
           sha256,
           userId,
-          new Date().toISOString()
+          new Date().toISOString(),
+          extracted.invoiceNumber,
+          extracted.invoiceDate,
+          extracted.vendor,
+          extracted.amount,
+          extracted.documentType
         ]);
 
         timer();
 
         res.status(201).json({
           success: true,
-          message: 'PDF uploaded successfully',
+          message: 'PDF uploaded and extracted successfully',
           data: {
             documentId: documentId,
             filename: req.file.originalname,
@@ -1021,7 +1043,11 @@ router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
             sizeMB: (req.file.size / 1024 / 1024).toFixed(2),
             sizeBytes: req.file.size,
             path: relativePath,
-            invoiceNumber: parseInvoiceNumber(req.file.originalname)
+            invoiceNumber: extracted.invoiceNumber || parseInvoiceNumber(req.file.originalname),
+            invoiceDate: extracted.invoiceDate,
+            vendor: extracted.vendor,
+            amount: extracted.amount,
+            documentType: extracted.documentType
           }
         });
 

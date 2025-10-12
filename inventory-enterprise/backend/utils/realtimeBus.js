@@ -1,8 +1,11 @@
 /**
- * Real-Time Event Bus (NeuroPilot v12.5)
+ * Real-Time Event Bus (NeuroPilot v13.5)
  * Centralized event distribution for live Owner Console updates
+ * Enhanced with latency tracking and predictive health monitoring
  *
- * @version 12.5.0
+ * === v13.5 ENHANCEMENT: LATENCY TRACKING + HEALTH WARNINGS ===
+ *
+ * @version 13.5.0
  * @author NeuroInnovate AI Team
  */
 
@@ -15,6 +18,10 @@ class RealtimeBus extends EventEmitter {
     this.lastEmit = {};
     this.emitCount = {};
     this.connectedClients = new Set();
+
+    // === v13.5: Latency tracking ===
+    this.forecastLatencies = [];  // Last 10 forecast durations (ms)
+    this.learningLatencies = [];  // Last 10 learning durations (ms)
   }
 
   /**
@@ -206,6 +213,62 @@ class RealtimeBus extends EventEmitter {
       type: 'alert',
       level,
       message,
+      ...data
+    });
+  }
+
+  // === v13.5: Latency tracking methods ===
+
+  /**
+   * Track forecast job latency
+   * @param {number} durationMs - Forecast job duration in milliseconds
+   */
+  trackForecastLatency(durationMs) {
+    this.forecastLatencies.push(durationMs);
+    if (this.forecastLatencies.length > 10) {
+      this.forecastLatencies.shift(); // Keep only last 10
+    }
+  }
+
+  /**
+   * Track learning job latency
+   * @param {number} durationMs - Learning job duration in milliseconds
+   */
+  trackLearningLatency(durationMs) {
+    this.learningLatencies.push(durationMs);
+    if (this.learningLatencies.length > 10) {
+      this.learningLatencies.shift(); // Keep only last 10
+    }
+  }
+
+  /**
+   * Get average forecast latency (last 10 runs)
+   * @returns {number|null} Average latency in ms or null
+   */
+  getAvgForecastLatency() {
+    if (this.forecastLatencies.length === 0) return null;
+    const sum = this.forecastLatencies.reduce((a, b) => a + b, 0);
+    return Math.round(sum / this.forecastLatencies.length);
+  }
+
+  /**
+   * Get average learning latency (last 10 runs)
+   * @returns {number|null} Average latency in ms or null
+   */
+  getAvgLearningLatency() {
+    if (this.learningLatencies.length === 0) return null;
+    const sum = this.learningLatencies.reduce((a, b) => a + b, 0);
+    return Math.round(sum / this.learningLatencies.length);
+  }
+
+  /**
+   * Emit AI learning update event (v13.5 RLHF)
+   * @param {object} data - Learning update data with reward and confidence
+   */
+  emitLearningUpdate(data) {
+    this.emit('ai_learning_update', {
+      type: 'learning_update',
+      timestamp: new Date().toISOString(),
       ...data
     });
   }

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Date Display Test</title>
+</head>
+<body>
+    <h1>Testing Invoice Date Display</h1>
+    <p>Testing invoice 9027091044 with date 2025-09-20</p>
+
+    <h2>OLD METHOD (Broken):</h2>
+    <div id="old-method"></div>
+
+    <h2>NEW METHOD (Fixed):</h2>
+    <div id="new-method"></div>
+
+    <script>
+        const invoiceDate = "2025-09-20";
+
+        // OLD METHOD (causes timezone issues)
+        const oldDisplay = new Date(invoiceDate).toLocaleDateString();
+        document.getElementById('old-method').innerHTML =
+            `<strong>${oldDisplay}</strong> ❌ (Shows Sept 19 in some timezones)`;
+
+        // NEW METHOD (fixed)
+        const [year, month, day] = invoiceDate.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        const newDisplay = date.toLocaleDateString();
+        document.getElementById('new-method').innerHTML =
+            `<strong>${newDisplay}</strong> ✅ (Always shows Sept 20)`;
+
+        // Show timezone info
+        document.body.innerHTML += `
+            <h2>Timezone Info:</h2>
+            <p>Your timezone offset: ${new Date().getTimezoneOffset()} minutes from UTC</p>
+            <p>Database date: ${invoiceDate}</p>
+            <p>Expected display: September 20, 2025</p>
+        `;
+    </script>
+</body>
+</html>

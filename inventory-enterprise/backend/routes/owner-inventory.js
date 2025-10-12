@@ -41,16 +41,41 @@ router.get('/has-snapshot', async (req, res) => {
       WHERE status = 'CLOSED'
     `);
 
-    const hasSnapshot = (result.count || 0) > 0;
+    let hasSnapshot = (result.count || 0) > 0;
+    let lastCount = null;
 
     // Get most recent count info
-    const lastCount = await db.get(`
-      SELECT count_id, count_date, count_type, closed_at
-      FROM count_headers
-      WHERE status = 'CLOSED'
-      ORDER BY closed_at DESC
-      LIMIT 1
-    `);
+    if (hasSnapshot) {
+      lastCount = await db.get(`
+        SELECT count_id, count_date, count_type, closed_at
+        FROM count_headers
+        WHERE status = 'CLOSED'
+        ORDER BY closed_at DESC
+        LIMIT 1
+      `);
+    } else {
+      // Check if inventory_items has data with last_count_date (loaded baseline)
+      const inventoryBaseline = await db.get(`
+        SELECT
+          COUNT(*) as count,
+          MAX(last_count_date) as last_count_date,
+          SUM(current_quantity * unit_cost) as total_value
+        FROM inventory_items
+        WHERE is_active = 1 AND last_count_date IS NOT NULL
+      `);
+
+      if (inventoryBaseline && inventoryBaseline.count > 0) {
+        hasSnapshot = true;
+        lastCount = {
+          count_id: 'BASELINE',
+          count_date: inventoryBaseline.last_count_date,
+          count_type: 'FIFO_BASELINE',
+          closed_at: inventoryBaseline.last_count_date,
+          item_count: inventoryBaseline.count,
+          total_value: inventoryBaseline.total_value
+        };
+      }
+    }
 
     res.json({
       success: true,
@@ -154,36 +179,40 @@ router.get('/current', async (req, res) => {
     const search = req.query.search || '';
     const category = req.query.category || '';
 
+    // Query inventory with costs
     let sql = `
       SELECT
-        item_code,
-        item_name,
-        unit,
-        category,
-        current_quantity,
-        par_level,
-        reorder_point,
-        last_count_date,
-        fifo_layers,
-        ROUND(avg_unit_cost, 2) as avg_unit_cost,
-        layer_count
-      FROM v_inventory_with_fifo
-      WHERE 1=1
+        i.item_code,
+        i.item_name,
+        i.unit,
+        i.category,
+        i.current_quantity,
+        i.par_level,
+        i.reorder_point,
+        i.last_count_date,
+        i.unit_cost,
+        i.last_cost,
+        i.unit_cost as avg_unit_cost,
+        ROUND(i.current_quantity * i.unit_cost, 2) as total_value,
+        NULL as fifo_layers,
+        0 as layer_count
+      FROM inventory_items i
+      WHERE i.is_active = 1
     `;
 
     const params = [];
 
     if (search) {
-      sql += ` AND (item_code LIKE ? OR item_name LIKE ?)`;
+      sql += ` AND (i.item_code LIKE ? OR i.item_name LIKE ?)`;
       params.push(`%${search}%`, `%${search}%`);
     }
 
     if (category) {
-      sql += ` AND category = ?`;
+      sql += ` AND i.category = ?`;
       params.push(category);
     }
 
-    sql += ` ORDER BY item_name ASC`;
+    sql += ` ORDER BY i.item_name ASC`;
 
     const items = await db.all(sql, params);
 

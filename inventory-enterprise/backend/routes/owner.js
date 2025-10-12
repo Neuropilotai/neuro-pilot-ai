@@ -37,6 +37,9 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
     const phase3Cron = req.app.locals.phase3Cron;
     const aiModules = await getAIModuleStatus(phase3Cron, db);
 
+    // v13.0: Get learning insights (last 5)
+    const learningInsights = await getLearningInsights(db, 5);
+
     // Get version info
     const versionInfo = {
       current: '13.0.1',
@@ -69,6 +72,7 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
         auditLogs,
         dbStats,
         aiModules,
+        learningInsights, // v13.0: Latest 5 learning insights
         versionInfo
       }
     });
@@ -432,11 +436,47 @@ async function getDatabaseStats(db) {
 
     // Get database size (SQLite only)
     try {
-      const dbPath = path.join(__dirname, '../db/inventory_enterprise.db');
+      const dbPath = path.join(__dirname, '../data/enterprise_inventory.db');
       const stat = await fs.stat(dbPath);
       stats.databaseSize = `${(stat.size / 1024 / 1024).toFixed(2)} MB`;
     } catch (error) {
       stats.databaseSize = 'N/A';
+    }
+
+    // v13.0: AI Module metrics
+    // Get forecast cached today
+    try {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const result = await db.get(`SELECT COUNT(*) as count FROM ai_daily_forecast_cache WHERE DATE(forecast_date) = ?`, [today]);
+      stats.forecast_cached_today = result ? result.count : 0;
+    } catch (error) {
+      stats.forecast_cached_today = 0;
+    }
+
+    // Get forecast cached tomorrow
+    try {
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const result = await db.get(`SELECT COUNT(*) as count FROM ai_daily_forecast_cache WHERE DATE(forecast_date) = ?`, [tomorrow]);
+      stats.forecast_cached_tomorrow = result ? result.count : 0;
+    } catch (error) {
+      stats.forecast_cached_tomorrow = 0;
+    }
+
+    // Get feedback pending count
+    try {
+      const result = await db.get(`SELECT COUNT(*) as count FROM ai_feedback_comments WHERE status = 'pending' OR status IS NULL`);
+      stats.feedback_pending = result ? result.count : 0;
+    } catch (error) {
+      stats.feedback_pending = 0;
+    }
+
+    // Get learning insights from last 7 days
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const result = await db.get(`SELECT COUNT(*) as count FROM ai_learning_insights WHERE created_at >= ?`, [sevenDaysAgo]);
+      stats.learning_insights_7d = result ? result.count : 0;
+    } catch (error) {
+      stats.learning_insights_7d = 0;
     }
 
     return stats;
@@ -545,6 +585,38 @@ async function getAIModuleStatus(phase3Cron, db) {
       status: 'ACTIVE'
     }
   };
+}
+
+/**
+ * Get latest learning insights (last 5)
+ * v13.0: For learning visibility dashboard
+ */
+async function getLearningInsights(db, limit = 5) {
+  try {
+    const sql = `
+      SELECT
+        insight_text as title,
+        source,
+        confidence,
+        created_at
+      FROM ai_learning_insights
+      WHERE confidence IS NOT NULL
+      ORDER BY created_at DESC
+      LIMIT ?
+    `;
+
+    const insights = await db.all(sql, [limit]);
+
+    return insights.map(insight => ({
+      title: insight.title || 'No title',
+      source: insight.source || 'AI Learning Engine',
+      confidence: parseFloat(insight.confidence) || 0,
+      created_at: insight.created_at
+    }));
+  } catch (error) {
+    console.debug('Failed to get learning insights:', error.message);
+    return [];
+  }
 }
 
 /**

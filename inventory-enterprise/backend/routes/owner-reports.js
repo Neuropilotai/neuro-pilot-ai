@@ -640,4 +640,132 @@ router.get('/finance', authenticateToken, requireOwner, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/owner/reports/gfs/monthly
+ * GFS Monthly Reports List
+ * Scans the /gfs-reports directory and returns sorted list
+ */
+router.get('/gfs/monthly', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const fs = require('fs').promises;
+    const path = require('path');
+
+    // Reports directory (served via static route /gfs-reports)
+    const reportsDir = path.join(__dirname, '../reports/gfs');
+
+    let reports = [];
+
+    try {
+      const files = await fs.readdir(reportsDir);
+
+      for (const file of files) {
+        if (file.endsWith('.xlsx') || file.endsWith('.xls') || file.endsWith('.pdf')) {
+          try {
+            const filePath = path.join(reportsDir, file);
+            const stats = await fs.stat(filePath);
+
+            // Extract period_end date from filename (e.g., GFS_Accounting_Report_2025-09-26.xlsx)
+            const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/);
+            const periodEnd = dateMatch ? dateMatch[1] : null;
+
+            reports.push({
+              label: file,
+              period_end: periodEnd,
+              size_kb: Math.round(stats.size / 1024),
+              open_url: `/gfs-reports/${file}`,
+              modified_at: stats.mtime.toISOString()
+            });
+          } catch (statError) {
+            console.warn(`Failed to stat file ${file}:`, statError.message);
+          }
+        }
+      }
+
+      // Sort by period_end desc (newest first)
+      reports.sort((a, b) => {
+        if (!a.period_end) return 1;
+        if (!b.period_end) return -1;
+        return b.period_end.localeCompare(a.period_end);
+      });
+
+    } catch (dirError) {
+      console.warn('GFS reports directory not found or empty:', dirError.message);
+      // Return empty list if directory doesn't exist
+    }
+
+    res.json({
+      success: true,
+      reports,
+      count: reports.length
+    });
+
+  } catch (error) {
+    console.error('GFS monthly reports error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/reports/fiscal-period
+ * Get fiscal period for a given date (from database fiscal calendar)
+ * Query param: date (YYYY-MM-DD, defaults to today)
+ */
+router.get('/fiscal-period', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    // Query fiscal_periods table for the period containing this date
+    const periodQuery = `
+      SELECT
+        fp.fiscal_year,
+        fp.period,
+        fp.fiscal_year_id,
+        fp.period_name,
+        fp.start_date as period_start,
+        fp.end_date as period_end,
+        fy.fiscal_year_number
+      FROM fiscal_periods fp
+      JOIN fiscal_years fy ON fp.fiscal_year_id = fy.fiscal_year_id
+      WHERE date(?) BETWEEN date(fp.start_date) AND date(fp.end_date)
+      LIMIT 1
+    `;
+
+    const period = await db.get(periodQuery, [targetDate]);
+
+    if (!period) {
+      return res.status(404).json({
+        success: false,
+        error: `No fiscal period found for date ${targetDate}`
+      });
+    }
+
+    // Format period ID (e.g., FY25-P05)
+    const periodId = `FY${period.fiscal_year % 100}-P${period.period.toString().padStart(2, '0')}`;
+
+    res.json({
+      success: true,
+      date: targetDate,
+      fiscal_year: period.fiscal_year_id,
+      fiscal_year_number: period.fiscal_year_number,
+      period: period.period,
+      period_id: periodId,
+      period_name: period.period_name,
+      period_start: period.period_start,
+      period_end: period.period_end,
+      label: `${period.fiscal_year_id} P${period.period.toString().padStart(2, '0')} (${period.period_name})`
+    });
+
+  } catch (error) {
+    console.error('Fiscal period error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

@@ -16,7 +16,7 @@ const { requireOwner } = require('../middleware/requireOwner');
 const { auditLog, securityLog, logger } = require('../config/logger');
 
 const router = express.Router();
-const DB_PATH = path.join(__dirname, '../db/inventory_enterprise.db');
+const DB_PATH = path.join(__dirname, '../data/enterprise_inventory.db');
 const PDF_STORAGE = path.join(__dirname, '../data/pdfs');
 
 // Prometheus metrics helper
@@ -325,8 +325,8 @@ router.post('/counts/:countId/add-item', authenticateToken, requireOwner, (req, 
 
     // Find item by code or ID
     const itemQuery = itemId
-      ? 'SELECT * FROM item_master WHERE item_id = ?'
-      : 'SELECT * FROM item_master WHERE item_code = ? OR barcode = ?';
+      ? 'SELECT * FROM inventory_items WHERE item_id = ?'
+      : 'SELECT * FROM inventory_items WHERE item_code = ? OR barcode = ?';
 
     const itemParams = itemId ? [itemId] : [itemCode, itemCode];
 
@@ -523,7 +523,7 @@ router.get('/counts/:countId', authenticateToken, requireOwner, (req, res) => {
           im.barcode as item_barcode,
           sl.location_name
         FROM count_items ci
-        JOIN item_master im ON ci.item_id = im.item_id
+        JOIN inventory_items im ON ci.item_id = im.item_id
         LEFT JOIN storage_locations sl ON ci.location_id = sl.location_id
         WHERE ci.count_id = ?
         ORDER BY ci.sequence ASC
@@ -602,7 +602,7 @@ router.post('/counts/:countId/close', authenticateToken, requireOwner, (req, res
       db.all(`
         SELECT ci.*, im.item_code, im.item_name
         FROM count_items ci
-        JOIN item_master im ON ci.item_id = im.item_id
+        JOIN inventory_items im ON ci.item_id = im.item_id
         WHERE ci.count_id = ?
       `, [countId], (itemsErr, items) => {
         const snapshot = {

@@ -174,6 +174,10 @@ app.use('/api/owner/reports', authenticateToken, requireOwnerDevice, ownerReport
 const ownerOpsRoutes = require('./routes/owner-ops');
 app.use('/api/owner/ops', authenticateToken, requireOwnerDevice, ownerOpsRoutes);
 
+// v13.1 - Dashboard Stats (Real Data)
+const ownerDashboardStatsRoutes = require('./routes/owner-dashboard-stats');
+app.use('/api/owner/dashboard', authenticateToken, requireOwnerDevice, ownerDashboardStatsRoutes);
+
 app.get('/health', async (req, res) => {
   const feedbackStats = feedbackStream.getStats();
   const forecastStats = forecastWorker.getStats();
