@@ -434,10 +434,10 @@
 
     <!-- AI Console Tab -->
     <div id="ai" class="tab-panel">
-      <!-- AI Ops System Health Panel (v12.5) -->
+      <!-- AI Ops System Health Panel (v13.5) -->
       <div class="card" style="margin-bottom: 1.5rem; border: 2px solid var(--primary);">
         <div class="card-header">
-          <h3 class="card-title">🚀 AI Ops System Health (v12.5)</h3>
+          <h3 class="card-title">🚀 AI Ops System Health (v13.5 Adaptive)</h3>
           <button type="button" class="btn btn-sm btn-primary" onclick="loadAIOpsStatus()">↻ Refresh</button>
         </div>
         <div class="grid grid-4" id="aiOpsHealthGrid">
@@ -446,16 +446,16 @@
             <div class="stat-label">Health Score</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="opsForecastStatus" style="font-size: 1.5rem;">--</div>
-            <div class="stat-label">Forecast Status</div>
+            <div class="stat-value" id="opsDQIScore" style="font-size: 1.5rem;">--</div>
+            <div class="stat-label">🧮 Data Quality (DQI)</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="opsLearningStatus" style="font-size: 1.5rem;">--</div>
-            <div class="stat-label">Learning Status</div>
+            <div class="stat-value" id="opsForecastLatency" style="font-size: 1.5rem;">--</div>
+            <div class="stat-label">⚙️ Forecast Latency</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="opsRealtimeClients" style="font-size: 1.5rem;">--</div>
-            <div class="stat-label">Real-Time Clients</div>
+            <div class="stat-value" id="opsLearningDivergence" style="font-size: 1.5rem;">--</div>
+            <div class="stat-label">🧩 Learning Divergence</div>
           </div>
         </div>
         <div id="aiOpsChecks" style="margin-top: 1rem;"></div>
@@ -852,6 +852,55 @@
     </div>
   </div>
 
-  <script src="owner-super-console.js"></script>
+  <!-- Add Item to Count Modal -->
+  <div id="addItemToCountModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Item to Count</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeAddItemToCountModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="addItemToCountForm" onsubmit="event.preventDefault(); submitItemToCount();">
+          <!-- Item Search -->
+          <div class="form-group">
+            <label class="form-label">Search Item (by code or name) *</label>
+            <input type="text" class="input" id="itemSearchInput" placeholder="Type item code or name..." autocomplete="off" required>
+            <div id="itemSearchResults" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin-top: 0.5rem; display: none;"></div>
+            <input type="hidden" id="selectedItemCode">
+            <div id="selectedItemDisplay" style="margin-top: 0.5rem; padding: 0.75rem; background: var(--bg); border-radius: 4px; display: none;">
+              <strong>Selected:</strong> <span id="selectedItemText"></span>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="clearSelectedItem()" style="float: right; padding: 0.25rem 0.5rem;">Clear</button>
+            </div>
+          </div>
+
+          <!-- Storage Location -->
+          <div class="form-group">
+            <label class="form-label">Storage Location</label>
+            <select class="select" id="countItemLocation">
+              <option value="">Select location...</option>
+            </select>
+          </div>
+
+          <!-- Quantity -->
+          <div class="form-group">
+            <label class="form-label">Quantity *</label>
+            <input type="number" class="input" id="countItemQuantity" placeholder="0" step="0.01" min="0" required>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="textarea" id="countItemNotes" placeholder="Any notes about this item..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeAddItemToCountModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitItemToCount()">✓ Add Item</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="owner-super-console.js?v=13.5.1"></script>
 </body>
 </html>

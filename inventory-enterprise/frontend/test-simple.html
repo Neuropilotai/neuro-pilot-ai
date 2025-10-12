@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Date Test</title>
+    <style>
+        body { font-family: monospace; padding: 2rem; background: #1a1a1a; color: #0f0; }
+        .test { background: #2a2a2a; padding: 1rem; margin: 1rem 0; border-left: 4px solid #0f0; }
+        .error { border-left-color: #f00; color: #f00; }
+    </style>
+</head>
+<body>
+    <h1>🔬 Direct Database Date Test</h1>
+
+    <div class="test">
+        <h3>Test: Date 2025-09-20</h3>
+        <p id="result1"></p>
+    </div>
+
+    <div class="test">
+        <h3>Your Timezone</h3>
+        <p id="timezone"></p>
+    </div>
+
+    <div class="test">
+        <h3>Browser Info</h3>
+        <p id="browser"></p>
+    </div>
+
+    <script>
+        // Test the exact date from database
+        const dbDate = "2025-09-20";
+
+        // OLD METHOD (causes the bug)
+        const oldDate = new Date(dbDate);
+        console.log("OLD:", oldDate);
+        const oldDisplay = oldDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        // NEW METHOD (the fix)
+        const [year, month, day] = dbDate.split('-');
+        const newDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        console.log("NEW:", newDate);
+        const newDisplay = newDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        document.getElementById('result1').innerHTML = `
+            Database: "${dbDate}"<br><br>
+            <strong>OLD METHOD (broken):</strong><br>
+            new Date("${dbDate}")<br>
+            → ${oldDisplay}<br>
+            <span style="color: ${oldDisplay.includes('19') ? '#f00' : '#0f0'}">
+                ${oldDisplay.includes('19') ? '❌ WRONG (shows Sept 19)' : '✅ CORRECT'}
+            </span><br><br>
+            <strong>NEW METHOD (fixed):</strong><br>
+            Split & parse: new Date(2025, 8, 20)<br>
+            → ${newDisplay}<br>
+            <span style="color: ${newDisplay.includes('20') ? '#0f0' : '#f00'}">
+                ${newDisplay.includes('20') ? '✅ CORRECT (shows Sept 20)' : '❌ WRONG'}
+            </span>
+        `;
+
+        // Timezone info
+        const offset = new Date().getTimezoneOffset();
+        const offsetHours = -offset / 60;
+        document.getElementById('timezone').innerHTML = `
+            Offset: ${offsetHours >= 0 ? '+' : ''}${offsetHours} hours from UTC<br>
+            ${offset > 0 ? '⚠️ Your timezone is BEHIND UTC (causes the Sept 19 bug)' : '✅ Your timezone is ahead or at UTC'}
+        `;
+
+        // Browser info
+        document.getElementById('browser').innerHTML = `
+            ${navigator.userAgent}<br><br>
+            Cache Status: ${performance.getEntriesByType('resource').length} resources loaded<br>
+            Page loaded at: ${new Date().toLocaleString()}
+        `;
+    </script>
+</body>
+</html>

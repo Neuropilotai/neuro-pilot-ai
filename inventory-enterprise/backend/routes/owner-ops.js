@@ -275,35 +275,58 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       }
     }
 
-    // 1. AI Confidence Average (7-day rolling, fallback to 30-day)
+    // v13.x: AI Confidence Average (7-day rolling, fallback to 30-day, then all-time)
     let aiConfidenceAvg = null;
+    let confidenceNote = null;
     try {
+      // Try 7-day window first
       let confResult = await db.get(`
         SELECT ROUND(AVG(confidence),2) as avg_confidence, COUNT(*) as cnt
         FROM ai_learning_insights
         WHERE created_at >= datetime('now', '-7 days')
           AND confidence IS NOT NULL
+          AND confidence > 0
       `);
-      if (confResult && confResult.cnt > 0 && confResult.avg_confidence !== null) {
+
+      if (confResult && confResult.cnt >= 5 && confResult.avg_confidence !== null) {
         aiConfidenceAvg = Math.round(confResult.avg_confidence * 100);
+        confidenceNote = '7d_avg';
       } else {
-        // Fallback to 30-day
+        // Fallback to 30-day if < 5 days of data
         confResult = await db.get(`
           SELECT ROUND(AVG(confidence),2) as avg_confidence, COUNT(*) as cnt
           FROM ai_learning_insights
           WHERE created_at >= datetime('now', '-30 days')
             AND confidence IS NOT NULL
+            AND confidence > 0
         `);
         if (confResult && confResult.cnt > 0 && confResult.avg_confidence !== null) {
           aiConfidenceAvg = Math.round(confResult.avg_confidence * 100);
+          confidenceNote = '30d_avg';
+        } else {
+          // Final fallback: all-time average
+          confResult = await db.get(`
+            SELECT ROUND(AVG(confidence),2) as avg_confidence, COUNT(*) as cnt
+            FROM ai_learning_insights
+            WHERE confidence IS NOT NULL
+              AND confidence > 0
+          `);
+          if (confResult && confResult.cnt > 0 && confResult.avg_confidence !== null) {
+            aiConfidenceAvg = Math.round(confResult.avg_confidence * 100);
+            confidenceNote = 'alltime_avg';
+          } else {
+            confidenceNote = 'insufficient_data';
+          }
         }
       }
     } catch (err) {
       logger.debug('Confidence avg not available:', err.message);
+      confidenceNote = 'table_missing';
     }
 
-    // 2. Forecast Accuracy (MAPE % from forecast_results)
+    // v13.x: Forecast Accuracy (MAPE % from forecast_results with fallbacks)
     let forecastAccuracy = null;
+    let accuracyNote = null;
     try {
       const accResult = await db.get(`
         SELECT
@@ -313,16 +336,42 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
         FROM forecast_results
         WHERE created_at >= datetime('now', '-7 days')
       `);
+
       if (accResult && accResult.cnt > 0) {
         // Use accuracy_pct if available, otherwise calculate from MAPE (100 - MAPE)
         if (accResult.avg_accuracy !== null && accResult.avg_accuracy !== undefined) {
           forecastAccuracy = Math.round(accResult.avg_accuracy);
+          accuracyNote = '7d_accuracy';
         } else if (accResult.avg_mape !== null && accResult.avg_mape !== undefined) {
           forecastAccuracy = Math.max(0, Math.round(100 - accResult.avg_mape));
+          accuracyNote = '7d_mape_derived';
+        }
+      } else {
+        // Fallback to 30-day window
+        const fallbackResult = await db.get(`
+          SELECT
+            AVG(accuracy_pct) as avg_accuracy,
+            AVG(mape) as avg_mape,
+            COUNT(*) as cnt
+          FROM forecast_results
+          WHERE created_at >= datetime('now', '-30 days')
+        `);
+
+        if (fallbackResult && fallbackResult.cnt > 0) {
+          if (fallbackResult.avg_accuracy !== null) {
+            forecastAccuracy = Math.round(fallbackResult.avg_accuracy);
+            accuracyNote = '30d_accuracy';
+          } else if (fallbackResult.avg_mape !== null) {
+            forecastAccuracy = Math.max(0, Math.round(100 - fallbackResult.avg_mape));
+            accuracyNote = '30d_mape_derived';
+          }
+        } else {
+          accuracyNote = 'insufficient_data';
         }
       }
     } catch (err) {
       logger.debug('Forecast accuracy not available:', err.message);
+      accuracyNote = 'table_missing';
     }
 
     // 3. Financial Anomaly Count
@@ -376,25 +425,30 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
     };
 
     try {
-      // Track forecast latency (avg ms over last 10 runs)
+      // v13.x: Track forecast latency (avg ms over last 10 runs)
+      // Query breadcrumbs with proper column names (action, duration_ms, created_at)
       const forecastLatency = await db.get(`
-        SELECT AVG(duration_ms) as avg_latency
+        SELECT AVG(duration_ms) as avg_latency, COUNT(*) as run_count
         FROM ai_ops_breadcrumbs
         WHERE action = 'forecast_completed'
+          AND created_at IS NOT NULL
           AND created_at >= datetime('now', '-7 days')
-        LIMIT 10
       `);
-      predictiveHealth.forecast_latency_avg = forecastLatency?.avg_latency ? Math.round(forecastLatency.avg_latency) : null;
+      predictiveHealth.forecast_latency_avg = (forecastLatency?.avg_latency && forecastLatency.run_count > 0)
+        ? Math.round(forecastLatency.avg_latency)
+        : null;
 
       // Track learning latency
       const learningLatency = await db.get(`
-        SELECT AVG(duration_ms) as avg_latency
+        SELECT AVG(duration_ms) as avg_latency, COUNT(*) as run_count
         FROM ai_ops_breadcrumbs
         WHERE action = 'learning_completed'
+          AND created_at IS NOT NULL
           AND created_at >= datetime('now', '-7 days')
-        LIMIT 10
       `);
-      predictiveHealth.learning_latency_avg = learningLatency?.avg_latency ? Math.round(learningLatency.avg_latency) : null;
+      predictiveHealth.learning_latency_avg = (learningLatency?.avg_latency && learningLatency.run_count > 0)
+        ? Math.round(learningLatency.avg_latency)
+        : null;
 
       // Track forecast divergence (Δ MAPE 7-day vs prev 7-day)
       const mapeCurrent = await db.get(`

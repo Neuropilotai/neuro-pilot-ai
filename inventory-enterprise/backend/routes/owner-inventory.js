@@ -772,4 +772,240 @@ router.post('/adjust', async (req, res) => {
   }
 });
 
+// ============================================================================
+// v13.x: INVENTORY WORKSPACE (Month-End Reconciliation)
+// ============================================================================
+
+/**
+ * GET /api/owner/inventory/workspaces
+ * List all inventory workspaces with optional status filter
+ */
+router.get('/workspaces', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const status = req.query.status; // draft, in_progress, closed
+
+    let sql = 'SELECT * FROM inventory_workspace WHERE 1=1';
+    const params = [];
+
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    const workspaces = await db.all(sql, params);
+
+    res.json({
+      success: true,
+      workspaces,
+      count: workspaces.length
+    });
+  } catch (error) {
+    console.error('GET /workspaces error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/owner/inventory/workspaces
+ * Create new inventory workspace
+ */
+router.post('/workspaces', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { name, start_date, end_date } = req.body;
+
+    if (!name || !start_date || !end_date) {
+      return res.status(400).json({
+        success: false,
+        error: 'name, start_date, and end_date are required'
+      });
+    }
+
+    // Auto-detect fiscal period
+    let period_label = null;
+    try {
+      const fiscal = await db.get(`
+        SELECT fiscal_year, period
+        FROM fiscal_periods
+        WHERE date(?) BETWEEN date(start_date) AND date(end_date)
+        LIMIT 1
+      `, [start_date]);
+      if (fiscal) {
+        period_label = `FY${fiscal.fiscal_year % 100}-P${String(fiscal.period).padStart(2, '0')}`;
+      }
+    } catch (err) {
+      // Fiscal calendar not available, leave null
+    }
+
+    const result = await db.run(`
+      INSERT INTO inventory_workspace (name, period_label, start_date, end_date, status, created_by)
+      VALUES (?, ?, ?, ?, 'draft', ?)
+    `, [name, period_label, start_date, end_date, req.user?.email || 'owner']);
+
+    res.json({
+      success: true,
+      workspace_id: result.lastID,
+      period_label,
+      message: 'Workspace created successfully'
+    });
+  } catch (error) {
+    console.error('POST /workspaces error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/owner/inventory/workspaces/:id/docs
+ * Attach PDFs to workspace
+ */
+router.post('/workspaces/:id/docs', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { id } = req.params;
+    const { doc_ids } = req.body; // array of document IDs
+
+    if (!doc_ids || !Array.isArray(doc_ids)) {
+      return res.status(400).json({
+        success: false,
+        error: 'doc_ids array is required'
+      });
+    }
+
+    let attached = 0;
+    for (const doc_id of doc_ids) {
+      try {
+        await db.run(`
+          INSERT INTO inventory_workspace_docs (workspace_id, doc_id, doc_type, attached_by)
+          VALUES (?, ?, 'invoice', ?)
+        `, [id, doc_id, req.user?.email || 'owner']);
+        attached++;
+      } catch (err) {
+        // Skip duplicates
+        console.debug(`Doc ${doc_id} already attached or error:`, err.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      attached_count: attached,
+      total_requested: doc_ids.length
+    });
+  } catch (error) {
+    console.error('POST /workspaces/:id/docs error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/owner/inventory/workspaces/:id/counts
+ * Add/update count lines in workspace
+ */
+router.post('/workspaces/:id/counts', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { id } = req.params;
+    const { counts } = req.body; // array of {item_code, qty, unit}
+
+    if (!counts || !Array.isArray(counts)) {
+      return res.status(400).json({
+        success: false,
+        error: 'counts array is required'
+      });
+    }
+
+    let inserted = 0;
+    for (const count of counts) {
+      await db.run(`
+        INSERT INTO inventory_workspace_counts (workspace_id, item_code, qty, unit, counted_by)
+        VALUES (?, ?, ?, ?, ?)
+      `, [id, count.item_code, count.qty, count.unit, req.user?.email || 'owner']);
+      inserted++;
+    }
+
+    res.json({
+      success: true,
+      inserted_count: inserted
+    });
+  } catch (error) {
+    console.error('POST /workspaces/:id/counts error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/owner/inventory/workspaces/:id/close
+ * Close workspace and generate month-end report
+ */
+router.post('/workspaces/:id/close', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { id } = req.params;
+
+    // Get workspace info
+    const workspace = await db.get(`
+      SELECT * FROM inventory_workspace WHERE workspace_id = ?
+    `, [id]);
+
+    if (!workspace) {
+      return res.status(404).json({
+        success: false,
+        error: 'Workspace not found'
+      });
+    }
+
+    if (workspace.status === 'closed') {
+      return res.status(400).json({
+        success: false,
+        error: 'Workspace already closed'
+      });
+    }
+
+    // Get closing counts
+    const counts = await db.all(`
+      SELECT item_code, qty, unit
+      FROM inventory_workspace_counts
+      WHERE workspace_id = ?
+    `, [id]);
+
+    // Get purchases (sum of attached invoices)
+    const purchases = await db.all(`
+      SELECT ili.product_code as item_code, SUM(ili.quantity) as total_qty
+      FROM inventory_workspace_docs iwd
+      JOIN documents d ON iwd.doc_id = d.id
+      JOIN invoice_line_items ili ON d.id = ili.document_id
+      WHERE iwd.workspace_id = ?
+      GROUP BY ili.product_code
+    `, [id]);
+
+    // Calculate usage: Opening + Purchases - Closing = Usage
+    const report = {
+      workspace: workspace.name,
+      period: workspace.period_label,
+      date_range: `${workspace.start_date} to ${workspace.end_date}`,
+      counts: counts.length,
+      invoices_attached: purchases.length,
+      summary: 'Month-end reconciliation complete'
+    };
+
+    // Update workspace status
+    await db.run(`
+      UPDATE inventory_workspace
+      SET status = 'closed', closed_at = datetime('now'), closed_by = ?
+      WHERE workspace_id = ?
+    `, [req.user?.email || 'owner', id]);
+
+    res.json({
+      success: true,
+      report,
+      message: 'Workspace closed successfully'
+    });
+  } catch (error) {
+    console.error('POST /workspaces/:id/close error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

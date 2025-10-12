@@ -494,7 +494,7 @@ async function getDatabaseStats(db) {
 
 /**
  * Get AI module status with live timestamps from Phase3CronScheduler
- * v13.0: 3-tier fallback (in-memory → breadcrumbs → database)
+ * v13.x: Enhanced 3-tier fallback (in-memory → breadcrumbs → database → forecast_cache)
  */
 async function getAIModuleStatus(phase3Cron, db) {
   // Get live run timestamps from cron scheduler
@@ -508,11 +508,48 @@ async function getAIModuleStatus(phase3Cron, db) {
       lastForecastRun = lastRuns.lastForecastRun;
       lastLearningRun = lastRuns.lastLearningRun;
     } catch (err) {
-      console.error('Failed to get cron last runs:', err.message);
+      console.debug('Phase3Cron.getLastRuns failed:', err.message);
     }
   }
 
-  // Tier 2 & 3: Fallback to database tables if still null
+  // Tier 2: Try breadcrumbs table directly (v13.x fix)
+  if (!lastForecastRun) {
+    try {
+      const breadcrumb = await db.get(`
+        SELECT ran_at, created_at
+        FROM ai_ops_breadcrumbs
+        WHERE job = 'ai_forecast'
+          AND (ran_at IS NOT NULL OR created_at IS NOT NULL)
+        ORDER BY COALESCE(created_at, ran_at) DESC
+        LIMIT 1
+      `);
+      if (breadcrumb) {
+        lastForecastRun = breadcrumb.created_at || breadcrumb.ran_at;
+      }
+    } catch (err) {
+      console.debug('Breadcrumb forecast lookup failed:', err.message);
+    }
+  }
+
+  if (!lastLearningRun) {
+    try {
+      const breadcrumb = await db.get(`
+        SELECT ran_at, created_at
+        FROM ai_ops_breadcrumbs
+        WHERE job = 'ai_learning'
+          AND (ran_at IS NOT NULL OR created_at IS NOT NULL)
+        ORDER BY COALESCE(created_at, ran_at) DESC
+        LIMIT 1
+      `);
+      if (breadcrumb) {
+        lastLearningRun = breadcrumb.created_at || breadcrumb.ran_at;
+      }
+    } catch (err) {
+      console.debug('Breadcrumb learning lookup failed:', err.message);
+    }
+  }
+
+  // Tier 3: Fallback to forecast/learning result tables
   if (!lastForecastRun) {
     try {
       const result = await db.get(`SELECT MAX(created_at) AS ts FROM ai_daily_forecast_cache WHERE created_at IS NOT NULL`);
@@ -520,7 +557,7 @@ async function getAIModuleStatus(phase3Cron, db) {
         lastForecastRun = result.ts;
       }
     } catch (err) {
-      console.debug('Forecast timestamp fallback failed:', err.message);
+      console.debug('Forecast cache timestamp fallback failed:', err.message);
     }
   }
 
@@ -531,7 +568,19 @@ async function getAIModuleStatus(phase3Cron, db) {
         lastLearningRun = result.ts;
       }
     } catch (err) {
-      console.debug('Learning timestamp fallback failed:', err.message);
+      console.debug('Learning insights timestamp fallback failed:', err.message);
+    }
+  }
+
+  // Tier 4: Final fallback - check feedback comments table
+  if (!lastLearningRun) {
+    try {
+      const result = await db.get(`SELECT MAX(created_at) AS ts FROM ai_feedback_comments WHERE created_at IS NOT NULL`);
+      if (result && result.ts) {
+        lastLearningRun = result.ts;
+      }
+    } catch (err) {
+      console.debug('Feedback comments timestamp fallback failed:', err.message);
     }
   }
 

@@ -75,40 +75,64 @@ function parseInvoiceNumber(filename) {
 }
 
 /**
- * Parse invoice date from filename (v13.1)
+ * Parse invoice date from filename (v13.x enhanced)
  * Handles patterns like:
  *   GFS_2025-05-14_9027091040.pdf → 2025-05-14
  *   9027091040_2025-05-14.pdf → 2025-05-14
  *   2025-05-14_invoice.pdf → 2025-05-14
  *   GFS_20250514_invoice.pdf → 2025-05-14
+ *   Invoice_2025_05_14.pdf → 2025-05-14
  */
 function parseInvoiceDate(filename) {
   if (!filename) return null;
 
-  // Try YYYY-MM-DD pattern first (with separators)
-  const dashDateMatch = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+  // Try YYYY-MM-DD pattern first (with dashes)
+  const dashDateMatch = filename.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
   if (dashDateMatch) {
     const year = parseInt(dashDateMatch[1]);
     const month = parseInt(dashDateMatch[2]);
     const day = parseInt(dashDateMatch[3]);
 
-    // Validate date ranges
-    if (year >= 2020 && year <= 2030 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${dashDateMatch[1]}-${dashDateMatch[2]}-${dashDateMatch[3]}`;
+    // Strict validation: year 2020-2026, valid month/day
+    if (year >= 2020 && year <= 2026 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      // Additional check: verify this is a valid calendar date
+      const testDate = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+      if (testDate.getFullYear() === year && testDate.getMonth() + 1 === month && testDate.getDate() === day) {
+        return `${dashDateMatch[1]}-${dashDateMatch[2]}-${dashDateMatch[3]}`;
+      }
     }
   }
 
-  // Try YYYYMMDD pattern (no separators) - must be preceded by _ or at start
-  // This prevents matching inside invoice numbers
-  const compactDateMatch = filename.match(/(?:^|_)(\d{4})(\d{2})(\d{2})(?:_|\.)/);
+  // Try YYYY_MM_DD pattern (with underscores)
+  const underscoreDateMatch = filename.match(/\b(\d{4})_(\d{2})_(\d{2})\b/);
+  if (underscoreDateMatch) {
+    const year = parseInt(underscoreDateMatch[1]);
+    const month = parseInt(underscoreDateMatch[2]);
+    const day = parseInt(underscoreDateMatch[3]);
+
+    if (year >= 2020 && year <= 2026 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const testDate = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+      if (testDate.getFullYear() === year && testDate.getMonth() + 1 === month && testDate.getDate() === day) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  // Try YYYYMMDD pattern (no separators) - must be preceded by _ or at start, followed by _ or .
+  // This prevents matching inside 10-digit invoice numbers
+  const compactDateMatch = filename.match(/(?:^|_|-)(\d{4})(\d{2})(\d{2})(?:_|-|\.)/);
   if (compactDateMatch) {
     const year = parseInt(compactDateMatch[1]);
     const month = parseInt(compactDateMatch[2]);
     const day = parseInt(compactDateMatch[3]);
 
-    // Validate date ranges
-    if (year >= 2020 && year <= 2030 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${compactDateMatch[1]}-${compactDateMatch[2]}-${compactDateMatch[3]}`;
+    // Stricter validation to avoid false positives
+    if (year >= 2020 && year <= 2026 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      // Verify it's a real calendar date
+      const testDate = new Date(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+      if (testDate.getFullYear() === year && testDate.getMonth() + 1 === month && testDate.getDate() === day) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
     }
   }
 

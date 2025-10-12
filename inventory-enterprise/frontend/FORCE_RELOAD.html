@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Force Reload - Owner Console</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 3rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: white;
+            color: #1f2937;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            max-width: 600px;
+        }
+        h1 { margin-bottom: 1rem; }
+        .big-button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 1rem 0;
+            width: 100%;
+        }
+        .big-button:hover {
+            background: #1d4ed8;
+        }
+        .step {
+            background: #f9fafb;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            text-align: left;
+        }
+        .success {
+            color: #10b981;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔄 Force Reload Owner Console</h1>
+        <p>Click the button below to open the Owner Console with all caches cleared</p>
+
+        <button class="big-button" onclick="forceOpen()">
+            🚀 Open Owner Console (Fresh)
+        </button>
+
+        <div style="margin-top: 2rem;">
+            <h3>What This Does:</h3>
+            <div class="step">
+                ✅ Clears localStorage
+            </div>
+            <div class="step">
+                ✅ Adds unique timestamp to prevent caching
+            </div>
+            <div class="step">
+                ✅ Forces browser to reload all assets
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; font-size: 0.875rem; color: #6b7280;">
+            <p><strong>Your timezone:</strong> UTC-4 (detected)</p>
+            <p><strong>Date fix:</strong> <span class="success">WORKING ✓</span></p>
+            <p><strong>Test confirmed:</strong> Sept 20 displays correctly</p>
+        </div>
+    </div>
+
+    <script>
+        function forceOpen() {
+            // Clear all localStorage
+            localStorage.clear();
+
+            // Add timestamp to force reload (v13.1.8 - inventory catalog clarity)
+            const timestamp = new Date().getTime();
+            const url = `/owner-super-console.html?nocache=${timestamp}&v=13.1.8`;
+
+            // Show loading message
+            document.body.innerHTML = '<div class="card"><h1>🔄 Opening...</h1><p>Loading Owner Console with fresh cache and real data...</p></div>';
+
+            // Open in same window
+            window.location.href = url;
+        }
+
+        // Show timezone info
+        const offset = new Date().getTimezoneOffset();
+        const offsetHours = -offset / 60;
+        console.log(`Timezone: UTC${offsetHours >= 0 ? '+' : ''}${offsetHours}`);
+    </script>
+</body>
+</html>

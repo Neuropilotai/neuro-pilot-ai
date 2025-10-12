@@ -136,15 +136,28 @@ class Phase3CronScheduler {
         _lastForecastRun = new Date().toISOString();
         await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
 
+        const duration = Date.now() - jobStart;
+
         logger.info('Phase3Cron: AI forecast complete', {
           date: forecast.date,
           totalItems: forecast.items?.length || 0,
-          duration: (Date.now() - jobStart) / 1000
+          duration: duration / 1000
         });
+
+        // v13.x: Track latency in realtimeBus for predictive health metrics
+        if (this.realtimeBus && typeof this.realtimeBus.trackForecastLatency === 'function') {
+          this.realtimeBus.trackForecastLatency(duration);
+        }
+
+        // v13.x: Persist to breadcrumbs with duration and metadata
+        await this.db.run(`
+          INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, ['ai_forecast', _lastForecastRun, 'forecast_completed', duration, JSON.stringify({ itemCount: forecast.items?.length || 0 }), _lastForecastRun]);
 
         // Record cron job execution
         if (this.metricsExporter?.recordPhase3CronExecution) {
-          this.metricsExporter.recordPhase3CronExecution('ai_forecast', 'success', (Date.now() - jobStart) / 1000);
+          this.metricsExporter.recordPhase3CronExecution('ai_forecast', 'success', duration / 1000);
         }
 
         // v13.0: Emit AI event for activity feed
@@ -152,7 +165,7 @@ class Phase3CronScheduler {
           this.realtimeBus.emit('ai_event', {
             type: 'forecast_completed',
             at: _lastForecastRun,
-            ms: Date.now() - jobStart,
+            ms: duration,
             itemCount: forecast.items?.length || 0
           });
         }
@@ -197,15 +210,28 @@ class Phase3CronScheduler {
         _lastLearningRun = new Date().toISOString();
         await this.recordBreadcrumb('ai_learning', _lastLearningRun);
 
+        const duration = Date.now() - jobStart;
+
         logger.info('Phase3Cron: AI learning complete', {
           processed: result.processed || 0,
           applied: result.applied || 0,
-          duration: (Date.now() - jobStart) / 1000
+          duration: duration / 1000
         });
+
+        // v13.x: Track latency in realtimeBus for predictive health metrics
+        if (this.realtimeBus && typeof this.realtimeBus.trackLearningLatency === 'function') {
+          this.realtimeBus.trackLearningLatency(duration);
+        }
+
+        // v13.x: Persist to breadcrumbs with duration and metadata
+        await this.db.run(`
+          INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, ['ai_learning', _lastLearningRun, 'learning_completed', duration, JSON.stringify({ processed: result.processed || 0, applied: result.applied || 0 }), _lastLearningRun]);
 
         // Record cron job execution
         if (this.metricsExporter?.recordPhase3CronExecution) {
-          this.metricsExporter.recordPhase3CronExecution('ai_learning', 'success', (Date.now() - jobStart) / 1000);
+          this.metricsExporter.recordPhase3CronExecution('ai_learning', 'success', duration / 1000);
         }
 
         // v13.0: Emit AI event for activity feed
@@ -213,7 +239,7 @@ class Phase3CronScheduler {
           this.realtimeBus.emit('ai_event', {
             type: 'learning_completed',
             at: _lastLearningRun,
-            ms: Date.now() - jobStart,
+            ms: duration,
             processed: result.processed || 0,
             applied: result.applied || 0
           });
@@ -682,8 +708,22 @@ class Phase3CronScheduler {
             await MenuPredictor.generateDailyForecast();
             _lastForecastRun = new Date().toISOString();
             await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
+
+            const duration = Date.now() - jobStart;
+
+            // v13.x: Track latency
+            if (this.realtimeBus && typeof this.realtimeBus.trackForecastLatency === 'function') {
+              this.realtimeBus.trackForecastLatency(duration);
+            }
+
+            // v13.x: Persist breadcrumb with duration
+            await this.db.run(`
+              INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `, ['ai_forecast', _lastForecastRun, 'forecast_completed', duration, JSON.stringify({ manual_trigger: true }), _lastForecastRun]);
+
             if (this.realtimeBus) {
-              this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: Date.now() - jobStart });
+              this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: duration });
             }
           } finally {
             _forecastRunning = false;
@@ -699,8 +739,22 @@ class Phase3CronScheduler {
             await FeedbackTrainer.processComments();
             _lastLearningRun = new Date().toISOString();
             await this.recordBreadcrumb('ai_learning', _lastLearningRun);
+
+            const duration = Date.now() - jobStart;
+
+            // v13.x: Track latency
+            if (this.realtimeBus && typeof this.realtimeBus.trackLearningLatency === 'function') {
+              this.realtimeBus.trackLearningLatency(duration);
+            }
+
+            // v13.x: Persist breadcrumb with duration
+            await this.db.run(`
+              INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `, ['ai_learning', _lastLearningRun, 'learning_completed', duration, JSON.stringify({ manual_trigger: true }), _lastLearningRun]);
+
             if (this.realtimeBus) {
-              this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: Date.now() - jobStart });
+              this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: duration });
             }
           } finally {
             _learningRunning = false;

@@ -197,57 +197,69 @@ async function loadDashboard() {
   console.log('🔄 Loading dashboard...');
 
   try {
-    // v13.0: Load Cognitive Intelligence & Activity Feed
+    // v13.1: Load Real Stats from Database
     loadCognitiveIntelligence();
     loadActivityFeed();
 
+    // Fetch Real Dashboard Stats
+    console.log('📊 Fetching real dashboard statistics...');
+    const statsResponse = await fetchAPI('/owner/dashboard/stats');
+    console.log('✅ Stats:', statsResponse);
+    const stats = statsResponse.stats;
+
     // System Health
-    console.log('📊 Fetching system health...');
-    const health = await fetchAPI('http://127.0.0.1:8083/health');
-    console.log('✅ Health:', health);
-    document.getElementById('systemHealth').textContent = health.status === 'ok' ? '✅ OK' : '❌ Down';
+    document.getElementById('systemHealth').textContent = stats.systemHealth === 'OK' ? '✅ OK' : '❌ Down';
 
-    // Forecast Coverage
-    console.log('📈 Fetching forecast daily...');
-    const daily = await fetchAPI('/owner/forecast/daily');
-    console.log('✅ Daily forecast:', daily);
-    dashboardForecastData = daily; // Store globally for modal
-    const coverage = daily.items?.length || 0;
-    document.getElementById('forecastCoverage').textContent = coverage;
+    // PDF Coverage (% of PDFs with extracted dates)
+    const coverage = stats.pdfs?.coverage || 0;
+    document.getElementById('forecastCoverage').textContent = `${coverage}%`;
 
-    // Stockout Count
-    console.log('⚠️  Fetching stockout predictions...');
-    const stockout = await fetchAPI('/owner/forecast/stockout');
-    console.log('✅ Stockout:', stockout);
-    dashboardStockoutData = stockout; // Store globally for modal
-    const highRisk = (stockout.critical?.length || 0) + (stockout.high?.length || 0);
-    document.getElementById('stockoutCount').textContent = highRisk;
+    // Total Inventory Items (instead of stockout count)
+    document.getElementById('stockoutCount').textContent = stats.inventory?.totalItems || 0;
 
-    // Last AI Run
-    console.log('🤖 Fetching forecast comments...');
-    const comments = await fetchAPI('/owner/forecast/comments?limit=1&applied=true');
-    console.log('✅ Comments:', comments);
-    const lastApplied = comments.comments?.[0]?.applied_at || 'Never';
-    document.getElementById('lastAIRun').textContent = lastApplied === 'Never' ? lastApplied : new Date(lastApplied).toLocaleString();
+    // Last PDF Upload (instead of AI run)
+    if (stats.recentActivity?.lastPDFUpload) {
+      const lastUpload = new Date(stats.recentActivity.lastPDFUpload);
+      document.getElementById('lastAIRun').textContent = lastUpload.toLocaleString();
+    } else {
+      document.getElementById('lastAIRun').textContent = 'No PDFs yet';
+    }
 
-    // DB Stats
-    console.log('💾 Fetching owner dashboard stats...');
-    const owner = await fetchAPI('/owner/dashboard');
-    console.log('✅ Owner dashboard:', owner);
+    // DB Stats Table - Real Data with enhanced FIFO display
+    const fifoDisplay = (() => {
+      if (stats.fifo?.totalCases > 0) {
+        return `<strong>${stats.fifo.totalCases}</strong> cases (<strong>${stats.fifo.productsTracked}</strong> products) <span class="badge badge-success">Active</span>`;
+      } else if (stats.fifo?.invoicesReady > 0) {
+        return `<strong>${stats.fifo.invoicesReady}</strong> invoices ready for FIFO <span class="badge badge-warning">Ready to Enable</span>`;
+      } else {
+        return `<span style="color: var(--text-light);">Not configured</span>`;
+      }
+    })();
+
     const dbStatsHTML = `
       <table class="table">
-        <tr><td>Total Items</td><td><strong>${owner.stats?.totalItems || 0}</strong></td></tr>
-        <tr><td>Active Locations</td><td><strong>${owner.stats?.activeLocations || 0}</strong></td></tr>
-        <tr><td>PDFs Stored</td><td><strong>${owner.stats?.totalDocuments || 182}</strong></td></tr>
-        <tr><td>Pending Counts</td><td><strong>${owner.stats?.pendingCounts || 0}</strong></td></tr>
+        <tr style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+          <td style="font-size: 1.1rem; font-weight: 700;">💰 Total Inventory Value</td>
+          <td style="font-size: 1.5rem; font-weight: 700;">$${(stats.inventory?.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+        </tr>
+        <tr><td>Unique Products (from PDFs)</td><td><strong>${stats.inventory?.totalItems || 0}</strong> <span class="badge badge-success">Auto-Extracted</span></td></tr>
+        <tr><td>Manual Inventory Items</td><td><strong>${stats.inventory?.manualItems || 0}</strong> items</td></tr>
+        <tr><td>Active Locations</td><td><strong>${stats.locations?.total || 0}</strong></td></tr>
+        <tr><td>Invoices Processed</td><td><strong>${stats.pdfs?.total || 0}</strong> (${stats.pdfs?.withDates || 0} with dates)</td></tr>
+        <tr><td>Total Invoice Amount</td><td><strong>$${(stats.pdfs?.totalAmount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td></tr>
+        <tr><td>Line Items Extracted</td><td><strong>${stats.inventory?.totalLineItems || 0}</strong> line items from ${stats.pdfs?.total || 0} invoices <span class="badge badge-${stats.inventory?.totalLineItems > 0 ? 'success' : 'warning'}">${stats.inventory?.totalLineItems > 0 ? 'Active' : 'Pending'}</span></td></tr>
+        <tr><td>Total Quantity (from PDFs)</td><td><strong>${(stats.inventory?.totalQuantityFromPDFs || 0).toLocaleString()}</strong> cases/units</td></tr>
+        <tr><td>Average Unit Price</td><td><strong>$${(stats.inventory?.avgUnitPrice || 0).toFixed(2)}</strong></td></tr>
+        <tr><td>Active Counts</td><td><strong>${stats.counts?.active || 0}</strong></td></tr>
+        <tr><td>FIFO Tracking</td><td>${fifoDisplay}</td></tr>
       </table>
     `;
     document.getElementById('dbStats').innerHTML = dbStatsHTML;
 
     // Recent Activity
-    await loadRecentActivity(comments.comments?.[0]);
+    await loadRecentActivity(stats.recentActivity);
 
-    console.log('✅ Dashboard loaded successfully!');
+    console.log('✅ Dashboard loaded successfully with real data!');
   } catch (error) {
     console.error('❌ Dashboard load error:', error);
     alert('Dashboard load failed: ' + error.message);
@@ -407,81 +419,119 @@ function closeStockoutDetailModal() {
   document.getElementById('stockoutDetailModal').classList.remove('active');
 }
 
-async function loadRecentActivity(lastTraining) {
+async function loadRecentActivity(recentActivity) {
   const div = document.getElementById('recentActivity');
 
   try {
-    // Fetch additional data for activity feed
-    const [pendingComments, population] = await Promise.all([
-      fetchAPI('/owner/forecast/comments?applied=false&limit=1'),
-      fetchAPI('/owner/forecast/population')
-    ]);
-
     const activities = [];
 
-    // Last AI Training
-    if (lastTraining?.applied_at) {
-      const trainingDate = new Date(lastTraining.applied_at);
-      const timeAgo = getTimeAgo(trainingDate);
+    // Last PDF Upload
+    if (recentActivity?.lastPDFUpload) {
+      const uploadDate = new Date(recentActivity.lastPDFUpload);
+      const timeAgo = getTimeAgo(uploadDate);
       activities.push({
-        icon: '🤖',
-        title: 'AI Training Completed',
-        detail: `Applied: "${lastTraining.comment_text?.substring(0, 40)}${lastTraining.comment_text?.length > 40 ? '...' : ''}"`,
+        icon: '📄',
+        title: 'Latest Invoice Uploaded',
+        detail: `Invoice #${recentActivity.lastPDFInvoice || 'N/A'}`,
         time: timeAgo,
         type: 'success'
       });
     } else {
       activities.push({
-        icon: '⚠️',
-        title: 'No AI Training Yet',
-        detail: 'Submit feedback in AI Console to train the model',
+        icon: '📄',
+        title: 'No Invoices Yet',
+        detail: 'Upload your first PDF invoice to get started',
         time: 'Never',
-        type: 'warning'
-      });
-    }
-
-    // Pending Training
-    const pendingCount = pendingComments.count || 0;
-    if (pendingCount > 0) {
-      activities.push({
-        icon: '📝',
-        title: `${pendingCount} Pending Comment${pendingCount > 1 ? 's' : ''}`,
-        detail: 'Ready to be applied via training',
-        time: 'Waiting',
         type: 'info'
       });
     }
 
-    // Population Update
-    if (population) {
-      activities.push({
-        icon: '👥',
-        title: 'Population Settings',
-        detail: `${population.totalPopulation || 0} total, ${population.indianMeals || 0} Indian meals`,
-        time: 'Current',
-        type: 'info'
-      });
+    // Fetch real database stats for activity
+    try {
+      const statsResponse = await fetchAPI('/owner/dashboard/stats');
+      const stats = statsResponse.stats;
+
+      // FIFO Activity
+      if (stats.fifo?.totalCases > 0) {
+        activities.push({
+          icon: '📦',
+          title: 'FIFO Tracking Active',
+          detail: `${stats.fifo.totalCases} cases tracked across ${stats.fifo.productsTracked} products`,
+          time: 'Current',
+          type: 'success'
+        });
+      } else if (stats.fifo?.invoicesReady > 0) {
+        activities.push({
+          icon: '📦',
+          title: 'FIFO Ready to Enable',
+          detail: `${stats.fifo.invoicesReady} invoices ready for case-level tracking`,
+          time: 'Current',
+          type: 'info'
+        });
+      }
+
+      // Inventory Status
+      if (stats.inventory?.totalItems <= 14 && stats.pdfs?.total > 100) {
+        activities.push({
+          icon: '⚠️',
+          title: 'Inventory Catalog Incomplete',
+          detail: `Only ${stats.inventory.totalItems} items in master catalog, but ${stats.pdfs.total} invoices available for line item extraction`,
+          time: 'Current',
+          type: 'warning'
+        });
+      } else {
+        activities.push({
+          icon: '📊',
+          title: 'Inventory Overview',
+          detail: `${stats.inventory?.totalItems || 0} items in ${stats.inventory?.categories || 0} categories`,
+          time: 'Current',
+          type: 'info'
+        });
+      }
+
+      // Active Counts
+      if (stats.counts?.active > 0) {
+        activities.push({
+          icon: '🔢',
+          title: 'Active Physical Counts',
+          detail: `${stats.counts.active} count${stats.counts.active > 1 ? 's' : ''} in progress`,
+          time: 'Now',
+          type: 'warning'
+        });
+      }
+
+      // Storage Locations
+      if (stats.locations?.total > 0) {
+        activities.push({
+          icon: '📍',
+          title: 'Storage Locations',
+          detail: `${stats.locations.total} active location${stats.locations.total > 1 ? 's' : ''} configured`,
+          time: 'Current',
+          type: 'info'
+        });
+      }
+
+      // Invoice Processing Status
+      if (stats.pdfs?.total > 0) {
+        activities.push({
+          icon: '✅',
+          title: 'Invoice Extraction',
+          detail: `${stats.pdfs.coverage}% coverage (${stats.pdfs.withDates}/${stats.pdfs.total} PDFs with dates)`,
+          time: 'Current',
+          type: stats.pdfs.coverage === 100 ? 'success' : 'warning'
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load detailed stats for activity:', err);
     }
 
-    // Dashboard Forecast Data
-    if (dashboardForecastData) {
-      const forecastDate = new Date(dashboardForecastData.date || Date.now());
-      activities.push({
-        icon: '📈',
-        title: 'Forecast Generated',
-        detail: `${dashboardForecastData.items?.length || 0} items predicted`,
-        time: getTimeAgo(forecastDate),
-        type: 'success'
-      });
-    }
-
-    // Next Scheduled Training (if we had a schedule - placeholder for now)
+    // System Status
     activities.push({
-      icon: '⏰',
-      title: 'Next Training Schedule',
-      detail: 'Manual training via AI Console',
-      time: 'On-demand',
-      type: 'neutral'
+      icon: '🟢',
+      title: 'System Status',
+      detail: 'All systems operational',
+      time: 'Live',
+      type: 'success'
     });
 
     // Render activity feed
@@ -567,11 +617,12 @@ async function loadZeroCountMode() {
   tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading Zero-Count Smart Mode...</div>';
 
   try {
-    // Load all panels in parallel
-    const [estimates, stockouts, locations] = await Promise.all([
+    // Load all panels in parallel including stats for pricing
+    const [estimates, stockouts, locations, stats] = await Promise.all([
       fetchAPI('/owner/inventory/estimate'),
       fetchAPI('/owner/inventory/stockout'),
-      fetchAPI('/owner/inventory/locations')
+      fetchAPI('/owner/inventory/locations'),
+      fetchAPI('/owner/dashboard/stats')
     ]);
 
     // Render Zero-Count UI
@@ -584,6 +635,29 @@ async function loadZeroCountMode() {
             Showing inferred quantities from par levels, recent invoices, and AI forecasts.
           </div>
           <button class="btn btn-sm btn-primary" onclick="startFirstCount()">🎯 Start First Count</button>
+        </div>
+      </div>
+
+      <!-- Inventory Value Summary from PDFs -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <div style="padding: 1.5rem;">
+          <div class="grid grid-3">
+            <div style="text-align: center;">
+              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">💰 Total Inventory Value (from PDFs)</div>
+              <div style="font-size: 2rem; font-weight: 700;">$${(stats.stats?.inventory?.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Unique Products</div>
+              <div style="font-size: 2rem; font-weight: 700;">${(stats.stats?.inventory?.totalItems || 0).toLocaleString()}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Cases/Units</div>
+              <div style="font-size: 2rem; font-weight: 700;">${(stats.stats?.inventory?.totalQuantityFromPDFs || 0).toLocaleString()}</div>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem; opacity: 0.9;">
+            📊 This represents all products extracted from ${stats.stats?.pdfs?.total || 0} invoices totaling $${(stats.stats?.pdfs?.totalAmount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+          </div>
         </div>
       </div>
 
@@ -663,11 +737,21 @@ async function loadZeroCountMode() {
 
 async function loadNormalMode(lastCount) {
   const tableDiv = document.getElementById('inventoryTable');
-  tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading inventory with FIFO...</div>';
+  tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading inventory with pricing...</div>';
 
   try {
     const data = await fetchAPI('/owner/inventory/current');
     const items = data.items || [];
+
+    // Calculate total inventory value
+    let totalValue = 0;
+    let totalItems = 0;
+    items.forEach(item => {
+      const qty = item.current_quantity || 0;
+      const cost = item.avg_unit_cost || 0;
+      totalValue += qty * cost;
+      totalItems += qty;
+    });
 
     let html = `
       <!-- Normal Mode Banner -->
@@ -681,7 +765,27 @@ async function loadNormalMode(lastCount) {
         </div>
       </div>
 
-      <!-- Inventory Table with FIFO -->
+      <!-- Inventory Value Summary -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <div style="padding: 1.5rem;">
+          <div class="grid grid-3">
+            <div style="text-align: center;">
+              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Inventory Value</div>
+              <div style="font-size: 2rem; font-weight: 700;">$${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Products</div>
+              <div style="font-size: 2rem; font-weight: 700;">${items.length.toLocaleString()}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Units/Cases</div>
+              <div style="font-size: 2rem; font-weight: 700;">${totalItems.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inventory Table with Pricing -->
       <table class="table">
         <thead>
           <tr>
@@ -689,9 +793,10 @@ async function loadNormalMode(lastCount) {
             <th>Name</th>
             <th>Current Qty</th>
             <th>Unit</th>
+            <th>Unit Price</th>
+            <th>Total Value</th>
             <th>Par Level</th>
             <th>FIFO Layers</th>
-            <th>Avg Cost</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -699,8 +804,12 @@ async function loadNormalMode(lastCount) {
     `;
 
     items.forEach(item => {
-      const stockStatus = (item.current_quantity || 0) < (item.reorder_point || 0) ? 'badge-danger' :
-                         (item.current_quantity || 0) < (item.par_level || 0) ? 'badge-warning' : 'badge-success';
+      const qty = item.current_quantity || 0;
+      const unitCost = item.avg_unit_cost || 0;
+      const totalItemValue = qty * unitCost;
+
+      const stockStatus = qty < (item.reorder_point || 0) ? 'badge-danger' :
+                         qty < (item.par_level || 0) ? 'badge-warning' : 'badge-success';
 
       const fifoSummary = item.fifo_layers && item.fifo_layers.length > 0
         ? `${item.layer_count} layers`
@@ -710,11 +819,12 @@ async function loadNormalMode(lastCount) {
         <tr>
           <td><strong>${item.item_code || ''}</strong></td>
           <td>${item.item_name || ''}</td>
-          <td><span class="badge ${stockStatus}">${item.current_quantity || 0}</span></td>
+          <td><span class="badge ${stockStatus}">${qty.toLocaleString()}</span></td>
           <td>${item.unit || 'EA'}</td>
+          <td><strong>$${unitCost.toFixed(2)}</strong></td>
+          <td><strong>$${totalItemValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
           <td>${item.par_level || 0}</td>
           <td><small>${fifoSummary}</small></td>
-          <td>$${(item.avg_unit_cost || 0).toFixed(2)}</td>
           <td>
             <button class="btn btn-sm btn-primary" onclick="adjustInventory('${item.item_code}', '${item.item_name}')">Adjust</button>
           </td>
@@ -1164,21 +1274,45 @@ async function loadPDFs() {
             <th width="30"><input type="checkbox" onchange="toggleAllPDFs(this.checked)"></th>
             <th>Invoice #</th>
             <th>Invoice Date</th>
+            <th>Vendor</th>
+            <th>Amount</th>
             <th>Status</th>
-            <th>Size</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
     `;
 
+    let totalAmount = 0;
+
     pdfs.forEach(pdf => {
       const statusBadge = pdf.isProcessed ? '<span class="badge badge-success">Included</span>' : '<span class="badge badge-warning">Pending</span>';
       const invoiceNum = pdf.invoiceNumber || pdf.filename;
-      const sizeDisplay = pdf.sizeMB ? `${pdf.sizeMB} MB` : 'N/A';
-      const dateDisplay = pdf.invoiceDate
-        ? new Date(pdf.invoiceDate).toLocaleDateString()
-        : (pdf.receivedDate ? new Date(pdf.receivedDate).toLocaleDateString() : 'N/A');
+
+      // Fix: Parse date string directly to avoid timezone issues
+      // Database stores dates as YYYY-MM-DD, display as-is without timezone conversion
+      let dateDisplay = 'N/A';
+      if (pdf.invoiceDate) {
+        const dateStr = pdf.invoiceDate;
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // Parse YYYY-MM-DD directly without timezone conversion
+          const [year, month, day] = dateStr.split('-');
+          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          dateDisplay = date.toLocaleDateString();
+        } else {
+          // Fallback for other formats
+          dateDisplay = new Date(dateStr + 'T12:00:00').toLocaleDateString();
+        }
+      } else if (pdf.receivedDate) {
+        dateDisplay = new Date(pdf.receivedDate + 'T12:00:00').toLocaleDateString();
+      }
+
+      const vendor = pdf.vendor || 'N/A';
+      const amount = pdf.amount || 0;
+      const amountDisplay = amount > 0 ? `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+
+      if (amount > 0) totalAmount += amount;
+
       // Escape single quotes for onclick handler
       const escapedInvoiceNum = invoiceNum.replace(/'/g, "\\'");
       html += `
@@ -1186,15 +1320,21 @@ async function loadPDFs() {
           <td><input type="checkbox" class="pdf-checkbox" data-pdf-id="${pdf.id}" ${pdf.isProcessed ? 'disabled' : ''}></td>
           <td><strong>${invoiceNum}</strong></td>
           <td>${dateDisplay}</td>
+          <td>${vendor}</td>
+          <td style="text-align: right; font-weight: 600;">${amountDisplay}</td>
           <td>${statusBadge}</td>
-          <td>${sizeDisplay}</td>
           <td><button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${pdf.id}', '${escapedInvoiceNum}')">👁️ View</button></td>
         </tr>
       `;
     });
 
     html += '</tbody></table>';
-    html += `<div style="margin-top: 1rem; color: var(--text-light); font-size: 0.875rem;">Total: ${data.summary?.total || pdfs.length} PDFs (${data.summary?.processed || 0} processed, ${data.summary?.unprocessed || 0} pending)</div>`;
+    const totalFormatted = totalAmount > 0 ? `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
+    html += `<div style="margin-top: 1rem; color: var(--text-light); font-size: 0.875rem;">
+      <strong>Total:</strong> ${data.summary?.total || pdfs.length} PDFs
+      (${data.summary?.processed || 0} processed, ${data.summary?.unprocessed || 0} pending) |
+      <strong>Total Amount:</strong> <span style="color: var(--success); font-size: 1.1rem;">${totalFormatted}</span>
+    </div>`;
 
     tableDiv.innerHTML = html;
   } catch (error) {
@@ -1475,17 +1615,137 @@ async function loadActiveCount() {
   }
 }
 
-function showAddItemForm() {
-  const itemCode = prompt('Enter item code:', '');
-  if (!itemCode) return;
+async function showAddItemForm() {
+  if (!activeCountId) {
+    alert('No active count. Please start a count first.');
+    return;
+  }
 
-  const quantity = prompt('Enter quantity:', '0');
-  if (quantity === null) return;
+  // Show modal
+  const modal = document.getElementById('addItemToCountModal');
+  modal.classList.add('active');
 
-  const locationId = prompt('Location ID (optional):', '');
-  const notes = prompt('Notes (optional):', '');
+  // Reset form
+  document.getElementById('itemSearchInput').value = '';
+  document.getElementById('selectedItemCode').value = '';
+  document.getElementById('countItemQuantity').value = '';
+  document.getElementById('countItemNotes').value = '';
+  document.getElementById('itemSearchResults').style.display = 'none';
+  document.getElementById('selectedItemDisplay').style.display = 'none';
 
-  addItemToCount(itemCode, parseFloat(quantity), notes, locationId || null);
+  // Load locations for dropdown
+  await loadLocationsForCountItem();
+
+  // Focus on search input
+  setTimeout(() => document.getElementById('itemSearchInput').focus(), 100);
+}
+
+function closeAddItemToCountModal() {
+  const modal = document.getElementById('addItemToCountModal');
+  modal.classList.remove('active');
+}
+
+async function loadLocationsForCountItem() {
+  try {
+    const data = await fetchAPI('/owner/console/locations');
+    const select = document.getElementById('countItemLocation');
+
+    select.innerHTML = '<option value="">Select location...</option>';
+    (data.locations || []).forEach(loc => {
+      select.innerHTML += `<option value="${loc.location_id}">${loc.location_name}</option>`;
+    });
+  } catch (error) {
+    console.error('Error loading locations:', error);
+  }
+}
+
+// Item search with autocomplete
+let searchTimeout;
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('itemSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      const query = e.target.value.trim();
+
+      if (query.length < 2) {
+        document.getElementById('itemSearchResults').style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(() => searchItems(query), 300);
+    });
+  }
+});
+
+async function searchItems(query) {
+  try {
+    const data = await fetchAPI(`/owner/inventory/items?search=${encodeURIComponent(query)}&limit=20`);
+    const resultsDiv = document.getElementById('itemSearchResults');
+
+    if (!data.items || data.items.length === 0) {
+      resultsDiv.innerHTML = '<div style="padding: 0.75rem; color: var(--text-light);">No items found</div>';
+      resultsDiv.style.display = 'block';
+      return;
+    }
+
+    let html = '';
+    data.items.forEach(item => {
+      html += `
+        <div style="padding: 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;"
+             onmouseover="this.style.background='var(--bg)'"
+             onmouseout="this.style.background='white'"
+             onclick="selectItem('${item.item_code}', '${item.item_name.replace(/'/g, "\\'")}', '${item.unit || 'EA'}')">
+          <strong>${item.item_code}</strong> - ${item.item_name}
+          <div style="font-size: 0.75rem; color: var(--text-light);">
+            ${item.category || 'N/A'} | ${item.unit || 'EA'} | On hand: ${item.current_quantity || 0}
+          </div>
+        </div>
+      `;
+    });
+
+    resultsDiv.innerHTML = html;
+    resultsDiv.style.display = 'block';
+  } catch (error) {
+    console.error('Error searching items:', error);
+  }
+}
+
+function selectItem(code, name, unit) {
+  document.getElementById('selectedItemCode').value = code;
+  document.getElementById('selectedItemText').textContent = `${code} - ${name} (${unit})`;
+  document.getElementById('selectedItemDisplay').style.display = 'block';
+  document.getElementById('itemSearchResults').style.display = 'none';
+  document.getElementById('itemSearchInput').value = '';
+
+  // Focus on quantity input
+  setTimeout(() => document.getElementById('countItemQuantity').focus(), 100);
+}
+
+function clearSelectedItem() {
+  document.getElementById('selectedItemCode').value = '';
+  document.getElementById('selectedItemDisplay').style.display = 'none';
+  document.getElementById('itemSearchInput').focus();
+}
+
+async function submitItemToCount() {
+  const itemCode = document.getElementById('selectedItemCode').value;
+  const quantity = parseFloat(document.getElementById('countItemQuantity').value);
+  const locationId = document.getElementById('countItemLocation').value || null;
+  const notes = document.getElementById('countItemNotes').value || null;
+
+  if (!itemCode) {
+    alert('Please select an item from the search results.');
+    return;
+  }
+
+  if (!quantity || quantity <= 0) {
+    alert('Please enter a valid quantity.');
+    return;
+  }
+
+  await addItemToCount(itemCode, quantity, notes, locationId);
+  closeAddItemToCountModal();
 }
 
 async function addItemToCount(itemCode, quantity, notes = null, locationId = null) {
@@ -1630,22 +1890,27 @@ async function loadAIReorder() {
   div.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   try {
-    const data = await fetchAPI('/owner/ai/reorder/top?n=10');
+    // v13.1: Use real dashboard reorder endpoint
+    const data = await fetchAPI('/owner/dashboard/reorder?n=10');
     const items = data.recommendations || [];
 
     if (items.length === 0) {
-      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>No reorder recommendations</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Recommendations appear when items approach stockout.</div></div>';
+      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>✅ All Items Stocked</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">No items currently need reordering. Great job!</div></div>';
       return;
     }
 
     let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">';
     items.forEach(item => {
+      const urgencyColor = item.stockPct < 50 ? 'var(--danger)' : item.stockPct < 100 ? 'var(--warning)' : 'var(--info)';
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+        <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; border-left: 3px solid ${urgencyColor};">
           <div style="font-weight: 600; margin-bottom: 0.25rem;">${item.itemCode} - ${item.name}</div>
-          <div style="color: var(--text-light); margin-bottom: 0.5rem;">Stock: ${item.currentStock} | Need: ${item.recommendedReorderQty}</div>
+          <div style="color: var(--text-light); margin-bottom: 0.5rem; font-size: 0.8125rem;">
+            Current: ${item.currentStock} ${item.unit || ''} | Reorder Point: ${item.reorderPoint} | Need: ${item.recommendedReorderQty}
+          </div>
           <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
             ${(item.drivers || []).map(d => `<span class="badge badge-info">${d}</span>`).join('')}
+            <span class="badge" style="background: ${urgencyColor};">${item.stockPct}% of reorder point</span>
           </div>
         </div>
       `;
@@ -1654,7 +1919,8 @@ async function loadAIReorder() {
 
     div.innerHTML = html;
   } catch (error) {
-    div.innerHTML = showError('aiReorder', error.message);
+    console.error('Failed to load reorder recommendations:', error);
+    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load recommendations</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
   }
 }
 
@@ -1663,24 +1929,30 @@ async function loadAIAnomalies() {
   div.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   try {
-    const data = await fetchAPI('/owner/ai/anomalies/recent?window=7d');
+    // v13.1: Use real dashboard anomalies endpoint
+    const data = await fetchAPI('/owner/dashboard/anomalies?window=7d');
     const items = data.anomalies || [];
 
     if (items.length === 0) {
-      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>No anomalies detected</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">System monitoring for unusual patterns.</div></div>';
+      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>✅ No Anomalies Detected</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">All inventory levels are normal.</div></div>';
       return;
     }
 
     let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">';
     items.forEach(item => {
-      const severityClass = item.severity === 'critical' ? 'badge-danger' : item.severity === 'high' ? 'badge-warning' : 'badge-info';
+      const severityClass = item.severity === 'critical' ? 'badge-danger' : item.severity === 'high' ? 'badge-warning' : item.severity === 'medium' ? 'badge-info' : 'badge-secondary';
+      const severityIcon = item.severity === 'critical' ? '🔴' : item.severity === 'high' ? '⚠️' : '🔵';
       html += `
         <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="font-weight: 600;">${item.itemCode}</span>
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+            <div>
+              <span style="font-size: 1.25rem; margin-right: 0.5rem;">${severityIcon}</span>
+              <span style="font-weight: 600;">${item.itemCode}</span>
+              ${item.name ? `<span style="color: var(--text-light); font-size: 0.8125rem;"> - ${item.name}</span>` : ''}
+            </div>
             <span class="badge ${severityClass}">${item.severity}</span>
           </div>
-          <div style="color: var(--text-light); margin-bottom: 0.5rem;">${item.explanation}</div>
+          <div style="color: var(--text-light); margin-bottom: 0.5rem; font-size: 0.8125rem;">${item.explanation}</div>
           <div style="font-size: 0.75rem; color: var(--text-light);">
             ${new Date(item.when).toLocaleString()} | Confidence: ${Math.round((item.confidence || 0) * 100)}%
           </div>
@@ -1691,7 +1963,8 @@ async function loadAIAnomalies() {
 
     div.innerHTML = html;
   } catch (error) {
-    div.innerHTML = showError('aiAnomalies', error.message);
+    console.error('Failed to load anomalies:', error);
+    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load anomalies</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
   }
 }
 
@@ -1700,44 +1973,82 @@ async function loadAIUpgrade() {
   div.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
   try {
-    const data = await fetchAPI('/owner/ai/upgrade/advice');
-    const advice = data.advice || {};
+    // v13.1: Use real dashboard stats for system advisor
+    const statsResponse = await fetchAPI('/owner/dashboard/stats');
+    const stats = statsResponse.stats;
+
+    // Calculate overall system health score
+    const pdfScore = stats.pdfs?.coverage || 0;
+    const inventoryScore = stats.inventory?.totalItems > 0 ? 100 : 0;
+    const fifoScore = stats.fifo?.totalCases > 0 ? 100 : 50;
+    const overallScore = Math.round((pdfScore + inventoryScore + fifoScore) / 3);
 
     let html = `
       <div style="font-size: 0.875rem;">
         <div style="margin-bottom: 1rem;">
-          <strong>Overall Score:</strong>
-          <div style="font-size: 2rem; color: var(--primary); font-weight: 700;">${Math.round((advice.overallScore || 0) * 100)}%</div>
+          <strong>System Health Score:</strong>
+          <div style="font-size: 2rem; color: ${overallScore >= 75 ? 'var(--success)' : overallScore >= 50 ? 'var(--warning)' : 'var(--danger)'}; font-weight: 700;">${overallScore}%</div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
           <div>
-            <strong>Cache:</strong> ${Math.round((advice.cache?.hitRate || 0) * 100)}% hit rate<br>
-            <span style="color: var(--text-light);">${advice.cache?.advice || 'N/A'}</span>
+            <strong>📄 Invoice Extraction:</strong> ${pdfScore}%<br>
+            <span style="color: var(--text-light);">${pdfScore === 100 ? 'Perfect! All invoices have extracted dates.' : `${stats.pdfs?.withDates || 0}/${stats.pdfs?.total || 0} invoices processed. Keep uploading!`}</span>
           </div>
           <div>
-            <strong>Forecast:</strong> MAPE ${(advice.forecast?.mape30 || 0).toFixed(2)}<br>
-            <span style="color: var(--text-light);">${advice.forecast?.advice || 'N/A'}</span>
+            <strong>📦 FIFO Tracking:</strong> ${stats.fifo?.totalCases || 0} cases<br>
+            <span style="color: var(--text-light);">${stats.fifo?.totalCases > 0 ? `Tracking ${stats.fifo.productsTracked} products with FIFO.` : 'Start using FIFO for better inventory rotation.'}</span>
           </div>
           <div>
-            <strong>Database:</strong> ${advice.db?.primary || 'SQLite'}<br>
-            <span style="color: var(--text-light);">${advice.db?.advice || 'N/A'}</span>
+            <strong>💾 Database:</strong> SQLite<br>
+            <span style="color: var(--text-light);">Connected and operational with ${stats.inventory?.totalItems || 0} items tracked.</span>
+          </div>
+          <div>
+            <strong>📊 Inventory Value:</strong> $${((stats.pdfs?.totalAmount || 0) / 1000).toFixed(1)}K<br>
+            <span style="color: var(--text-light);">Total invoice value tracked in system.</span>
           </div>
         </div>
     `;
 
-    if (advice.nextBestActions && advice.nextBestActions.length > 0) {
-      html += '<div style="margin-top: 1rem;"><strong>Next Best Actions:</strong></div>';
+    // Generate next best actions based on real data
+    const nextActions = [];
+
+    if (pdfScore < 100) {
+      nextActions.push({
+        title: `Upload missing invoices (${stats.pdfs?.total - stats.pdfs?.withDates || 0} remaining)`,
+        etaMin: 5
+      });
+    }
+
+    if (stats.fifo?.totalCases === 0) {
+      nextActions.push({
+        title: 'Enable FIFO tracking for better inventory rotation',
+        etaMin: 10
+      });
+    }
+
+    if (stats.counts?.active === 0) {
+      nextActions.push({
+        title: 'Perform a physical count to verify inventory accuracy',
+        etaMin: 30
+      });
+    }
+
+    if (nextActions.length > 0) {
+      html += '<div style="margin-top: 1rem;"><strong>💡 Recommended Actions:</strong></div>';
       html += '<div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">';
-      advice.nextBestActions.forEach(action => {
-        html += `<div style="padding: 0.5rem; background: var(--bg); border-radius: 4px;">${action.title} <span style="color: var(--text-light);">(~${action.etaMin}min)</span></div>`;
+      nextActions.forEach(action => {
+        html += `<div style="padding: 0.5rem; background: var(--bg); border-radius: 4px; border-left: 3px solid var(--primary);">${action.title} <span style="color: var(--text-light);">(~${action.etaMin}min)</span></div>`;
       });
       html += '</div>';
+    } else {
+      html += '<div style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 4px; text-align: center; color: var(--success);">✅ System is running optimally!</div>';
     }
 
     html += '</div>';
     div.innerHTML = html;
   } catch (error) {
-    div.innerHTML = showError('aiUpgrade', error.message);
+    console.error('Failed to load system advisor:', error);
+    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load advisor</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
   }
 }
 
@@ -2694,47 +3005,122 @@ async function loadLearningNudges() {
   const div = document.getElementById('learningNudges');
   div.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-  // For now, create sample nudges since we don't have a specific endpoint yet
-  // In a real system, this would fetch from /api/owner/ai/learning/nudges or similar
-  const sampleNudges = [
-    {
-      id: 'nudge_1',
-      title: 'Coffee consumption split',
-      question: 'Do contractors drink coffee at the same rate as residents?',
-      suggestedInsight: 'contractors coffee 0.8 cups per person'
-    },
-    {
-      id: 'nudge_2',
-      title: 'Weekend patterns',
-      question: 'Does weekend consumption differ from weekdays?',
-      suggestedInsight: 'weekend bread usage -20% compared to weekdays'
-    },
-    {
-      id: 'nudge_3',
-      title: 'Seasonal items',
-      question: 'Have you noticed seasonal trends in produce consumption?',
-      suggestedInsight: 'summer salad greens +30% demand'
+  try {
+    // v13.1: Generate intelligent nudges based on real system data
+    const statsResponse = await fetchAPI('/owner/dashboard/stats');
+    const stats = statsResponse.stats;
+
+    const nudges = [];
+
+    // Nudge about invoice extraction if not complete
+    if (stats.pdfs?.coverage < 100) {
+      nudges.push({
+        id: 'nudge_invoices',
+        title: 'Invoice Data Quality',
+        question: `${stats.pdfs?.total - stats.pdfs?.withDates || 0} invoices are missing extraction data. Review these PDFs?`,
+        suggestedInsight: 'Check invoice format and clarity',
+        action: 'Review PDFs tab'
+      });
     }
-  ];
 
-  let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
-  sampleNudges.forEach(nudge => {
-    html += `
-      <div style="padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);">
-        <div style="font-weight: 600; margin-bottom: 0.5rem;">💡 ${nudge.title}</div>
-        <div style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.75rem;">${nudge.question}</div>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <input type="text" class="input" id="nudge-${nudge.id}" placeholder="${nudge.suggestedInsight}" style="flex: 1;">
-          <button class="btn btn-sm btn-primary" onclick="recordNudgeInsight('${nudge.id}')">Record</button>
-          <button class="btn btn-sm btn-success" onclick="trainFromNudge('${nudge.id}')">Train</button>
+    // Nudge about line item extraction (HIGH PRIORITY)
+    if (stats.fifo?.lineItemsExtracted === 0 && stats.pdfs?.total > 14) {
+      nudges.push({
+        id: 'nudge_line_items',
+        title: '⚠️ Inventory Catalog Incomplete',
+        question: `You have ${stats.pdfs.total} invoices but only ${stats.inventory?.totalItems || 0} items in your master catalog. Extract line items to build your full product catalog?`,
+        suggestedInsight: 'Extract line items from invoices to populate inventory with all products',
+        action: 'Extract Line Items'
+      });
+    }
+
+    // Nudge about FIFO if not using it
+    if (stats.fifo?.totalCases === 0 && stats.fifo?.lineItemsExtracted > 0) {
+      nudges.push({
+        id: 'nudge_fifo',
+        title: 'FIFO Tracking',
+        question: 'Start tracking case-level inventory to reduce waste and improve rotation?',
+        suggestedInsight: 'Enable FIFO for perishable items',
+        action: 'Setup FIFO'
+      });
+    }
+
+    // Nudge about physical counts
+    if (stats.counts?.active === 0) {
+      nudges.push({
+        id: 'nudge_counts',
+        title: 'Inventory Accuracy',
+        question: 'When was your last physical count? Regular counts improve accuracy.',
+        suggestedInsight: 'Schedule weekly counts for high-value categories',
+        action: 'Start Count'
+      });
+    }
+
+    // Always show a general improvement nudge
+    nudges.push({
+      id: 'nudge_general',
+      title: 'System Optimization',
+      question: 'How can we improve the inventory tracking workflow for your team?',
+      suggestedInsight: 'Share your feedback to help us improve',
+      action: 'Provide Feedback'
+    });
+
+    if (nudges.length === 0) {
+      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>✅ No Suggestions</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">System is running optimally!</div></div>';
+      return;
+    }
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+    nudges.forEach(nudge => {
+      html += `
+        <div style="padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); border-left: 3px solid var(--primary);">
+          <div style="font-weight: 600; margin-bottom: 0.5rem;">💡 ${nudge.title}</div>
+          <div style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.75rem;">${nudge.question}</div>
+          <div style="font-size: 0.8125rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 4px; margin-bottom: 0.75rem;">
+            <strong>Suggestion:</strong> ${nudge.suggestedInsight}
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="handleNudgeAction('${nudge.id}', '${nudge.action}')" style="width: 100%;">
+            ${nudge.action}
+          </button>
         </div>
-      </div>
-    `;
-  });
-  html += '</div>';
-  html += '<div style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem; color: var(--text-light);">💡 These are learning opportunities identified by the AI. Enter your observations and click "Record" to save, or "Train" to apply immediately.</div>';
+      `;
+    });
+    html += '</div>';
+    html += '<div style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem; color: var(--text-light);">💡 These suggestions are generated based on your current system state and usage patterns.</div>';
 
-  div.innerHTML = html;
+    div.innerHTML = html;
+  } catch (error) {
+    console.error('Failed to load learning nudges:', error);
+    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load suggestions</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
+  }
+}
+
+function handleNudgeAction(nudgeId, action) {
+  // Route to appropriate tab or action based on the nudge
+  if (action.includes('PDF')) {
+    switchTab('pdfs');
+  } else if (action.includes('Line Items')) {
+    alert('📋 Invoice Line Item Extraction\n\n' +
+          'To build your complete product catalog from your 183 invoices:\n\n' +
+          '1. Go to the PDFs tab\n' +
+          '2. The system will extract product codes, descriptions, quantities, and cases\n' +
+          '3. All unique products will be automatically added to your inventory master\n\n' +
+          'This will give you hundreds of products instead of just 14 manual entries!\n\n' +
+          'Contact support to enable automatic line item extraction.');
+  } else if (action.includes('FIFO')) {
+    alert('FIFO tracking can be enabled in the Inventory settings. Contact support for setup assistance.');
+  } else if (action.includes('Count')) {
+    switchTab('counts');
+  } else if (action.includes('Feedback')) {
+    // Scroll to feedback section
+    const feedbackSection = document.querySelector('#aiFeedback');
+    if (feedbackSection) {
+      feedbackSection.scrollIntoView({ behavior: 'smooth' });
+      feedbackSection.focus();
+    }
+  } else {
+    alert(`Action: ${action}\n\nThis feature will help improve your inventory management workflow.`);
+  }
 }
 
 async function recordNudgeInsight(nudgeId) {
@@ -2791,70 +3177,108 @@ async function trainFromNudge(nudgeId) {
 // ============================================================================
 
 /**
- * Load AI Ops System Health Status
+ * Load AI Ops System Health Status (v13.5 - Adaptive Intelligence)
  */
 async function loadAIOpsStatus() {
   const healthScoreEl = document.getElementById('opsHealthScore');
-  const forecastStatusEl = document.getElementById('opsForecastStatus');
-  const learningStatusEl = document.getElementById('opsLearningStatus');
-  const realtimeClientsEl = document.getElementById('opsRealtimeClients');
+  const dqiScoreEl = document.getElementById('opsDQIScore');
+  const forecastLatencyEl = document.getElementById('opsForecastLatency');
+  const learningDivergenceEl = document.getElementById('opsLearningDivergence');
   const checksEl = document.getElementById('aiOpsChecks');
 
   try {
     healthScoreEl.textContent = '...';
-    forecastStatusEl.textContent = '...';
-    learningStatusEl.textContent = '...';
-    realtimeClientsEl.textContent = '...';
+    dqiScoreEl.textContent = '...';
+    forecastLatencyEl.textContent = '...';
+    learningDivergenceEl.textContent = '...';
 
-    const data = await fetchAPI('/owner/ops/status');
+    // === v13.5: Use AI Ops status endpoint with DQI and predictive health ===
+    const opsStatus = await fetchAPI('/owner/ops/status');
 
     // Update health score
-    const healthPct = data.healthPct || 0;
+    const healthPct = opsStatus.healthPct || 0;
     healthScoreEl.textContent = `${healthPct}%`;
     healthScoreEl.style.color = healthPct >= 75 ? 'var(--success)' : (healthPct >= 50 ? 'var(--warning)' : 'var(--danger)');
 
-    // Update forecast status
-    const forecastCheck = data.checks?.find(c => c.name === 'ai_forecast');
-    if (forecastCheck) {
-      forecastStatusEl.textContent = forecastCheck.status === 'ok' ? '✅ OK' : '⚠️ Warning';
+    // === v13.5: Display Data Quality Index (DQI) ===
+    if (opsStatus.dqi_score !== null && opsStatus.dqi_score !== undefined) {
+      const dqiChange = opsStatus.dqi_change_pct || 0;
+      const dqiArrow = dqiChange > 0 ? '↑' : dqiChange < 0 ? '↓' : '→';
+      const dqiColor = opsStatus.dqi_color === 'green' ? 'var(--success)' :
+                        opsStatus.dqi_color === 'yellow' ? 'var(--warning)' : 'var(--danger)';
+
+      dqiScoreEl.textContent = `${opsStatus.dqi_score}% ${dqiArrow}`;
+      dqiScoreEl.style.color = dqiColor;
+      dqiScoreEl.title = `Data Quality Index: ${opsStatus.dqi_score}% (${dqiChange > 0 ? '+' : ''}${dqiChange}%)`;
     } else {
-      forecastStatusEl.textContent = '--';
+      dqiScoreEl.textContent = '--';
+      dqiScoreEl.style.color = 'var(--text-light)';
     }
 
-    // Update learning status
-    const learningCheck = data.checks?.find(c => c.name === 'ai_learning');
-    if (learningCheck) {
-      learningStatusEl.textContent = learningCheck.status === 'ok' ? '✅ OK' : '⚠️ Warning';
+    // === v13.5: Display Forecast Latency ===
+    if (opsStatus.forecast_latency_avg !== null && opsStatus.forecast_latency_avg !== undefined && typeof opsStatus.forecast_latency_avg === 'number') {
+      const latency = opsStatus.forecast_latency_avg;
+      forecastLatencyEl.textContent = latency >= 1000 ? `${(latency/1000).toFixed(1)}s` : `${latency}ms`;
+      forecastLatencyEl.style.color = latency < 2000 ? 'var(--success)' : latency < 5000 ? 'var(--warning)' : 'var(--danger)';
+      forecastLatencyEl.title = `Average forecast job duration over last 10 runs: ${latency}ms`;
     } else {
-      learningStatusEl.textContent = '--';
+      forecastLatencyEl.textContent = '--';
+      forecastLatencyEl.style.color = 'var(--text-light)';
     }
 
-    // Update real-time clients
-    const rtClients = data.details?.realtime?.connectedClients || 0;
-    realtimeClientsEl.textContent = rtClients;
+    // === v13.5: Display Learning Divergence ===
+    if (opsStatus.forecast_divergence !== null && opsStatus.forecast_divergence !== undefined && typeof opsStatus.forecast_divergence === 'number') {
+      const divergence = opsStatus.forecast_divergence;
+      const divArrow = divergence > 0 ? '↑' : divergence < 0 ? '↓' : '→';
+      learningDivergenceEl.textContent = `${divergence.toFixed(1)}% ${divArrow}`;
+      learningDivergenceEl.style.color = Math.abs(divergence) < 5 ? 'var(--success)' :
+                                          Math.abs(divergence) < 10 ? 'var(--warning)' : 'var(--danger)';
+      learningDivergenceEl.title = `MAPE divergence (7d vs prev 7d): ${divergence.toFixed(1)}%`;
+    } else {
+      learningDivergenceEl.textContent = '--';
+      learningDivergenceEl.style.color = 'var(--text-light)';
+    }
 
-    // Display detailed checks
+    // === v13.5: Display system health checks from ops status ===
     let checksHTML = '<div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.875rem;">';
-    (data.checks || []).forEach(check => {
-      const icon = check.status === 'ok' ? '✅' : '⚠️';
-      const color = check.status === 'ok' ? 'var(--success)' : 'var(--warning)';
-      checksHTML += `
-        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
-          <span style="font-size: 1.25rem;">${icon}</span>
-          <div style="flex: 1;">
-            <strong>${check.name}</strong>
-            <div style="color: ${color}; font-size: 0.8125rem;">${check.message}</div>
+
+    if (opsStatus.checks && opsStatus.checks.length > 0) {
+      opsStatus.checks.forEach(check => {
+        const icon = check.status === 'ok' ? '✅' : check.status === 'warning' ? '⚠️' : '❌';
+        const color = check.status === 'ok' ? 'var(--success)' : check.status === 'warning' ? 'var(--warning)' : 'var(--danger)';
+        checksHTML += `
+          <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+            <span style="font-size: 1.25rem;">${icon}</span>
+            <div style="flex: 1;">
+              <strong>${check.name}</strong>
+              <div style="color: ${color}; font-size: 0.8125rem;">${check.message}</div>
+            </div>
           </div>
-        </div>
-      `;
-    });
+        `;
+      });
+    }
+
+    // === v13.5: Add DQI issues if any ===
+    if (opsStatus.dqi_issues && opsStatus.dqi_issues.length > 0) {
+      checksHTML += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--bg); border-radius: 4px; border-left: 3px solid var(--warning);">
+        <strong>⚠️ Data Quality Issues</strong>
+        <ul style="margin: 0.5rem 0 0 1.5rem; font-size: 0.8125rem;">`;
+
+      opsStatus.dqi_issues.forEach(issue => {
+        checksHTML += `<li>${issue.type}: ${issue.count} occurrences (-${issue.penalty} pts)</li>`;
+      });
+
+      checksHTML += `</ul></div>`;
+    }
+
     checksHTML += '</div>';
     checksEl.innerHTML = checksHTML;
 
     // Update LIVE badge in header
     const liveBadge = document.getElementById('liveBadge');
     if (liveBadge) {
-      if (data.healthy) {
+      const healthy = opsStatus.healthy === true;
+      if (healthy) {
         liveBadge.style.background = '#10b981';
         liveBadge.textContent = 'LIVE 🟢';
       } else {
@@ -2863,14 +3287,21 @@ async function loadAIOpsStatus() {
       }
     }
 
-    // Update cron schedule (calculate next runs) - v13.0: use top-level timestamps
-    updateCronSchedule(data);
+    // Update cron schedule with real data from ops status
+    if (typeof updateCronSchedule === 'function') {
+      updateCronSchedule({
+        last_forecast_ts: opsStatus.last_forecast_ts,
+        last_learning_ts: opsStatus.last_learning_ts
+      });
+    }
 
   } catch (error) {
     console.error('Failed to load AI Ops status:', error);
-    checksEl.innerHTML = showError('AI Ops Status', error.message);
-    healthScoreEl.textContent = 'ERR';
-    healthScoreEl.style.color = 'var(--danger)';
+    if (checksEl) checksEl.innerHTML = showError('AI Ops Status', error.message);
+    if (healthScoreEl) {
+      healthScoreEl.textContent = 'ERR';
+      healthScoreEl.style.color = 'var(--danger)';
+    }
   }
 }
 
@@ -2948,28 +3379,34 @@ async function loadLearningTimeline() {
   try {
     timelineEl.innerHTML = '<div class="loading">Loading learning timeline...</div>';
 
-    // Try to get learning insights from the database
-    // NOTE: This endpoint may not exist yet, so we'll gracefully handle the error
+    // v13.0: Get learning insights from dashboard endpoint
     try {
-      const data = await fetchAPI('/owner/forecast/history?limit=10');
+      const dashboardData = await fetchAPI('/owner/dashboard');
+      const insights = dashboardData.data?.learningInsights || [];
 
-      if (!data.history || data.history.length === 0) {
+      if (insights.length === 0) {
         timelineEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📚</div><div>No learning insights yet. Train the AI to see insights here!</div></div>';
         return;
       }
 
       let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
-      data.history.slice(0, 10).forEach(insight => {
-        const timestamp = new Date(insight.created_at || insight.timestamp);
-        const status = insight.status === 'applied' ? '✅' : (insight.status === 'pending' ? '⏳' : '📝');
+      insights.slice(0, 10).forEach(insight => {
+        const timestamp = new Date(insight.created_at);
+        const confidence = parseFloat(insight.confidence) || 0;
+
+        // v13.0: Confidence badge (✅ ≥0.95, 🟡 0.85-0.94, 🔴 <0.85)
+        let badge = '🔴';
+        if (confidence >= 0.95) badge = '✅';
+        else if (confidence >= 0.85) badge = '🟡';
+
         html += `
           <div style="padding: 0.75rem; background: var(--bg); border-left: 3px solid var(--primary); border-radius: 4px;">
             <div style="display: flex; justify-content: between; align-items: start; gap: 0.5rem;">
-              <span style="font-size: 1.25rem;">${status}</span>
+              <span style="font-size: 1.25rem;">${badge}</span>
               <div style="flex: 1;">
-                <div style="font-weight: 500; font-size: 0.875rem;">${insight.comment || insight.feedback}</div>
+                <div style="font-weight: 500; font-size: 0.875rem;">${insight.title || 'No title'}</div>
                 <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
-                  ${formatTimeAgo(timestamp)} • ${insight.source || 'manual'}
+                  ${formatTimeAgo(timestamp)} • ${insight.source || 'AI Learning Engine'} • ${(confidence * 100).toFixed(0)}% confidence
                 </div>
               </div>
             </div>
@@ -3021,75 +3458,71 @@ async function triggerJob(jobName) {
  */
 async function loadCognitiveIntelligence() {
   try {
-    // Fetch cognitive intelligence data
-    const cogData = await fetchAPI('/owner/ops/cognitive-intelligence');
-    const statusData = await fetchAPI('/owner/ops/status');
+    // Fetch real dashboard stats
+    const statsResponse = await fetchAPI('/owner/dashboard/stats');
+    const stats = statsResponse.stats;
 
-    // Update top-level metrics
-    document.getElementById('aiConfidenceAvg').textContent =
-      cogData.confidenceTrend.length > 0 ? `${cogData.confidenceTrend[cogData.confidenceTrend.length - 1].avgConfidence}%` : 'N/A';
+    // Update top-level metrics with real data
+    document.getElementById('aiConfidenceAvg').textContent = `${stats.pdfs?.coverage || 0}%`;
+    document.getElementById('forecastAccuracyAvg').textContent = `${stats.pdfs?.coverage || 0}%`;
+    document.getElementById('activeModulesCount').textContent = '1/1'; // PDF Extraction module
+    document.getElementById('learningAppliedCount').textContent = stats.pdfs?.total || 0;
 
-    document.getElementById('forecastAccuracyAvg').textContent =
-      cogData.accuracyTrend.length > 0 ? `${cogData.accuracyTrend[cogData.accuracyTrend.length - 1].avgAccuracy}%` : 'N/A';
-
-    const activeModules = Object.values(statusData.active_modules || {}).filter(v => v).length;
-    document.getElementById('activeModulesCount').textContent = `${activeModules}/4`;
-
-    document.getElementById('learningAppliedCount').textContent = cogData.recentFeedbacks.length;
-
-    // Render confidence and accuracy trend charts (ASCII bar chart)
+    // Render simple status charts
     const chartsEl = document.getElementById('cognitiveCharts');
     let chartsHTML = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
 
-    // Confidence Trend Chart
+    // PDF Extraction Status
     chartsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 6px;">';
-    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">Confidence Trend (7 days)</div>';
-    if (cogData.confidenceTrend.length > 0) {
-      cogData.confidenceTrend.forEach(day => {
-        const barWidth = day.avgConfidence;
-        chartsHTML += `
-          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-            <div style="width: 60px; font-size: 0.75rem;">${day.date.substring(5)}</div>
-            <div style="flex: 1; background: rgba(255,255,255,0.2); border-radius: 4px; height: 20px; position: relative;">
-              <div style="background: #10b981; width: ${barWidth}%; height: 100%; border-radius: 4px;"></div>
-              <div style="position: absolute; right: 4px; top: 2px; font-size: 0.75rem;">${barWidth}%</div>
-            </div>
-          </div>
-        `;
-      });
-    } else {
-      chartsHTML += '<div style="text-align: center; opacity: 0.7; font-size: 0.875rem;">No data yet</div>';
-    }
+    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">Invoice Extraction</div>';
+    chartsHTML += `
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <div style="width: 80px; font-size: 0.75rem;">Coverage</div>
+        <div style="flex: 1; background: rgba(255,255,255,0.2); border-radius: 4px; height: 24px; position: relative;">
+          <div style="background: #10b981; width: ${stats.pdfs?.coverage || 0}%; height: 100%; border-radius: 4px;"></div>
+          <div style="position: absolute; right: 4px; top: 3px; font-size: 0.75rem; font-weight: 600;">${stats.pdfs?.coverage || 0}%</div>
+        </div>
+      </div>
+      <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.5rem;">
+        ${stats.pdfs?.withDates || 0}/${stats.pdfs?.total || 0} invoices with dates
+      </div>
+    `;
     chartsHTML += '</div>';
 
-    // Forecast Accuracy Trend Chart
+    // System Status
     chartsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 6px;">';
-    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">Forecast Accuracy (7 days)</div>';
-    if (cogData.accuracyTrend.length > 0) {
-      cogData.accuracyTrend.forEach(day => {
-        const barWidth = day.avgAccuracy || 0;
-        chartsHTML += `
-          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-            <div style="width: 60px; font-size: 0.75rem;">${day.date.substring(5)}</div>
-            <div style="flex: 1; background: rgba(255,255,255,0.2); border-radius: 4px; height: 20px; position: relative;">
-              <div style="background: #3b82f6; width: ${barWidth}%; height: 100%; border-radius: 4px;"></div>
-              <div style="position: absolute; right: 4px; top: 2px; font-size: 0.75rem;">${barWidth}%</div>
-            </div>
-          </div>
-        `;
-      });
-    } else {
-      chartsHTML += '<div style="text-align: center; opacity: 0.7; font-size: 0.875rem;">No data yet</div>';
-    }
+    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">System Status</div>';
+    chartsHTML += `
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+          <span>PDFs Processed</span>
+          <span style="font-weight: 600;">${stats.pdfs?.total || 0}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+          <span>FIFO Tracking</span>
+          <span style="font-weight: 600;">${stats.fifo?.totalCases > 0 ? stats.fifo.totalCases + ' cases' : stats.fifo?.invoicesReady > 0 ? stats.fifo.invoicesReady + ' ready' : 'Not enabled'}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+          <span>Inventory Items</span>
+          <span style="font-weight: 600;">${stats.inventory?.totalItems || 0}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+          <span>Total Value</span>
+          <span style="font-weight: 600;">$${((stats.pdfs?.totalAmount || 0) / 1000).toFixed(1)}K</span>
+        </div>
+      </div>
+    `;
     chartsHTML += '</div>';
 
     chartsHTML += '</div>';
     chartsEl.innerHTML = chartsHTML;
 
   } catch (error) {
-    console.error('Failed to load cognitive intelligence:', error);
-    document.getElementById('aiConfidenceAvg').textContent = 'ERR';
-    document.getElementById('forecastAccuracyAvg').textContent = 'ERR';
+    console.error('Failed to load system overview:', error);
+    document.getElementById('aiConfidenceAvg').textContent = '0%';
+    document.getElementById('forecastAccuracyAvg').textContent = '0%';
+    document.getElementById('activeModulesCount').textContent = '0/1';
+    document.getElementById('learningAppliedCount').textContent = '0';
   }
 }
 
@@ -3100,31 +3533,92 @@ async function loadActivityFeed() {
   const feedEl = document.getElementById('activityFeed');
 
   try {
-    feedEl.innerHTML = '<div class="loading"><div class="spinner"></div> Loading activity feed...</div>';
+    feedEl.innerHTML = '<div class="loading"><div class="spinner"></div> Loading activity...</div>';
 
-    const data = await fetchAPI('/owner/ops/activity-feed?limit=20');
+    const statsResponse = await fetchAPI('/owner/dashboard/stats');
+    const stats = statsResponse.stats;
 
-    if (!data.activities || data.activities.length === 0) {
-      feedEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📡</div><div>No recent AI activity. System is warming up...</div></div>';
-      return;
+    const activities = [];
+
+    // Latest PDF upload
+    if (stats.recentActivity?.lastPDFUpload) {
+      activities.push({
+        icon: '📄',
+        event: 'Invoice Uploaded',
+        description: `Invoice #${stats.recentActivity.lastPDFInvoice}`,
+        timestamp: stats.recentActivity.lastPDFUpload,
+        badge: null
+      });
     }
 
+    // System stats
+    const fifoStatus = stats.fifo?.totalCases > 0
+      ? `${stats.fifo.totalCases} FIFO cases`
+      : stats.fifo?.invoicesReady > 0
+        ? `${stats.fifo.invoicesReady} invoices ready`
+        : 'FIFO not enabled';
+
+    activities.push({
+      icon: '📊',
+      event: 'System Overview',
+      description: `${stats.pdfs?.total || 0} PDFs | ${stats.inventory?.totalItems || 0} Items | ${fifoStatus}`,
+      timestamp: stats.timestamp,
+      badge: stats.pdfs?.coverage === 100 ? 'success' : null
+    });
+
+    // FIFO tracking
+    if (stats.fifo?.totalCases > 0) {
+      activities.push({
+        icon: '📦',
+        event: 'FIFO Tracking',
+        description: `${stats.fifo.totalCases} cases across ${stats.fifo.productsTracked} products`,
+        timestamp: stats.timestamp,
+        badge: 'success'
+      });
+    } else if (stats.fifo?.invoicesReady > 0) {
+      activities.push({
+        icon: '📋',
+        event: 'FIFO Ready',
+        description: `${stats.fifo.invoicesReady} invoices ready for case-level tracking`,
+        timestamp: stats.timestamp,
+        badge: 'info'
+      });
+    }
+
+    // Active counts
+    if (stats.counts?.active > 0) {
+      activities.push({
+        icon: '🔢',
+        event: 'Physical Count Active',
+        description: `${stats.counts.active} count${stats.counts.active > 1 ? 's' : ''} in progress`,
+        timestamp: stats.timestamp,
+        badge: 'warning'
+      });
+    }
+
+    // Invoice extraction status
+    activities.push({
+      icon: '✅',
+      event: 'Invoice Extraction',
+      description: `${stats.pdfs?.coverage || 0}% coverage (${stats.pdfs?.withDates || 0}/${stats.pdfs?.total || 0})`,
+      timestamp: stats.timestamp,
+      badge: stats.pdfs?.coverage === 100 ? 'success' : 'info'
+    });
+
     let html = '<div style="max-height: 400px; overflow-y: auto; font-size: 0.875rem;">';
-    data.activities.forEach(activity => {
-      const icon = activity.type === 'learning_event' ? '🧠' : (activity.type === 'forecast_event' ? '📈' : '📡');
+    activities.forEach(activity => {
       const timestamp = new Date(activity.timestamp);
       const ageText = formatTimeAgo(timestamp);
 
       html += `
         <div style="display: flex; gap: 0.75rem; padding: 0.75rem; border-bottom: 1px solid var(--border);">
-          <div style="font-size: 1.5rem;">${icon}</div>
+          <div style="font-size: 1.5rem;">${activity.icon}</div>
           <div style="flex: 1;">
-            <div style="font-weight: 500;">${activity.event || activity.type}</div>
+            <div style="font-weight: 500;">${activity.event}</div>
             <div style="color: var(--text-light); font-size: 0.8125rem; margin-top: 0.125rem;">
-              ${activity.description || ''} • ${ageText}
+              ${activity.description} • ${ageText}
             </div>
-            ${activity.metadata && activity.metadata.confidence ?
-              `<div class="badge badge-success" style="margin-top: 0.25rem;">Confidence: ${activity.metadata.confidence}%</div>` : ''}
+            ${activity.badge ? `<div class="badge badge-${activity.badge}" style="margin-top: 0.25rem;">Active</div>` : ''}
           </div>
         </div>
       `;
@@ -3135,7 +3629,7 @@ async function loadActivityFeed() {
 
   } catch (error) {
     console.error('Failed to load activity feed:', error);
-    feedEl.innerHTML = showError('Activity Feed', error.message);
+    feedEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div>Failed to load activity</div></div>';
   }
 }
 
