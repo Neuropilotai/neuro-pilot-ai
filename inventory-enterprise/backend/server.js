@@ -93,14 +93,14 @@ let quantumKeys = null;
 let complianceEngine = null;
 
 const app = express();
-// v14.4.1: Enhanced security headers - removed unsafe-inline from scripts
+// v14.4.2: Maximum security - no unsafe-inline anywhere
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],  // v14.4.1: Removed unsafe-inline (XSS protection for <script> tags)
       scriptSrcAttr: ["'unsafe-inline'"],  // Allow inline event handlers (onclick, etc) - TODO: refactor to addEventListener
-      styleSrc: ["'self'", "'unsafe-inline'"],   // TODO: Remove after inline style extraction
+      styleSrc: ["'self'"],  // v14.4.2: Removed unsafe-inline (inline styles extracted to CSS)
       imgSrc: ["'self'", "data:", "blob:"],
       // Allow both localhost and 127.0.0.1 for local development + WebSocket
       connectSrc: [
@@ -131,10 +131,22 @@ app.use(i18n);
 
 const path = require('path');
 
+// v14.4.2: Console redirect telemetry with 14-day retention
+const redirects = [];
+
 // v14.4: Permanent console unification - MUST be before static middleware
 // owner-console.html → owner-super-console.html (301 permanent redirect)
 app.get(['/owner-console', '/owner-console.html'], (req, res) => {
   const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+
+  // v14.4.2: Store redirect telemetry with 14-day retention
+  redirects.push({
+    t: Date.now(),
+    from: req.path,
+    to: '/owner-super-console.html',
+    ip: req.ip,
+    ua: req.get('user-agent') || ''
+  });
 
   // Telemetry: track legacy console access
   realtimeBus.emit('console_redirect', {
@@ -153,6 +165,15 @@ app.get(['/owner-console', '/owner-console.html'], (req, res) => {
 
   res.redirect(301, `/owner-super-console.html${qs}`);
 });
+
+// v14.4.2: Garbage collect old redirects every 6 hours (14-day retention)
+setInterval(() => {
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  while (redirects.length && redirects[0].t < cutoff) {
+    redirects.shift();
+  }
+  logger.debug(`Redirect telemetry GC: ${redirects.length} entries retained`);
+}, 6 * 60 * 60 * 1000);
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));

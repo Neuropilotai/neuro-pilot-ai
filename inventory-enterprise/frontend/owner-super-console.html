@@ -247,10 +247,10 @@
   <header>
     <div class="logo">
       🧠 NeuroPilot v14.4.0 • The Living Inventory Intelligence Console
-      <span id="liveBadge" class="badge" style="margin-left: 0.75rem; background: #10b981; color: white; font-size: 0.75rem; padding: 0.25rem 0.5rem; animation: pulse 2s infinite;">
+      <span id="liveBadge" class="badge badge-live">
         LIVE 🟢
       </span>
-      <span class="badge" style="margin-left: 0.5rem; background: #6366f1; color: white; font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+      <span class="badge badge-version">
         SUPER • data:/api/owner/dashboard
       </span>
     </div>
@@ -278,36 +278,36 @@
     <!-- Dashboard Tab -->
     <div id="dashboard" class="tab-panel active">
       <!-- v13.0: Cognitive Overview -->
-      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
-        <div class="card-header" style="border-bottom-color: rgba(255,255,255,0.2);">
-          <h3 class="card-title" style="color: white;">🧠 Cognitive Overview - AI Intelligence Status</h3>
-          <button type="button" class="btn btn-sm" style="background: rgba(255,255,255,0.3); color: white;" onclick="loadCognitiveIntelligence()">↻ Refresh</button>
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">🧠 Cognitive Overview - AI Intelligence Status</h3>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadCognitiveIntelligence()">↻ Refresh</button>
         </div>
-        <div style="display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 1rem;">
+        <div class="cognitive-grid">
           <!-- v14.4: AI Intelligence Index - Featured -->
-          <div style="text-align: center; padding: 1.5rem; background: rgba(255,255,255,0.15); border-radius: 8px; border: 2px solid rgba(255,255,255,0.3);">
-            <div style="font-size: 3rem; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.2);" id="aiIntelligenceIndex">--</div>
-            <div style="font-size: 1rem; opacity: 0.95; margin-top: 0.5rem; font-weight: 600;">🧠 AI Intelligence Index</div>
-            <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.25rem;" id="aiIndexTrend">--</div>
+          <div class="cognitive-main-stat">
+            <div class="cognitive-main-value" id="aiIntelligenceIndex">--</div>
+            <div class="cognitive-main-label">🧠 AI Intelligence Index</div>
+            <div class="cognitive-main-trend" id="aiIndexTrend">--</div>
           </div>
-          <div style="text-align: center; padding: 1rem;">
-            <div style="font-size: 1.75rem; font-weight: 700;" id="aiConfidenceAvg">--</div>
-            <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.5rem;">AI Confidence</div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="aiConfidenceAvg">--</div>
+            <div class="cognitive-stat-label">AI Confidence</div>
           </div>
-          <div style="text-align: center; padding: 1rem;">
-            <div style="font-size: 1.75rem; font-weight: 700;" id="forecastAccuracyAvg">--</div>
-            <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.5rem;">Forecast Accuracy</div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="forecastAccuracyAvg">--</div>
+            <div class="cognitive-stat-label">Forecast Accuracy</div>
           </div>
-          <div style="text-align: center; padding: 1rem;">
-            <div style="font-size: 1.75rem; font-weight: 700;" id="activeModulesCount">--</div>
-            <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.5rem;">Active Modules</div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="activeModulesCount">--</div>
+            <div class="cognitive-stat-label">Active Modules</div>
           </div>
-          <div style="text-align: center; padding: 1rem;">
-            <div style="font-size: 1.75rem; font-weight: 700;" id="learningAppliedCount">--</div>
-            <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.5rem;">Learning (7d)</div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="learningAppliedCount">--</div>
+            <div class="cognitive-stat-label">Learning (7d)</div>
           </div>
         </div>
-        <div id="cognitiveCharts" style="margin-top: 1rem; padding: 0 1rem 1rem;"></div>
+        <div id="cognitiveCharts"></div>
       </div>
 
       <!-- Original Stats -->
@@ -316,11 +316,11 @@
           <div class="stat-value" id="systemHealth">--</div>
           <div class="stat-label">System Health</div>
         </div>
-        <div class="card stat-card" style="cursor: pointer;" onclick="showForecastDetail()" title="Click to see details">
+        <div class="card stat-card cursor-pointer" onclick="showForecastDetail()" title="Click to see details">
           <div class="stat-value" id="forecastCoverage">--</div>
           <div class="stat-label">Forecast Coverage</div>
         </div>
-        <div class="card stat-card" style="cursor: pointer;" onclick="showStockoutDetail()" title="Click to see details">
+        <div class="card stat-card cursor-pointer" onclick="showStockoutDetail()" title="Click to see details">
           <div class="stat-value" id="stockoutCount">--</div>
           <div class="stat-label">Stockout Risk</div>
         </div>
@@ -331,7 +331,7 @@
       </div>
 
       <!-- v13.0: AI Activity Feed -->
-      <div class="card" style="margin-top: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">📡 Live AI Activity Feed</h3>
           <button type="button" class="btn btn-sm btn-primary" onclick="loadActivityFeed()">↻ Refresh</button>
@@ -339,7 +339,7 @@
         <div id="activityFeed"></div>
       </div>
 
-      <div class="grid grid-2" style="margin-top: 1.5rem;">
+      <div class="grid grid-2">
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Database Statistics</h3>
@@ -373,14 +373,14 @@
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Storage Locations</h3>
-            <div style="display: flex; gap: 0.5rem;">
+            <div class="flex-gap-half">
               <button type="button" class="btn btn-sm btn-success" onclick="openAddLocationModal()">➕ Add New</button>
               <button type="button" class="btn btn-sm btn-primary" onclick="loadLocations()">↻ Refresh</button>
             </div>
           </div>
           <div id="locationsList"></div>
         </div>
-        <div class="card" style="grid-column: span 2;">
+        <div class="card grid-col-span-2">
           <div class="card-header">
             <h3 class="card-title">Items at Location</h3>
             <span id="selectedLocation"></span>
@@ -390,31 +390,31 @@
       </div>
 
       <!-- Unassigned Items Panel -->
-      <div class="card" style="margin-top: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">📦 Unassigned Items</h3>
-          <div style="display: flex; gap: 0.5rem;">
+          <div class="flex-gap-half">
             <button type="button" class="btn btn-sm btn-success" onclick="assignSelectedItems()" id="assignSelectedBtn" disabled>📍 Assign Selected</button>
             <button type="button" class="btn btn-sm btn-primary" onclick="loadUnassignedItems()">↻ Refresh</button>
           </div>
         </div>
         <div class="toolbar">
           <input type="text" class="input toolbar-search" id="unassignedSearch" placeholder="Search items..." oninput="debounceUnassignedSearch()">
-          <span style="color: var(--text-light); font-size: 0.875rem;">
+          <span class="text-light-med">
             Total: <strong id="unassignedTotal">--</strong>
           </span>
         </div>
-        <div style="max-height: 500px; overflow-y: auto;">
+        <div>
           <table class="table">
             <thead>
               <tr>
-                <th style="width: 40px;">
+                <th>
                   <input type="checkbox" id="selectAllUnassigned" onchange="toggleSelectAllUnassigned()">
                 </th>
                 <th>Item Code</th>
                 <th>Name</th>
                 <th>Unit</th>
-                <th style="width: 100px;">Action</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="unassignedList"></tbody>
@@ -459,7 +459,7 @@
             <label class="form-label">Notes</label>
             <textarea class="textarea" id="countNotes" placeholder="Count notes..."></textarea>
           </div>
-          <button type="button" class="btn btn-primary" onclick="startCount()" style="width: 100%;">🎯 Start Count</button>
+          <button type="button" class="btn btn-primary" onclick="startCount()">🎯 Start Count</button>
         </div>
         <div class="card">
           <div class="card-header">
@@ -469,7 +469,7 @@
           <div id="activeCountDetails"></div>
         </div>
       </div>
-      <div class="card" style="margin-top: 1.5rem;" id="countProcessPanel" style="display: none;">
+      <div class="card" id="countProcessPanel">
         <div class="card-header">
           <h3 class="card-title">Count Process Panel</h3>
         </div>
@@ -494,34 +494,34 @@
     <!-- AI Console Tab -->
     <div id="ai" class="tab-panel">
       <!-- AI Ops System Health Panel (v13.5) -->
-      <div class="card" style="margin-bottom: 1.5rem; border: 2px solid var(--primary);">
+      <div class="card card-bordered">
         <div class="card-header">
           <h3 class="card-title">🚀 AI Ops System Health (v13.5 Adaptive)</h3>
           <button type="button" class="btn btn-sm btn-primary" onclick="loadAIOpsStatus()">↻ Refresh</button>
         </div>
         <div class="grid grid-4" id="aiOpsHealthGrid">
           <div class="stat-card">
-            <div class="stat-value" id="opsHealthScore" style="color: var(--success);">--</div>
+            <div class="stat-value" id="opsHealthScore">--</div>
             <div class="stat-label">Health Score</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="opsDQIScore" style="font-size: 1.5rem;">--</div>
+            <div class="stat-value" id="opsDQIScore">--</div>
             <div class="stat-label">🧮 Data Quality (DQI)</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="opsForecastLatency" style="font-size: 1.5rem;">--</div>
+            <div class="stat-value" id="opsForecastLatency">--</div>
             <div class="stat-label">⚙️ Forecast Latency</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="opsLearningDivergence" style="font-size: 1.5rem;">--</div>
+            <div class="stat-value" id="opsLearningDivergence">--</div>
             <div class="stat-label">🧩 Learning Divergence</div>
           </div>
         </div>
-        <div id="aiOpsChecks" style="margin-top: 1rem;"></div>
+        <div id="aiOpsChecks"></div>
       </div>
 
       <!-- Cron Schedule Summary (v12.5) -->
-      <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">⏰ Autonomous Cron Schedule</h3>
           <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_forecast')">▶️ Run Forecast Now</button>
@@ -530,19 +530,19 @@
         <div class="grid grid-2" id="cronSchedule">
           <div>
             <strong>🔮 Daily Forecast (06:00)</strong>
-            <div id="forecastLastRun" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">Last: --</div>
-            <div id="forecastNextRun" style="font-size: 0.875rem; color: var(--text-light);">Next: --</div>
+            <div id="forecastLastRun" class="text-light-med-mt">Last: --</div>
+            <div id="forecastNextRun" class="text-light-med">Next: --</div>
           </div>
           <div>
             <strong>🧠 Daily Learning (21:00)</strong>
-            <div id="learningLastRun" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">Last: --</div>
-            <div id="learningNextRun" style="font-size: 0.875rem; color: var(--text-light);">Next: --</div>
+            <div id="learningLastRun" class="text-light-med-mt">Last: --</div>
+            <div id="learningNextRun" class="text-light-med">Next: --</div>
           </div>
         </div>
       </div>
 
       <!-- Learning Timeline (v12.5) -->
-      <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">📚 Learning Timeline (Last 10 Insights)</h3>
           <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningTimeline()">↻ Refresh</button>
@@ -573,21 +573,21 @@
           <div id="aiUpgradeAdvice"></div>
         </div>
       </div>
-      <div class="card" style="margin-top: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">Owner Feedback & Training</h3>
         </div>
         <div class="form-group">
           <textarea class="textarea" id="aiFeedback" placeholder="Enter feedback (e.g., 'coffee 1.5 cups/person', 'eggs 2 per person for breakfast')"></textarea>
         </div>
-        <div style="display: flex; gap: 1rem;">
+        <div class="flex-gap-1">
           <button type="button" class="btn btn-primary" onclick="submitFeedback()">💬 Submit Feedback</button>
           <button type="button" class="btn btn-success" onclick="trainAI()">🚀 Train Now</button>
           <button type="button" class="btn btn-secondary" onclick="loadFeedbackHistory()">📜 History</button>
         </div>
-        <div id="feedbackHistory" style="margin-top: 1rem;"></div>
+        <div id="feedbackHistory"></div>
       </div>
-      <div class="card" style="margin-top: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">AI Learning Nudge</h3>
           <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningNudges()">↻ Refresh</button>
@@ -598,19 +598,19 @@
 
     <!-- Forecast Tab -->
     <div id="forecast" class="tab-panel">
-      <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">Population Controls</h3>
           <button type="button" class="btn btn-sm btn-primary" onclick="loadPopulation()">↻</button>
         </div>
-        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <div class="flex-gap-1-wrap">
           <div>
             <label class="form-label">Total Population</label>
-            <input type="number" class="input" id="totalPopulation" style="width: 120px;">
+            <input type="number" class="input" id="totalPopulation">
           </div>
           <div>
             <label class="form-label">Indian Meals</label>
-            <input type="number" class="input" id="indianCount" style="width: 120px;">
+            <input type="number" class="input" id="indianCount">
           </div>
           <button type="button" class="btn btn-primary" onclick="updatePopulation()">💾 Update</button>
           <div class="chip" onclick="adjustPopulation(25, 0)">+25 People</div>
@@ -619,7 +619,7 @@
           <div class="chip" onclick="adjustPopulation(0, -5)">-5 Indian</div>
         </div>
       </div>
-      <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">Stockout Alerts</h3>
         </div>
@@ -637,33 +637,33 @@
     <!-- Reports Tab -->
     <div id="reports" class="tab-panel">
       <!-- GFS Monthly Reports Quick Access -->
-      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-        <div class="card-header" style="border-bottom-color: rgba(255,255,255,0.2);">
-          <h3 class="card-title" style="color: white;">📊 GFS Monthly Accounting Reports</h3>
-          <span class="badge" style="background: rgba(255,255,255,0.3); color: white;">181 Invoices | $2.13M</span>
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">📊 GFS Monthly Accounting Reports</h3>
+          <span class="badge btn-cognitive-refresh">181 Invoices | $2.13M</span>
         </div>
-        <div style="padding: 0.5rem 0;">
-          <p style="opacity: 0.95; font-size: 0.875rem; margin-bottom: 1rem;">
+        <div>
+          <p>
             Access all monthly GFS accounting reports (Jan-Sep 2025) with clickable PDF links, cost code breakdowns, and copy/paste ready format.
           </p>
-          <button type="button" class="btn" style="background: white; color: #667eea; width: 100%; font-weight: 600; font-size: 1rem;" onclick="openGFSReports()">
+          <button type="button" class="btn btn-white-full" onclick="openGFSReports()">
             🚀 Open GFS Monthly Reports Dashboard
           </button>
         </div>
       </div>
 
-      <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">Tiered Reporting Center</h3>
         </div>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <div class="flex-gap-half-wrap">
           <div class="chip active" id="reportTab-executive" onclick="switchReportTab('executive')">👔 Executive</div>
           <div class="chip" id="reportTab-ops" onclick="switchReportTab('ops')">📊 Ops Manager</div>
           <div class="chip" id="reportTab-production" onclick="switchReportTab('production')">👨‍🍳 Production</div>
           <div class="chip" id="reportTab-purchasing" onclick="switchReportTab('purchasing')">🛒 Purchasing</div>
           <div class="chip" id="reportTab-finance" onclick="switchReportTab('finance')">💰 Finance</div>
         </div>
-        <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()" style="margin-bottom: 1rem;">📥 Export CSV</button>
+        <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()">📥 Export CSV</button>
         <div id="reportContent"></div>
       </div>
     </div>
@@ -676,40 +676,40 @@
             <h3 class="card-title">Device Binding</h3>
           </div>
           <div id="deviceInfo"></div>
-          <button type="button" class="btn btn-primary" onclick="rebindDevice()" style="width: 100%; margin-top: 1rem;">🔐 Rebind Device</button>
+          <button type="button" class="btn btn-primary" onclick="rebindDevice()">🔐 Rebind Device</button>
         </div>
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Console Preferences</h3>
           </div>
           <div class="form-group">
-            <label style="display: flex; align-items: center; gap: 0.5rem;">
+            <label class="flex-align-center">
               <input type="checkbox" id="warmCache">
               <span>Warm Forecast Cache on Load</span>
             </label>
           </div>
-          <button type="button" class="btn btn-secondary" onclick="exportDailyCSV()" style="width: 100%;">📥 Export Daily Summary CSV</button>
+          <button type="button" class="btn btn-secondary" onclick="exportDailyCSV()">📥 Export Daily Summary CSV</button>
         </div>
       </div>
-      <div class="grid grid-2" style="margin-top: 1.5rem;">
+      <div class="grid grid-2">
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">System Orchestration</h3>
           </div>
-          <button type="button" class="btn btn-success" onclick="orchestrateStart()" style="width: 100%; margin-bottom: 0.5rem;">🚀 Start All Services</button>
-          <button type="button" class="btn btn-warning" onclick="orchestrateStop()" style="width: 100%;">🛑 Stop All Services (Safe)</button>
-          <div id="orchestrationStatus" style="margin-top: 1rem;"></div>
+          <button type="button" class="btn btn-success" onclick="orchestrateStart()">🚀 Start All Services</button>
+          <button type="button" class="btn btn-warning" onclick="orchestrateStop()">🛑 Stop All Services (Safe)</button>
+          <div id="orchestrationStatus"></div>
         </div>
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Backup & Recovery</h3>
           </div>
-          <button type="button" class="btn btn-primary" onclick="createRecoveryKit()" style="width: 100%; margin-bottom: 0.5rem;">💾 Create Recovery Kit</button>
-          <button type="button" class="btn btn-secondary" onclick="verifyRecoveryKit()" style="width: 100%; margin-bottom: 0.5rem;">🔍 Verify Recovery Kit</button>
-          <button type="button" class="btn btn-secondary" onclick="dryRunRestore()" style="width: 100%;">🔄 Dry-Run Restore</button>
+          <button type="button" class="btn btn-primary" onclick="createRecoveryKit()">💾 Create Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" onclick="verifyRecoveryKit()">🔍 Verify Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" onclick="dryRunRestore()">🔄 Dry-Run Restore</button>
         </div>
       </div>
-      <div class="card" style="margin-top: 1.5rem;">
+      <div class="card">
         <div class="card-header">
           <h3 class="card-title">Audit Chain</h3>
         </div>
@@ -720,13 +720,13 @@
 
   <!-- Modals -->
   <div id="pdfModal" class="modal">
-    <div class="modal-content" style="max-width: 95%; max-height: 95%;">
+    <div class="modal-content">
       <div class="modal-header">
         <h3 id="pdfModalTitle">PDF Viewer</h3>
         <button type="button" class="btn btn-sm btn-secondary" onclick="closePDFModal()">✕ Close</button>
       </div>
-      <div class="modal-body" style="padding: 0; height: 80vh;">
-        <iframe id="pdfFrame" style="width: 100%; height: 100%; border: none;"></iframe>
+      <div class="modal-body">
+        <iframe id="pdfFrame"></iframe>
       </div>
     </div>
   </div>
@@ -762,7 +762,7 @@
       </div>
       <div class="modal-body">
         <div id="orchestrationSteps"></div>
-        <div id="orchestrationCurl" style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 4px; font-family: monospace; font-size: 0.8125rem; overflow-x: auto;"></div>
+        <div id="orchestrationCurl"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="closeOrchestrationModal()">Close</button>
@@ -801,7 +801,7 @@
             <label class="form-label">Passphrase (min 12 characters)</label>
             <input type="password" class="input" id="recoveryPassphrase" placeholder="Enter passphrase" autocomplete="current-password">
           </div>
-          <div class="form-group" id="recoveryDestGroup" style="display: none;">
+          <div class="form-group hidden" id="recoveryDestGroup">
             <label class="form-label">Destination Path (USB)</label>
             <input type="text" class="input" id="recoveryDest" placeholder="/Volumes/USB/backup" autocomplete="off">
           </div>
@@ -858,7 +858,7 @@
           <div class="form-group">
             <label class="form-label">Select PDF File *</label>
             <input type="file" class="input" id="pdfFile" accept="application/pdf" required>
-            <small style="color: var(--text-light); font-size: 0.75rem;">Max size: 50MB. Only PDF files are allowed.</small>
+            <small class="text-light-small">Max size: 50MB. Only PDF files are allowed.</small>
           </div>
           <div class="form-group">
             <label class="form-label">Notes (optional)</label>
@@ -886,7 +886,7 @@
           <div class="form-group">
             <label class="form-label">Location ID *</label>
             <input type="text" class="input" id="locationCode" placeholder="e.g., cooler-01" required>
-            <small style="color: var(--text-light); font-size: 0.75rem;">Use lowercase with hyphens (e.g., "freezer-a2", "walk-in-d1")</small>
+            <small class="text-light-small">Use lowercase with hyphens (e.g., "freezer-a2", "walk-in-d1")</small>
           </div>
           <div class="form-group">
             <label class="form-label">Location Name *</label>
@@ -924,11 +924,11 @@
           <div class="form-group">
             <label class="form-label">Search Item (by code or name) *</label>
             <input type="text" class="input" id="itemSearchInput" placeholder="Type item code or name..." autocomplete="off" required>
-            <div id="itemSearchResults" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; margin-top: 0.5rem; display: none;"></div>
+            <div id="itemSearchResults" class="hidden"></div>
             <input type="hidden" id="selectedItemCode">
-            <div id="selectedItemDisplay" style="margin-top: 0.5rem; padding: 0.75rem; background: var(--bg); border-radius: 4px; display: none;">
+            <div id="selectedItemDisplay" class="hidden">
               <strong>Selected:</strong> <span id="selectedItemText"></span>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="clearSelectedItem()" style="float: right; padding: 0.25rem 0.5rem;">Clear</button>
+              <button type="button" class="btn btn-sm btn-secondary btn-float-right" onclick="clearSelectedItem()">Clear</button>
             </div>
           </div>
 
@@ -973,10 +973,10 @@
         </div>
         <div class="form-group">
           <label class="form-label">Select Locations (multiple) *</label>
-          <select class="select" id="assignLocationSelect" multiple size="10" style="height: 250px;">
+          <select class="select" id="assignLocationSelect" multiple size="10">
             <!-- Populated dynamically -->
           </select>
-          <small style="color: var(--text-light); font-size: 0.75rem;">Hold Ctrl (Windows) or Cmd (Mac) to select multiple locations</small>
+          <small class="text-light-small">Hold Ctrl (Windows) or Cmd (Mac) to select multiple locations</small>
         </div>
       </div>
       <div class="modal-footer">
@@ -988,7 +988,7 @@
 
   <!-- Workspace Details Modal (v14.3) -->
   <div id="workspaceModal" class="modal">
-    <div class="modal-content" style="max-width: 1200px;">
+    <div class="modal-content">
       <div class="modal-header">
         <h3 id="workspaceModalTitle">🎮 Workspace Details</h3>
         <button type="button" class="btn btn-sm btn-secondary" onclick="closeWorkspaceModal()">✕ Close</button>
@@ -1000,7 +1000,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Close</button>
-        <button type="button" class="btn btn-primary" id="workspaceUsageBtn" onclick="viewWorkspaceUsage()" style="display: none;">📊 View Usage Report</button>
+        <button type="button" class="btn btn-primary hidden" id="workspaceUsageBtn" onclick="viewWorkspaceUsage()">📊 View Usage Report</button>
       </div>
     </div>
   </div>

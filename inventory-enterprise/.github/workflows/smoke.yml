@@ -1,4 +1,4 @@
-name: Smoke Tests (v14.4.1)
+name: Smoke Tests (v14.4.2)
 
 on:
   push:
@@ -54,6 +54,35 @@ jobs:
           fi
           echo "✅ Version check passed"
 
+      - name: Style audit - Check for inline styles (v14.4.2)
+        run: |
+          echo "🔍 Auditing HTML files for inline styles..."
+          INLINE_COUNT=$(grep -r 'style="' ./inventory-enterprise/frontend/*.html | wc -l | xargs)
+          echo "Found $INLINE_COUNT inline style attributes"
+          if [[ "$INLINE_COUNT" -gt 0 ]]; then
+            echo "❌ CSP violation: Inline styles detected in HTML files"
+            echo "Files with inline styles:"
+            grep -rn 'style="' ./inventory-enterprise/frontend/*.html || true
+            exit 1
+          fi
+          echo "✅ Style audit passed - no inline styles found"
+
+      - name: CSP header validation (v14.4.2)
+        run: |
+          echo "🔒 Validating Content-Security-Policy headers..."
+          CSP_HEADER=$(curl -s -I http://localhost:8083/owner-super-console.html | grep -i "content-security-policy" || echo "")
+          if [[ -z "$CSP_HEADER" ]]; then
+            echo "⚠️  Warning: No CSP header found"
+            exit 1
+          fi
+          if echo "$CSP_HEADER" | grep -q "style-src.*'unsafe-inline'"; then
+            echo "❌ CSP still contains 'unsafe-inline' for style-src"
+            echo "$CSP_HEADER"
+            exit 1
+          fi
+          echo "✅ CSP validation passed - no 'unsafe-inline' in style-src"
+          echo "$CSP_HEADER"
+
       - name: AI Intelligence Index endpoint
         run: |
           echo "Testing AI Intelligence Index..."
@@ -64,6 +93,59 @@ jobs:
         run: |
           echo "Testing Prometheus metrics..."
           curl -f http://localhost:8083/metrics | grep -q "ai_ops_health" || echo "⚠️  AI ops metrics not yet populated"
+
+      - name: Post-deploy comprehensive verification (v14.4.2)
+        run: |
+          echo "🔍 Running comprehensive post-deploy checks..."
+
+          # Check 1: Owner console redirect works
+          echo "1. Testing owner console redirect..."
+          REDIRECT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/owner-console)
+          if [[ "$REDIRECT_STATUS" == "301" ]]; then
+            echo "✅ Owner console redirect working (301)"
+          else
+            echo "❌ Owner console redirect failed (got $REDIRECT_STATUS)"
+            exit 1
+          fi
+
+          # Check 2: Auto-heal metrics exist
+          echo "2. Checking auto-heal metrics..."
+          if curl -s http://localhost:8083/metrics | grep -q "ai_auto_heal_invocation_total"; then
+            echo "✅ Auto-heal metrics registered"
+          else
+            echo "❌ Auto-heal metrics missing"
+            exit 1
+          fi
+
+          # Check 3: CSS file is accessible
+          echo "3. Testing CSS file accessibility..."
+          CSS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/css/owner-super.css)
+          if [[ "$CSS_STATUS" == "200" ]]; then
+            echo "✅ CSS file accessible"
+          else
+            echo "❌ CSS file not accessible (got $CSS_STATUS)"
+            exit 1
+          fi
+
+          # Check 4: Legacy console file removed
+          echo "4. Verifying legacy console file removed..."
+          if [ ! -f ./inventory-enterprise/frontend/owner-console.html ]; then
+            echo "✅ Legacy owner-console.html removed"
+          else
+            echo "❌ Legacy owner-console.html still exists"
+            exit 1
+          fi
+
+          # Check 5: Grafana dashboard exists
+          echo "5. Checking Grafana dashboard..."
+          if [ -f ./inventory-enterprise/backend/ops/grafana-neuropilot-dashboard.json ]; then
+            echo "✅ Grafana dashboard exists"
+          else
+            echo "❌ Grafana dashboard missing"
+            exit 1
+          fi
+
+          echo "✅ All post-deploy checks passed"
 
       - name: Stop server
         if: always()

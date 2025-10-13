@@ -1,0 +1,500 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "neuropilot-aiops",
+    "title": "NeuroPilot AI Ops Dashboard (v14.4.2)",
+    "tags": ["neuropilot", "ai-ops", "inventory", "autonomous"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "AI Ops System Health Score",
+        "type": "gauge",
+        "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+        "targets": [
+          {
+            "expr": "ai_ops_health_score",
+            "refId": "A",
+            "legendFormat": "Health Score"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 70, "color": "yellow" },
+                { "value": 85, "color": "green" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 2,
+        "title": "Auto-Heal Invocations (Last 24h)",
+        "type": "stat",
+        "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
+        "targets": [
+          {
+            "expr": "increase(ai_auto_heal_invocation_total{reason=\"health_below_threshold\"}[24h])",
+            "refId": "A",
+            "legendFormat": "Auto-Heal Triggers"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 5, "color": "yellow" },
+                { "value": 20, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Data Quality Index (DQI)",
+        "type": "gauge",
+        "gridPos": { "x": 16, "y": 0, "w": 8, "h": 4 },
+        "targets": [
+          {
+            "expr": "ai_data_quality_index",
+            "refId": "A",
+            "legendFormat": "DQI Score"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 75, "color": "yellow" },
+                { "value": 90, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "AI Forecast Status",
+        "type": "stat",
+        "gridPos": { "x": 8, "y": 4, "w": 4, "h": 4 },
+        "targets": [
+          {
+            "expr": "(time() - ai_forecast_last_timestamp_seconds) / 3600",
+            "refId": "A",
+            "legendFormat": "Hours Since Forecast"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "h",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 24, "color": "yellow" },
+                { "value": 48, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "AI Learning Status",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 4, "w": 4, "h": 4 },
+        "targets": [
+          {
+            "expr": "(time() - ai_learning_last_timestamp_seconds) / 3600",
+            "refId": "A",
+            "legendFormat": "Hours Since Learning"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "h",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 24, "color": "yellow" },
+                { "value": 48, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Real-time Connected Clients",
+        "type": "stat",
+        "gridPos": { "x": 16, "y": 4, "w": 8, "h": 4 },
+        "targets": [
+          {
+            "expr": "ai_ops_realtime_clients",
+            "refId": "A",
+            "legendFormat": "Connected Clients"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "AI Confidence & Forecast Accuracy (7d Trend)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "ai_confidence_avg_7d",
+            "refId": "A",
+            "legendFormat": "AI Confidence (%)"
+          },
+          {
+            "expr": "ai_forecast_accuracy_7d",
+            "refId": "B",
+            "legendFormat": "Forecast Accuracy (%)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 10
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "AI Confidence (%)" },
+              "properties": [
+                { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+              ]
+            },
+            {
+              "matcher": { "id": "byName", "options": "Forecast Accuracy (%)" },
+              "properties": [
+                { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "multi"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Forecast & Learning Latency (ms)",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "ai_forecast_latency_avg_ms",
+            "refId": "A",
+            "legendFormat": "Forecast Latency"
+          },
+          {
+            "expr": "ai_learning_latency_avg_ms",
+            "refId": "B",
+            "legendFormat": "Learning Latency"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 10
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "Forecast Latency" },
+              "properties": [
+                { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }
+              ]
+            },
+            {
+              "matcher": { "id": "byName", "options": "Learning Latency" },
+              "properties": [
+                { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Health Component Breakdown",
+        "type": "bargauge",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "ai_ops_health_component_forecast_recency",
+            "refId": "A",
+            "legendFormat": "Forecast Recency"
+          },
+          {
+            "expr": "ai_ops_health_component_learning_recency",
+            "refId": "B",
+            "legendFormat": "Learning Recency"
+          },
+          {
+            "expr": "ai_ops_health_component_confidence",
+            "refId": "C",
+            "legendFormat": "AI Confidence"
+          },
+          {
+            "expr": "ai_ops_health_component_accuracy",
+            "refId": "D",
+            "legendFormat": "Forecast Accuracy"
+          },
+          {
+            "expr": "ai_ops_health_component_pipeline",
+            "refId": "E",
+            "legendFormat": "Pipeline Health"
+          },
+          {
+            "expr": "ai_ops_health_component_latency",
+            "refId": "F",
+            "legendFormat": "Latency/Realtime"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 60, "color": "yellow" },
+                { "value": 80, "color": "green" }
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true
+        }
+      },
+      {
+        "id": 10,
+        "title": "Real-time Event Activity (Last 24h)",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(ai_ops_realtime_events_total[5m]) * 60",
+            "refId": "A",
+            "legendFormat": "{{event}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 20,
+              "stacking": {
+                "mode": "normal"
+              }
+            }
+          }
+        },
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right"
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Auto-Heal Event Log",
+        "type": "logs",
+        "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
+        "targets": [
+          {
+            "expr": "{job=\"neuropilot\"} |= \"Auto-heal\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "wrapLogMessage": true,
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 12,
+        "title": "Forecasts Generated (7d)",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "ai_forecast_total",
+            "refId": "A",
+            "legendFormat": "Total Forecasts"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": { "mode": "palette-classic" }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Learning Insights (7d)",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "ai_learning_insights_total",
+            "refId": "A",
+            "legendFormat": "Total Insights"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": { "mode": "palette-classic" }
+          }
+        }
+      },
+      {
+        "id": 14,
+        "title": "Financial Anomaly Count",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "ai_financial_anomaly_count",
+            "refId": "A",
+            "legendFormat": "Active Anomalies"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 5, "color": "yellow" },
+                { "value": 10, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 15,
+        "title": "System Uptime",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "time() - process_start_time_seconds",
+            "refId": "A",
+            "legendFormat": "Uptime"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "yellow" },
+                { "value": 3600, "color": "green" }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Auto-Heal Events",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(ai_auto_heal_invocation_total[1m]) > 0",
+          "iconColor": "red",
+          "tagKeys": "reason"
+        }
+      ]
+    }
+  },
+  "overwrite": true,
+  "message": "NeuroPilot v14.4.2 AI Ops Dashboard - Auto-heal monitoring, composite health scoring, DQI tracking",
+  "folderId": 0,
+  "folderUid": ""
+}

@@ -17,6 +17,17 @@ const { requireOwner } = require('../middleware/requireOwner');
 const realtimeBus = require('../utils/realtimeBus');
 const { logger } = require('../config/logger');
 
+// v14.4.2: Prometheus metrics for auto-heal
+const client = require('prom-client');
+const aiAutoHealCounter = new client.Counter({
+  name: 'ai_auto_heal_invocation_total',
+  help: 'Total number of guarded auto-heal invocations',
+  labelNames: ['reason']
+});
+
+// v14.4.2: Auto-heal backoff tracking
+let lastAutoHealAt = 0;
+
 // === v13.5: Composite AI Ops Health Computation ===
 /**
  * Compute weighted AI Ops System Health Score (0-100)
@@ -409,6 +420,70 @@ async function computeDataQualityIndex(database) {
   }
 }
 
+// === v14.4.2: Guarded Auto-Heal Function ===
+/**
+ * Automatically trigger AI forecast and learning jobs if health is below threshold
+ * Includes 30-minute backoff to prevent excessive triggers
+ *
+ * @param {number} healthPct - Current AI Ops health percentage (0-100)
+ * @param {object} phase3Cron - Cron scheduler instance with triggerJob() method
+ * @param {number} now - Current timestamp (default: Date.now())
+ * @returns {object} { triggered, reason, jobs_fired }
+ */
+async function maybeAutoHeal(healthPct, phase3Cron, now = Date.now()) {
+  const THRESH = 70;
+  const BACKOFF_MS = 30 * 60 * 1000; // 30 minutes
+
+  if (healthPct >= THRESH) {
+    return { triggered: false, reason: 'healthy' };
+  }
+
+  if (now - lastAutoHealAt < BACKOFF_MS) {
+    const backoffRemainingSec = Math.ceil((BACKOFF_MS - (now - lastAutoHealAt)) / 1000);
+    return { triggered: false, reason: 'backoff', backoffRemainingSec };
+  }
+
+  if (!phase3Cron) {
+    logger.warn('Auto-heal skipped: phase3Cron not available');
+    return { triggered: false, reason: 'cron_unavailable' };
+  }
+
+  try {
+    logger.info(`Auto-heal triggered: Health at ${healthPct}% (threshold: ${THRESH}%)`);
+
+    // Fire both jobs as specified in v14.4.2 requirements
+    const forecastResult = await phase3Cron.triggerJob('ai_forecast');
+    const learningResult = await phase3Cron.triggerJob('ai_learning');
+
+    // Increment Prometheus counter
+    aiAutoHealCounter.inc({ reason: 'health_below_threshold' });
+
+    lastAutoHealAt = now;
+
+    logger.info('Auto-heal completed', {
+      forecastSuccess: forecastResult.success,
+      learningSuccess: learningResult.success,
+      forecastDuration: forecastResult.duration,
+      learningDuration: learningResult.duration
+    });
+
+    return {
+      triggered: true,
+      reason: 'auto_heal',
+      healthPct,
+      jobs_fired: ['ai_forecast', 'ai_learning'],
+      results: {
+        forecast: { success: forecastResult.success, duration: forecastResult.duration },
+        learning: { success: learningResult.success, duration: learningResult.duration }
+      }
+    };
+  } catch (err) {
+    logger.error('Auto-heal invocation failed:', err);
+    aiAutoHealCounter.inc({ reason: 'error' });
+    return { triggered: false, reason: 'error', error: err.message };
+  }
+}
+
 /**
  * GET /api/owner/ops/status
  * Get comprehensive AI Ops system health status
@@ -763,6 +838,23 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       logger.debug('Predictive health metrics not available:', err.message);
     }
 
+    // === v13.5: Composite AI Ops System Health ===
+    const ai_ops_health = await computeAIOpsHealth(db, req.app.locals.phase3Cron, {
+      lastForecastTs,
+      lastLearningTs,
+      aiConfidenceAvg,
+      forecastAccuracy,
+      forecastLatency: predictiveHealth.forecast_latency_avg,
+      learningLatency: predictiveHealth.learning_latency_avg,
+      realtimeStatus
+    });
+
+    // === v14.4.2: Auto-Heal Guarded Hook ===
+    const autoHealResult = await maybeAutoHeal(
+      ai_ops_health.score,
+      req.app.locals.phase3Cron
+    );
+
     res.json({
       success: true,
       healthy,
@@ -794,15 +886,10 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       forecast_divergence: predictiveHealth.forecast_divergence,
 
       // === v13.5: Composite AI Ops System Health ===
-      ai_ops_health: await computeAIOpsHealth(db, req.app.locals.phase3Cron, {
-        lastForecastTs,
-        lastLearningTs,
-        aiConfidenceAvg,
-        forecastAccuracy,
-        forecastLatency: predictiveHealth.forecast_latency_avg,
-        learningLatency: predictiveHealth.learning_latency_avg,
-        realtimeStatus
-      }),
+      ai_ops_health,
+
+      // === v14.4.2: Auto-Heal Status ===
+      auto_heal: autoHealResult,
 
       // Real-time status (top-level, spec format)
       realtime: {
