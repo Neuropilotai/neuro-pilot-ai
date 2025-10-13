@@ -119,8 +119,32 @@ app.use(cors());
 app.use(express.json());
 app.use(i18n);
 
-// Serve static frontend files
 const path = require('path');
+
+// v14.4: Permanent console unification - MUST be before static middleware
+// owner-console.html → owner-super-console.html (301 permanent redirect)
+app.get(['/owner-console', '/owner-console.html'], (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+
+  // Telemetry: track legacy console access
+  realtimeBus.emit('console_redirect', {
+    from: req.path,
+    to: '/owner-super-console.html',
+    timestamp: new Date().toISOString(),
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+
+  logger.info('Console redirect: legacy → super', {
+    from: req.path,
+    to: '/owner-super-console.html',
+    ip: req.ip
+  });
+
+  res.redirect(301, `/owner-super-console.html${qs}`);
+});
+
+// Serve static frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/dashboard', express.static(path.join(__dirname, '../frontend/dashboard')));
 
@@ -318,29 +342,6 @@ app.get('/api/metrics', async (req, res) => {
 // Serve frontend index.html for root and SPA routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
-
-// v14.4: Permanent console unification - retire old console
-// owner-console.html → owner-super-console.html (301 permanent redirect)
-app.get(['/owner-console', '/owner-console.html'], (req, res) => {
-  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-
-  // Telemetry: track legacy console access
-  realtimeBus.emit('console_redirect', {
-    from: req.path,
-    to: '/owner-super-console.html',
-    timestamp: new Date().toISOString(),
-    ip: req.ip,
-    userAgent: req.get('user-agent')
-  });
-
-  logger.info('Console redirect: legacy → super', {
-    from: req.path,
-    to: '/owner-super-console.html',
-    ip: req.ip
-  });
-
-  res.redirect(301, `/owner-super-console.html${qs}`);
 });
 
 // Catch-all route for SPA (after all API routes)
