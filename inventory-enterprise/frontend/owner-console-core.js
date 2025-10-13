@@ -25,6 +25,29 @@ let dashboardForecastData = null;
 let dashboardStockoutData = null;
 
 // ============================================================================
+// CSP-COMPLIANT HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Toggle element visibility using class
+ */
+function setHidden(el, hidden) {
+  if (!el) return;
+  el.classList.toggle('u-hide', !!hidden);
+}
+
+/**
+ * Swap text state class
+ */
+function swapText(el, state) {
+  if (!el) return;
+  el.classList.remove('u-text-ok', 'u-text-warn', 'u-text-bad');
+  if (state === 'ok') el.classList.add('u-text-ok');
+  else if (state === 'warn') el.classList.add('u-text-warn');
+  else if (state === 'bad') el.classList.add('u-text-bad');
+}
+
+// ============================================================================
 // INITIALIZATION
 // ============================================================================
 
@@ -301,10 +324,10 @@ function renderSystemStatus(health) {
 
   if (health && health.status === 'OK') {
     statusEl.textContent = '✅ OK';
-    statusEl.style.color = 'var(--success)';
+    swapText(statusEl, 'ok');
   } else {
     statusEl.textContent = '❌ Down';
-    statusEl.style.color = 'var(--danger)';
+    swapText(statusEl, 'bad');
   }
 }
 
@@ -437,10 +460,10 @@ async function loadAIOpsStatus() {
 
       data.checks.forEach(check => {
         const statusIcon = check.status === 'OK' ? '✅' : check.status === 'WARNING' ? '⚠️' : '❌';
-        const statusColor = check.status === 'OK' ? 'var(--success)' : check.status === 'WARNING' ? 'var(--warning)' : 'var(--danger)';
+        const statusClass = check.status === 'OK' ? 'border-left-success' : check.status === 'WARNING' ? 'border-left-warning' : 'border-left-danger';
 
         html += `
-          <div style="padding: 0.5rem; border-left: 3px solid ${statusColor}; background: var(--bg); border-radius: 4px;">
+          <div class="small-padded-bg ${statusClass}">
             ${statusIcon} <strong>${check.name}</strong>: ${check.message}
           </div>
         `;
@@ -481,15 +504,16 @@ async function loadCognitiveIntelligence() {
         indexEl.textContent = index;
         // Color code based on score
         if (index >= 85) {
-          indexEl.style.color = '#10b981'; // Green
+          swapText(indexEl, 'ok');
         } else if (index >= 70) {
-          indexEl.style.color = '#f59e0b'; // Yellow
+          swapText(indexEl, 'warn');
         } else {
-          indexEl.style.color = '#ef4444'; // Red
+          swapText(indexEl, 'bad');
         }
       } else {
         indexEl.textContent = '--';
-        indexEl.style.color = '#9ca3af'; // Gray
+        swapText(indexEl, null);
+        indexEl.classList.add('u-text-light-inline');
       }
     }
 
@@ -498,8 +522,8 @@ async function loadCognitiveIntelligence() {
     if (trendEl && aiIntelligenceIndex.trend_pct !== null) {
       const trend = aiIntelligenceIndex.trend_pct;
       const arrow = trend > 0 ? '↑' : trend < 0 ? '↓' : '→';
-      const trendColor = trend > 0 ? '#10b981' : trend < 0 ? '#ef4444' : '#9ca3af';
-      trendEl.innerHTML = `<span style="color: ${trendColor}">${arrow} ${Math.abs(trend).toFixed(1)}% vs last week</span>`;
+      const trendClass = trend > 0 ? 'text-color-success' : trend < 0 ? 'text-color-danger' : 'u-text-light-inline';
+      trendEl.innerHTML = `<span class="${trendClass}">${arrow} ${Math.abs(trend).toFixed(1)}% vs last week</span>`;
     } else if (trendEl) {
       trendEl.textContent = 'No trend data';
     }
@@ -548,12 +572,12 @@ async function loadActivityFeed() {
     let html = '<div class="flex-col-gap">';
 
     data.activities.slice(0, 10).forEach(activity => {
-      const typeColor = activity.type === 'forecast' ? 'var(--primary)' :
-                       activity.type === 'learning' ? 'var(--success)' :
-                       activity.type === 'alert' ? 'var(--warning)' : 'var(--border)';
+      const typeClass = activity.type === 'forecast' ? 'border-left-info' :
+                       activity.type === 'learning' ? 'border-left-success' :
+                       activity.type === 'alert' ? 'border-left-warning' : 'border-left-neutral';
 
       html += `
-        <div style="padding: 0.75rem; border-left: 3px solid ${typeColor}; background: var(--bg); border-radius: 4px;">
+        <div class="padded-box ${typeClass}">
           <div class="text-bold-base">${activity.title}</div>
           <div class="text-sm-light">${activity.message}</div>
           <div class="description-small-mt">

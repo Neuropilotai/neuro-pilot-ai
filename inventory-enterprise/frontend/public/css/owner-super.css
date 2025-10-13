@@ -254,6 +254,14 @@ header {
   animation: pulse 2s infinite;
 }
 
+.badge-live-ok {
+  background: #10b981 !important;
+}
+
+.badge-live-degraded {
+  background: #ef4444 !important;
+}
+
 .badge-version {
   margin-left: 0.5rem;
   background: #6366f1;
@@ -1341,6 +1349,151 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* Dynamic Border Color Classes (for left borders) */
+.border-left-success {
+  border-left: 3px solid var(--success) !important;
+}
+
+.border-left-warning {
+  border-left: 3px solid var(--warning) !important;
+}
+
+.border-left-danger {
+  border-left: 3px solid var(--danger) !important;
+}
+
+.border-left-info {
+  border-left: 3px solid var(--primary) !important;
+}
+
+.border-left-neutral {
+  border-left: 3px solid var(--border) !important;
+}
+
+/* Padded Box with Background */
+.padded-box {
+  padding: 0.75rem;
+  border-left: 3px solid var(--border);
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+/* Padded Box with Border */
+.padded-box-bordered {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  border-left: 3px solid var(--border);
+}
+
+/* Small Padded Background Box */
+.small-padded-bg {
+  padding: 0.5rem;
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+/* Flex Wrap */
+.flex-wrap {
+  flex-wrap: wrap !important;
+}
+
+/* Badge with Dynamic Background */
+.badge-dynamic-bg {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* Text Color Classes (for inline use) */
+.text-color-success {
+  color: var(--success) !important;
+}
+
+.text-color-warning {
+  color: var(--warning) !important;
+}
+
+.text-color-danger {
+  color: var(--danger) !important;
+}
+
+/* Small Text Size */
+.text-size-sm {
+  font-size: 0.8125rem !important;
+}
+
+/* Margin Top Small */
+.u-mt-half {
+  margin-top: 0.5rem !important;
+}
+
+/* Margin Right */
+.u-mr-2 {
+  margin-right: 0.5rem !important;
+}
+
+/* Large Text Size for Icons */
+.text-size-icon {
+  font-size: 1.25rem !important;
+}
+
+/* DQI Issues Box */
+.dqi-issues-box {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: var(--bg);
+  border-radius: 4px;
+  border-left: 3px solid var(--warning);
+}
+
+/* Score Display with Dynamic Color */
+.score-display-large {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+/* Action Description Text */
+.action-description {
+  font-size: 0.875rem;
+  color: var(--text-light);
+  margin-top: 0.25rem;
+}
+
+/* Nudge Question Box */
+.nudge-question {
+  font-size: 0.875rem;
+  color: var(--text-light);
+  margin-bottom: 0.75rem;
+}
+
+/* Nudge Answer Box */
+.nudge-answer-box {
+  font-size: 0.8125rem;
+  padding: 0.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+/* Flex Layout with Space Between and Align Start */
+.flex-justify-between-start {
+  justify-content: space-between !important;
+  align-items: start !important;
+}
+
+/* Code Block Style */
+.code-inline {
+  background: var(--bg);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Link Inherit Style */
+.link-inherit {
+  color: inherit !important;
+  text-decoration: underline !important;
 }
 
 /* ============================================

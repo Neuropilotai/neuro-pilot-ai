@@ -454,13 +454,13 @@ async function loadRecentActivity(recentActivity) {
     let html = '<div class="flex-col-gap">';
 
     activities.forEach(activity => {
-      const borderColor = activity.type === 'success' ? 'var(--success)' :
-                         activity.type === 'warning' ? 'var(--warning)' :
-                         activity.type === 'info' ? 'var(--primary)' :
-                         'var(--border)';
+      const borderClass = activity.type === 'success' ? 'border-left-success' :
+                         activity.type === 'warning' ? 'border-left-warning' :
+                         activity.type === 'info' ? 'border-left-info' :
+                         'border-left-neutral';
 
       html += `
-        <div style="padding: 0.75rem; border-left: 3px solid ${borderColor}; background: var(--bg); border-radius: 4px;">
+        <div class="padded-box ${borderClass}">
           <div class="flex-between-start">
             <span class="text-bold-base">${activity.icon} ${activity.title}</span>
             <span class="description-text-small">${activity.time}</span>
@@ -1540,8 +1540,8 @@ async function showAddItemForm() {
   document.getElementById('selectedItemCode').value = '';
   document.getElementById('countItemQuantity').value = '';
   document.getElementById('countItemNotes').value = '';
-  document.getElementById('itemSearchResults').style.display = 'none';
-  document.getElementById('selectedItemDisplay').style.display = 'none';
+  setHidden(document.getElementById('itemSearchResults'), true);
+  setHidden(document.getElementById('selectedItemDisplay'), true);
 
   // Load locations for dropdown
   await loadLocationsForCountItem();
@@ -1719,7 +1719,7 @@ async function closeCount() {
   // Show process panel before closing
   const processPanel = document.getElementById('countProcessPanel');
   const processDetails = document.getElementById('countProcessDetails');
-  processPanel.style.display = 'block';
+  setHidden(processPanel, false);
 
   try {
     const data = await fetchAPI(`/owner/console/counts/${activeCountId}`);
@@ -1764,7 +1764,7 @@ async function confirmCloseCount() {
     alert('Count closed successfully!');
     activeCountId = null;
     document.getElementById('activeCountId').textContent = '';
-    document.getElementById('countProcessPanel').style.display = 'none';
+    setHidden(document.getElementById('countProcessPanel'), true);
     loadActiveCount();
   } catch (error) {
     alert('Error closing count: ' + error.message);
@@ -1772,7 +1772,7 @@ async function confirmCloseCount() {
 }
 
 function cancelCloseCount() {
-  document.getElementById('countProcessPanel').style.display = 'none';
+  setHidden(document.getElementById('countProcessPanel'), true);
 }
 
 // ============================================================================
@@ -1809,16 +1809,17 @@ async function loadAIReorder() {
 
     let html = '<div class="flex-col-gap-base">';
     items.forEach(item => {
-      const urgencyColor = item.stockPct < 50 ? 'var(--danger)' : item.stockPct < 100 ? 'var(--warning)' : 'var(--info)';
+      const urgencyClass = item.stockPct < 50 ? 'border-left-danger' : item.stockPct < 100 ? 'border-left-warning' : 'border-left-info';
+      const urgencyBadgeClass = item.stockPct < 50 ? 'badge-danger' : item.stockPct < 100 ? 'badge-warning' : 'badge-info';
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; border-left: 3px solid ${urgencyColor};">
+        <div class="padded-box-bordered ${urgencyClass}">
           <div class="fw-600 u-mb-1">${item.itemCode} - ${item.name}</div>
           <div class="info-description">
             Current: ${item.currentStock} ${item.unit || ''} | Reorder Point: ${item.reorderPoint} | Need: ${item.recommendedReorderQty}
           </div>
-          <div class="flex-gap-1" style="flex-wrap: wrap;">
+          <div class="flex-gap-1 flex-wrap">
             ${(item.drivers || []).map(d => `<span class="badge badge-info">${d}</span>`).join('')}
-            <span class="badge" style="background: ${urgencyColor};">${item.stockPct}% of reorder point</span>
+            <span class="badge ${urgencyBadgeClass}">${item.stockPct}% of reorder point</span>
           </div>
         </div>
       `;
@@ -1854,9 +1855,9 @@ async function loadAIAnomalies() {
         <div class="bordered-section">
           <div class="flex-between-start">
             <div>
-              <span class="u-text-1-25" style="margin-right: 0.5rem;">${severityIcon}</span>
+              <span class="u-text-1-25 u-mr-2">${severityIcon}</span>
               <span class="fw-600">${item.itemCode}</span>
-              ${item.name ? `<span style="color: var(--text-light); font-size: 0.8125rem;"> - ${item.name}</span>` : ''}
+              ${item.name ? `<span class="text-sm-light u-text-light-inline"> - ${item.name}</span>` : ''}
             </div>
             <span class="badge ${severityClass}">${item.severity}</span>
           </div>
@@ -1895,7 +1896,7 @@ async function loadAIUpgrade() {
       <div class="u-text-base">
         <div class="u-mb-4">
           <strong>System Health Score:</strong>
-          <div style="font-size: 2rem; color: ${overallScore >= 75 ? 'var(--success)' : overallScore >= 50 ? 'var(--warning)' : 'var(--danger)'}; font-weight: 700;">${overallScore}%</div>
+          <div class="score-display-large ${overallScore >= 75 ? 'u-text-ok' : overallScore >= 50 ? 'u-text-warn' : 'u-text-bad'}">${overallScore}%</div>
         </div>
         <div class="flex-col-gap">
           <div>
@@ -2765,8 +2766,8 @@ function createRecoveryKit() {
   document.getElementById('recoveryInputModalTitle').textContent = 'Create Recovery Kit';
   document.getElementById('recoveryInputLabel').textContent = 'Destination Path (USB)';
   document.getElementById('recoveryDest').value = '/Volumes/USB/backup';
-  document.getElementById('recoveryDestGroup').style.display = 'block';
-  document.getElementById('recoveryPath').style.display = 'none';
+  setHidden(document.getElementById('recoveryDestGroup'), false);
+  setHidden(document.getElementById('recoveryPath'), true);
   document.getElementById('recoveryInputModal').classList.add('active');
 }
 
@@ -2774,8 +2775,8 @@ function verifyRecoveryKit() {
   currentRecoveryOperation = 'verify';
   document.getElementById('recoveryInputModalTitle').textContent = 'Verify Recovery Kit';
   document.getElementById('recoveryInputLabel').textContent = 'Path to Recovery Kit';
-  document.getElementById('recoveryPath').style.display = 'block';
-  document.getElementById('recoveryDestGroup').style.display = 'none';
+  setHidden(document.getElementById('recoveryPath'), false);
+  setHidden(document.getElementById('recoveryDestGroup'), true);
   document.getElementById('recoveryInputModal').classList.add('active');
 }
 
@@ -2783,8 +2784,8 @@ function dryRunRestore() {
   currentRecoveryOperation = 'restore';
   document.getElementById('recoveryInputModalTitle').textContent = 'Dry-Run Restore';
   document.getElementById('recoveryInputLabel').textContent = 'Path to Recovery Kit';
-  document.getElementById('recoveryPath').style.display = 'block';
-  document.getElementById('recoveryDestGroup').style.display = 'none';
+  setHidden(document.getElementById('recoveryPath'), false);
+  setHidden(document.getElementById('recoveryDestGroup'), true);
   document.getElementById('recoveryInputModal').classList.add('active');
 }
 
@@ -2893,7 +2894,7 @@ async function submitRecoveryInput() {
             ${data.restorePlan.map((step, i) => `
               <div class="bordered-section">
                 <strong>${i + 1}. ${step.step}</strong>
-                <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">${step.action}</div>
+                <div class="action-description">${step.action}</div>
               </div>
             `).join('')}
           </div>
@@ -2983,8 +2984,8 @@ async function loadLearningNudges() {
       html += `
         <div class="bordered-primary-section">
           <div class="fw-600 u-mb-2">💡 ${nudge.title}</div>
-          <div style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.75rem;">${nudge.question}</div>
-          <div style="font-size: 0.8125rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 4px; margin-bottom: 0.75rem;">
+          <div class="nudge-question">${nudge.question}</div>
+          <div class="nudge-answer-box">
             <strong>Suggestion:</strong> ${nudge.suggestedInsight}
           </div>
           <button class="btn btn-sm btn-primary" onclick="handleNudgeAction('${nudge.id}', '${nudge.action}')" class="w-full">
@@ -3106,7 +3107,8 @@ async function loadAIOpsStatus() {
     // v13.5 Live Console: Update health score from composite ai_ops_health
     const healthPct = opsStatus.ai_ops_health ? opsStatus.ai_ops_health.score : (opsStatus.healthPct || 0);
     healthScoreEl.textContent = `${healthPct}%`;
-    healthScoreEl.style.color = healthPct >= 85 ? 'var(--success)' : (healthPct >= 60 ? 'var(--warning)' : 'var(--danger)');
+    const healthState = healthPct >= 85 ? 'ok' : (healthPct >= 60 ? 'warn' : 'bad');
+    swapText(healthScoreEl, healthState);
 
     // Show top 3 explanations as tooltip
     if (opsStatus.ai_ops_health && opsStatus.ai_ops_health.explanations) {
@@ -3118,26 +3120,29 @@ async function loadAIOpsStatus() {
     if (opsStatus.dqi_score !== null && opsStatus.dqi_score !== undefined) {
       const dqiChange = opsStatus.dqi_change_pct || 0;
       const dqiArrow = dqiChange > 0 ? '↑' : dqiChange < 0 ? '↓' : '→';
-      const dqiColor = opsStatus.dqi_color === 'green' ? 'var(--success)' :
-                        opsStatus.dqi_color === 'yellow' ? 'var(--warning)' : 'var(--danger)';
+      const dqiState = opsStatus.dqi_color === 'green' ? 'ok' :
+                       opsStatus.dqi_color === 'yellow' ? 'warn' : 'bad';
 
       dqiScoreEl.textContent = `${opsStatus.dqi_score}% ${dqiArrow}`;
-      dqiScoreEl.style.color = dqiColor;
+      swapText(dqiScoreEl, dqiState);
       dqiScoreEl.title = `Data Quality Index: ${opsStatus.dqi_score}% (${dqiChange > 0 ? '+' : ''}${dqiChange}%)`;
     } else {
       dqiScoreEl.textContent = '--';
-      dqiScoreEl.style.color = 'var(--text-light)';
+      swapText(dqiScoreEl, null);
+      dqiScoreEl.classList.add('u-text-light-inline');
     }
 
     // === v13.5: Display Forecast Latency ===
     if (opsStatus.forecast_latency_avg !== null && opsStatus.forecast_latency_avg !== undefined && typeof opsStatus.forecast_latency_avg === 'number') {
       const latency = opsStatus.forecast_latency_avg;
       forecastLatencyEl.textContent = latency >= 1000 ? `${(latency/1000).toFixed(1)}s` : `${latency}ms`;
-      forecastLatencyEl.style.color = latency < 2000 ? 'var(--success)' : latency < 5000 ? 'var(--warning)' : 'var(--danger)';
+      const latencyState = latency < 2000 ? 'ok' : latency < 5000 ? 'warn' : 'bad';
+      swapText(forecastLatencyEl, latencyState);
       forecastLatencyEl.title = `Average forecast job duration over last 10 runs: ${latency}ms`;
     } else {
       forecastLatencyEl.textContent = '--';
-      forecastLatencyEl.style.color = 'var(--text-light)';
+      swapText(forecastLatencyEl, null);
+      forecastLatencyEl.classList.add('u-text-light-inline');
     }
 
     // === v13.5: Display Learning Divergence ===
@@ -3145,12 +3150,14 @@ async function loadAIOpsStatus() {
       const divergence = opsStatus.forecast_divergence;
       const divArrow = divergence > 0 ? '↑' : divergence < 0 ? '↓' : '→';
       learningDivergenceEl.textContent = `${divergence.toFixed(1)}% ${divArrow}`;
-      learningDivergenceEl.style.color = Math.abs(divergence) < 5 ? 'var(--success)' :
-                                          Math.abs(divergence) < 10 ? 'var(--warning)' : 'var(--danger)';
+      const divergenceState = Math.abs(divergence) < 5 ? 'ok' :
+                              Math.abs(divergence) < 10 ? 'warn' : 'bad';
+      swapText(learningDivergenceEl, divergenceState);
       learningDivergenceEl.title = `MAPE divergence (7d vs prev 7d): ${divergence.toFixed(1)}%`;
     } else {
       learningDivergenceEl.textContent = '--';
-      learningDivergenceEl.style.color = 'var(--text-light)';
+      swapText(learningDivergenceEl, null);
+      learningDivergenceEl.classList.add('u-text-light-inline');
     }
 
     // === v13.5: Display system health checks from ops status ===
@@ -3159,13 +3166,13 @@ async function loadAIOpsStatus() {
     if (opsStatus.checks && opsStatus.checks.length > 0) {
       opsStatus.checks.forEach(check => {
         const icon = check.status === 'ok' ? '✅' : check.status === 'warning' ? '⚠️' : '❌';
-        const color = check.status === 'ok' ? 'var(--success)' : check.status === 'warning' ? 'var(--warning)' : 'var(--danger)';
+        const colorClass = check.status === 'ok' ? 'text-color-success' : check.status === 'warning' ? 'text-color-warning' : 'text-color-danger';
         checksHTML += `
-          <div class="flex-gap-2-items-center" style="padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+          <div class="flex-gap-2-items-center small-padded-bg">
             <span class="u-text-1-25">${icon}</span>
             <div class="u-flex-1">
               <strong>${check.name}</strong>
-              <div style="color: ${color}; font-size: 0.8125rem;">${check.message}</div>
+              <div class="${colorClass} text-size-sm">${check.message}</div>
             </div>
           </div>
         `;
@@ -3174,7 +3181,7 @@ async function loadAIOpsStatus() {
 
     // === v13.5: Add DQI issues if any ===
     if (opsStatus.dqi_issues && opsStatus.dqi_issues.length > 0) {
-      checksHTML += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--bg); border-radius: 4px; border-left: 3px solid var(--warning);">
+      checksHTML += `<div class="dqi-issues-box">
         <strong>⚠️ Data Quality Issues</strong>
         <ul class="nested-list-item">`;
 
@@ -3193,10 +3200,12 @@ async function loadAIOpsStatus() {
     if (liveBadge) {
       const healthy = opsStatus.healthy === true;
       if (healthy) {
-        liveBadge.style.background = '#10b981';
+        liveBadge.classList.remove('badge-live-degraded');
+        liveBadge.classList.add('badge-live-ok');
         liveBadge.textContent = 'LIVE 🟢';
       } else {
-        liveBadge.style.background = '#ef4444';
+        liveBadge.classList.remove('badge-live-ok');
+        liveBadge.classList.add('badge-live-degraded');
         liveBadge.textContent = 'DEGRADED 🔴';
       }
     }
@@ -3214,7 +3223,7 @@ async function loadAIOpsStatus() {
     if (checksEl) checksEl.innerHTML = showError('AI Ops Status', error.message);
     if (healthScoreEl) {
       healthScoreEl.textContent = 'ERR';
-      healthScoreEl.style.color = 'var(--danger)';
+      swapText(healthScoreEl, 'bad');
     }
   }
 }
@@ -3315,7 +3324,7 @@ async function loadLearningTimeline() {
 
         html += `
           <div class="bordered-left-primary">
-            <div class="flex-gap-2" style="justify-content: between; align-items: start;">
+            <div class="flex-gap-2 flex-justify-between-start">
               <span class="u-text-1-25">${badge}</span>
               <div class="u-flex-1">
                 <div class="u-font-medium u-text-base">${insight.title || 'No title'}</div>
@@ -3573,13 +3582,13 @@ async function loadLearningInsights() {
         '<span class="badge badge-success">Applied</span>' :
         '<span class="badge badge-warning">Pending</span>';
 
-      const confidenceColor = insight.confidence >= 85 ? 'var(--success)' : (insight.confidence >= 70 ? 'var(--warning)' : 'var(--danger)');
+      const confidenceClass = insight.confidence >= 85 ? 'text-color-success' : (insight.confidence >= 70 ? 'text-color-warning' : 'text-color-danger');
 
       html += `
         <tr>
           <td>${insight.type}</td>
           <td>${insight.title || insight.description || 'N/A'}</td>
-          <td><strong style="color: ${confidenceColor};">${insight.confidence}%</strong></td>
+          <td><strong class="${confidenceClass}">${insight.confidence}%</strong></td>
           <td>${statusBadge}</td>
           <td>${new Date(insight.detectedAt).toLocaleDateString()}</td>
         </tr>
@@ -3618,7 +3627,7 @@ function showError(context, message) {
     <div class="alert alert-danger">
       <strong>Error:</strong> ${message}
       <div class="u-mt-2 u-text-base">
-        Context: ${context} | <a href="#" onclick="location.reload()" style="color: inherit; text-decoration: underline;">Reload page</a>
+        Context: ${context} | <a href="#" onclick="location.reload()" class="link-inherit">Reload page</a>
       </div>
     </div>
   `;
@@ -3677,7 +3686,7 @@ async function loadUnassignedItems(page = 1) {
             <input type="checkbox" class="unassigned-checkbox" value="${item.item_code}"
               ${isChecked ? 'checked' : ''} onchange="toggleUnassignedItem('${item.item_code}')">
           </td>
-          <td><code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px;">${item.item_code}</code></td>
+          <td><code class="code-inline">${item.item_code}</code></td>
           <td>${item.item_name}</td>
           <td>${item.unit}</td>
           <td>
@@ -3971,7 +3980,7 @@ async function openWorkspace(workspaceId) {
   }
 
   // Show modal with loading state
-  modal.style.display = 'flex';
+  modal.classList.add('active');
   detailsContainer.innerHTML = '<div class="loading"><div class="spinner"></div> Loading workspace...</div>';
 
   try {
@@ -4131,7 +4140,7 @@ async function openWorkspace(workspaceId) {
     // Show usage report button if workspace has data
     const usageBtn = document.getElementById('workspaceUsageBtn');
     if (usageBtn && workspace.items && workspace.items.length > 0) {
-      usageBtn.style.display = 'inline-block';
+      setHidden(usageBtn, false);
     }
 
   } catch (error) {
@@ -4150,7 +4159,7 @@ async function openWorkspace(workspaceId) {
 function closeWorkspaceModal() {
   const modal = document.getElementById('workspaceModal');
   if (modal) {
-    modal.style.display = 'none';
+    modal.classList.remove('active');
   }
   window.currentWorkspaceId = null;
 }
