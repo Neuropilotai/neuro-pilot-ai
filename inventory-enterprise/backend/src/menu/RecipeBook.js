@@ -14,6 +14,15 @@ const recipes = new Map();
 const dayLineups = new Map(); // isoDate -> recipe IDs[]
 let currentHeadcount = 280;
 
+// Policy storage
+const policy = {
+  population: 280,
+  takeoutLockTime: '19:30',
+  currentWeek: 2,
+  currentDay: 'Wednesday',
+  cycleStartDate: new Date('2025-01-01') // Anchor date for calculations
+};
+
 // Seed recipes (plausible item codes)
 function seedRecipes() {
   const seedData = [
@@ -123,6 +132,35 @@ function seedRecipes() {
 seedRecipes();
 
 /**
+ * Auto-populate day lineups for 4-week cycle
+ */
+function autoPopulateDayLineups() {
+  const Planner = require('./Planner');
+  const weeks = Planner.buildWeeksStructure();
+  const recipeArray = Array.from(recipes.values());
+
+  // Assign recipes to days in rotation
+  let recipeIdx = 0;
+  for (const week of weeks) {
+    for (const day of week.days) {
+      // Assign 1-2 recipes per day (rotating through available recipes)
+      const dayRecipes = [
+        recipeArray[recipeIdx % recipeArray.length]?.id,
+        recipeArray[(recipeIdx + 1) % recipeArray.length]?.id
+      ].filter(Boolean);
+
+      setDayRecipes(day.isoDate, dayRecipes);
+      recipeIdx += 2;
+    }
+  }
+
+  logger.info(`Auto-populated ${weeks.length * 7} days with recipes`);
+}
+
+// Auto-populate on startup
+autoPopulateDayLineups();
+
+/**
  * Get all recipes
  */
 function getAllRecipes() {
@@ -224,6 +262,19 @@ function scaleRecipeForHeadcount(recipeId) {
   };
 }
 
+/**
+ * Get/set policy
+ */
+function getPolicy() {
+  return { ...policy };
+}
+
+function updatePolicy(updates) {
+  Object.assign(policy, updates);
+  logger.info('Policy updated:', updates);
+  return { ...policy };
+}
+
 module.exports = {
   getAllRecipes,
   getRecipeById,
@@ -235,5 +286,7 @@ module.exports = {
   getHeadcount,
   setHeadcount,
   scaleRecipeForHeadcount,
+  getPolicy,
+  updatePolicy,
   seedRecipes
 };

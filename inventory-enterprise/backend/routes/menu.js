@@ -379,20 +379,66 @@ router.get('/shopping-list', (req, res) => {
  */
 router.get('/policy', (req, res) => {
   try {
-    const policy = {
-      takeOutAfter: '19:30',
-      portionTargetGrams: 650,
-      serviceWindowStart: '18:45',
-      serviceWindowEnd: '19:15',
-      portionDriftThresholdPct: 15
-    };
+    const policy = RecipeBook.getPolicy();
 
     res.json({
       success: true,
-      policy
+      policy: {
+        population: policy.population,
+        takeoutLockTime: policy.takeoutLockTime,
+        currentWeek: policy.currentWeek,
+        currentDay: policy.currentDay,
+        takeOutAfter: policy.takeoutLockTime,
+        portionTargetGrams: 650,
+        serviceWindowStart: '18:45',
+        serviceWindowEnd: '19:15',
+        portionDriftThresholdPct: 15
+      }
     });
   } catch (error) {
     logger.error('GET /api/menu/policy error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/menu/policy
+ * Update menu policy settings
+ */
+router.post('/policy', (req, res) => {
+  const rateLimitCheck = checkRateLimit(req.ip);
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({
+      success: false,
+      error: 'Rate limit exceeded',
+      resetIn: rateLimitCheck.resetIn
+    });
+  }
+
+  try {
+    const { population, takeoutLockTime, currentWeek, currentDay } = req.body;
+
+    const updates = {};
+    if (population) updates.population = population;
+    if (takeoutLockTime) updates.takeoutLockTime = takeoutLockTime;
+    if (currentWeek) updates.currentWeek = currentWeek;
+    if (currentDay) updates.currentDay = currentDay;
+
+    const updated = RecipeBook.updatePolicy(updates);
+
+    // Also update headcount if population changed
+    if (population) {
+      RecipeBook.setHeadcount(population);
+    }
+
+    logger.info(`Policy updated by ${req.user.email}:`, updates);
+
+    res.json({
+      success: true,
+      policy: updated
+    });
+  } catch (error) {
+    logger.error('POST /api/menu/policy error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
