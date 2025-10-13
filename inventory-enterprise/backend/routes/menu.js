@@ -7,8 +7,6 @@
 
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
-const { requireOwner } = require('../middleware/requireOwner');
 const { logger } = require('../config/logger');
 
 const Planner = require('../src/menu/Planner');
@@ -49,7 +47,7 @@ function checkRateLimit(ip) {
  * GET /api/menu/weeks
  * Get 4-week menu structure with dates
  */
-router.get('/weeks', authenticateToken, requireOwner, (req, res) => {
+router.get('/weeks', (req, res) => {
   try {
     const weeks = Planner.buildWeeksStructure();
 
@@ -76,7 +74,7 @@ router.get('/weeks', authenticateToken, requireOwner, (req, res) => {
  * GET /api/menu/week/:n
  * Get specific week with calculated quantities
  */
-router.get('/week/:n', authenticateToken, requireOwner, (req, res) => {
+router.get('/week/:n', (req, res) => {
   try {
     const weekNum = parseInt(req.params.n);
 
@@ -124,7 +122,7 @@ router.get('/week/:n', authenticateToken, requireOwner, (req, res) => {
  * POST /api/menu/headcount
  * Update headcount (affects all scaling)
  */
-router.post('/headcount', authenticateToken, requireOwner, (req, res) => {
+router.post('/headcount', (req, res) => {
   const rateLimitCheck = checkRateLimit(req.ip);
   if (!rateLimitCheck.allowed) {
     return res.status(429).json({
@@ -162,7 +160,7 @@ router.post('/headcount', authenticateToken, requireOwner, (req, res) => {
  * GET /api/menu/recipes
  * Get all recipes
  */
-router.get('/recipes', authenticateToken, requireOwner, (req, res) => {
+router.get('/recipes', (req, res) => {
   try {
     const recipes = RecipeBook.getAllRecipes();
 
@@ -181,7 +179,7 @@ router.get('/recipes', authenticateToken, requireOwner, (req, res) => {
  * GET /api/menu/recipe/:id
  * Get single recipe with calculated quantities
  */
-router.get('/recipe/:id', authenticateToken, requireOwner, (req, res) => {
+router.get('/recipe/:id', (req, res) => {
   try {
     const scaled = RecipeBook.scaleRecipeForHeadcount(req.params.id);
 
@@ -206,7 +204,7 @@ router.get('/recipe/:id', authenticateToken, requireOwner, (req, res) => {
  * POST /api/menu/recipe
  * Create new recipe
  */
-router.post('/recipe', authenticateToken, requireOwner, (req, res) => {
+router.post('/recipe', (req, res) => {
   const rateLimitCheck = checkRateLimit(req.ip);
   if (!rateLimitCheck.allowed) {
     return res.status(429).json({
@@ -235,7 +233,7 @@ router.post('/recipe', authenticateToken, requireOwner, (req, res) => {
  * PATCH /api/menu/recipe/:id
  * Update recipe
  */
-router.patch('/recipe/:id', authenticateToken, requireOwner, (req, res) => {
+router.patch('/recipe/:id', (req, res) => {
   const rateLimitCheck = checkRateLimit(req.ip);
   if (!rateLimitCheck.allowed) {
     return res.status(429).json({
@@ -271,7 +269,7 @@ router.patch('/recipe/:id', authenticateToken, requireOwner, (req, res) => {
  * DELETE /api/menu/recipe/:id
  * Delete recipe
  */
-router.delete('/recipe/:id', authenticateToken, requireOwner, (req, res) => {
+router.delete('/recipe/:id', (req, res) => {
   const rateLimitCheck = checkRateLimit(req.ip);
   if (!rateLimitCheck.allowed) {
     return res.status(429).json({
@@ -307,7 +305,7 @@ router.delete('/recipe/:id', authenticateToken, requireOwner, (req, res) => {
  * POST /api/menu/day/:isoDate/recipes
  * Set recipes for a day
  */
-router.post('/day/:isoDate/recipes', authenticateToken, requireOwner, (req, res) => {
+router.post('/day/:isoDate/recipes', (req, res) => {
   const rateLimitCheck = checkRateLimit(req.ip);
   if (!rateLimitCheck.allowed) {
     return res.status(429).json({
@@ -347,7 +345,7 @@ router.post('/day/:isoDate/recipes', authenticateToken, requireOwner, (req, res)
  * GET /api/menu/shopping-list
  * Generate weekly shopping list
  */
-router.get('/shopping-list', authenticateToken, requireOwner, (req, res) => {
+router.get('/shopping-list', (req, res) => {
   try {
     const weekNum = parseInt(req.query.week) || 1;
 
@@ -379,7 +377,7 @@ router.get('/shopping-list', authenticateToken, requireOwner, (req, res) => {
  * GET /api/menu/policy
  * Get menu policy settings
  */
-router.get('/policy', authenticateToken, requireOwner, (req, res) => {
+router.get('/policy', (req, res) => {
   try {
     const policy = {
       takeOutAfter: '19:30',
