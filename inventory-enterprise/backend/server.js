@@ -98,7 +98,8 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],  // v14.4.1: Removed unsafe-inline (XSS protection)
+      scriptSrc: ["'self'"],  // v14.4.1: Removed unsafe-inline (XSS protection for <script> tags)
+      scriptSrcAttr: ["'unsafe-inline'"],  // Allow inline event handlers (onclick, etc) - TODO: refactor to addEventListener
       styleSrc: ["'self'", "'unsafe-inline'"],   // TODO: Remove after inline style extraction
       imgSrc: ["'self'", "data:", "blob:"],
       // Allow both localhost and 127.0.0.1 for local development + WebSocket
