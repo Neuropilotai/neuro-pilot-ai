@@ -1,199 +1,74 @@
 /**
- * Owner Super Console v3.2.0
- * Wires to existing owner-only APIs at localhost:8083
- * No external dependencies, no fake data, graceful error handling
+ * Owner Super Console v3.2.0 - Console-Specific Extensions
+ * v14.3: Shared core variables and functions are loaded from owner-console-core.js
+ * This file contains only console-specific functionality
  */
 
-const API_BASE = 'http://127.0.0.1:8083/api';
-let token = localStorage.getItem('authToken');
-let currentUser = null;
-let tokenExpiresAt = null;
-let currentTab = 'dashboard';
-let activeCountId = null;
-let selectedPDFs = new Set();
-let inventoryPagination = { page: 1, limit: 25, total: 0 };
-
-// Dashboard data storage for detail modals
-let dashboardForecastData = null;
-let dashboardStockoutData = null;
-
 // ============================================================================
-// INITIALIZATION
+// NOTE: Core variables (API_BASE, token, currentUser, etc.) are now in owner-console-core.js
+// NOTE: Core functions (fetchAPI, updateTokenTTL, logout, switchTab, etc.) are now in owner-console-core.js
+// NOTE: Initialization (DOMContentLoaded) is handled by owner-console-core.js
 // ============================================================================
 
-window.addEventListener('DOMContentLoaded', async () => {
-  if (!token) {
-    window.location.href = '/index.html';
-    return;
-  }
-
-  // Parse JWT to get user and expiry
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    currentUser = payload;
-    tokenExpiresAt = payload.exp * 1000;
-    document.getElementById('currentUser').textContent = payload.email || 'Owner';
-  } catch (e) {
-    console.error('Invalid token:', e);
-    logout();
-    return;
-  }
-
-  // Start token TTL countdown
-  updateTokenTTL();
-  setInterval(updateTokenTTL, 1000);
-
-  // Load saved tab preference
-  const savedTab = localStorage.getItem('ownerConsoleTab') || 'dashboard';
-  switchTab(savedTab);
-
-  // Load saved preferences
-  const warmCache = localStorage.getItem('warmCache') === 'true';
-  document.getElementById('warmCache').checked = warmCache;
-
-  // Initial data loads
-  loadDashboard();
-  loadCountLocations();
-
-  // v13.0: Auto-refresh AI Ops status and cognitive intelligence every 15 seconds
-  setInterval(() => {
-    if (currentTab === 'aiops') {
-      loadAIOpsStatus();
-      loadCognitiveIntelligence();
-      loadActivityFeed();
-    }
-  }, 15000);
-});
-
 // ============================================================================
-// AUTH & SESSION
+// v14.3: DUPLICATE FUNCTIONS REMOVED
+// The following functions are now in owner-console-core.js:
+// - updateTokenTTL()
+// - logout()
+// - fetchAPI()
+// - switchTab()
+// - loadDashboard()
+// - getTimeAgo()
+// - loadAIOpsStatus()
+// - loadCognitiveIntelligence()
+// - loadActivityFeed()
+// - loadLearningTimeline()
+// - loadAIReorder()
+// - loadAIAnomalies()
+// - loadAIUpgrade()
+// - applyNextBestAction()
+// - loadUnassignedItems()
+// - loadCountLocations()
+// - loadActiveCount()
 // ============================================================================
 
-function updateTokenTTL() {
-  const ttlEl = document.getElementById('tokenTTL');
-  if (!tokenExpiresAt) return;
+// ============================================================================
+// CONSOLE-SPECIFIC FUNCTIONS (Not in shared core)
+// ============================================================================
 
-  const remaining = Math.max(0, Math.floor((tokenExpiresAt - Date.now()) / 1000));
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
+/**
+ * Show a toast notification
+ * @param {string} message - The message to display
+ * @param {string} type - Type: 'success', 'warning', 'danger', 'info'
+ */
+function showToast(message, type = 'info') {
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = `alert alert-${type}`;
+  toast.style.position = 'fixed';
+  toast.style.top = '20px';
+  toast.style.right = '20px';
+  toast.style.zIndex = '9999';
+  toast.style.minWidth = '300px';
+  toast.style.maxWidth = '500px';
+  toast.style.padding = '1rem';
+  toast.style.borderRadius = '8px';
+  toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+  toast.textContent = message;
 
-  ttlEl.textContent = `Token: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-  ttlEl.className = remaining < 120 ? 'token-ttl warning' : 'token-ttl';
+  // Add to body
+  document.body.appendChild(toast);
 
-  if (remaining === 0) {
-    alert('Session expired. Please login again.');
-    logout();
-  }
+  // Remove after 3 seconds
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.3s';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
-function logout() {
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('user');
-  window.location.href = '/index.html';
-}
-
-// ============================================================================
-// API HELPERS
-// ============================================================================
-
-async function fetchAPI(endpoint, options = {}) {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
-  const config = {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers
-    }
-  };
-
-  console.log(`→ Fetching: ${url}`);
-
-  try {
-    // Add 10 second timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(url, {
-      ...config,
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    console.log(`← Response: ${response.status} ${response.statusText}`);
-
-    if (response.status === 401 || response.status === 403) {
-      const errorData = await response.json().catch(() => ({ error: 'Unauthorized' }));
-      console.error('Auth error:', errorData);
-      alert('Owner re-auth required: ' + (errorData.error || errorData.code || 'Access denied'));
-      logout();
-      throw new Error('Unauthorized: ' + (errorData.error || errorData.code));
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('API error response:', errorData);
-      throw new Error(errorData.error || errorData.message || response.statusText);
-    }
-
-    const data = await response.json();
-    console.log(`✓ Success:`, data);
-    return data;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error(`⏱️ Timeout after 10s: ${url}`);
-      throw new Error(`Request timeout (10s): ${endpoint}`);
-    }
-    console.error(`❌ API Error (${endpoint}):`, error);
-    throw error;
-  }
-}
-
-// ============================================================================
-// TAB SWITCHING
-// ============================================================================
-
-function switchTab(tabName) {
-  // Update tab UI
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-
-  event?.target?.classList?.add('active');
-  const panel = document.getElementById(tabName);
-  if (panel) panel.classList.add('active');
-
-  // Find and activate the correct tab button
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach((tab, index) => {
-    const tabNames = ['dashboard', 'inventory', 'locations', 'pdfs', 'count', 'ai', 'forecast', 'reports', 'settings'];
-    if (tabNames[index] === tabName) {
-      tab.classList.add('active');
-    }
-  });
-
-  currentTab = tabName;
-  localStorage.setItem('ownerConsoleTab', tabName);
-
-  // Load tab data
-  switch (tabName) {
-    case 'dashboard': loadDashboard(); break;
-    case 'inventory': loadInventory(); break;
-    case 'locations': loadLocations(); break;
-    case 'pdfs': loadPDFs(); break;
-    case 'count': loadActiveCount(); break;
-    case 'ai': loadAIConsole(); break;
-    case 'forecast': loadForecast(); break;
-    case 'reports': loadReports(); break;
-    case 'settings': loadSettings(); break;
-  }
-}
-
-// ============================================================================
-// DASHBOARD TAB
-// ============================================================================
-
-async function loadDashboard() {
+// Super Console still needs these functions:
+async function loadDashboardOLD() {
   console.log('🔄 Loading dashboard...');
 
   try {
@@ -571,16 +446,7 @@ async function loadRecentActivity(recentActivity) {
   }
 }
 
-function getTimeAgo(date) {
-  const seconds = Math.floor((Date.now() - date) / 1000);
-
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-
-  return date.toLocaleDateString();
-}
+// v14.3: getTimeAgo() is now in owner-console-core.js
 
 // ============================================================================
 // INVENTORY TAB
@@ -1095,6 +961,9 @@ async function loadLocations() {
     html += '</div>';
 
     listDiv.innerHTML = html;
+
+    // Also load unassigned items
+    loadUnassignedItems();
   } catch (error) {
     listDiv.innerHTML = showError('locations', error.message);
   }
@@ -3195,10 +3064,16 @@ async function loadAIOpsStatus() {
     // === v13.5: Use AI Ops status endpoint with DQI and predictive health ===
     const opsStatus = await fetchAPI('/owner/ops/status');
 
-    // Update health score
-    const healthPct = opsStatus.healthPct || 0;
+    // v13.5 Live Console: Update health score from composite ai_ops_health
+    const healthPct = opsStatus.ai_ops_health ? opsStatus.ai_ops_health.score : (opsStatus.healthPct || 0);
     healthScoreEl.textContent = `${healthPct}%`;
-    healthScoreEl.style.color = healthPct >= 75 ? 'var(--success)' : (healthPct >= 50 ? 'var(--warning)' : 'var(--danger)');
+    healthScoreEl.style.color = healthPct >= 85 ? 'var(--success)' : (healthPct >= 60 ? 'var(--warning)' : 'var(--danger)');
+
+    // Show top 3 explanations as tooltip
+    if (opsStatus.ai_ops_health && opsStatus.ai_ops_health.explanations) {
+      const topExplanations = opsStatus.ai_ops_health.explanations.slice(0, 3).join('\n');
+      healthScoreEl.title = `AI Ops System Health:\n${topExplanations}`;
+    }
 
     // === v13.5: Display Data Quality Index (DQI) ===
     if (opsStatus.dqi_score !== null && opsStatus.dqi_score !== undefined) {
@@ -3709,3 +3584,852 @@ function showError(context, message) {
     </div>
   `;
 }
+
+// ============================================================================
+// Unassigned Items & Location Assignment
+// ============================================================================
+
+let unassignedState = {
+  page: 1,
+  limit: 50,
+  search: '',
+  selectedItems: new Set()
+};
+
+let debounceUnassignedTimer;
+
+/**
+ * Load unassigned items
+ */
+async function loadUnassignedItems(page = 1) {
+  const listEl = document.getElementById('unassignedList');
+  const paginationEl = document.getElementById('unassignedPagination');
+  const totalEl = document.getElementById('unassignedTotal');
+
+  try {
+    listEl.innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>';
+
+    const params = new URLSearchParams({
+      q: unassignedState.search,
+      page: page,
+      limit: unassignedState.limit
+    });
+
+    const data = await fetchAPI(`/owner/locations/unassigned?${params}`);
+
+    if (!data.items || data.items.length === 0) {
+      listEl.innerHTML = '<tr><td colspan="5" class="empty-state" style="padding: 2rem;">No unassigned items found</td></tr>';
+      paginationEl.innerHTML = '';
+      totalEl.textContent = '0';
+      return;
+    }
+
+    // Update state
+    unassignedState.page = page;
+    totalEl.textContent = data.total;
+
+    // Render items
+    let html = '';
+    data.items.forEach(item => {
+      const isChecked = unassignedState.selectedItems.has(item.item_code);
+      html += `
+        <tr>
+          <td>
+            <input type="checkbox" class="unassigned-checkbox" value="${item.item_code}"
+              ${isChecked ? 'checked' : ''} onchange="toggleUnassignedItem('${item.item_code}')">
+          </td>
+          <td><code style="background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px;">${item.item_code}</code></td>
+          <td>${item.item_name}</td>
+          <td>${item.unit}</td>
+          <td>
+            <button type="button" class="btn btn-sm btn-success" onclick="assignSingleItem('${item.item_code}')">
+              Assign
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+    listEl.innerHTML = html;
+
+    // Update pagination
+    const totalPages = Math.ceil(data.total / data.limit);
+    html = '';
+    if (page > 1) {
+      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="loadUnassignedItems(${page - 1})">« Prev</button>`;
+    }
+    html += `<span style="margin: 0 1rem;">Page ${page} of ${totalPages}</span>`;
+    if (page < totalPages) {
+      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="loadUnassignedItems(${page + 1})">Next »</button>`;
+    }
+    paginationEl.innerHTML = html;
+
+    // Update select all checkbox
+    updateSelectAllCheckbox();
+    updateAssignSelectedButton();
+
+  } catch (error) {
+    console.error('Error loading unassigned items:', error);
+    listEl.innerHTML = `<tr><td colspan="5" class="alert alert-danger">${error.message}</td></tr>`;
+  }
+}
+
+/**
+ * Debounced search for unassigned items
+ */
+function debounceUnassignedSearch() {
+  clearTimeout(debounceUnassignedTimer);
+  debounceUnassignedTimer = setTimeout(() => {
+    unassignedState.search = document.getElementById('unassignedSearch').value;
+    unassignedState.page = 1;
+    unassignedState.selectedItems.clear();
+    loadUnassignedItems(1);
+  }, 300);
+}
+
+/**
+ * Toggle individual unassigned item selection
+ */
+function toggleUnassignedItem(itemCode) {
+  if (unassignedState.selectedItems.has(itemCode)) {
+    unassignedState.selectedItems.delete(itemCode);
+  } else {
+    unassignedState.selectedItems.add(itemCode);
+  }
+  updateSelectAllCheckbox();
+  updateAssignSelectedButton();
+}
+
+/**
+ * Toggle select all unassigned items
+ */
+function toggleSelectAllUnassigned() {
+  const selectAllCheckbox = document.getElementById('selectAllUnassigned');
+  const checkboxes = document.querySelectorAll('.unassigned-checkbox');
+
+  checkboxes.forEach(cb => {
+    const itemCode = cb.value;
+    if (selectAllCheckbox.checked) {
+      unassignedState.selectedItems.add(itemCode);
+      cb.checked = true;
+    } else {
+      unassignedState.selectedItems.delete(itemCode);
+      cb.checked = false;
+    }
+  });
+
+  updateAssignSelectedButton();
+}
+
+/**
+ * Update select all checkbox state
+ */
+function updateSelectAllCheckbox() {
+  const selectAllCheckbox = document.getElementById('selectAllUnassigned');
+  const checkboxes = document.querySelectorAll('.unassigned-checkbox');
+
+  if (checkboxes.length === 0) {
+    selectAllCheckbox.checked = false;
+    return;
+  }
+
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  selectAllCheckbox.checked = allChecked;
+}
+
+/**
+ * Update assign selected button state
+ */
+function updateAssignSelectedButton() {
+  const btn = document.getElementById('assignSelectedBtn');
+  btn.disabled = unassignedState.selectedItems.size === 0;
+  btn.textContent = `📍 Assign Selected (${unassignedState.selectedItems.size})`;
+}
+
+/**
+ * Assign single item to locations
+ */
+function assignSingleItem(itemCode) {
+  unassignedState.selectedItems.clear();
+  unassignedState.selectedItems.add(itemCode);
+  openAssignModal();
+}
+
+/**
+ * Assign selected items to locations
+ */
+function assignSelectedItems() {
+  if (unassignedState.selectedItems.size === 0) {
+    showToast('Please select at least one item', 'warning');
+    return;
+  }
+  openAssignModal();
+}
+
+/**
+ * Open assign locations modal
+ */
+async function openAssignModal() {
+  const modal = document.getElementById('assignLocationsModal');
+  const select = document.getElementById('assignLocationSelect');
+  const countEl = document.getElementById('assignItemsCount');
+
+  try {
+    // Fetch available locations
+    const locations = await fetchAPI('/owner/locations/list');
+
+    if (!locations || locations.length === 0) {
+      showToast('No locations found. Please create a location first.', 'warning');
+      return;
+    }
+
+    // Populate location select
+    let html = '';
+    locations.forEach(loc => {
+      html += `<option value="${loc.id}">${loc.name} (${loc.type || 'warehouse'})</option>`;
+    });
+    select.innerHTML = html;
+
+    // Update item count
+    countEl.textContent = `${unassignedState.selectedItems.size} item${unassignedState.selectedItems.size !== 1 ? 's' : ''}`;
+
+    // Show modal
+    modal.classList.add('active');
+
+  } catch (error) {
+    console.error('Error opening assign modal:', error);
+    showToast(`Error loading locations: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Close assign locations modal
+ */
+function closeAssignLocationsModal() {
+  document.getElementById('assignLocationsModal').classList.remove('active');
+}
+
+/**
+ * Confirm assign locations
+ */
+async function confirmAssignLocations() {
+  const select = document.getElementById('assignLocationSelect');
+  const selectedOptions = Array.from(select.selectedOptions);
+
+  if (selectedOptions.length === 0) {
+    showToast('Please select at least one location', 'warning');
+    return;
+  }
+
+  const locationIds = selectedOptions.map(opt => opt.value);
+  const itemCodes = Array.from(unassignedState.selectedItems);
+
+  try {
+    showToast('Assigning items...', 'info');
+
+    const result = await fetchAPI('/owner/locations/assign', {
+      method: 'POST',
+      body: JSON.stringify({ itemCodes, locationIds })
+    });
+
+    showToast(result.message || `Assigned ${result.inserted} mappings`, 'success');
+
+    // Close modal and refresh list
+    closeAssignLocationsModal();
+    unassignedState.selectedItems.clear();
+    loadUnassignedItems(unassignedState.page);
+
+    // Refresh locations list if visible
+    if (typeof loadLocations === 'function') {
+      loadLocations();
+    }
+
+  } catch (error) {
+    console.error('Error assigning locations:', error);
+    showToast(`Error: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Unassign item from location
+ * @param {string} itemCode - Item code
+ * @param {string} locationId - Location ID
+ */
+async function unassignMapping(itemCode, locationId) {
+  if (!confirm(`Remove mapping for ${itemCode}?`)) {
+    return;
+  }
+
+  try {
+    const result = await fetchAPI('/owner/locations/unassign', {
+      method: 'POST',
+      body: JSON.stringify({ itemCode, locationId })
+    });
+
+    showToast(result.message || 'Mapping removed', 'success');
+
+    // Refresh locations list
+    if (typeof loadLocations === 'function') {
+      loadLocations();
+    }
+
+    // Refresh unassigned list
+    loadUnassignedItems(unassignedState.page);
+
+  } catch (error) {
+    console.error('Error unassigning mapping:', error);
+    showToast(`Error: ${error.message}`, 'danger');
+  }
+}
+
+// ============================================================================
+// v14.3: PLAYGROUND FUNCTIONS (STUB IMPLEMENTATIONS)
+// ============================================================================
+
+/**
+ * Open modal to create a new workspace
+ */
+function openNewWorkspaceModal() {
+  const name = prompt('Enter workspace name (e.g., "Month-End Jan 2025"):');
+  if (!name) return;
+
+  const periodStart = prompt('Period start (YYYY-MM-DD):');
+  if (!periodStart) return;
+
+  const periodEnd = prompt('Period end (YYYY-MM-DD):');
+  if (!periodEnd) return;
+
+  createWorkspace(name, periodStart, periodEnd);
+}
+
+/**
+ * Create a new workspace
+ */
+async function createWorkspace(name, periodStart, periodEnd) {
+  try {
+    const result = await fetchAPI('/owner/count/workspaces', {
+      method: 'POST',
+      body: JSON.stringify({ name, period_start: periodStart, period_end: periodEnd })
+    });
+
+    showToast(`Workspace "${name}" created successfully!`, 'success');
+    loadPlayground(); // Reload playground
+  } catch (error) {
+    console.error('Error creating workspace:', error);
+    showToast(`Error: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Open a workspace for viewing/editing
+ */
+async function openWorkspace(workspaceId) {
+  const modal = document.getElementById('workspaceModal');
+  const detailsContainer = document.getElementById('workspaceDetails');
+
+  if (!modal || !detailsContainer) {
+    console.error('Workspace modal not found');
+    return;
+  }
+
+  // Show modal with loading state
+  modal.style.display = 'flex';
+  detailsContainer.innerHTML = '<div class="loading"><div class="spinner"></div> Loading workspace...</div>';
+
+  try {
+    // Fetch workspace details
+    const workspace = await fetchAPI(`/owner/count/workspaces/${workspaceId}`);
+
+    // Store workspace ID for usage report
+    window.currentWorkspaceId = workspaceId;
+
+    // Update modal title
+    document.getElementById('workspaceModalTitle').textContent = `🎮 ${workspace.name}`;
+
+    // Render workspace details
+    let html = `
+      <div class="card">
+        <div class="card-header">
+          <h4>Workspace Information</h4>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <p><strong>Name:</strong> ${workspace.name}</p>
+              <p><strong>Status:</strong> <span class="badge badge-${workspace.status === 'open' ? 'success' : 'warning'}">${workspace.status}</span></p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Period:</strong> ${workspace.period_start} to ${workspace.period_end}</p>
+              <p><strong>Created:</strong> ${new Date(workspace.created_at).toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Show items if available
+    if (workspace.items && workspace.items.length > 0) {
+      html += `
+        <div class="card" style="margin-top: 1rem;">
+          <div class="card-header">
+            <h4>Items (${workspace.items.length})</h4>
+          </div>
+          <div style="max-height: 400px; overflow-y: auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Location</th>
+                  <th>Counted</th>
+                  <th>Usage</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      workspace.items.forEach(item => {
+        html += `
+          <tr>
+            <td>${item.item_name || item.item_id}</td>
+            <td>${item.location_name || item.location_id || 'N/A'}</td>
+            <td>${item.count !== null ? item.count : 'Not counted'}</td>
+            <td>${item.usage !== null ? item.usage : 'N/A'}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="alert alert-info" style="margin-top: 1rem;">
+          No items in this workspace yet. Items can be added during the count process.
+        </div>
+      `;
+    }
+
+    // Show invoices if available
+    if (workspace.invoices && workspace.invoices.length > 0) {
+      html += `
+        <div class="card" style="margin-top: 1rem;">
+          <div class="card-header">
+            <h4>Attached Invoices (${workspace.invoices.length})</h4>
+          </div>
+          <div style="max-height: 300px; overflow-y: auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Invoice Date</th>
+                  <th>Vendor</th>
+                  <th>Total</th>
+                  <th>Items</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      workspace.invoices.forEach(inv => {
+        html += `
+          <tr>
+            <td>${inv.invoice_date || 'N/A'}</td>
+            <td>${inv.vendor_name || 'Unknown'}</td>
+            <td>$${inv.total ? inv.total.toFixed(2) : '0.00'}</td>
+            <td>${inv.item_count || 0}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    // Add action sections for attaching counts, PDFs, and uploading files
+    html += `
+      <div class="card" style="margin-top: 1rem;">
+        <div class="card-header">
+          <h4>📎 Attach Data to Workspace</h4>
+        </div>
+        <div class="card-body">
+          <div class="grid grid-3" style="gap: 1rem;">
+
+            <!-- Attach Inventory Count -->
+            <div>
+              <h5 style="margin-bottom: 0.5rem;">📊 Inventory Count</h5>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachCountModal('${workspaceId}')" style="width: 100%;">
+                Attach Existing Count
+              </button>
+            </div>
+
+            <!-- Attach GFS PDFs -->
+            <div>
+              <h5 style="margin-bottom: 0.5rem;">📄 GFS Orders</h5>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachPDFsModal('${workspaceId}')" style="width: 100%;">
+                Attach PDFs
+              </button>
+            </div>
+
+            <!-- Upload File -->
+            <div>
+              <h5 style="margin-bottom: 0.5rem;">📤 Upload File</h5>
+              <button type="button" class="btn btn-success btn-sm" onclick="openUploadFileModal('${workspaceId}')" style="width: 100%;">
+                Upload PDF/Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    detailsContainer.innerHTML = html;
+
+    // Show usage report button if workspace has data
+    const usageBtn = document.getElementById('workspaceUsageBtn');
+    if (usageBtn && workspace.items && workspace.items.length > 0) {
+      usageBtn.style.display = 'inline-block';
+    }
+
+  } catch (error) {
+    console.error('Error loading workspace:', error);
+    detailsContainer.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Error loading workspace:</strong> ${error.message}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Close the workspace details modal
+ */
+function closeWorkspaceModal() {
+  const modal = document.getElementById('workspaceModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  window.currentWorkspaceId = null;
+}
+
+/**
+ * View usage report for current workspace
+ */
+async function viewWorkspaceUsage() {
+  if (!window.currentWorkspaceId) {
+    showToast('No workspace selected', 'warning');
+    return;
+  }
+
+  try {
+    const usageData = await fetchAPI(`/owner/count/workspaces/${window.currentWorkspaceId}/usage`);
+
+    // TODO: Implement usage report viewer
+    // For now, just show a summary
+    showToast(`Usage report: ${usageData.total_items || 0} items, $${usageData.total_value || 0} value`, 'info');
+    console.log('Usage data:', usageData);
+  } catch (error) {
+    console.error('Error loading usage report:', error);
+    showToast(`Error loading usage report: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Open modal to attach an existing inventory count to workspace
+ */
+async function openAttachCountModal(workspaceId) {
+  try {
+    // Fetch available inventory counts
+    const counts = await fetchAPI('/owner/counts/available');
+
+    if (!counts.counts || counts.counts.length === 0) {
+      showToast('No available inventory counts found', 'warning');
+      return;
+    }
+
+    let html = `
+      <div class="card">
+        <div class="card-header">
+          <h4>Select Inventory Count</h4>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width: 40px;"></th>
+                <th>Count ID</th>
+                <th>Date</th>
+                <th>Location</th>
+                <th>Items</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    counts.counts.forEach(count => {
+      html += `
+        <tr>
+          <td>
+            <input type="radio" name="selectedCount" value="${count.id}" />
+          </td>
+          <td>${count.id}</td>
+          <td>${new Date(count.created_at).toLocaleDateString()}</td>
+          <td>${count.location_name || 'All locations'}</td>
+          <td>${count.item_count || 0}</td>
+          <td><span class="badge badge-${count.status === 'closed' ? 'success' : 'warning'}">${count.status}</span></td>
+        </tr>
+      `;
+    });
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top: 1rem; text-align: right;">
+          <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="attachCountToWorkspace('${workspaceId}')">Attach Count</button>
+        </div>
+      </div>
+    `;
+
+    const detailsContainer = document.getElementById('workspaceDetails');
+    detailsContainer.innerHTML += html;
+
+  } catch (error) {
+    console.error('Error loading counts:', error);
+    showToast(`Error loading counts: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Attach selected inventory count to workspace
+ */
+async function attachCountToWorkspace(workspaceId) {
+  const selectedCount = document.querySelector('input[name="selectedCount"]:checked');
+
+  if (!selectedCount) {
+    showToast('Please select an inventory count', 'warning');
+    return;
+  }
+
+  try {
+    await fetchAPI(`/owner/count/workspaces/${workspaceId}/attach-count`, {
+      method: 'POST',
+      body: JSON.stringify({ count_id: selectedCount.value })
+    });
+
+    showToast('Inventory count attached successfully!', 'success');
+    openWorkspace(workspaceId); // Reload workspace
+  } catch (error) {
+    console.error('Error attaching count:', error);
+    showToast(`Error: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Open modal to attach PDFs to workspace
+ */
+async function openAttachPDFsModal(workspaceId) {
+  try {
+    // Fetch available PDFs
+    const pdfs = await fetchAPI('/owner/pdfs/available?vendor=GFS');
+
+    if (!pdfs.documents || pdfs.documents.length === 0) {
+      showToast('No available PDFs found', 'warning');
+      return;
+    }
+
+    let html = `
+      <div class="card">
+        <div class="card-header">
+          <h4>Select PDFs to Attach</h4>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width: 40px;"><input type="checkbox" id="selectAllPDFs" onchange="toggleSelectAllPDFs()" /></th>
+                <th>Filename</th>
+                <th>Date</th>
+                <th>Vendor</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    pdfs.documents.forEach(pdf => {
+      html += `
+        <tr>
+          <td>
+            <input type="checkbox" class="pdf-checkbox" value="${pdf.id}" />
+          </td>
+          <td>${pdf.filename}</td>
+          <td>${pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : 'N/A'}</td>
+          <td>${pdf.vendor || 'Unknown'}</td>
+          <td>$${pdf.invoice_amount ? pdf.invoice_amount.toFixed(2) : '0.00'}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top: 1rem; text-align: right;">
+          <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="attachPDFsToWorkspace('${workspaceId}')">Attach Selected</button>
+        </div>
+      </div>
+    `;
+
+    const detailsContainer = document.getElementById('workspaceDetails');
+    detailsContainer.innerHTML += html;
+
+  } catch (error) {
+    console.error('Error loading PDFs:', error);
+    showToast(`Error loading PDFs: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Toggle select all PDFs
+ */
+function toggleSelectAllPDFs() {
+  const selectAll = document.getElementById('selectAllPDFs');
+  const checkboxes = document.querySelectorAll('.pdf-checkbox');
+  checkboxes.forEach(cb => cb.checked = selectAll.checked);
+}
+
+/**
+ * Attach selected PDFs to workspace
+ */
+async function attachPDFsToWorkspace(workspaceId) {
+  const selectedPDFs = Array.from(document.querySelectorAll('.pdf-checkbox:checked')).map(cb => cb.value);
+
+  if (selectedPDFs.length === 0) {
+    showToast('Please select at least one PDF', 'warning');
+    return;
+  }
+
+  try {
+    await fetchAPI(`/owner/count/workspaces/${workspaceId}/attach-pdfs`, {
+      method: 'POST',
+      body: JSON.stringify({ document_ids: selectedPDFs })
+    });
+
+    showToast(`${selectedPDFs.length} PDF(s) attached successfully!`, 'success');
+    openWorkspace(workspaceId); // Reload workspace
+  } catch (error) {
+    console.error('Error attaching PDFs:', error);
+    showToast(`Error: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Open modal to upload a file to workspace
+ */
+function openUploadFileModal(workspaceId) {
+  let html = `
+    <div class="card">
+      <div class="card-header">
+        <h4>Upload File to Workspace</h4>
+      </div>
+      <div class="card-body">
+        <form id="workspaceUploadForm">
+          <div class="form-group">
+            <label class="form-label">Select File (PDF or Excel)</label>
+            <input type="file" class="input" id="workspaceFile" accept=".pdf,.xlsx,.xls" required />
+            <small style="color: var(--text-light); font-size: 0.75rem;">Accepted formats: PDF, XLSX, XLS</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="textarea" id="workspaceFileNotes" placeholder="Add any notes about this file..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div style="margin-top: 1rem; text-align: right; padding: 0 1rem 1rem;">
+        <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="uploadFileToWorkspace('${workspaceId}')">Upload</button>
+      </div>
+    </div>
+  `;
+
+  const detailsContainer = document.getElementById('workspaceDetails');
+  detailsContainer.innerHTML += html;
+}
+
+/**
+ * Upload file to workspace
+ */
+async function uploadFileToWorkspace(workspaceId) {
+  const fileInput = document.getElementById('workspaceFile');
+  const notesInput = document.getElementById('workspaceFileNotes');
+
+  if (!fileInput.files || fileInput.files.length === 0) {
+    showToast('Please select a file', 'warning');
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('workspace_id', workspaceId);
+  formData.append('notes', notesInput.value || '');
+
+  try {
+    const response = await fetch(`${API_BASE}/owner/count/workspaces/${workspaceId}/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    const result = await response.json();
+    showToast(`File uploaded successfully!`, 'success');
+    openWorkspace(workspaceId); // Reload workspace
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    showToast(`Error: ${error.message}`, 'danger');
+  }
+}
+
+// ============================================================================
+// v14.3: EXPORT CONSOLE-SPECIFIC FUNCTIONS TO WINDOW
+// These functions are unique to owner-super-console and need to be globally
+// accessible for the shared core's switchTab() function
+// ============================================================================
+window.showToast = showToast;
+window.loadInventory = loadInventory;
+window.loadLocations = loadLocations;
+window.loadPDFs = loadPDFs;
+window.loadAIConsole = loadAIConsole;
+window.loadForecast = loadForecast;
+window.loadReports = loadReports;
+window.loadSettings = loadSettings;
+window.loadLocationsForCountItem = loadLocationsForCountItem;
+window.unassignMapping = unassignMapping;
+window.openNewWorkspaceModal = openNewWorkspaceModal;
+window.createWorkspace = createWorkspace;
+window.openWorkspace = openWorkspace;
+window.closeWorkspaceModal = closeWorkspaceModal;
+window.viewWorkspaceUsage = viewWorkspaceUsage;
+window.openAttachCountModal = openAttachCountModal;
+window.attachCountToWorkspace = attachCountToWorkspace;
+window.openAttachPDFsModal = openAttachPDFsModal;
+window.toggleSelectAllPDFs = toggleSelectAllPDFs;
+window.attachPDFsToWorkspace = attachPDFsToWorkspace;
+window.openUploadFileModal = openUploadFileModal;
+window.uploadFileToWorkspace = uploadFileToWorkspace;
+

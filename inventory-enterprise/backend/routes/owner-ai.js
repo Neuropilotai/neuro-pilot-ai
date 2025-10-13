@@ -308,7 +308,7 @@ async function generateReorderRecommendations(db, n = 20) {
         ORDER BY generated_at DESC
       ) af ON v.item_code = af.item_code
       WHERE v.current_stock > 0
-        AND v.active = 1
+        AND v.is_active = 1
       ORDER BY
         CASE
           WHEN v.current_stock < v.par_level THEN 0

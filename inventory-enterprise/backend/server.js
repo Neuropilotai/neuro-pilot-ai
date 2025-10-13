@@ -93,8 +93,27 @@ let quantumKeys = null;
 let complianceEngine = null;
 
 const app = express();
+// v14.4: Enhanced security headers with proper CSP
 app.use(helmet({
-  contentSecurityPolicy: false // Disable CSP to allow frontend resources
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for console
+      styleSrc: ["'self'", "'unsafe-inline'"],  // Allow inline styles
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "ws:", "wss:"],    // WebSocket support
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  referrerPolicy: { policy: "no-referrer" },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  }
 }));
 app.use(cors());
 app.use(express.json());
@@ -178,6 +197,9 @@ app.use('/api/owner/ops', authenticateToken, requireOwnerDevice, ownerOpsRoutes)
 const ownerDashboardStatsRoutes = require('./routes/owner-dashboard-stats');
 app.use('/api/owner/dashboard', authenticateToken, requireOwnerDevice, ownerDashboardStatsRoutes);
 
+// v14.4: Track server start time for uptime calculation
+const serverStartTime = Date.now();
+
 app.get('/health', async (req, res) => {
   const feedbackStats = feedbackStream.getStats();
   const forecastStats = forecastWorker.getStats();
@@ -194,8 +216,8 @@ app.get('/health', async (req, res) => {
 
   res.json({
     status: 'ok',
-    app: 'inventory-enterprise-v2.8.0',
-    version: '2.8.0',
+    app: 'inventory-enterprise-v14.4.0',
+    version: '14.4.0',
     features: {
       multiTenancy: true,
       rbac: true,
@@ -227,6 +249,48 @@ app.get('/health', async (req, res) => {
   });
 });
 
+// v14.4: Kubernetes-style health check endpoints for Fly.io/Render deployment
+app.get('/healthz', (req, res) => {
+  // Liveness probe - simple uptime check
+  const uptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);
+  res.status(200).json({
+    status: 'ok',
+    uptime: uptimeSeconds
+  });
+});
+
+app.get('/readyz', async (req, res) => {
+  // Readiness probe - check critical services
+  try {
+    const db = require('./config/database');
+
+    // Check database connection
+    await db.get('SELECT 1');
+
+    // Check if critical services are initialized
+    const ready = phase3Cron !== null;
+
+    if (!ready) {
+      return res.status(503).json({
+        status: 'not_ready',
+        reason: 'Services still initializing'
+      });
+    }
+
+    res.status(200).json({
+      status: 'ready',
+      database: 'connected',
+      phase3Cron: 'active'
+    });
+  } catch (error) {
+    logger.error('Readiness check failed:', error);
+    res.status(503).json({
+      status: 'not_ready',
+      error: error.message
+    });
+  }
+});
+
 // Prometheus metrics endpoint
 app.get('/metrics', async (req, res) => {
   try {
@@ -256,6 +320,29 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
+// v14.4: Permanent console unification - retire old console
+// owner-console.html → owner-super-console.html (301 permanent redirect)
+app.get(['/owner-console', '/owner-console.html'], (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+
+  // Telemetry: track legacy console access
+  realtimeBus.emit('console_redirect', {
+    from: req.path,
+    to: '/owner-super-console.html',
+    timestamp: new Date().toISOString(),
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+
+  logger.info('Console redirect: legacy → super', {
+    from: req.path,
+    to: '/owner-super-console.html',
+    ip: req.ip
+  });
+
+  res.redirect(301, `/owner-super-console.html${qs}`);
+});
+
 // Catch-all route for SPA (after all API routes)
 app.get('*', (req, res) => {
   // Don't catch requests for static files (.html, .js, .css, etc.)
@@ -280,7 +367,7 @@ const httpServer = http.createServer(app);
 // Start server (SECURITY FIX: Bind to localhost only)
 httpServer.listen(PORT, '127.0.0.1', async () => {
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🚀 NeuroInnovate Inventory Enterprise System v2.8.0');
+  console.log('🚀 NeuroInnovate Inventory Enterprise System v14.4.0');
   console.log('═══════════════════════════════════════════════════════════════');
   console.log(`📡 Server running on port ${PORT}`);
   console.log(`📝 Default admin: neuro.pilot.ai@gmail.com / Admin123!@#`);
@@ -371,7 +458,7 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
     console.error('  ⚠️  Audit logging not available');
   }
 
-  console.log('  ✨ v2.8.0 Infrastructure ACTIVE\n');
+  console.log('  ✨ v14.4.0 Infrastructure ACTIVE\n');
 
   // Initialize PASS F - Real-Time Intelligence Layer (v2.3.0)
   try {

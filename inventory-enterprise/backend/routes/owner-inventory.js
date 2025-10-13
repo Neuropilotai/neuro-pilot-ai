@@ -1008,4 +1008,149 @@ router.post('/workspaces/:id/close', async (req, res) => {
   }
 });
 
+// ============================================================================
+// v14.4: INVENTORY PLAYGROUND (Month-End Workflow - Comprehensive State)
+// ============================================================================
+
+/**
+ * GET /api/owner/inventory/playground
+ * Month-End Playground - Load all relevant data in one call
+ *
+ * Returns:
+ * - Active workspace (if any)
+ * - Recent workspaces list
+ * - Unassigned items count
+ * - Recent unprocessed PDFs (for attachment)
+ * - Storage locations
+ * - Current inventory summary
+ */
+router.get('/playground', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+
+    // 1. Get active/current workspace
+    const activeWorkspace = await db.get(`
+      SELECT * FROM inventory_workspace
+      WHERE status IN ('draft', 'in_progress')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    // 2. Get recent workspaces (last 10)
+    const recentWorkspaces = await db.all(`
+      SELECT
+        workspace_id,
+        name,
+        period_label,
+        start_date,
+        end_date,
+        status,
+        created_at,
+        closed_at
+      FROM inventory_workspace
+      ORDER BY created_at DESC
+      LIMIT 10
+    `);
+
+    // 3. Get unassigned items count
+    let unassignedCount = 0;
+    try {
+      const unassigned = await db.get(`
+        SELECT COUNT(*) as count
+        FROM inventory_items i
+        WHERE i.is_active = 1
+          AND NOT EXISTS (
+            SELECT 1 FROM item_locations il
+            WHERE il.item_code = i.item_code
+          )
+      `);
+      unassignedCount = unassigned?.count || 0;
+    } catch (err) {
+      console.debug('Unassigned count query failed:', err.message);
+    }
+
+    // 4. Get recent unprocessed PDFs (for attachment)
+    let recentPDFs = [];
+    try {
+      recentPDFs = await db.all(`
+        SELECT
+          id as doc_id,
+          filename,
+          invoice_number,
+          invoice_date,
+          vendor_name,
+          total_amount,
+          processed_at,
+          uploaded_at
+        FROM documents
+        WHERE status = 'processed'
+          AND processed_at IS NOT NULL
+        ORDER BY invoice_date DESC, uploaded_at DESC
+        LIMIT 20
+      `);
+    } catch (err) {
+      console.debug('Recent PDFs query failed:', err.message);
+    }
+
+    // 5. Get storage locations
+    let locations = [];
+    try {
+      locations = await db.all(`
+        SELECT
+          id as location_id,
+          id as location_code,
+          name as location_name,
+          type as location_type,
+          sequence
+        FROM storage_locations
+        WHERE is_active = 1
+        ORDER BY sequence ASC
+      `);
+    } catch (err) {
+      console.debug('Locations query failed:', err.message);
+    }
+
+    // 6. Get inventory summary stats
+    let inventorySummary = null;
+    try {
+      inventorySummary = await db.get(`
+        SELECT
+          COUNT(*) as total_items,
+          COUNT(CASE WHEN current_quantity > 0 THEN 1 END) as items_in_stock,
+          COUNT(CASE WHEN current_quantity = 0 THEN 1 END) as items_empty,
+          ROUND(SUM(current_quantity * unit_cost), 2) as total_value
+        FROM inventory_items
+        WHERE is_active = 1
+      `);
+    } catch (err) {
+      console.debug('Inventory summary query failed:', err.message);
+    }
+
+    res.json({
+      success: true,
+      playground: {
+        active_workspace: activeWorkspace || null,
+        recent_workspaces: recentWorkspaces,
+        unassigned_items_count: unassignedCount,
+        recent_pdfs: recentPDFs,
+        locations: locations,
+        inventory_summary: inventorySummary || {
+          total_items: 0,
+          items_in_stock: 0,
+          items_empty: 0,
+          total_value: 0
+        }
+      },
+      message: 'Playground state loaded successfully'
+    });
+
+  } catch (error) {
+    console.error('GET /api/owner/inventory/playground error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

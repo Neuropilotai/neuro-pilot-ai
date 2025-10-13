@@ -130,7 +130,9 @@ class Phase3CronScheduler {
       logger.info('Phase3Cron: [DAILY 06:00] 🔮 Generating AI forecast for today');
 
       try {
-        const forecast = await MenuPredictor.generateDailyForecast();
+        // v14.4: Instantiate MenuPredictor with database
+        const predictor = new MenuPredictor(this.db);
+        const forecast = await predictor.getPredictedUsageForToday();
 
         // v13.0: Record timestamp in memory and persist breadcrumb
         _lastForecastRun = new Date().toISOString();
@@ -204,7 +206,9 @@ class Phase3CronScheduler {
       logger.info('Phase3Cron: [DAILY 21:00] 🧠 Processing AI learning feedback');
 
       try {
-        const result = await FeedbackTrainer.processComments();
+        // v14.4: Instantiate FeedbackTrainer with database
+        const trainer = new FeedbackTrainer(this.db);
+        const result = await trainer.applyAllPendingComments();
 
         // v13.0: Record timestamp in memory and persist breadcrumb
         _lastLearningRun = new Date().toISOString();
@@ -213,8 +217,9 @@ class Phase3CronScheduler {
         const duration = Date.now() - jobStart;
 
         logger.info('Phase3Cron: AI learning complete', {
-          processed: result.processed || 0,
+          processed: result.total || 0,
           applied: result.applied || 0,
+          failed: result.failed || 0,
           duration: duration / 1000
         });
 
@@ -227,7 +232,7 @@ class Phase3CronScheduler {
         await this.db.run(`
           INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
           VALUES (?, ?, ?, ?, ?, ?)
-        `, ['ai_learning', _lastLearningRun, 'learning_completed', duration, JSON.stringify({ processed: result.processed || 0, applied: result.applied || 0 }), _lastLearningRun]);
+        `, ['ai_learning', _lastLearningRun, 'learning_completed', duration, JSON.stringify({ processed: result.total || 0, applied: result.applied || 0 }), _lastLearningRun]);
 
         // Record cron job execution
         if (this.metricsExporter?.recordPhase3CronExecution) {
@@ -240,7 +245,7 @@ class Phase3CronScheduler {
             type: 'learning_completed',
             at: _lastLearningRun,
             ms: duration,
-            processed: result.processed || 0,
+            processed: result.total || 0,
             applied: result.applied || 0
           });
         }
@@ -248,7 +253,7 @@ class Phase3CronScheduler {
         // Emit real-time update (legacy)
         if (global.realtimeBus) {
           global.realtimeBus.emit('learning:processed', {
-            processed: result.processed || 0,
+            processed: result.total || 0,
             applied: result.applied || 0,
             timestamp: _lastLearningRun
           });
@@ -475,7 +480,9 @@ class Phase3CronScheduler {
             logger.warn('Phase3Cron: Watchdog detected stale forecast, triggering recovery');
             _forecastRunning = true;
             try {
-              await MenuPredictor.generateDailyForecast();
+              // v14.4: Instantiate MenuPredictor with database
+              const predictor = new MenuPredictor(this.db);
+              await predictor.getPredictedUsageForToday();
               _lastForecastRun = new Date().toISOString();
               await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
 
@@ -506,7 +513,9 @@ class Phase3CronScheduler {
             logger.warn('Phase3Cron: Watchdog detected stale learning, triggering recovery');
             _learningRunning = true;
             try {
-              await FeedbackTrainer.processComments();
+              // v14.4: Instantiate FeedbackTrainer with database
+              const trainer = new FeedbackTrainer(this.db);
+              await trainer.applyAllPendingComments();
               _lastLearningRun = new Date().toISOString();
               await this.recordBreadcrumb('ai_learning', _lastLearningRun);
 
@@ -705,7 +714,9 @@ class Phase3CronScheduler {
           }
           _forecastRunning = true;
           try {
-            await MenuPredictor.generateDailyForecast();
+            // v14.4: Instantiate MenuPredictor with database
+            const predictor = new MenuPredictor(this.db);
+            const forecast = await predictor.getPredictedUsageForToday();
             _lastForecastRun = new Date().toISOString();
             await this.recordBreadcrumb('ai_forecast', _lastForecastRun);
 
@@ -720,10 +731,10 @@ class Phase3CronScheduler {
             await this.db.run(`
               INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
               VALUES (?, ?, ?, ?, ?, ?)
-            `, ['ai_forecast', _lastForecastRun, 'forecast_completed', duration, JSON.stringify({ manual_trigger: true }), _lastForecastRun]);
+            `, ['ai_forecast', _lastForecastRun, 'forecast_completed', duration, JSON.stringify({ manual_trigger: true, itemCount: forecast.items?.length || 0 }), _lastForecastRun]);
 
             if (this.realtimeBus) {
-              this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: duration });
+              this.realtimeBus.emit('ai_event', { type: 'forecast_completed', at: _lastForecastRun, ms: duration, itemCount: forecast.items?.length || 0 });
             }
           } finally {
             _forecastRunning = false;
@@ -736,7 +747,9 @@ class Phase3CronScheduler {
           }
           _learningRunning = true;
           try {
-            await FeedbackTrainer.processComments();
+            // v14.4: Instantiate FeedbackTrainer with database
+            const trainer = new FeedbackTrainer(this.db);
+            const result = await trainer.applyAllPendingComments();
             _lastLearningRun = new Date().toISOString();
             await this.recordBreadcrumb('ai_learning', _lastLearningRun);
 
@@ -751,10 +764,10 @@ class Phase3CronScheduler {
             await this.db.run(`
               INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
               VALUES (?, ?, ?, ?, ?, ?)
-            `, ['ai_learning', _lastLearningRun, 'learning_completed', duration, JSON.stringify({ manual_trigger: true }), _lastLearningRun]);
+            `, ['ai_learning', _lastLearningRun, 'learning_completed', duration, JSON.stringify({ manual_trigger: true, processed: result.total || 0, applied: result.applied || 0 }), _lastLearningRun]);
 
             if (this.realtimeBus) {
-              this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: duration });
+              this.realtimeBus.emit('ai_event', { type: 'learning_completed', at: _lastLearningRun, ms: duration, processed: result.total || 0, applied: result.applied || 0 });
             }
           } finally {
             _learningRunning = false;

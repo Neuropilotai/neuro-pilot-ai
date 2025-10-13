@@ -17,6 +17,286 @@ const { requireOwner } = require('../middleware/requireOwner');
 const realtimeBus = require('../utils/realtimeBus');
 const { logger } = require('../config/logger');
 
+// === v13.5: Composite AI Ops Health Computation ===
+/**
+ * Compute weighted AI Ops System Health Score (0-100)
+ * 6 components with custom weights:
+ *  1. Forecast recency (25%)
+ *  2. Learning recency (20%)
+ *  3. AI Confidence 7d (15%)
+ *  4. Forecast Accuracy 7d (15%)
+ *  5. Data Pipeline Health (15%)
+ *  6. Latency & Realtime (10%)
+ *
+ * @param {object} database - SQLite database connection
+ * @param {object} phase3Cron - Cron scheduler instance
+ * @param {object} metrics - Pre-computed metrics (timestamps, confidence, accuracy, latency)
+ * @returns {object} { score, weights, components, explanations }
+ */
+async function computeAIOpsHealth(database, phase3Cron, metrics) {
+  const {
+    lastForecastTs,
+    lastLearningTs,
+    aiConfidenceAvg,
+    forecastAccuracy,
+    forecastLatency,
+    learningLatency,
+    realtimeStatus
+  } = metrics;
+
+  const weights = {
+    forecastRecency: 25,
+    learningRecency: 20,
+    confidence7d: 15,
+    accuracy7d: 15,
+    pipelineHealth: 15,
+    latencyRealtime: 10
+  };
+
+  const components = {};
+  const explanations = [];
+  let totalScore = 0;
+
+  // === 1. Forecast Recency (25%) ===
+  let forecastScore = 20;
+  let forecastValue = 'Never';
+  if (lastForecastTs) {
+    const ageMs = Date.now() - new Date(lastForecastTs).getTime();
+    const ageHours = ageMs / 1000 / 60 / 60;
+    forecastValue = `${ageHours.toFixed(1)}h ago`;
+    if (ageHours < 24) {
+      forecastScore = 100;
+      explanations.push('Forecast ran within 24h (100 pts)');
+    } else if (ageHours < 48) {
+      forecastScore = 70;
+      explanations.push('Forecast ran 24-48h ago (70 pts)');
+    } else {
+      forecastScore = 20;
+      explanations.push(`Forecast stale (${ageHours.toFixed(0)}h old, 20 pts)`);
+    }
+  } else {
+    explanations.push('Forecast never ran (20 pts)');
+  }
+  components.forecastRecency = { value: forecastValue, score: forecastScore };
+  totalScore += (forecastScore * weights.forecastRecency) / 100;
+
+  // === 2. Learning Recency (20%) ===
+  let learningScore = 20;
+  let learningValue = 'Never';
+  if (lastLearningTs) {
+    const ageMs = Date.now() - new Date(lastLearningTs).getTime();
+    const ageHours = ageMs / 1000 / 60 / 60;
+    learningValue = `${ageHours.toFixed(1)}h ago`;
+    if (ageHours < 24) {
+      learningScore = 100;
+      explanations.push('Learning ran within 24h (100 pts)');
+    } else if (ageHours < 48) {
+      learningScore = 70;
+      explanations.push('Learning ran 24-48h ago (70 pts)');
+    } else {
+      learningScore = 20;
+      explanations.push(`Learning stale (${ageHours.toFixed(0)}h old, 20 pts)`);
+    }
+  } else {
+    explanations.push('Learning never ran (20 pts)');
+  }
+  components.learningRecency = { value: learningValue, score: learningScore };
+  totalScore += (learningScore * weights.learningRecency) / 100;
+
+  // === 3. AI Confidence 7d (15%) ===
+  let confidenceScore = 20;
+  let confidenceValue = null;
+  if (aiConfidenceAvg !== null && aiConfidenceAvg !== undefined && aiConfidenceAvg > 0) {
+    confidenceValue = aiConfidenceAvg;
+    confidenceScore = aiConfidenceAvg;
+    explanations.push(`AI Confidence: ${aiConfidenceAvg}%`);
+  } else {
+    // Check if cache exists but no data
+    try {
+      const cacheExists = await database.get(`SELECT COUNT(*) as cnt FROM ai_daily_forecast_cache`);
+      if (cacheExists && cacheExists.cnt > 0) {
+        confidenceScore = 60;
+        confidenceValue = 60;
+        explanations.push('No confidence data, but cache exists (60 pts)');
+      } else {
+        confidenceScore = 20;
+        explanations.push('No confidence data or cache (20 pts)');
+      }
+    } catch (err) {
+      confidenceScore = 20;
+      explanations.push('Confidence data unavailable (20 pts)');
+    }
+  }
+  components.confidence7d = { value: confidenceValue, score: confidenceScore };
+  totalScore += (confidenceScore * weights.confidence7d) / 100;
+
+  // === 4. Forecast Accuracy 7d (15%) ===
+  let accuracyScore = 20;
+  let accuracyValue = null;
+  if (forecastAccuracy !== null && forecastAccuracy !== undefined && forecastAccuracy > 0) {
+    accuracyValue = forecastAccuracy;
+    accuracyScore = Math.min(100, forecastAccuracy);
+    explanations.push(`Forecast Accuracy: ${forecastAccuracy}%`);
+  } else {
+    // Check if forecasts exist but no results
+    try {
+      const forecastsExist = await database.get(`SELECT COUNT(*) as cnt FROM ai_daily_forecast_cache`);
+      if (forecastsExist && forecastsExist.cnt > 0) {
+        accuracyScore = 60;
+        accuracyValue = 60;
+        explanations.push('No accuracy data, but forecasts exist (60 pts)');
+      } else {
+        accuracyScore = 20;
+        explanations.push('No accuracy data or forecasts (20 pts)');
+      }
+    } catch (err) {
+      accuracyScore = 20;
+      explanations.push('Accuracy data unavailable (20 pts)');
+    }
+  }
+  components.accuracy7d = { value: accuracyValue, score: accuracyScore };
+  totalScore += (accuracyScore * weights.accuracy7d) / 100;
+
+  // === 5. Data Pipeline Health (15%) ===
+  let pipelineChecks = 0;
+  const pipelineResults = [];
+
+  // Check 1: ai_daily_forecast_cache has rows for today or tomorrow
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const forecastRows = await database.get(`
+      SELECT COUNT(*) as cnt FROM ai_daily_forecast_cache
+      WHERE date IN (?, ?)
+    `, [today, tomorrow]);
+    if (forecastRows && forecastRows.cnt > 0) {
+      pipelineChecks++;
+      pipelineResults.push('Forecast cache current');
+    }
+  } catch (err) {
+    pipelineResults.push('Forecast cache unavailable');
+  }
+
+  // Check 2: ai_learning_insights has ≥1 row in last 7 days
+  try {
+    const learningRows = await database.get(`
+      SELECT COUNT(*) as cnt FROM ai_learning_insights
+      WHERE created_at >= datetime('now', '-7 days')
+    `);
+    if (learningRows && learningRows.cnt > 0) {
+      pipelineChecks++;
+      pipelineResults.push('Learning insights active');
+    }
+  } catch (err) {
+    pipelineResults.push('Learning insights unavailable');
+  }
+
+  // Check 3: ai_ops_breadcrumbs has ≥1 row in last 72h
+  try {
+    const breadcrumbs = await database.get(`
+      SELECT COUNT(*) as cnt FROM ai_ops_breadcrumbs
+      WHERE created_at >= datetime('now', '-72 hours')
+    `);
+    if (breadcrumbs && breadcrumbs.cnt > 0) {
+      pipelineChecks++;
+      pipelineResults.push('Ops breadcrumbs logged');
+    }
+  } catch (err) {
+    pipelineResults.push('Breadcrumbs unavailable');
+  }
+
+  // Check 4: PDF index has ≥1 valid dated invoice in last 14d
+  try {
+    const pdfs = await database.get(`
+      SELECT COUNT(*) as cnt FROM documents
+      WHERE invoice_date IS NOT NULL
+        AND created_at >= datetime('now', '-14 days')
+    `);
+    if (pdfs && pdfs.cnt > 0) {
+      pipelineChecks++;
+      pipelineResults.push('Recent invoices indexed');
+    }
+  } catch (err) {
+    pipelineResults.push('Invoice index unavailable');
+  }
+
+  let pipelineScore = 30;
+  if (pipelineChecks >= 3) {
+    pipelineScore = 100;
+    explanations.push(`Pipeline health: ${pipelineChecks}/4 checks passed (100 pts)`);
+  } else if (pipelineChecks >= 2) {
+    pipelineScore = 70;
+    explanations.push(`Pipeline health: ${pipelineChecks}/4 checks passed (70 pts)`);
+  } else {
+    explanations.push(`Pipeline health: ${pipelineChecks}/4 checks passed (30 pts)`);
+  }
+  components.pipelineHealth = {
+    checksPassed: pipelineChecks,
+    checks: pipelineResults,
+    score: pipelineScore
+  };
+  totalScore += (pipelineScore * weights.pipelineHealth) / 100;
+
+  // === 6. Latency & Realtime (10%) ===
+  let latencyScore = 40;
+  let avgLatencyMs = null;
+  let recentEmits = 0;
+
+  // Calculate average of forecast and learning latencies
+  if (forecastLatency !== null && learningLatency !== null) {
+    avgLatencyMs = Math.round((forecastLatency + learningLatency) / 2);
+  } else if (forecastLatency !== null) {
+    avgLatencyMs = forecastLatency;
+  } else if (learningLatency !== null) {
+    avgLatencyMs = learningLatency;
+  }
+
+  if (avgLatencyMs !== null) {
+    const avgLatencySec = avgLatencyMs / 1000;
+    if (avgLatencySec < 5) {
+      latencyScore = 100;
+      explanations.push(`Avg latency ${avgLatencySec.toFixed(1)}s (<5s, 100 pts)`);
+    } else if (avgLatencySec < 10) {
+      latencyScore = 70;
+      explanations.push(`Avg latency ${avgLatencySec.toFixed(1)}s (5-10s, 70 pts)`);
+    } else {
+      latencyScore = 40;
+      explanations.push(`Avg latency ${avgLatencySec.toFixed(1)}s (>10s, 40 pts)`);
+    }
+  } else {
+    explanations.push('No latency data (40 pts default)');
+  }
+
+  // Bonus: Recent emit in last 24h (+10 pts)
+  try {
+    const opsChannel = realtimeBus.getOpsChannelHealth();
+    recentEmits = opsChannel.emits24h || 0;
+    if (opsChannel.recentEmit) {
+      latencyScore = Math.min(100, latencyScore + 10);
+      explanations.push(`+10 pts: Recent realtime emit (${recentEmits} in 24h)`);
+    }
+  } catch (err) {
+    logger.debug('Realtime emit check failed:', err.message);
+  }
+
+  components.latencyRealtime = {
+    avgMs: avgLatencyMs,
+    recentEmits,
+    score: latencyScore
+  };
+  totalScore += (latencyScore * weights.latencyRealtime) / 100;
+
+  // Final score (already weighted)
+  const finalScore = Math.round(totalScore);
+
+  return {
+    score: finalScore,
+    weights,
+    components,
+    explanations
+  };
+}
+
 // === v13.5: Data Quality Index (DQI) Computation ===
 /**
  * Compute Data Quality Index (0-100 score)
@@ -513,6 +793,17 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       learning_latency_avg: predictiveHealth.learning_latency_avg,
       forecast_divergence: predictiveHealth.forecast_divergence,
 
+      // === v13.5: Composite AI Ops System Health ===
+      ai_ops_health: await computeAIOpsHealth(db, req.app.locals.phase3Cron, {
+        lastForecastTs,
+        lastLearningTs,
+        aiConfidenceAvg,
+        forecastAccuracy,
+        forecastLatency: predictiveHealth.forecast_latency_avg,
+        learningLatency: predictiveHealth.learning_latency_avg,
+        realtimeStatus
+      }),
+
       // Real-time status (top-level, spec format)
       realtime: {
         clients: realtimeStatus.connectedClients || 0,
@@ -624,11 +915,59 @@ router.get('/metrics', authenticateToken, requireOwner, async (req, res) => {
 });
 
 /**
+ * v14.4: Simple rate limiter for job triggers
+ * Prevents abuse of manual job triggers
+ * Limit: 10 triggers per minute per IP
+ */
+const triggerRateLimit = {};
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX = 10; // 10 triggers per window
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+
+  if (!triggerRateLimit[ip]) {
+    triggerRateLimit[ip] = { count: 1, window: now };
+    return { allowed: true };
+  }
+
+  const entry = triggerRateLimit[ip];
+
+  // Reset window if expired
+  if (now - entry.window > RATE_LIMIT_WINDOW) {
+    entry.count = 1;
+    entry.window = now;
+    return { allowed: true };
+  }
+
+  // Check limit
+  if (entry.count >= RATE_LIMIT_MAX) {
+    const resetIn = Math.ceil((RATE_LIMIT_WINDOW - (now - entry.window)) / 1000);
+    return { allowed: false, resetIn };
+  }
+
+  entry.count++;
+  return { allowed: true };
+}
+
+/**
  * POST /api/owner/ops/trigger/:job
  * Manually trigger a cron job (for testing/debugging)
+ * Rate limited: 10 triggers/minute per IP
  */
 router.post('/trigger/:job', authenticateToken, requireOwner, async (req, res) => {
   const { job } = req.params;
+
+  // v14.4: Rate limiting
+  const rateLimitCheck = checkRateLimit(req.ip);
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({
+      success: false,
+      error: 'Rate limit exceeded',
+      message: `Too many job triggers. Try again in ${rateLimitCheck.resetIn} seconds.`,
+      resetIn: rateLimitCheck.resetIn
+    });
+  }
 
   try {
     // === v13.5: Handle self_heal trigger ===
@@ -1032,4 +1371,181 @@ router.get('/activity-feed', authenticateToken, requireOwner, async (req, res) =
   }
 });
 
+// ============================================================================
+// v14.4: AI INTELLIGENCE INDEX (Composite Learning Signals Score)
+// ============================================================================
+
+/**
+ * Compute AI Intelligence Index (0-100 score)
+ * Weighted composite of learning signals across 7 categories:
+ * - Menu patterns (35%)
+ * - Population/demand (25%)
+ * - Waste reduction (10%)
+ * - Seasonality (10%)
+ * - Contractor patterns (10%)
+ * - FIFO compliance (5%)
+ * - Lead-time optimization (5%)
+ *
+ * @param {object} database - SQLite database connection
+ * @returns {object} { intelligence_index, category_scores, last_updated }
+ */
+async function computeAIIntelligenceIndex(database) {
+  try {
+    const weights = {
+      menu: 0.35,
+      population: 0.25,
+      waste: 0.10,
+      seasonality: 0.10,
+      contractor: 0.10,
+      fifo: 0.05,
+      leadTime: 0.05
+    };
+
+    const categoryScores = {};
+    let totalScore = 0;
+    let lastUpdated = null;
+
+    // Get recent learning insights (last 7 days)
+    const insights = await database.all(`
+      SELECT
+        insight_type,
+        confidence,
+        impact_score,
+        created_at,
+        applied_at
+      FROM ai_learning_insights
+      WHERE created_at >= datetime('now', '-7 days')
+        AND confidence IS NOT NULL
+        AND confidence > 0
+      ORDER BY created_at DESC
+    `);
+
+    if (insights && insights.length > 0) {
+      lastUpdated = insights[0].created_at;
+
+      // Group insights by category (map insight_type to categories)
+      const categories = {
+        menu: [],
+        population: [],
+        waste: [],
+        seasonality: [],
+        contractor: [],
+        fifo: [],
+        leadTime: []
+      };
+
+      insights.forEach(insight => {
+        const type = (insight.insight_type || '').toLowerCase();
+
+        // Map insight types to categories
+        if (type.includes('menu') || type.includes('meal') || type.includes('recipe')) {
+          categories.menu.push(insight);
+        } else if (type.includes('population') || type.includes('demand') || type.includes('headcount')) {
+          categories.population.push(insight);
+        } else if (type.includes('waste') || type.includes('spoilage') || type.includes('loss')) {
+          categories.waste.push(insight);
+        } else if (type.includes('season') || type.includes('calendar') || type.includes('holiday')) {
+          categories.seasonality.push(insight);
+        } else if (type.includes('contractor') || type.includes('vendor') || type.includes('supplier')) {
+          categories.contractor.push(insight);
+        } else if (type.includes('fifo') || type.includes('rotation') || type.includes('expiry')) {
+          categories.fifo.push(insight);
+        } else if (type.includes('lead') || type.includes('delivery') || type.includes('procurement')) {
+          categories.leadTime.push(insight);
+        }
+      });
+
+      // Compute category scores (average confidence of insights in category)
+      for (const [category, categoryInsights] of Object.entries(categories)) {
+        if (categoryInsights.length > 0) {
+          const avgConfidence = categoryInsights.reduce((sum, ins) => sum + (ins.confidence || 0), 0) / categoryInsights.length;
+          const avgImpact = categoryInsights.reduce((sum, ins) => sum + (ins.impact_score || 50), 0) / categoryInsights.length;
+          const appliedCount = categoryInsights.filter(ins => ins.applied_at).length;
+          const appliedRatio = appliedCount / categoryInsights.length;
+
+          // Category score = (confidence * 100 * 0.7) + (impact * 0.2) + (applied_ratio * 100 * 0.1)
+          const score = Math.round(
+            (avgConfidence * 100 * 0.7) +
+            (avgImpact * 0.2) +
+            (appliedRatio * 100 * 0.1)
+          );
+
+          categoryScores[category] = {
+            score: Math.min(100, Math.max(0, score)),
+            insights_count: categoryInsights.length,
+            applied_count: appliedCount,
+            avg_confidence: Math.round(avgConfidence * 100)
+          };
+        } else {
+          // No insights in this category - use baseline score
+          categoryScores[category] = {
+            score: 50, // Neutral baseline
+            insights_count: 0,
+            applied_count: 0,
+            avg_confidence: 0
+          };
+        }
+
+        // Apply weight to total score
+        totalScore += categoryScores[category].score * weights[category];
+      }
+    } else {
+      // No insights available - return baseline scores
+      for (const category of Object.keys(weights)) {
+        categoryScores[category] = {
+          score: 50,
+          insights_count: 0,
+          applied_count: 0,
+          avg_confidence: 0
+        };
+        totalScore += 50 * weights[category];
+      }
+    }
+
+    const intelligenceIndex = Math.round(totalScore);
+
+    // Get trend (compare to previous period)
+    let trendPct = null;
+    try {
+      const previousInsights = await database.all(`
+        SELECT confidence, impact_score
+        FROM ai_learning_insights
+        WHERE created_at >= datetime('now', '-14 days')
+          AND created_at < datetime('now', '-7 days')
+          AND confidence IS NOT NULL
+      `);
+
+      if (previousInsights && previousInsights.length > 0) {
+        const prevAvgConfidence = previousInsights.reduce((sum, ins) => sum + (ins.confidence || 0), 0) / previousInsights.length;
+        const prevScore = Math.round(prevAvgConfidence * 100);
+        trendPct = ((intelligenceIndex - prevScore) / prevScore * 100).toFixed(1);
+      }
+    } catch (err) {
+      logger.debug('AI Intelligence Index trend calculation failed:', err.message);
+    }
+
+    return {
+      intelligence_index: intelligenceIndex,
+      category_scores: categoryScores,
+      last_updated: lastUpdated,
+      trend_pct: trendPct ? parseFloat(trendPct) : null,
+      color: intelligenceIndex >= 85 ? 'green' : intelligenceIndex >= 70 ? 'yellow' : 'red'
+    };
+
+  } catch (error) {
+    logger.error('AI Intelligence Index computation failed:', error);
+    return {
+      intelligence_index: null,
+      category_scores: {},
+      last_updated: null,
+      trend_pct: null,
+      color: 'gray',
+      error: error.message
+    };
+  }
+}
+
+// Export router and helper functions for reuse
 module.exports = router;
+module.exports.computeAIOpsHealth = computeAIOpsHealth;
+module.exports.computeAIIntelligenceIndex = computeAIIntelligenceIndex;
