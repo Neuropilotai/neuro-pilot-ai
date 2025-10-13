@@ -271,8 +271,8 @@ app.get('/health', async (req, res) => {
 
   res.json({
     status: 'ok',
-    app: 'inventory-enterprise-v14.4.0',
-    version: '14.4.0',
+    app: 'inventory-enterprise-v14.4.2',
+    version: '14.4.2',
     features: {
       multiTenancy: true,
       rbac: true,
@@ -399,7 +399,7 @@ const httpServer = http.createServer(app);
 // Start server (SECURITY FIX: Bind to localhost only)
 httpServer.listen(PORT, '127.0.0.1', async () => {
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🚀 NeuroInnovate Inventory Enterprise System v14.4.0');
+  console.log('🚀 NeuroInnovate Inventory Enterprise System v14.4.2');
   console.log('═══════════════════════════════════════════════════════════════');
   console.log(`📡 Server running on port ${PORT}`);
   console.log(`📝 Default admin: neuro.pilot.ai@gmail.com / Admin123!@#`);
@@ -490,7 +490,7 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
     console.error('  ⚠️  Audit logging not available');
   }
 
-  console.log('  ✨ v14.4.0 Infrastructure ACTIVE\n');
+  console.log('  ✨ v14.4.2 Infrastructure ACTIVE\n');
 
   // Initialize PASS F - Real-Time Intelligence Layer (v2.3.0)
   try {

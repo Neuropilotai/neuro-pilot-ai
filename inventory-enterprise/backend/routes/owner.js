@@ -194,7 +194,7 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
 
     // Get version info
     const versionInfo = {
-      current: '14.4.0',
+      current: '14.4.2',
       next: '14.5.0',
       releaseDate: '2025-10-12',
       features: {
@@ -476,8 +476,8 @@ async function getSystemHealth() {
 
     return {
       status: 'ok',
-      app: 'inventory-enterprise-v14.4.0',
-      version: '14.4.0',
+      app: 'inventory-enterprise-v14.4.2',
+      version: '14.4.2',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       features: {
