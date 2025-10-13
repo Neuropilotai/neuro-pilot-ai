@@ -101,7 +101,16 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for console
       styleSrc: ["'self'", "'unsafe-inline'"],  // Allow inline styles
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "ws:", "wss:"],    // WebSocket support
+      // Allow both localhost and 127.0.0.1 for local development + WebSocket
+      connectSrc: [
+        "'self'",
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "ws://localhost:*",
+        "ws://127.0.0.1:*",
+        "wss://localhost:*",
+        "wss://127.0.0.1:*"
+      ],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
