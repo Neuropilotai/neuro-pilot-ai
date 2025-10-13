@@ -94,6 +94,134 @@ jobs:
           echo "Testing Prometheus metrics..."
           curl -f http://localhost:8083/metrics | grep -q "ai_ops_health" || echo "⚠️  AI ops metrics not yet populated"
 
+      - name: Menu API smoke tests (v14.4.2)
+        run: |
+          echo "🍽️ Testing Menu Feature APIs..."
+
+          # Test 1: GET /api/menu/weeks - 4-week structure
+          echo "1. Testing GET /api/menu/weeks..."
+          WEEKS_RESPONSE=$(curl -s http://localhost:8083/api/menu/weeks)
+          if echo "$WEEKS_RESPONSE" | jq -e '.weeks | length == 4' > /dev/null; then
+            echo "✅ 4-week structure endpoint working"
+          else
+            echo "❌ Failed to get 4-week structure"
+            echo "$WEEKS_RESPONSE"
+            exit 1
+          fi
+
+          # Test 2: GET /api/menu/week/1 - Single week with recipes
+          echo "2. Testing GET /api/menu/week/1..."
+          WEEK_RESPONSE=$(curl -s http://localhost:8083/api/menu/week/1)
+          if echo "$WEEK_RESPONSE" | jq -e '.weekNumber == 1' > /dev/null; then
+            echo "✅ Week 1 endpoint working"
+          else
+            echo "❌ Failed to get week 1"
+            echo "$WEEK_RESPONSE"
+            exit 1
+          fi
+
+          # Test 3: GET /api/menu/recipes - All recipes
+          echo "3. Testing GET /api/menu/recipes..."
+          RECIPES_RESPONSE=$(curl -s http://localhost:8083/api/menu/recipes)
+          RECIPE_COUNT=$(echo "$RECIPES_RESPONSE" | jq '.recipes | length')
+          if [ "$RECIPE_COUNT" -ge 7 ]; then
+            echo "✅ Recipes endpoint working (found $RECIPE_COUNT recipes)"
+          else
+            echo "❌ Expected at least 7 seed recipes, got $RECIPE_COUNT"
+            exit 1
+          fi
+
+          # Test 4: GET /api/menu/policy - Policy settings
+          echo "4. Testing GET /api/menu/policy..."
+          POLICY_RESPONSE=$(curl -s http://localhost:8083/api/menu/policy)
+          if echo "$POLICY_RESPONSE" | jq -e '.takeoutPolicy.cutoffTime == "19:30"' > /dev/null; then
+            echo "✅ Policy endpoint working (19:30 cutoff confirmed)"
+          else
+            echo "❌ Policy endpoint failed or incorrect data"
+            echo "$POLICY_RESPONSE"
+            exit 1
+          fi
+
+          # Test 5: GET /api/menu/shopping-list?week=1 - Shopping list generation
+          echo "5. Testing GET /api/menu/shopping-list?week=1..."
+          SHOPPING_RESPONSE=$(curl -s "http://localhost:8083/api/menu/shopping-list?week=1")
+          if echo "$SHOPPING_RESPONSE" | jq -e '.week == 1 and .items != null' > /dev/null; then
+            echo "✅ Shopping list endpoint working"
+          else
+            echo "❌ Shopping list endpoint failed"
+            echo "$SHOPPING_RESPONSE"
+            exit 1
+          fi
+
+          # Test 6: Verify seed recipes exist
+          echo "6. Verifying seed recipes..."
+          FIRST_RECIPE_ID=$(echo "$RECIPES_RESPONSE" | jq -r '.recipes[0].id')
+          RECIPE_DETAIL=$(curl -s "http://localhost:8083/api/menu/recipe/$FIRST_RECIPE_ID")
+          if echo "$RECIPE_DETAIL" | jq -e '.recipe.name' > /dev/null; then
+            RECIPE_NAME=$(echo "$RECIPE_DETAIL" | jq -r '.recipe.name')
+            echo "✅ Recipe detail endpoint working (found: $RECIPE_NAME)"
+          else
+            echo "❌ Recipe detail endpoint failed"
+            echo "$RECIPE_DETAIL"
+            exit 1
+          fi
+
+          # Test 7: Verify quantity scaling
+          echo "7. Verifying quantity scaling for default headcount..."
+          RECIPE_PORTIONS=$(echo "$RECIPE_DETAIL" | jq '.recipe.scaledPortions | length')
+          if [ "$RECIPE_PORTIONS" -gt 0 ]; then
+            echo "✅ Quantity scaling working ($RECIPE_PORTIONS portions scaled)"
+          else
+            echo "❌ Quantity scaling failed"
+            exit 1
+          fi
+
+          echo "✅ All menu API smoke tests passed"
+
+      - name: Menu UI smoke tests (v14.4.2)
+        run: |
+          echo "🎨 Testing Menu UI accessibility..."
+
+          # Test 1: Owner Super Console page accessible
+          echo "1. Testing owner-super-console.html..."
+          CONSOLE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/owner-super-console.html)
+          if [[ "$CONSOLE_STATUS" == "200" ]]; then
+            echo "✅ Owner Super Console accessible"
+          else
+            echo "❌ Owner Super Console not accessible (got $CONSOLE_STATUS)"
+            exit 1
+          fi
+
+          # Test 2: Menu CSS file accessible
+          echo "2. Testing owner-super.css (menu styles)..."
+          CSS_CONTENT=$(curl -s http://localhost:8083/css/owner-super.css)
+          if echo "$CSS_CONTENT" | grep -q "menu-calendar-grid"; then
+            echo "✅ Menu styles found in CSS"
+          else
+            echo "❌ Menu styles missing from CSS"
+            exit 1
+          fi
+
+          # Test 3: Menu JavaScript in core file
+          echo "3. Testing owner-console-core.js (menu functions)..."
+          JS_CONTENT=$(curl -s http://localhost:8083/js/owner-console-core.js)
+          if echo "$JS_CONTENT" | grep -q "loadMenu"; then
+            echo "✅ Menu JavaScript functions present"
+          else
+            echo "❌ Menu JavaScript functions missing"
+            exit 1
+          fi
+
+          # Test 4: Verify menu module exports
+          if echo "$JS_CONTENT" | grep -q "window.loadMenu"; then
+            echo "✅ Menu module properly exported to window"
+          else
+            echo "❌ Menu module not exported"
+            exit 1
+          fi
+
+          echo "✅ All menu UI smoke tests passed"
+
       - name: Post-deploy comprehensive verification (v14.4.2)
         run: |
           echo "🔍 Running comprehensive post-deploy checks..."
