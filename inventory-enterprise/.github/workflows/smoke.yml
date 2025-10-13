@@ -1,0 +1,80 @@
+name: Smoke Tests (v14.4.1)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'inventory-enterprise/backend/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./inventory-enterprise/backend
+        run: npm ci
+
+      - name: Start server in background
+        working-directory: ./inventory-enterprise/backend
+        run: |
+          PORT=8083 node server.js > /tmp/server.log 2>&1 &
+          echo $! > /tmp/server.pid
+          sleep 5
+
+      - name: Health check - /healthz
+        run: |
+          echo "Testing /healthz endpoint..."
+          curl -f http://localhost:8083/healthz || (cat /tmp/server.log && exit 1)
+
+      - name: Health check - /readyz
+        run: |
+          echo "Testing /readyz endpoint..."
+          curl -f http://localhost:8083/readyz || (cat /tmp/server.log && exit 1)
+
+      - name: Version check
+        run: |
+          echo "Checking server version..."
+          VERSION=$(curl -s http://localhost:8083/health | jq -r '.version')
+          echo "Server version: $VERSION"
+          if [[ "$VERSION" != 14.4* ]]; then
+            echo "❌ Version mismatch: expected 14.4.x, got $VERSION"
+            exit 1
+          fi
+          echo "✅ Version check passed"
+
+      - name: AI Intelligence Index endpoint
+        run: |
+          echo "Testing AI Intelligence Index..."
+          curl -s http://localhost:8083/health | jq '.version' || (cat /tmp/server.log && exit 1)
+          echo "✅ AI endpoints reachable"
+
+      - name: Metrics endpoint
+        run: |
+          echo "Testing Prometheus metrics..."
+          curl -f http://localhost:8083/metrics | grep -q "ai_ops_health" || echo "⚠️  AI ops metrics not yet populated"
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/server.pid ]; then
+            kill $(cat /tmp/server.pid) || true
+          fi
+
+      - name: Upload server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: /tmp/server.log

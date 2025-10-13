@@ -93,13 +93,13 @@ let quantumKeys = null;
 let complianceEngine = null;
 
 const app = express();
-// v14.4: Enhanced security headers with proper CSP
+// v14.4.1: Enhanced security headers - removed unsafe-inline from scripts
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for console
-      styleSrc: ["'self'", "'unsafe-inline'"],  // Allow inline styles
+      scriptSrc: ["'self'"],  // v14.4.1: Removed unsafe-inline (XSS protection)
+      styleSrc: ["'self'", "'unsafe-inline'"],   // TODO: Remove after inline style extraction
       imgSrc: ["'self'", "data:", "blob:"],
       // Allow both localhost and 127.0.0.1 for local development + WebSocket
       connectSrc: [

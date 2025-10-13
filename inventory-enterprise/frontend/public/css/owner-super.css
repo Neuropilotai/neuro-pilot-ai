@@ -1,0 +1,232 @@
+/**
+ * NeuroPilot Owner Super Console Styles (v14.4.1)
+ * Extracted from inline styles for CSP compliance
+ * No 'unsafe-inline' required
+ */
+
+/* ============================================
+   Badge Styles
+   ============================================ */
+.badge-live {
+  margin-left: 0.75rem;
+  background: #10b981;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  animation: pulse 2s infinite;
+}
+
+.badge-version {
+  margin-left: 0.5rem;
+  background: #6366f1;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* ============================================
+   Cognitive Overview - Gradient Card
+   ============================================ */
+.card-cognitive {
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.card-cognitive .card-header {
+  border-bottom-color: rgba(255,255,255,0.2);
+}
+
+.card-cognitive .card-title {
+  color: white;
+}
+
+.btn-cognitive-refresh {
+  background: rgba(255,255,255,0.3);
+  color: white;
+}
+
+.cognitive-grid {
+  display: grid;
+  grid-template-columns: 2fr repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.cognitive-main-stat {
+  text-align: center;
+  padding: 1.5rem;
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.3);
+}
+
+.cognitive-main-value {
+  font-size: 3rem;
+  font-weight: 900;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.cognitive-main-label {
+  font-size: 1rem;
+  opacity: 0.95;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+.cognitive-main-trend {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+
+.cognitive-stat {
+  text-align: center;
+  padding: 1rem;
+}
+
+.cognitive-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.cognitive-stat-label {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  margin-top: 0.5rem;
+}
+
+/* ============================================
+   AI Ops Dashboard Card
+   ============================================ */
+.card-aiops {
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.card-bordered {
+  margin-bottom: 1.5rem;
+  border: 2px solid var(--primary);
+}
+
+/* ============================================
+   Flexbox Utilities
+   ============================================ */
+.flex-gap-half {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.flex-gap-1 {
+  display: flex;
+  gap: 1rem;
+}
+
+.flex-gap-half-wrap {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.flex-gap-1-wrap {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.flex-align-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ============================================
+   Grid Utilities
+   ============================================ */
+.grid-col-span-2 {
+  grid-column: span 2;
+}
+
+/* ============================================
+   Spacing Utilities
+   ============================================ */
+.mb-1-5 {
+  margin-bottom: 1.5rem;
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+.text-light-small {
+  color: var(--text-light);
+  font-size: 0.75rem;
+}
+
+.text-light-med {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.text-light-med-mt {
+  font-size: 0.875rem;
+  color: var(--text-light);
+  margin-top: 0.25rem;
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.text-white {
+  color: white;
+}
+
+.text-large {
+  font-size: 1.5rem;
+}
+
+/* ============================================
+   Button Styles
+   ============================================ */
+.btn-white-full {
+  background: white;
+  color: #667eea;
+  width: 100%;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.btn-float-right {
+  float: right;
+  padding: 0.25rem 0.5rem;
+}
+
+/* ============================================
+   Misc Utilities
+   ============================================ */
+.hidden {
+  display: none;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.chart-height {
+  height: 250px;
+}
+
+/* ============================================
+   Pulse Animation
+   ============================================ */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

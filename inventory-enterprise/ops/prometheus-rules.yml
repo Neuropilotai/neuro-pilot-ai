@@ -1,0 +1,94 @@
+# NeuroPilot Prometheus SLO Alerts (v14.4.1)
+# AI Health & Intelligence Index monitoring
+
+groups:
+  - name: neuropilot-slo
+    interval: 30s
+    rules:
+      # AI Ops Health Score degraded
+      - alert: AIOpsHealthDegraded
+        expr: avg_over_time(ai_ops_health_pct[10m]) < 70
+        for: 10m
+        labels:
+          severity: page
+          component: ai_ops
+          runbook: slo/ai-health
+        annotations:
+          summary: "AI Ops Health < 70% for 10 minutes"
+          description: "AI Ops Health score {{ $value }}% is below SLO threshold (70%). System may require manual intervention."
+          runbook: "1. Check /health endpoint\n2. Run ai_forecast job: POST /api/owner/ops/trigger/ai_forecast\n3. Run ai_learning job: POST /api/owner/ops/trigger/ai_learning\n4. Review /api/owner/ops/status for component breakdown"
+
+      # AI Intelligence Index low
+      - alert: AIIntelligenceIndexLow
+        expr: avg_over_time(ai_intelligence_index[15m]) < 80
+        for: 15m
+        labels:
+          severity: warn
+          component: ai_intelligence
+          runbook: slo/ai-intelligence
+        annotations:
+          summary: "AI Intelligence Index < 80 for 15 minutes"
+          description: "AI Intelligence Index {{ $value }} is below target (80). Learning signals may be degraded."
+          runbook: "1. Check component scores: GET /api/owner/dashboard/stats\n2. Verify jobs ran recently: Check phase3_cron logs\n3. Inspect learning timeline: GET /api/owner/ai/learning/timeline\n4. Review database: SELECT * FROM ai_learning_insights ORDER BY created_at DESC LIMIT 10"
+
+      # AI Ops Health critical (immediate action)
+      - alert: AIOpsHealthCritical
+        expr: ai_ops_health_pct < 50
+        for: 5m
+        labels:
+          severity: critical
+          component: ai_ops
+          runbook: slo/ai-health-critical
+        annotations:
+          summary: "🚨 AI Ops Health CRITICAL < 50%"
+          description: "AI Ops Health score {{ $value }}% is critically low. Immediate action required."
+          runbook: "IMMEDIATE ACTIONS:\n1. Check server logs: tail -f /tmp/v14_4_server.log\n2. Verify database: SELECT 1 FROM ai_learning_insights LIMIT 1\n3. Manual trigger forecast: curl -X POST http://localhost:8083/api/owner/ops/trigger/ai_forecast\n4. Manual trigger learning: curl -X POST http://localhost:8083/api/owner/ops/trigger/ai_learning\n5. Check Phase3Cron status: /api/owner/ops/status"
+
+      # Forecast accuracy degraded
+      - alert: ForecastAccuracyLow
+        expr: forecast_accuracy_avg < 0.75
+        for: 30m
+        labels:
+          severity: warn
+          component: forecast
+          runbook: slo/forecast-accuracy
+        annotations:
+          summary: "Forecast accuracy below 75%"
+          description: "Average forecast accuracy {{ $value | humanizePercentage }} is below threshold (75%)."
+          runbook: "1. Review forecast_results table\n2. Check for stale training data\n3. Verify population/demand signals\n4. Review learning feedback: ai_feedback_comments"
+
+      # Learning pipeline stalled
+      - alert: LearningPipelineStalled
+        expr: (time() - ai_learning_last_run_timestamp) > 172800
+        for: 1h
+        labels:
+          severity: warn
+          component: learning
+          runbook: slo/learning-stalled
+        annotations:
+          summary: "Learning pipeline hasn't run in 48+ hours"
+          description: "AI learning job last ran {{ $value | humanizeDuration }} ago (threshold: 48h)."
+          runbook: "1. Check cron scheduler: phase3_cron.getStatus()\n2. Review server logs for errors\n3. Manual trigger: POST /api/owner/ops/trigger/ai_learning\n4. Verify database write permissions"
+
+      # Data Quality Index (DQI) degraded
+      - alert: DataQualityDegraded
+        expr: data_quality_index < 70
+        for: 20m
+        labels:
+          severity: warn
+          component: data_quality
+          runbook: slo/dqi
+        annotations:
+          summary: "Data Quality Index below 70%"
+          description: "DQI score {{ $value }}% indicates data quality issues."
+          runbook: "1. Check schema integrity\n2. Review NULL/missing values in inventory tables\n3. Verify timestamp freshness\n4. Check foreign key constraints"
+
+      # Auto-heal invocation tracking
+      - record: ai_auto_heal_rate_5m
+        expr: rate(ai_auto_heal_invocation_total[5m])
+
+      - record: ai_ops_health_pct_avg_1h
+        expr: avg_over_time(ai_ops_health_pct[1h])
+
+      - record: ai_intelligence_index_avg_1h
+        expr: avg_over_time(ai_intelligence_index[1h])
