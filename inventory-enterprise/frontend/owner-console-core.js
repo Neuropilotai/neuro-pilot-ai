@@ -240,6 +240,9 @@ function switchTab(tabName) {
     case 'forecast':
       if (typeof loadForecast === 'function') loadForecast();
       break;
+    case 'menu':
+      loadMenu();
+      break;
     case 'reports':
       if (typeof loadReports === 'function') loadReports();
       break;
@@ -376,14 +379,14 @@ function renderAuditLogs(auditLogs) {
     return;
   }
 
-  let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+  let html = '<div class="flex-col-gap">';
 
   auditLogs.slice(0, 5).forEach(log => {
     html += `
-      <div style="padding: 0.75rem; border-left: 3px solid var(--primary); background: var(--bg); border-radius: 4px;">
-        <div style="font-weight: 600; font-size: 0.875rem;">${log.action || 'Activity'}</div>
-        <div style="font-size: 0.8125rem; color: var(--text-light);">${log.details || ''}</div>
-        <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
+      <div class="bordered-left-primary">
+        <div class="text-bold-base">${log.action || 'Activity'}</div>
+        <div class="text-sm-light">${log.details || ''}</div>
+        <div class="description-small-mt">
           ${formatTimeAgo(log.created_at)}
         </div>
       </div>
@@ -430,7 +433,7 @@ async function loadAIOpsStatus() {
     // Render checks
     const checksEl = document.getElementById('aiOpsChecks');
     if (checksEl && data.checks) {
-      let html = '<div style="display: grid; gap: 0.5rem; font-size: 0.875rem;">';
+      let html = '<div class="grid-gap-2-base">';
 
       data.checks.forEach(check => {
         const statusIcon = check.status === 'OK' ? '✅' : check.status === 'WARNING' ? '⚠️' : '❌';
@@ -542,7 +545,7 @@ async function loadActivityFeed() {
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
 
     data.activities.slice(0, 10).forEach(activity => {
       const typeColor = activity.type === 'forecast' ? 'var(--primary)' :
@@ -551,9 +554,9 @@ async function loadActivityFeed() {
 
       html += `
         <div style="padding: 0.75rem; border-left: 3px solid ${typeColor}; background: var(--bg); border-radius: 4px;">
-          <div style="font-weight: 600; font-size: 0.875rem;">${activity.title}</div>
-          <div style="font-size: 0.8125rem; color: var(--text-light);">${activity.message}</div>
-          <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
+          <div class="text-bold-base">${activity.title}</div>
+          <div class="text-sm-light">${activity.message}</div>
+          <div class="description-small-mt">
             ${formatTimeAgo(activity.created_at)}
           </div>
         </div>
@@ -586,7 +589,7 @@ async function loadLearningTimeline() {
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
 
     data.insights.slice(0, 10).forEach(insight => {
       const appliedBadge = insight.applied
@@ -594,13 +597,13 @@ async function loadLearningTimeline() {
         : '<span class="badge badge-warning">Pending</span>';
 
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); background: var(--surface); border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-            <strong style="font-size: 0.875rem;">${insight.title}</strong>
+        <div class="bordered-surface-card">
+          <div class="flex-between-start">
+            <strong class="u-text-base">${insight.title}</strong>
             ${appliedBadge}
           </div>
-          <div style="font-size: 0.8125rem; color: var(--text-light);">${insight.insight}</div>
-          <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem;">
+          <div class="text-sm-light">${insight.insight}</div>
+          <div class="description-text-small u-mt-2">
             ${formatTimeAgo(insight.created_at)} • Confidence: ${Math.round((insight.confidence || 0) * 100)}%
           </div>
         </div>
@@ -637,13 +640,13 @@ async function loadAIReorder() {
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
 
     data.recommendations.slice(0, 5).forEach(rec => {
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); background: var(--surface); border-radius: 4px;">
-          <strong style="font-size: 0.875rem;">${rec.item_name}</strong>
-          <div style="font-size: 0.8125rem; color: var(--text-light); margin-top: 0.25rem;">
+        <div class="bordered-surface-card">
+          <strong class="u-text-base">${rec.item_name}</strong>
+          <div class="text-sm-light description-small-mt">
             Reorder: <strong>${rec.recommended_qty} ${rec.unit}</strong>
           </div>
         </div>
@@ -672,19 +675,19 @@ async function loadAIAnomalies() {
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
 
     data.anomalies.slice(0, 5).forEach(anomaly => {
       const severityBadge = anomaly.severity === 'high' ? 'badge-danger' :
                            anomaly.severity === 'medium' ? 'badge-warning' : 'badge-info';
 
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); background: var(--surface); border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: start;">
-            <strong style="font-size: 0.875rem;">${anomaly.item_name}</strong>
+        <div class="bordered-surface-card">
+          <div class="flex-between-start-only">
+            <strong class="u-text-base">${anomaly.item_name}</strong>
             <span class="badge ${severityBadge}">${anomaly.severity}</span>
           </div>
-          <div style="font-size: 0.8125rem; color: var(--text-light); margin-top: 0.25rem;">
+          <div class="text-sm-light description-small-mt">
             ${anomaly.message}
           </div>
         </div>
@@ -713,20 +716,20 @@ async function loadAIUpgrade() {
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
 
     data.recommendations.forEach(rec => {
       const priorityBadge = rec.priority === 'high' ? 'badge-danger' :
                            rec.priority === 'medium' ? 'badge-warning' : 'badge-info';
 
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); background: var(--surface); border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-            <strong style="font-size: 0.875rem;">${rec.title}</strong>
+        <div class="bordered-surface-card">
+          <div class="flex-between-start">
+            <strong class="u-text-base">${rec.title}</strong>
             <span class="badge ${priorityBadge}">${rec.priority}</span>
           </div>
-          <div style="font-size: 0.8125rem; color: var(--text-light);">${rec.description}</div>
-          ${rec.action ? `<button class="btn btn-sm btn-primary" onclick="applyNextBestAction('${rec.id}')" style="margin-top: 0.5rem;">Apply</button>` : ''}
+          <div class="text-sm-light">${rec.description}</div>
+          ${rec.action ? `<button class="btn btn-sm btn-primary" onclick="applyNextBestAction('${rec.id}')" class="u-mt-2">Apply</button>` : ''}
         </div>
       `;
     });
@@ -859,13 +862,13 @@ async function loadActiveCount() {
       const detailsEl = document.getElementById('activeCountDetails');
       if (detailsEl) {
         detailsEl.innerHTML = `
-          <div style="padding: 1rem; border: 2px solid var(--success); border-radius: 6px;">
+          <div class="bordered-success-card">
             <strong>Count #${data.count.id}</strong>
-            <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">
+            <div class="description-text">
               Started: ${formatTimeAgo(data.count.created_at)}<br>
               Items: ${data.count.item_count || 0}
             </div>
-            <button class="btn btn-sm btn-primary" onclick="closeCount()" style="margin-top: 1rem; width: 100%;">
+            <button class="btn btn-sm btn-primary" onclick="closeCount()" class="w-full-mt">
               Close Count
             </button>
           </div>
@@ -906,7 +909,7 @@ async function loadPlayground() {
           <h3 class="card-title">🎮 Month-End Playground</h3>
           <button class="btn btn-sm btn-primary" onclick="openNewWorkspaceModal()">➕ New Workspace</button>
         </div>
-        <div style="max-height: 500px; overflow-y: auto;">
+        <div class="modal-scrollable-content">
           <table class="table">
             <thead>
               <tr>
@@ -949,6 +952,441 @@ async function loadPlayground() {
 }
 
 // ============================================================================
+// MENU TAB - v14.4.2
+// ============================================================================
+
+// Menu state
+let menuWeekData = null;
+let menuCurrentWeek = 1;
+let menuHeadcount = 280;
+let menuCurrentWeekNumber = 1;
+let menuShoppingListData = null;
+
+/**
+ * Load menu data and initialize the tab
+ */
+async function loadMenu() {
+  console.log('🔄 Loading Menu Tab...');
+
+  try {
+    // Fetch 4-week overview
+    const data = await fetchAPI('/menu/weeks');
+
+    menuHeadcount = data.headcount || 280;
+    menuCurrentWeekNumber = data.currentWeek || 1;
+
+    // Update headcount display
+    const headcountDisplay = document.getElementById('menuHeadcountDisplay');
+    if (headcountDisplay) {
+      headcountDisplay.textContent = menuHeadcount;
+    }
+
+    // Update current week badge
+    const currentWeekBadge = document.getElementById('menuCurrentWeekBadge');
+    if (currentWeekBadge) {
+      currentWeekBadge.textContent = `Current: Week ${menuCurrentWeekNumber}`;
+    }
+
+    // Load week 1 by default
+    loadMenuWeek(1);
+
+    // Attach event listeners
+    attachMenuEventListeners();
+
+    console.log('✅ Menu Tab loaded');
+  } catch (error) {
+    console.error('❌ Menu Tab error:', error);
+    const calendarEl = document.getElementById('menuCalendar');
+    if (calendarEl) {
+      calendarEl.innerHTML = showError('Menu', error.message);
+    }
+  }
+}
+
+/**
+ * Load specific week data
+ */
+async function loadMenuWeek(weekNum) {
+  console.log(`🔄 Loading Menu Week ${weekNum}...`);
+
+  try {
+    const data = await fetchAPI(`/menu/week/${weekNum}`);
+
+    menuWeekData = data.week;
+    menuCurrentWeek = weekNum;
+
+    // Update week selector active state
+    document.querySelectorAll('.menu-week-btn').forEach(btn => {
+      if (parseInt(btn.getAttribute('data-week')) === weekNum) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // Update week info
+    const weekDatesEl = document.getElementById('menuWeekDates');
+    if (weekDatesEl) {
+      weekDatesEl.textContent = `${menuWeekData.startsOn} to ${menuWeekData.endsOn}`;
+    }
+
+    // Render calendar
+    renderMenuCalendar();
+
+    console.log(`✅ Week ${weekNum} loaded`);
+  } catch (error) {
+    console.error(`❌ Week ${weekNum} error:`, error);
+    const calendarEl = document.getElementById('menuCalendar');
+    if (calendarEl) {
+      calendarEl.innerHTML = showError(`Week ${weekNum}`, error.message);
+    }
+  }
+}
+
+/**
+ * Render menu calendar grid
+ */
+function renderMenuCalendar() {
+  const calendarEl = document.getElementById('menuCalendar');
+  if (!calendarEl || !menuWeekData) return;
+
+  let html = '';
+
+  menuWeekData.days.forEach(day => {
+    const dayName = day.dayName;
+    const isoDate = day.isoDate;
+    const recipes = day.recipes || [];
+
+    html += `
+      <div class="menu-day-card">
+        <div class="menu-day-header">
+          ${dayName}
+          <div class="menu-day-date">${isoDate}</div>
+        </div>
+        <div class="menu-day-recipes">
+    `;
+
+    if (recipes.length === 0) {
+      html += `<div class="menu-day-empty">No recipes assigned</div>`;
+    } else {
+      recipes.forEach(recipe => {
+        html += `
+          <div class="menu-recipe-chip" data-recipe-id="${recipe.id}">
+            <span class="menu-recipe-chip-name">${recipe.name}</span>
+            <span class="menu-recipe-chip-cuisine">${recipe.cuisine || 'Universal'}</span>
+          </div>
+        `;
+      });
+    }
+
+    html += `
+        </div>
+      </div>
+    `;
+  });
+
+  calendarEl.innerHTML = html;
+
+  // Attach recipe click handlers
+  document.querySelectorAll('.menu-recipe-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const recipeId = chip.getAttribute('data-recipe-id');
+      openRecipeDrawer(recipeId);
+    });
+  });
+}
+
+/**
+ * Attach menu event listeners
+ */
+function attachMenuEventListeners() {
+  // Week selector buttons
+  document.querySelectorAll('.menu-week-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const weekNum = parseInt(btn.getAttribute('data-week'));
+      loadMenuWeek(weekNum);
+    });
+  });
+
+  // Refresh button
+  const refreshBtn = document.getElementById('menuRefreshBtn');
+  if (refreshBtn) {
+    refreshBtn.onclick = () => loadMenu();
+  }
+
+  // Headcount button
+  const headcountBtn = document.getElementById('menuHeadcountBtn');
+  if (headcountBtn) {
+    headcountBtn.onclick = () => openHeadcountModal();
+  }
+
+  // Shopping list button
+  const shoppingListBtn = document.getElementById('menuShoppingListBtn');
+  if (shoppingListBtn) {
+    shoppingListBtn.onclick = () => openShoppingListModal();
+  }
+}
+
+/**
+ * Open recipe drawer modal
+ */
+async function openRecipeDrawer(recipeId) {
+  console.log(`🔄 Opening recipe: ${recipeId}`);
+
+  const modal = document.getElementById('recipeDrawerModal');
+  const content = document.getElementById('recipeDrawerContent');
+  if (!modal || !content) return;
+
+  modal.classList.add('active');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div> Loading recipe...</div>';
+
+  try {
+    const data = await fetchAPI(`/menu/recipe/${recipeId}`);
+    const recipe = data.recipe;
+
+    let html = `
+      <div class="recipe-drawer-header">
+        <div>
+          <div class="recipe-drawer-title">${recipe.name}</div>
+          <div class="recipe-drawer-meta">
+            <span>🌍 ${recipe.cuisine}</span>
+            <span>👥 ${menuHeadcount} people</span>
+          </div>
+          ${recipe.allergens && recipe.allergens.length > 0 ? `
+            <div class="recipe-drawer-allergens">
+              ${recipe.allergens.map(a => `<span class="recipe-allergen-badge">${a}</span>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      <div class="recipe-portions-table">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Item Code</th>
+              <th>Description</th>
+              <th>Quantity</th>
+              <th>Pack Size</th>
+              <th>Packs</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    recipe.calculatedLines.forEach(line => {
+      html += `
+        <tr>
+          <td><strong>${line.itemCode}</strong></td>
+          <td>${line.description}</td>
+          <td><strong>${line.totalIssueQty} ${line.unit}</strong></td>
+          <td>${line.packSize ? `${line.packSize.qty} ${line.packSize.unit}` : '-'}</td>
+          <td>${line.totalPacks ? `<strong>${line.totalPacks}</strong>` : '-'}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    if (recipe.notes) {
+      html += `
+        <div class="recipe-notes">
+          <strong>📝 Notes:</strong><br>
+          ${recipe.notes}
+        </div>
+      `;
+    }
+
+    content.innerHTML = html;
+
+    console.log('✅ Recipe drawer opened');
+  } catch (error) {
+    console.error('❌ Recipe drawer error:', error);
+    content.innerHTML = showError('Recipe', error.message);
+  }
+}
+
+/**
+ * Close recipe drawer
+ */
+function closeRecipeDrawer() {
+  const modal = document.getElementById('recipeDrawerModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/**
+ * Open headcount modal
+ */
+function openHeadcountModal() {
+  const modal = document.getElementById('headcountModal');
+  const currentDisplay = document.getElementById('headcountCurrentDisplay');
+  const input = document.getElementById('headcountInput');
+
+  if (modal) {
+    modal.classList.add('active');
+  }
+
+  if (currentDisplay) {
+    currentDisplay.textContent = menuHeadcount;
+  }
+
+  if (input) {
+    input.value = menuHeadcount;
+    input.focus();
+  }
+}
+
+/**
+ * Close headcount modal
+ */
+function closeHeadcountModal() {
+  const modal = document.getElementById('headcountModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/**
+ * Update headcount
+ */
+async function updateHeadcount() {
+  const input = document.getElementById('headcountInput');
+  if (!input) return;
+
+  const newHeadcount = parseInt(input.value);
+
+  if (!newHeadcount || newHeadcount < 1 || newHeadcount > 10000) {
+    alert('Headcount must be between 1 and 10,000');
+    return;
+  }
+
+  console.log(`🔄 Updating headcount to ${newHeadcount}...`);
+
+  try {
+    const data = await fetchAPI('/menu/headcount', {
+      method: 'POST',
+      body: JSON.stringify({ headcount: newHeadcount })
+    });
+
+    menuHeadcount = data.headcount;
+
+    // Update display
+    const headcountDisplay = document.getElementById('menuHeadcountDisplay');
+    if (headcountDisplay) {
+      headcountDisplay.textContent = menuHeadcount;
+    }
+
+    closeHeadcountModal();
+
+    // Reload current week to show updated quantities
+    loadMenuWeek(menuCurrentWeek);
+
+    alert(`✅ Headcount updated to ${menuHeadcount} people`);
+
+    console.log('✅ Headcount updated');
+  } catch (error) {
+    console.error('❌ Headcount update error:', error);
+    alert('Failed to update headcount: ' + error.message);
+  }
+}
+
+/**
+ * Open shopping list modal
+ */
+async function openShoppingListModal() {
+  console.log(`🔄 Opening shopping list for week ${menuCurrentWeek}...`);
+
+  const modal = document.getElementById('shoppingListModal');
+  const table = document.getElementById('shoppingListTable');
+  const weekNumEl = document.getElementById('shoppingWeekNum');
+  const weekDatesEl = document.getElementById('shoppingWeekDates');
+  const headcountEl = document.getElementById('shoppingHeadcount');
+
+  if (!modal || !table) return;
+
+  modal.classList.add('active');
+  table.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div> Loading...</td></tr>';
+
+  // Update header info
+  if (weekNumEl) weekNumEl.textContent = menuCurrentWeek;
+  if (weekDatesEl && menuWeekData) {
+    weekDatesEl.textContent = `${menuWeekData.startsOn} to ${menuWeekData.endsOn}`;
+  }
+  if (headcountEl) headcountEl.textContent = menuHeadcount;
+
+  try {
+    const data = await fetchAPI(`/menu/shopping-list?week=${menuCurrentWeek}`);
+
+    menuShoppingListData = data;
+
+    if (!data.items || data.items.length === 0) {
+      table.innerHTML = '<tr><td colspan="5" class="empty-state">No items in shopping list</td></tr>';
+      return;
+    }
+
+    let html = '';
+
+    data.items.forEach(item => {
+      html += `
+        <tr>
+          <td><strong>${item.itemCode}</strong></td>
+          <td>${item.description}</td>
+          <td><strong>${item.totalIssueQty} ${item.unit}</strong></td>
+          <td>${item.packSize ? `${item.packSize.qty} ${item.packSize.unit}` : '-'}</td>
+          <td>${item.totalPacks ? `<strong>${item.totalPacks}</strong>` : '-'}</td>
+        </tr>
+      `;
+    });
+
+    table.innerHTML = html;
+
+    console.log('✅ Shopping list opened');
+  } catch (error) {
+    console.error('❌ Shopping list error:', error);
+    table.innerHTML = `<tr><td colspan="5">${showError('Shopping List', error.message)}</td></tr>`;
+  }
+}
+
+/**
+ * Close shopping list modal
+ */
+function closeShoppingListModal() {
+  const modal = document.getElementById('shoppingListModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/**
+ * Download shopping list as CSV
+ */
+function downloadShoppingListCSV() {
+  if (!menuShoppingListData || !menuShoppingListData.csv) {
+    alert('No shopping list data to download');
+    return;
+  }
+
+  const csv = menuShoppingListData.csv;
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `shopping-list-week-${menuCurrentWeek}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+
+  console.log('✅ CSV downloaded');
+}
+
+// ============================================================================
 // EXPORT: Make functions globally available
 // ============================================================================
 
@@ -980,3 +1418,15 @@ window.assignSingleItem = assignSingleItem;
 window.loadCountLocations = loadCountLocations;
 window.loadActiveCount = loadActiveCount;
 window.loadPlayground = loadPlayground;
+window.loadMenu = loadMenu;
+window.loadMenuWeek = loadMenuWeek;
+window.renderMenuCalendar = renderMenuCalendar;
+window.attachMenuEventListeners = attachMenuEventListeners;
+window.openRecipeDrawer = openRecipeDrawer;
+window.closeRecipeDrawer = closeRecipeDrawer;
+window.openHeadcountModal = openHeadcountModal;
+window.closeHeadcountModal = closeHeadcountModal;
+window.updateHeadcount = updateHeadcount;
+window.openShoppingListModal = openShoppingListModal;
+window.closeShoppingListModal = closeShoppingListModal;
+window.downloadShoppingListCSV = downloadShoppingListCSV;

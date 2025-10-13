@@ -1,8 +1,59 @@
 /**
- * Owner Super Console v3.2.0 - Console-Specific Extensions
+ * Owner Super Console v14.5.0 - Console-Specific Extensions (CSP Compliant)
  * v14.3: Shared core variables and functions are loaded from owner-console-core.js
+ * v14.5.0: Full CSP compliance - all inline styles removed
  * This file contains only console-specific functionality
  */
+
+/* ============================================
+   CSP Helper Functions (v14.5.0)
+   ============================================ */
+
+/**
+ * Toggle element visibility using class
+ */
+function setHidden(el, hidden) {
+  if (!el) return;
+  el.classList.toggle('u-hide', !!hidden);
+}
+
+/**
+ * Set width percentage using class (5% increments)
+ */
+function setWidthPctClass(el, pct) {
+  if (!el) return;
+  const clamp = Math.max(0, Math.min(100, Math.round(pct / 5) * 5));
+  for (const c of [...el.classList]) {
+    if (c.startsWith('u-w-')) el.classList.remove(c);
+  }
+  el.classList.add(`u-w-${clamp}`);
+}
+
+/**
+ * Swap background state class
+ */
+function swapBg(el, state) {
+  if (!el) return;
+  el.classList.remove('u-bg-ok', 'u-bg-warn', 'u-bg-bad');
+  if (state === 'ok') el.classList.add('u-bg-ok');
+  else if (state === 'warn') el.classList.add('u-bg-warn');
+  else if (state === 'bad') el.classList.add('u-bg-bad');
+}
+
+/**
+ * Swap text state class
+ */
+function swapText(el, state) {
+  if (!el) return;
+  el.classList.remove('u-text-ok', 'u-text-warn', 'u-text-bad');
+  if (state === 'ok') el.classList.add('u-text-ok');
+  else if (state === 'warn') el.classList.add('u-text-warn');
+  else if (state === 'bad') el.classList.add('u-text-bad');
+}
+
+/* ============================================
+   End CSP Helpers
+   ============================================ */
 
 // ============================================================================
 // NOTE: Core variables (API_BASE, token, currentUser, etc.) are now in owner-console-core.js
@@ -37,23 +88,14 @@
 // ============================================================================
 
 /**
- * Show a toast notification
+ * Show a toast notification (v14.5.0 CSP Compliant)
  * @param {string} message - The message to display
  * @param {string} type - Type: 'success', 'warning', 'danger', 'info'
  */
 function showToast(message, type = 'info') {
   // Create toast element
   const toast = document.createElement('div');
-  toast.className = `alert alert-${type}`;
-  toast.style.position = 'fixed';
-  toast.style.top = '20px';
-  toast.style.right = '20px';
-  toast.style.zIndex = '9999';
-  toast.style.minWidth = '300px';
-  toast.style.maxWidth = '500px';
-  toast.style.padding = '1rem';
-  toast.style.borderRadius = '8px';
-  toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+  toast.className = `alert alert-${type} toast-container`;
   toast.textContent = message;
 
   // Add to body
@@ -61,8 +103,7 @@ function showToast(message, type = 'info') {
 
   // Remove after 3 seconds
   setTimeout(() => {
-    toast.style.transition = 'opacity 0.3s';
-    toast.style.opacity = '0';
+    toast.classList.add('u-op-0');
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
@@ -107,15 +148,15 @@ async function loadDashboardOLD() {
       } else if (stats.fifo?.invoicesReady > 0) {
         return `<strong>${stats.fifo.invoicesReady}</strong> invoices ready for FIFO <span class="badge badge-warning">Ready to Enable</span>`;
       } else {
-        return `<span style="color: var(--text-light);">Not configured</span>`;
+        return `<span class="u-text-light-inline">Not configured</span>`;
       }
     })();
 
     const dbStatsHTML = `
       <table class="table">
-        <tr style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
-          <td style="font-size: 1.1rem; font-weight: 700;">💰 Total Inventory Value</td>
-          <td style="font-size: 1.5rem; font-weight: 700;">$${(stats.inventory?.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+        <tr class="row-highlight-success">
+          <td class="td-medium-value">💰 Total Inventory Value</td>
+          <td class="td-large-value">$${(stats.inventory?.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
         </tr>
         <tr><td>Unique Products (from PDFs)</td><td><strong>${stats.inventory?.totalItems || 0}</strong> <span class="badge badge-success">Auto-Extracted</span></td></tr>
         <tr><td>Manual Inventory Items</td><td><strong>${stats.inventory?.manualItems || 0}</strong> items</td></tr>
@@ -170,12 +211,12 @@ function showForecastDetail() {
   }
 
   let html = `
-    <div class="alert alert-info" style="margin-bottom: 1rem;">
+    <div class="alert alert-info u-mb-4">
       <strong>Forecast Date:</strong> ${date}<br>
       <strong>Total Items Covered:</strong> ${items.length}<br>
       <strong>Prediction Sources:</strong> Recipe calendar, breakfast demand, beverage profiles
     </div>
-    <div style="max-height: 500px; overflow-y: auto;">
+    <div class="modal-scrollable-content">
       <table class="table">
         <thead>
           <tr>
@@ -200,7 +241,7 @@ function showForecastDetail() {
         <td>${item.total_predicted_qty?.toFixed(2) || 0}</td>
         <td>${item.unit || 'EA'}</td>
         <td><span class="badge ${confidenceBadge}">${confidence}%</span></td>
-        <td style="font-size: 0.75rem;">${item.forecast_sources || 'forecast'}</td>
+        <td class="u-text-xs">${item.forecast_sources || 'forecast'}</td>
       </tr>
     `;
   });
@@ -209,7 +250,7 @@ function showForecastDetail() {
         </tbody>
       </table>
     </div>
-    <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem;">
+    <div class="summary-box">
       <strong>Summary:</strong> This forecast predicts ${items.length} items needed for today based on menu calendar, population counts (${dashboardForecastData.summary?.population || 'N/A'}), and historical patterns.
     </div>
   `;
@@ -243,11 +284,11 @@ function showStockoutDetail() {
   }
 
   let html = `
-    <div class="alert alert-warning" style="margin-bottom: 1rem;">
+    <div class="alert alert-warning u-mb-4">
       <strong>Stockout Risk Analysis</strong><br>
       Critical: ${critical.length} | High: ${high.length} | Medium: ${medium.length}
     </div>
-    <div style="max-height: 500px; overflow-y: auto;">
+    <div class="modal-scrollable-content">
       <table class="table">
         <thead>
           <tr>
@@ -272,7 +313,7 @@ function showStockoutDetail() {
         <td><span class="badge ${riskBadge}">${item.risk_level || 'MEDIUM'}</span></td>
         <td>${item.current_stock?.toFixed(2) || 0}</td>
         <td>${item.predicted_usage?.toFixed(2) || 0}</td>
-        <td style="color: var(--danger); font-weight: 600;">${item.shortage_qty?.toFixed(2) || 0}</td>
+        <td class="u-text-bad u-font-semibold">${item.shortage_qty?.toFixed(2) || 0}</td>
       </tr>
     `;
   });
@@ -281,7 +322,7 @@ function showStockoutDetail() {
         </tbody>
       </table>
     </div>
-    <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem;">
+    <div class="summary-box">
       <strong>Recommendation:</strong> Items marked CRITICAL or HIGH should be reordered immediately. Review medium-risk items for potential future shortages.
     </div>
   `;
@@ -410,7 +451,7 @@ async function loadRecentActivity(recentActivity) {
     });
 
     // Render activity feed
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
 
     activities.forEach(activity => {
       const borderColor = activity.type === 'success' ? 'var(--success)' :
@@ -420,17 +461,17 @@ async function loadRecentActivity(recentActivity) {
 
       html += `
         <div style="padding: 0.75rem; border-left: 3px solid ${borderColor}; background: var(--bg); border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.25rem;">
-            <span style="font-weight: 600; font-size: 0.875rem;">${activity.icon} ${activity.title}</span>
-            <span style="font-size: 0.75rem; color: var(--text-light);">${activity.time}</span>
+          <div class="flex-between-start">
+            <span class="text-bold-base">${activity.icon} ${activity.title}</span>
+            <span class="description-text-small">${activity.time}</span>
           </div>
-          <div style="font-size: 0.8125rem; color: var(--text-light);">${activity.detail}</div>
+          <div class="text-sm-light">${activity.detail}</div>
         </div>
       `;
     });
 
     html += '</div>';
-    html += `<div style="margin-top: 0.75rem; padding: 0.5rem; text-align: center; font-size: 0.75rem; color: var(--text-light);">Last refreshed: ${new Date().toLocaleTimeString()}</div>`;
+    html += `<div class="footer-timestamp">Last refreshed: ${new Date().toLocaleTimeString()}</div>`;
 
     div.innerHTML = html;
 
@@ -438,7 +479,7 @@ async function loadRecentActivity(recentActivity) {
     console.error('Error loading recent activity:', error);
     div.innerHTML = `
       <div class="empty-state">
-        <div style="font-size: 0.875rem; color: var(--text-light);">
+        <div class="text-base-light">
           Unable to load recent activity
         </div>
       </div>
@@ -494,8 +535,8 @@ async function loadZeroCountMode() {
     // Render Zero-Count UI
     let html = `
       <!-- Zero-Count Banner -->
-      <div class="alert alert-info" style="margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="alert alert-info" class="u-mb-6">
+        <div class="flex-between-center">
           <div>
             <strong>🧮 Zero-Count Smart Mode</strong> — No physical inventory snapshot yet.
             Showing inferred quantities from par levels, recent invoices, and AI forecasts.
@@ -505,41 +546,41 @@ async function loadZeroCountMode() {
       </div>
 
       <!-- Inventory Value Summary from PDFs -->
-      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
-        <div style="padding: 1.5rem;">
+      <div class="card" class="gradient-card">
+        <div class="u-p-6">
           <div class="grid grid-3">
-            <div style="text-align: center;">
-              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">💰 Total Inventory Value (from PDFs)</div>
-              <div style="font-size: 2rem; font-weight: 700;">$${(stats.stats?.inventory?.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div class="u-text-center">
+              <div class="info-subtitle">💰 Total Inventory Value (from PDFs)</div>
+              <div class="stat-value-large">$${(stats.stats?.inventory?.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             </div>
-            <div style="text-align: center;">
-              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Unique Products</div>
-              <div style="font-size: 2rem; font-weight: 700;">${(stats.stats?.inventory?.totalItems || 0).toLocaleString()}</div>
+            <div class="u-text-center">
+              <div class="info-subtitle">Unique Products</div>
+              <div class="stat-value-large">${(stats.stats?.inventory?.totalItems || 0).toLocaleString()}</div>
             </div>
-            <div style="text-align: center;">
-              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Cases/Units</div>
-              <div style="font-size: 2rem; font-weight: 700;">${(stats.stats?.inventory?.totalQuantityFromPDFs || 0).toLocaleString()}</div>
+            <div class="u-text-center">
+              <div class="info-subtitle">Total Cases/Units</div>
+              <div class="stat-value-large">${(stats.stats?.inventory?.totalQuantityFromPDFs || 0).toLocaleString()}</div>
             </div>
           </div>
-          <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem; opacity: 0.9;">
+          <div class="text-center-info">
             📊 This represents all products extracted from ${stats.stats?.pdfs?.total || 0} invoices totaling $${(stats.stats?.pdfs?.totalAmount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
           </div>
         </div>
       </div>
 
       <!-- Three Panel Layout -->
-      <div class="grid grid-3" style="margin-bottom: 1.5rem;">
+      <div class="grid grid-3" class="u-mb-6">
         <!-- Panel 1: Inferred Stock Summary -->
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">📦 Inferred Stock</h3>
             <span class="badge badge-info">${estimates.count || 0} items</span>
           </div>
-          <div style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 1rem;">
+          <div class="text-base-light-mb">
             Avg Confidence: <strong>${((estimates.stats?.avg_confidence || 0) * 100).toFixed(0)}%</strong>
             | Low Confidence: <strong>${estimates.stats?.low_confidence_count || 0}</strong>
           </div>
-          <div style="max-height: 400px; overflow-y: auto;">
+          <div class="modal-scrollable-content-400">
             ${renderInferredStockList(estimates.items || [])}
           </div>
         </div>
@@ -551,7 +592,7 @@ async function loadZeroCountMode() {
             <span class="badge badge-danger">${stockouts.critical?.length || 0}</span>
             <span class="badge badge-warning">${stockouts.high?.length || 0}</span>
           </div>
-          <div style="max-height: 400px; overflow-y: auto;">
+          <div class="modal-scrollable-content-400">
             ${renderStockoutRadar(stockouts)}
           </div>
         </div>
@@ -562,7 +603,7 @@ async function loadZeroCountMode() {
             <h3 class="card-title">📍 Storage Locations</h3>
             <span class="badge badge-info">${locations.count || 0}</span>
           </div>
-          <div style="max-height: 400px; overflow-y: auto;">
+          <div class="modal-scrollable-content-400">
             ${renderLocationsList(locations.locations || [])}
           </div>
         </div>
@@ -573,17 +614,17 @@ async function loadZeroCountMode() {
         <div class="card-header">
           <h3 class="card-title">➕ Quick Add Item</h3>
         </div>
-        <form onsubmit="event.preventDefault(); quickAddItem();" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-          <div class="form-group" style="margin: 0;">
+        <form onsubmit="event.preventDefault(); quickAddItem();" class="grid-auto-fit">
+          <div class="form-group" class="u-m-0">
             <input type="text" class="input" id="quickAddCode" placeholder="Item Code" required>
           </div>
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group" class="u-m-0">
             <input type="text" class="input" id="quickAddName" placeholder="Item Name" required>
           </div>
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group" class="u-m-0">
             <input type="text" class="input" id="quickAddUnit" placeholder="Unit (EA)" value="EA">
           </div>
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group" class="u-m-0">
             <input type="number" class="input" id="quickAddPar" placeholder="Par Level" value="100">
           </div>
           <button type="submit" class="btn btn-primary">Add Item</button>
@@ -621,8 +662,8 @@ async function loadNormalMode(lastCount) {
 
     let html = `
       <!-- Normal Mode Banner -->
-      <div class="alert alert-success" style="margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="alert alert-success" class="u-mb-6">
+        <div class="flex-between-center">
           <div>
             <strong>✅ Normal Mode</strong> — Physical inventory active.
             Last count: ${lastCount ? new Date(lastCount.closed_at).toLocaleDateString() : 'N/A'}
@@ -632,20 +673,20 @@ async function loadNormalMode(lastCount) {
       </div>
 
       <!-- Inventory Value Summary -->
-      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
-        <div style="padding: 1.5rem;">
+      <div class="card" class="gradient-card">
+        <div class="u-p-6">
           <div class="grid grid-3">
-            <div style="text-align: center;">
-              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Inventory Value</div>
-              <div style="font-size: 2rem; font-weight: 700;">$${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div class="u-text-center">
+              <div class="info-subtitle">Total Inventory Value</div>
+              <div class="stat-value-large">$${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
             </div>
-            <div style="text-align: center;">
-              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Products</div>
-              <div style="font-size: 2rem; font-weight: 700;">${items.length.toLocaleString()}</div>
+            <div class="u-text-center">
+              <div class="info-subtitle">Total Products</div>
+              <div class="stat-value-large">${items.length.toLocaleString()}</div>
             </div>
-            <div style="text-align: center;">
-              <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Total Units/Cases</div>
-              <div style="font-size: 2rem; font-weight: 700;">${totalItems.toLocaleString()}</div>
+            <div class="u-text-center">
+              <div class="info-subtitle">Total Units/Cases</div>
+              <div class="stat-value-large">${totalItems.toLocaleString()}</div>
             </div>
           </div>
         </div>
@@ -714,7 +755,7 @@ function renderInferredStockList(items) {
     return '<div class="empty-state"><div class="empty-state-icon">📦</div><div>No items</div></div>';
   }
 
-  let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+  let html = '<div class="flex-col-gap">';
 
   items.forEach(item => {
     const confidence = item.confidence || 0;
@@ -722,25 +763,25 @@ function renderInferredStockList(items) {
     const confidenceLabel = confidence >= 0.7 ? 'High' : confidence >= 0.4 ? 'Medium' : 'Low';
 
     html += `
-      <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface);">
-        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+      <div class="bordered-surface">
+        <div class="flex-between-start">
           <div>
             <strong>${item.item_name}</strong>
-            <div style="font-size: 0.75rem; color: var(--text-light);">${item.item_code}</div>
+            <div class="description-text-small">${item.item_code}</div>
           </div>
           <span class="badge ${confidenceClass}">${confidenceLabel}</span>
         </div>
-        <div style="display: flex; gap: 1rem; font-size: 0.875rem;">
+        <div class="flex-base">
           <div>
-            <span style="color: var(--text-light);">Inferred:</span>
+            <span class="u-text-light-inline">Inferred:</span>
             <strong>${item.inferred_qty || 0} ${item.unit}</strong>
           </div>
           <div>
-            <span style="color: var(--text-light);">Par:</span>
+            <span class="u-text-light-inline">Par:</span>
             <strong>${item.par_level || 0}</strong>
           </div>
         </div>
-        <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
+        <div class="description-small-mt">
           Source: ${item.source === 'recent_count' ? '📊 Recent Count' :
                     item.source === 'invoice_forecast' ? '📄 Invoice + Forecast' : '📋 Par Level'}
         </div>
@@ -758,23 +799,23 @@ function renderStockoutRadar(stockouts) {
   const medium = stockouts.medium || [];
 
   if (critical.length === 0 && high.length === 0 && medium.length === 0) {
-    return '<div class="empty-state"><div style="font-size: 2rem;">✅</div><div>No stock-out risks</div></div>';
+    return '<div class="empty-state"><div class="empty-icon-2xl">✅</div><div>No stock-out risks</div></div>';
   }
 
-  let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+  let html = '<div class="flex-col-gap">';
 
   // Critical risks
   critical.forEach(item => {
     html += `
-      <div style="padding: 0.75rem; border-left: 4px solid var(--danger); background: #fee2e2; border-radius: 4px;">
-        <div style="font-weight: 600; color: var(--danger); margin-bottom: 0.25rem;">
+      <div class="bordered-danger-section">
+        <div class="text-bold-danger">
           🚨 ${item.item_name}
         </div>
-        <div style="font-size: 0.875rem; color: var(--text);">
+        <div class="u-text-base u-text-default">
           Available: <strong>${item.available_qty || 0} ${item.unit}</strong> |
           Needed: <strong>${item.predicted_24h || 0} ${item.unit}</strong>
         </div>
-        <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
+        <div class="description-small-mt">
           ${item.reason}
         </div>
       </div>
@@ -784,11 +825,11 @@ function renderStockoutRadar(stockouts) {
   // High risks
   high.forEach(item => {
     html += `
-      <div style="padding: 0.75rem; border-left: 4px solid var(--warning); background: #fef3c7; border-radius: 4px;">
-        <div style="font-weight: 600; color: var(--warning); margin-bottom: 0.25rem;">
+      <div class="bordered-warning-section">
+        <div class="text-bold-warning">
           ⚠️ ${item.item_name}
         </div>
-        <div style="font-size: 0.875rem; color: var(--text);">
+        <div class="u-text-base u-text-default">
           Available: <strong>${item.available_qty || 0} ${item.unit}</strong> |
           Needed: <strong>${item.predicted_24h || 0} ${item.unit}</strong>
         </div>
@@ -805,7 +846,7 @@ function renderLocationsList(locations) {
     return '<div class="empty-state"><div class="empty-state-icon">📍</div><div>No locations</div></div>';
   }
 
-  let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+  let html = '<div class="flex-col-gap-sm">';
 
   locations.forEach(loc => {
     const typeIcon = loc.location_type === 'COOLER' ? '❄️' :
@@ -813,13 +854,13 @@ function renderLocationsList(locations) {
                      loc.location_type === 'DRY' ? '📦' : '🏪';
 
     html += `
-      <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer;"
+      <div class="bordered-surface-clickable"
            onclick="switchTab('locations')">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <span style="font-size: 1.25rem;">${typeIcon}</span>
+        <div class="flex-gap-2-items-center">
+          <span class="u-text-1-25">${typeIcon}</span>
           <div>
-            <div style="font-weight: 600;">${loc.location_name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-light);">${loc.location_code}</div>
+            <div class="fw-600">${loc.location_name}</div>
+            <div class="description-text-small">${loc.location_code}</div>
           </div>
         </div>
       </div>
@@ -940,18 +981,18 @@ async function loadLocations() {
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+    let html = '<div class="flex-col-gap-sm">';
     locations.forEach(loc => {
       const id = loc.id || '';
       const name = loc.name || '';
       const type = loc.type || 'warehouse';
 
       html += `
-        <div class="chip ${loc.active ? '' : 'disabled'}" style="justify-content: space-between; padding: 0.5rem;">
-          <span onclick="filterByLocation('${id}', '${name}')" style="flex: 1; cursor: pointer;">
+        <div class="chip ${loc.active ? '' : 'disabled'}" class="chip-spaced">
+          <span onclick="filterByLocation('${id}', '${name}')" class="flex-1-clickable">
             ${name} <small>(${type})</small>
           </span>
-          <div style="display: flex; gap: 0.25rem;">
+          <div class="flex-gap-1">
             <button type="button" class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editLocation('${id}', '${name}', '${type}')" title="Edit">✏️</button>
             <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteLocation('${id}', '${name}')" title="Delete">🗑️</button>
           </div>
@@ -980,7 +1021,7 @@ async function filterByLocation(locationId, locationName) {
     const items = data.items || [];
 
     if (items.length === 0) {
-      itemsDiv.innerHTML = '<div class="empty-state"><div>No items mapped to this location</div><div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-light);">Items can be assigned to locations during inventory counts.</div></div>';
+      itemsDiv.innerHTML = '<div class="empty-state"><div>No items mapped to this location</div><div class="description-text">Items can be assigned to locations during inventory counts.</div></div>';
       return;
     }
 
@@ -1190,7 +1231,7 @@ async function loadPDFs() {
           <td><strong>${invoiceNum}</strong></td>
           <td>${dateDisplay}</td>
           <td>${vendor}</td>
-          <td style="text-align: right; font-weight: 600;">${amountDisplay}</td>
+          <td class="text-right-bold">${amountDisplay}</td>
           <td>${statusBadge}</td>
           <td><button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${pdf.id}', '${escapedInvoiceNum}')">👁️ View</button></td>
         </tr>
@@ -1199,10 +1240,10 @@ async function loadPDFs() {
 
     html += '</tbody></table>';
     const totalFormatted = totalAmount > 0 ? `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
-    html += `<div style="margin-top: 1rem; color: var(--text-light); font-size: 0.875rem;">
+    html += `<div class="info-text-mt">
       <strong>Total:</strong> ${data.summary?.total || pdfs.length} PDFs
       (${data.summary?.processed || 0} processed, ${data.summary?.unprocessed || 0} pending) |
-      <strong>Total Amount:</strong> <span style="color: var(--success); font-size: 1.1rem;">${totalFormatted}</span>
+      <strong>Total Amount:</strong> <span class="text-success-lg">${totalFormatted}</span>
     </div>`;
 
     tableDiv.innerHTML = html;
@@ -1280,7 +1321,7 @@ async function loadUnprocessedPDFsForInclude() {
       html += `
         <label class="checkbox-item">
           <input type="checkbox" value="${pdf.id}">
-          <span><strong>${displayName}</strong> <small style="color: var(--text-light);">(${dateDisplay})</small></span>
+          <span><strong>${displayName}</strong> <small class="u-text-light-inline">(${dateDisplay})</small></span>
         </label>
       `;
     });
@@ -1433,7 +1474,7 @@ async function loadActiveCount() {
   const detailsDiv = document.getElementById('activeCountDetails');
 
   if (!activeCountId) {
-    detailsDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔢</div><div>No active count</div><div style="margin-top: 0.5rem;"><button class="btn btn-primary" onclick="document.querySelector(\'#count\').scrollIntoView()">Start a count to begin</button></div></div>';
+    detailsDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔢</div><div>No active count</div><div class="u-mt-2"><button class="btn btn-primary" onclick="document.querySelector(\'#count\').scrollIntoView()">Start a count to begin</button></div></div>';
     return;
   }
 
@@ -1446,13 +1487,13 @@ async function loadActiveCount() {
     const pdfs = data.pdfs || [];
 
     let html = `
-      <div style="margin-bottom: 1rem;">
+      <div class="u-mb-4">
         <strong>Status:</strong> <span class="badge ${count.status === 'closed' ? 'badge-success' : 'badge-warning'}">${count.status}</span><br>
         <strong>Started:</strong> ${new Date(count.created_at).toLocaleString()}<br>
         <strong>Total Lines:</strong> ${count.total_lines || 0}<br>
         <strong>Locations:</strong> ${count.locations_touched || 0}
       </div>
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+      <div class="flex-gap-2-mb">
         <button class="btn btn-sm btn-primary" onclick="showAddItemForm()">+ Add Item</button>
         <button class="btn btn-sm btn-primary" onclick="showAttachPDFForm()">📎 Attach PDF</button>
         ${count.status !== 'closed' ? '<button class="btn btn-sm btn-success" onclick="closeCount()">✓ Close Count</button>' : ''}
@@ -1460,20 +1501,20 @@ async function loadActiveCount() {
     `;
 
     if (items.length > 0) {
-      html += '<h4 style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.875rem;">Items:</h4>';
-      html += '<div style="max-height: 200px; overflow-y: auto; font-size: 0.875rem;">';
+      html += '<h4 class="info-header">Items:</h4>';
+      html += '<div class="scrollable-200-base">';
       items.forEach(item => {
-        html += `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${item.item_code} - ${item.item_name}: <strong>${item.quantity}</strong> ${item.location_name || ''}</div>`;
+        html += `<div class="bordered-item">${item.item_code} - ${item.item_name}: <strong>${item.quantity}</strong> ${item.location_name || ''}</div>`;
       });
       html += '</div>';
     }
 
     if (pdfs.length > 0) {
-      html += '<h4 style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.875rem;">Attached PDFs:</h4>';
-      html += '<div style="font-size: 0.875rem;">';
+      html += '<h4 class="info-header">Attached PDFs:</h4>';
+      html += '<div class="u-text-base">';
       pdfs.forEach(pdf => {
         const escapedFilename = pdf.filename.replace(/'/g, "\\'");
-        html += `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" style="color: var(--primary);">${pdf.filename}</a></div>`;
+        html += `<div class="bordered-item"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" class="u-text-primary">${pdf.filename}</a></div>`;
       });
       html += '</div>';
     }
@@ -1528,7 +1569,7 @@ async function loadLocationsForCountItem() {
   }
 }
 
-// Item search with autocomplete
+// Item search with autocomplete (v14.5.0 CSP Compliant)
 let searchTimeout;
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('itemSearchInput');
@@ -1538,7 +1579,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const query = e.target.value.trim();
 
       if (query.length < 2) {
-        document.getElementById('itemSearchResults').style.display = 'none';
+        setHidden(document.getElementById('itemSearchResults'), true);
         return;
       }
 
@@ -1553,20 +1594,18 @@ async function searchItems(query) {
     const resultsDiv = document.getElementById('itemSearchResults');
 
     if (!data.items || data.items.length === 0) {
-      resultsDiv.innerHTML = '<div style="padding: 0.75rem; color: var(--text-light);">No items found</div>';
-      resultsDiv.style.display = 'block';
+      resultsDiv.innerHTML = '<div class="search-result-item u-text-light-inline">No items found</div>';
+      setHidden(resultsDiv, false);
       return;
     }
 
     let html = '';
     data.items.forEach(item => {
       html += `
-        <div style="padding: 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;"
-             onmouseover="this.style.background='var(--bg)'"
-             onmouseout="this.style.background='white'"
+        <div class="search-result-item"
              onclick="selectItem('${item.item_code}', '${item.item_name.replace(/'/g, "\\'")}', '${item.unit || 'EA'}')">
           <strong>${item.item_code}</strong> - ${item.item_name}
-          <div style="font-size: 0.75rem; color: var(--text-light);">
+          <div class="u-text-xs u-text-light-inline">
             ${item.category || 'N/A'} | ${item.unit || 'EA'} | On hand: ${item.current_quantity || 0}
           </div>
         </div>
@@ -1574,7 +1613,7 @@ async function searchItems(query) {
     });
 
     resultsDiv.innerHTML = html;
-    resultsDiv.style.display = 'block';
+    setHidden(resultsDiv, false);
   } catch (error) {
     console.error('Error searching items:', error);
   }
@@ -1583,8 +1622,8 @@ async function searchItems(query) {
 function selectItem(code, name, unit) {
   document.getElementById('selectedItemCode').value = code;
   document.getElementById('selectedItemText').textContent = `${code} - ${name} (${unit})`;
-  document.getElementById('selectedItemDisplay').style.display = 'block';
-  document.getElementById('itemSearchResults').style.display = 'none';
+  setHidden(document.getElementById('selectedItemDisplay'), false);
+  setHidden(document.getElementById('itemSearchResults'), true);
   document.getElementById('itemSearchInput').value = '';
 
   // Focus on quantity input
@@ -1593,7 +1632,7 @@ function selectItem(code, name, unit) {
 
 function clearSelectedItem() {
   document.getElementById('selectedItemCode').value = '';
-  document.getElementById('selectedItemDisplay').style.display = 'none';
+  setHidden(document.getElementById('selectedItemDisplay'), true);
   document.getElementById('itemSearchInput').focus();
 }
 
@@ -1690,17 +1729,17 @@ async function closeCount() {
     let html = `
       <div class="alert alert-info">Review count details before closing. This action creates a permanent snapshot.</div>
       <h4>Items to be recorded: ${items.length}</h4>
-      <div style="max-height: 300px; overflow-y: auto; margin: 1rem 0;">
-        ${items.map(item => `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);">${item.item_code} - ${item.item_name}: <strong>${item.quantity}</strong></div>`).join('')}
+      <div class="scrollable-300-my">
+        ${items.map(item => `<div class="bordered-item">${item.item_code} - ${item.item_name}: <strong>${item.quantity}</strong></div>`).join('')}
       </div>
       <h4>PDFs attached: ${pdfs.length}</h4>
-      <div style="max-height: 200px; overflow-y: auto; margin: 1rem 0;">
+      <div class="scrollable-200-my">
         ${pdfs.map(pdf => {
           const escapedFilename = pdf.filename.replace(/'/g, "\\'");
-          return `<div style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" style="color: var(--primary);">${pdf.filename}</a></div>`;
+          return `<div class="bordered-item"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" class="u-text-primary">${pdf.filename}</a></div>`;
         }).join('')}
       </div>
-      <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+      <div class="flex-gap-4-mt">
         <button class="btn btn-success" onclick="confirmCloseCount()">✓ Confirm & Close</button>
         <button class="btn btn-secondary" onclick="cancelCloseCount()">Cancel</button>
       </div>
@@ -1764,20 +1803,20 @@ async function loadAIReorder() {
     const items = data.recommendations || [];
 
     if (items.length === 0) {
-      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>✅ All Items Stocked</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">No items currently need reordering. Great job!</div></div>';
+      div.innerHTML = '<div class="empty-state" class="u-py-8 u-px-4"><div>✅ All Items Stocked</div><div class="description-text">No items currently need reordering. Great job!</div></div>';
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">';
+    let html = '<div class="flex-col-gap-base">';
     items.forEach(item => {
       const urgencyColor = item.stockPct < 50 ? 'var(--danger)' : item.stockPct < 100 ? 'var(--warning)' : 'var(--info)';
       html += `
         <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; border-left: 3px solid ${urgencyColor};">
-          <div style="font-weight: 600; margin-bottom: 0.25rem;">${item.itemCode} - ${item.name}</div>
-          <div style="color: var(--text-light); margin-bottom: 0.5rem; font-size: 0.8125rem;">
+          <div class="fw-600 u-mb-1">${item.itemCode} - ${item.name}</div>
+          <div class="info-description">
             Current: ${item.currentStock} ${item.unit || ''} | Reorder Point: ${item.reorderPoint} | Need: ${item.recommendedReorderQty}
           </div>
-          <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+          <div class="flex-gap-1" style="flex-wrap: wrap;">
             ${(item.drivers || []).map(d => `<span class="badge badge-info">${d}</span>`).join('')}
             <span class="badge" style="background: ${urgencyColor};">${item.stockPct}% of reorder point</span>
           </div>
@@ -1789,7 +1828,7 @@ async function loadAIReorder() {
     div.innerHTML = html;
   } catch (error) {
     console.error('Failed to load reorder recommendations:', error);
-    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load recommendations</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
+    div.innerHTML = '<div class="empty-state" class="u-py-8 u-px-4"><div>⚠️ Unable to load recommendations</div><div class="description-text">Please refresh the page.</div></div>';
   }
 }
 
@@ -1803,26 +1842,26 @@ async function loadAIAnomalies() {
     const items = data.anomalies || [];
 
     if (items.length === 0) {
-      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>✅ No Anomalies Detected</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">All inventory levels are normal.</div></div>';
+      div.innerHTML = '<div class="empty-state" class="u-py-8 u-px-4"><div>✅ No Anomalies Detected</div><div class="description-text">All inventory levels are normal.</div></div>';
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem;">';
+    let html = '<div class="flex-col-gap-base">';
     items.forEach(item => {
       const severityClass = item.severity === 'critical' ? 'badge-danger' : item.severity === 'high' ? 'badge-warning' : item.severity === 'medium' ? 'badge-info' : 'badge-secondary';
       const severityIcon = item.severity === 'critical' ? '🔴' : item.severity === 'high' ? '⚠️' : '🔵';
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+        <div class="bordered-section">
+          <div class="flex-between-start">
             <div>
-              <span style="font-size: 1.25rem; margin-right: 0.5rem;">${severityIcon}</span>
-              <span style="font-weight: 600;">${item.itemCode}</span>
+              <span class="u-text-1-25" style="margin-right: 0.5rem;">${severityIcon}</span>
+              <span class="fw-600">${item.itemCode}</span>
               ${item.name ? `<span style="color: var(--text-light); font-size: 0.8125rem;"> - ${item.name}</span>` : ''}
             </div>
             <span class="badge ${severityClass}">${item.severity}</span>
           </div>
-          <div style="color: var(--text-light); margin-bottom: 0.5rem; font-size: 0.8125rem;">${item.explanation}</div>
-          <div style="font-size: 0.75rem; color: var(--text-light);">
+          <div class="info-description">${item.explanation}</div>
+          <div class="description-text-small">
             ${new Date(item.when).toLocaleString()} | Confidence: ${Math.round((item.confidence || 0) * 100)}%
           </div>
         </div>
@@ -1833,7 +1872,7 @@ async function loadAIAnomalies() {
     div.innerHTML = html;
   } catch (error) {
     console.error('Failed to load anomalies:', error);
-    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load anomalies</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
+    div.innerHTML = '<div class="empty-state" class="u-py-8 u-px-4"><div>⚠️ Unable to load anomalies</div><div class="description-text">Please refresh the page.</div></div>';
   }
 }
 
@@ -1853,27 +1892,27 @@ async function loadAIUpgrade() {
     const overallScore = Math.round((pdfScore + inventoryScore + fifoScore) / 3);
 
     let html = `
-      <div style="font-size: 0.875rem;">
-        <div style="margin-bottom: 1rem;">
+      <div class="u-text-base">
+        <div class="u-mb-4">
           <strong>System Health Score:</strong>
           <div style="font-size: 2rem; color: ${overallScore >= 75 ? 'var(--success)' : overallScore >= 50 ? 'var(--warning)' : 'var(--danger)'}; font-weight: 700;">${overallScore}%</div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="flex-col-gap">
           <div>
             <strong>📄 Invoice Extraction:</strong> ${pdfScore}%<br>
-            <span style="color: var(--text-light);">${pdfScore === 100 ? 'Perfect! All invoices have extracted dates.' : `${stats.pdfs?.withDates || 0}/${stats.pdfs?.total || 0} invoices processed. Keep uploading!`}</span>
+            <span class="u-text-light-inline">${pdfScore === 100 ? 'Perfect! All invoices have extracted dates.' : `${stats.pdfs?.withDates || 0}/${stats.pdfs?.total || 0} invoices processed. Keep uploading!`}</span>
           </div>
           <div>
             <strong>📦 FIFO Tracking:</strong> ${stats.fifo?.totalCases || 0} cases<br>
-            <span style="color: var(--text-light);">${stats.fifo?.totalCases > 0 ? `Tracking ${stats.fifo.productsTracked} products with FIFO.` : 'Start using FIFO for better inventory rotation.'}</span>
+            <span class="u-text-light-inline">${stats.fifo?.totalCases > 0 ? `Tracking ${stats.fifo.productsTracked} products with FIFO.` : 'Start using FIFO for better inventory rotation.'}</span>
           </div>
           <div>
             <strong>💾 Database:</strong> SQLite<br>
-            <span style="color: var(--text-light);">Connected and operational with ${stats.inventory?.totalItems || 0} items tracked.</span>
+            <span class="u-text-light-inline">Connected and operational with ${stats.inventory?.totalItems || 0} items tracked.</span>
           </div>
           <div>
             <strong>📊 Inventory Value:</strong> $${((stats.pdfs?.totalAmount || 0) / 1000).toFixed(1)}K<br>
-            <span style="color: var(--text-light);">Total invoice value tracked in system.</span>
+            <span class="u-text-light-inline">Total invoice value tracked in system.</span>
           </div>
         </div>
     `;
@@ -1903,21 +1942,21 @@ async function loadAIUpgrade() {
     }
 
     if (nextActions.length > 0) {
-      html += '<div style="margin-top: 1rem;"><strong>💡 Recommended Actions:</strong></div>';
-      html += '<div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">';
+      html += '<div class="u-mt-4"><strong>💡 Recommended Actions:</strong></div>';
+      html += '<div class="flex-col-gap-sm u-mt-2">';
       nextActions.forEach(action => {
-        html += `<div style="padding: 0.5rem; background: var(--bg); border-radius: 4px; border-left: 3px solid var(--primary);">${action.title} <span style="color: var(--text-light);">(~${action.etaMin}min)</span></div>`;
+        html += `<div class="bordered-left-primary-sm">${action.title} <span class="u-text-light-inline">(~${action.etaMin}min)</span></div>`;
       });
       html += '</div>';
     } else {
-      html += '<div style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 4px; text-align: center; color: var(--success);">✅ System is running optimally!</div>';
+      html += '<div class="success-box-centered">✅ System is running optimally!</div>';
     }
 
     html += '</div>';
     div.innerHTML = html;
   } catch (error) {
     console.error('Failed to load system advisor:', error);
-    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load advisor</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
+    div.innerHTML = '<div class="empty-state" class="u-py-8 u-px-4"><div>⚠️ Unable to load advisor</div><div class="description-text">Please refresh the page.</div></div>';
   }
 }
 
@@ -1965,11 +2004,11 @@ async function loadFeedbackHistory() {
     const comments = data.comments || [];
 
     if (comments.length === 0) {
-      div.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-light); font-size: 0.875rem;">No feedback history</div>';
+      div.innerHTML = '<div class="alert-centered">No feedback history</div>';
       return;
     }
 
-    let html = '<div style="max-height: 300px; overflow-y: auto; margin-top: 1rem;"><table class="table"><thead><tr><th>Comment</th><th>Intent</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+    let html = '<div class="scrollable-300-mt"><table class="table"><thead><tr><th>Comment</th><th>Intent</th><th>Status</th><th>Date</th></tr></thead><tbody>';
     comments.forEach(c => {
       const statusBadge = c.applied ? '<span class="badge badge-success">Applied</span>' : '<span class="badge badge-warning">Pending</span>';
       html += `
@@ -2049,16 +2088,16 @@ async function loadStockoutAlerts() {
     const items = [...(data.critical || []), ...(data.high || [])];
 
     if (items.length === 0) {
-      div.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--success); font-weight: 600;">✅ No critical stockout risks</div>';
+      div.innerHTML = '<div class="alert-success-centered">✅ No critical stockout risks</div>';
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+    let html = '<div class="flex-col-gap-sm">';
     items.forEach(item => {
       const risk_level = item.risk_level || 'MEDIUM';
       const alertClass = risk_level === 'CRITICAL' ? 'alert-danger' : 'alert-warning';
       html += `
-        <div class="${alertClass.replace('alert-', 'badge-')}" style="padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="${alertClass.replace('alert-', 'badge-')}" class="flex-between-centered-padded">
           <span><strong>${item.item_code}</strong> - ${item.item_name}</span>
           <span class="badge ${risk_level === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}">${risk_level}</span>
         </div>
@@ -2081,7 +2120,7 @@ async function loadDailyForecast() {
     const predictions = data.items || [];
 
     if (predictions.length === 0) {
-      div.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📈</div><div>No predictions available</div><div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-light);">Update population and refresh.</div></div>';
+      div.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📈</div><div>No predictions available</div><div class="description-text">Update population and refresh.</div></div>';
       return;
     }
 
@@ -2105,17 +2144,17 @@ async function loadDailyForecast() {
 
       html += `
         <tr>
-          <td><strong>${pred.item_code || 'N/A'}</strong><br><small style="color: var(--text-light);">${pred.item_name || ''}</small></td>
+          <td><strong>${pred.item_code || 'N/A'}</strong><br><small class="u-text-light-inline">${pred.item_name || ''}</small></td>
           <td>${pred.total_predicted_qty?.toFixed(2) || 0}</td>
           <td>${pred.unit || 'EA'}</td>
           <td><span class="badge ${confidenceBadge}">${confidence}%</span></td>
-          <td style="font-size: 0.75rem; color: var(--text-light);">${pred.forecast_sources || 'forecast'}</td>
+          <td class="description-text-small">${pred.forecast_sources || 'forecast'}</td>
         </tr>
       `;
     });
 
     html += '</tbody></table>';
-    html += `<div style="margin-top: 1rem; color: var(--text-light); font-size: 0.875rem;">Last updated: ${new Date(data.timestamp || Date.now()).toLocaleString()}</div>`;
+    html += `<div class="info-text-mt">Last updated: ${new Date(data.timestamp || Date.now()).toLocaleString()}</div>`;
 
     div.innerHTML = html;
   } catch (error) {
@@ -2133,9 +2172,9 @@ async function loadSettings() {
   const fingerprint = localStorage.getItem('deviceFingerprint') || 'Not bound';
 
   deviceDiv.innerHTML = `
-    <div style="font-size: 0.875rem;">
+    <div class="u-text-base">
       <strong>Device Fingerprint:</strong><br>
-      <code style="font-size: 0.75rem; background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem;">${fingerprint}</code>
+      <code class="badge-inline">${fingerprint}</code>
     </div>
   `;
 
@@ -2149,13 +2188,13 @@ async function loadSettings() {
     const chainHash = hashMatch ? hashMatch[1] : 'Not available';
 
     auditDiv.innerHTML = `
-      <div style="font-size: 0.875rem;">
+      <div class="u-text-base">
         <strong>Audit Chain Head:</strong><br>
-        <code style="font-size: 0.75rem; background: var(--bg); padding: 0.25rem 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem;">${chainHash}</code>
+        <code class="badge-inline">${chainHash}</code>
       </div>
     `;
   } catch (error) {
-    document.getElementById('auditInfo').innerHTML = '<div style="color: var(--text-light); font-size: 0.875rem;">Audit info unavailable</div>';
+    document.getElementById('auditInfo').innerHTML = '<div class="text-base-light">Audit info unavailable</div>';
   }
 
   // Load preferences
@@ -2263,7 +2302,7 @@ async function loadExecutiveReport() {
     const report = data.report;
 
     let html = `
-      <div class="grid grid-3" style="margin-bottom: 1.5rem;">
+      <div class="grid grid-3" class="u-mb-6">
         <div class="card stat-card">
           <div class="stat-value">${report.demand?.today?.length || 0}</div>
           <div class="stat-label">Today's Items</div>
@@ -2277,15 +2316,15 @@ async function loadExecutiveReport() {
           <div class="stat-label">High Risk Stockouts</div>
         </div>
       </div>
-      <h4 style="margin-bottom: 0.5rem;">Critical Stockouts</h4>
-      <div style="margin-bottom: 1.5rem;">
+      <h4 class="u-mb-2">Critical Stockouts</h4>
+      <div class="u-mb-6">
         ${report.stockouts?.length ? report.stockouts.map(s => `
-          <div style="padding: 0.5rem; border-bottom: 1px solid var(--border);">
+          <div class="bordered-item">
             <strong>${s.item_code}</strong> - ${s.severity} - Projected: ${s.projected_stockout_date}
           </div>
-        `).join('') : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No critical stockouts</div>'}
+        `).join('') : '<div class="empty-state-centered">No critical stockouts</div>'}
       </div>
-      <h4 style="margin-bottom: 0.5rem;">AI Confidence Trend (7 days)</h4>
+      <h4 class="u-mb-2">AI Confidence Trend (7 days)</h4>
       <div>
         ${report.aiConfidenceTrend?.length ? `
           <table class="table">
@@ -2300,7 +2339,7 @@ async function loadExecutiveReport() {
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No confidence data</div>'}
+        ` : '<div class="empty-state-centered">No confidence data</div>'}
       </div>
     `;
 
@@ -2320,7 +2359,7 @@ async function loadOpsReport() {
     const report = data.report;
 
     let html = `
-      <div class="grid grid-3" style="margin-bottom: 1.5rem;">
+      <div class="grid grid-3" class="u-mb-6">
         <div class="card stat-card">
           <div class="stat-value">${report.countStatus?.open?.count || 0}</div>
           <div class="stat-label">Open Counts</div>
@@ -2334,8 +2373,8 @@ async function loadOpsReport() {
           <div class="stat-label">Counts with PDFs</div>
         </div>
       </div>
-      <h4 style="margin-bottom: 0.5rem;">Count Throughput (14 days)</h4>
-      <div style="margin-bottom: 1.5rem;">
+      <h4 class="u-mb-2">Count Throughput (14 days)</h4>
+      <div class="u-mb-6">
         ${report.countThroughput?.length ? `
           <table class="table">
             <thead><tr><th>Date</th><th>Started</th><th>Completed</th><th>Users</th></tr></thead>
@@ -2350,9 +2389,9 @@ async function loadOpsReport() {
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No throughput data</div>'}
+        ` : '<div class="empty-state-centered">No throughput data</div>'}
       </div>
-      <h4 style="margin-bottom: 0.5rem;">Top 20 Spot-Check Targets</h4>
+      <h4 class="u-mb-2">Top 20 Spot-Check Targets</h4>
       <div>
         ${report.spotCheckTargets?.length ? `
           <table class="table">
@@ -2368,7 +2407,7 @@ async function loadOpsReport() {
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No spot-check data</div>'}
+        ` : '<div class="empty-state-centered">No spot-check data</div>'}
       </div>
     `;
 
@@ -2388,8 +2427,8 @@ async function loadProductionReport() {
     const report = data.report;
 
     let html = `
-      <h4 style="margin-bottom: 0.5rem;">Today's Make List</h4>
-      <div style="margin-bottom: 1.5rem;">
+      <h4 class="u-mb-2">Today's Make List</h4>
+      <div class="u-mb-6">
         ${report.makeList?.length ? `
           <table class="table">
             <thead><tr><th>Item</th><th>Qty Needed</th><th>Unit</th><th>Confidence</th><th>Source</th></tr></thead>
@@ -2405,9 +2444,9 @@ async function loadProductionReport() {
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No make list data</div>'}
+        ` : '<div class="empty-state-centered">No make list data</div>'}
       </div>
-      <h4 style="margin-bottom: 0.5rem;">FIFO Ingredient Pulls</h4>
+      <h4 class="u-mb-2">FIFO Ingredient Pulls</h4>
       <div>
         ${report.ingredientsByFIFO?.length ? `
           <table class="table">
@@ -2417,14 +2456,14 @@ async function loadProductionReport() {
                 <tr>
                   <td><strong>${i.item_code}</strong><br><small>${i.item_name}</small></td>
                   <td>
-                    ${i.layers.map(l => `<div style="font-size: 0.75rem;">${l.location}: ${l.quantity} (Exp: ${l.expiry_date || 'N/A'})</div>`).join('')}
+                    ${i.layers.map(l => `<div class="u-text-xs">${l.location}: ${l.quantity} (Exp: ${l.expiry_date || 'N/A'})</div>`).join('')}
                   </td>
                   <td>${i.layers.reduce((sum, l) => sum + l.quantity, 0).toFixed(2)} ${i.unit}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No FIFO data</div>'}
+        ` : '<div class="empty-state-centered">No FIFO data</div>'}
       </div>
     `;
 
@@ -2444,7 +2483,7 @@ async function loadPurchasingReport() {
     const report = data.report;
 
     let html = `
-      <div class="grid grid-3" style="margin-bottom: 1.5rem;">
+      <div class="grid grid-3" class="u-mb-6">
         <div class="card stat-card">
           <div class="stat-value">${report.pdfSummary?.total_invoices || 0}</div>
           <div class="stat-label">Total Invoices (30d)</div>
@@ -2458,8 +2497,8 @@ async function loadPurchasingReport() {
           <div class="stat-label">Unprocessed</div>
         </div>
       </div>
-      <h4 style="margin-bottom: 0.5rem;">Recent Invoices</h4>
-      <div style="margin-bottom: 1.5rem;">
+      <h4 class="u-mb-2">Recent Invoices</h4>
+      <div class="u-mb-6">
         ${report.recentInvoices?.length ? `
           <table class="table">
             <thead><tr><th>Invoice #</th><th>Date</th><th>Value</th><th>Status</th></tr></thead>
@@ -2474,9 +2513,9 @@ async function loadPurchasingReport() {
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No invoice data</div>'}
+        ` : '<div class="empty-state-centered">No invoice data</div>'}
       </div>
-      <h4 style="margin-bottom: 0.5rem;">Reorder Recommendations</h4>
+      <h4 class="u-mb-2">Reorder Recommendations</h4>
       <div>
         ${report.reorderRecommendations?.length ? `
           <table class="table">
@@ -2487,12 +2526,12 @@ async function loadPurchasingReport() {
                   <td><strong>${r.item_code}</strong></td>
                   <td>${r.recommended_quantity} ${r.unit}</td>
                   <td><span class="badge ${r.priority === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}">${r.priority}</span></td>
-                  <td style="font-size: 0.75rem;">${r.reason}</td>
+                  <td class="u-text-xs">${r.reason}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No reorder recommendations</div>'}
+        ` : '<div class="empty-state-centered">No reorder recommendations</div>'}
       </div>
     `;
 
@@ -2512,7 +2551,7 @@ async function loadFinanceReport() {
     const report = data.report;
 
     let html = `
-      <div class="grid grid-3" style="margin-bottom: 1.5rem;">
+      <div class="grid grid-3" class="u-mb-6">
         <div class="card stat-card">
           <div class="stat-value">${report.countsThisMonth?.total_counts || 0}</div>
           <div class="stat-label">Counts This Month</div>
@@ -2526,8 +2565,8 @@ async function loadFinanceReport() {
           <div class="stat-label">Inventory Value</div>
         </div>
       </div>
-      <h4 style="margin-bottom: 0.5rem;">Variance Indicators</h4>
-      <div style="margin-bottom: 1.5rem;">
+      <h4 class="u-mb-2">Variance Indicators</h4>
+      <div class="u-mb-6">
         <table class="table">
           <tr>
             <td>Count Frequency Change</td>
@@ -2543,7 +2582,7 @@ async function loadFinanceReport() {
           </tr>
         </table>
       </div>
-      <h4 style="margin-bottom: 0.5rem;">Recent Closed Counts</h4>
+      <h4 class="u-mb-2">Recent Closed Counts</h4>
       <div>
         ${report.recentClosedCounts?.length ? `
           <table class="table">
@@ -2554,12 +2593,12 @@ async function loadFinanceReport() {
                   <td><code>${c.count_id}</code></td>
                   <td>${new Date(c.closed_at).toLocaleString()}</td>
                   <td>${c.item_count}</td>
-                  <td style="font-size: 0.75rem;">${c.notes || 'N/A'}</td>
+                  <td class="u-text-xs">${c.notes || 'N/A'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-        ` : '<div style="padding: 1rem; text-align: center; color: var(--text-light);">No closed counts this month</div>'}
+        ` : '<div class="empty-state-centered">No closed counts this month</div>'}
       </div>
     `;
 
@@ -2647,25 +2686,25 @@ async function orchestrateStart() {
     const data = await fetchAPI('/super/orchestrate/start', { method: 'POST' });
     const steps = data.steps || [];
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
     steps.forEach(step => {
       const statusIcon = step.status === 'completed' ? '✅' : step.status === 'warning' ? '⚠️' : step.status === 'skipped' ? '⏭️' : '❌';
       const statusClass = step.status === 'completed' ? 'badge-success' : step.status === 'warning' ? 'badge-warning' : 'badge-info';
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="bordered-section">
+          <div class="flex-between-center">
             <span><strong>${statusIcon} ${step.step}</strong></span>
             <span class="badge ${statusClass}">${step.status}</span>
           </div>
-          <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-light);">${step.message}</div>
+          <div class="description-text">${step.message}</div>
         </div>
       `;
     });
     html += '</div>';
-    html += `<div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg); border-radius: 6px;"><strong>Duration:</strong> ${data.duration}ms</div>`;
+    html += `<div class="info-box-primary"><strong>Duration:</strong> ${data.duration}ms</div>`;
 
     stepsDiv.innerHTML = html;
-    curlDiv.innerHTML = `<strong>cURL Command:</strong><pre style="margin-top: 0.5rem; white-space: pre-wrap;">${data.curlCommand || 'N/A'}</pre>`;
+    curlDiv.innerHTML = `<strong>cURL Command:</strong><pre class="pre-wrap">${data.curlCommand || 'N/A'}</pre>`;
   } catch (error) {
     stepsDiv.innerHTML = showError('orchestration', error.message);
   }
@@ -2687,25 +2726,25 @@ async function orchestrateStop() {
     const data = await fetchAPI('/super/orchestrate/stop', { method: 'POST' });
     const steps = data.steps || [];
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+    let html = '<div class="flex-col-gap">';
     steps.forEach(step => {
       const statusIcon = step.status === 'completed' ? '✅' : step.status === 'warning' ? '⚠️' : step.status === 'skipped' ? '⏭️' : '❌';
       const statusClass = step.status === 'completed' ? 'badge-success' : step.status === 'warning' ? 'badge-warning' : 'badge-info';
       html += `
-        <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="bordered-section">
+          <div class="flex-between-center">
             <span><strong>${statusIcon} ${step.step}</strong></span>
             <span class="badge ${statusClass}">${step.status}</span>
           </div>
-          <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-light);">${step.message}</div>
+          <div class="description-text">${step.message}</div>
         </div>
       `;
     });
     html += '</div>';
-    html += `<div class="alert alert-info" style="margin-top: 1rem;">${data.note || 'Services stopped'}</div>`;
+    html += `<div class="alert alert-info" class="u-mt-4">${data.note || 'Services stopped'}</div>`;
 
     stepsDiv.innerHTML = html;
-    curlDiv.innerHTML = `<strong>cURL Command:</strong><pre style="margin-top: 0.5rem; white-space: pre-wrap;">${data.curlCommand || 'N/A'}</pre>`;
+    curlDiv.innerHTML = `<strong>cURL Command:</strong><pre class="pre-wrap">${data.curlCommand || 'N/A'}</pre>`;
   } catch (error) {
     stepsDiv.innerHTML = showError('orchestration', error.message);
   }
@@ -2792,13 +2831,13 @@ async function submitRecoveryInput() {
             <tr><td><strong>Filename:</strong></td><td><code>${data.kit.filename}</code></td></tr>
             <tr><td><strong>Path:</strong></td><td><code>${data.kit.path}</code></td></tr>
             <tr><td><strong>Size:</strong></td><td>${(data.kit.size / 1024).toFixed(2)} KB</td></tr>
-            <tr><td><strong>SHA-256:</strong></td><td><code style="font-size: 0.75rem;">${data.kit.sha256}</code></td></tr>
+            <tr><td><strong>SHA-256:</strong></td><td><code class="u-text-xs">${data.kit.sha256}</code></td></tr>
             <tr><td><strong>Encrypted:</strong></td><td>${data.kit.encrypted ? '✅ Yes' : '❌ No'}</td></tr>
             <tr><td><strong>Duration:</strong></td><td>${data.duration}ms</td></tr>
           </table>
-          <div style="margin-top: 1rem;">
+          <div class="u-mt-4">
             <h4>Manifest:</h4>
-            <pre style="font-size: 0.75rem; background: var(--bg); padding: 1rem; border-radius: 4px; overflow-x: auto;">${JSON.stringify(data.kit.manifest, null, 2)}</pre>
+            <pre class="code-block">${JSON.stringify(data.kit.manifest, null, 2)}</pre>
           </div>
         `;
         break;
@@ -2818,15 +2857,15 @@ async function submitRecoveryInput() {
           <table class="table">
             <tr><td><strong>Path:</strong></td><td><code>${data.kit.path}</code></td></tr>
             <tr><td><strong>Size:</strong></td><td>${(data.kit.size / 1024).toFixed(2)} KB</td></tr>
-            <tr><td><strong>SHA-256:</strong></td><td><code style="font-size: 0.75rem;">${data.kit.sha256}</code></td></tr>
+            <tr><td><strong>SHA-256:</strong></td><td><code class="u-text-xs">${data.kit.sha256}</code></td></tr>
             <tr><td><strong>Encrypted:</strong></td><td>${data.verification.encrypted ? '✅ Yes' : '❌ No'}</td></tr>
             <tr><td><strong>Extractable:</strong></td><td>${data.verification.extractable ? '✅ Yes' : '❌ No'}</td></tr>
             <tr><td><strong>Database Intact:</strong></td><td>${data.verification.databaseIntact ? '✅ Yes' : '❌ No'}</td></tr>
           </table>
           ${data.manifest ? `
-            <div style="margin-top: 1rem;">
+            <div class="u-mt-4">
               <h4>Manifest:</h4>
-              <pre style="font-size: 0.75rem; background: var(--bg); padding: 1rem; border-radius: 4px; overflow-x: auto;">${JSON.stringify(data.manifest, null, 2)}</pre>
+              <pre class="code-block">${JSON.stringify(data.manifest, null, 2)}</pre>
             </div>
           ` : ''}
         `;
@@ -2846,13 +2885,13 @@ async function submitRecoveryInput() {
           <table class="table">
             <tr><td><strong>Database Intact:</strong></td><td>${data.verification.databaseIntact ? '✅ Yes' : '❌ No'}</td></tr>
             <tr><td><strong>Size:</strong></td><td>${(data.verification.databaseSize / 1024).toFixed(2)} KB</td></tr>
-            <tr><td><strong>Expected SHA-256:</strong></td><td><code style="font-size: 0.65rem;">${data.verification.expectedSHA256}</code></td></tr>
-            <tr><td><strong>Actual SHA-256:</strong></td><td><code style="font-size: 0.65rem;">${data.verification.actualSHA256}</code></td></tr>
+            <tr><td><strong>Expected SHA-256:</strong></td><td><code class="u-text-xxs">${data.verification.expectedSHA256}</code></td></tr>
+            <tr><td><strong>Actual SHA-256:</strong></td><td><code class="u-text-xxs">${data.verification.actualSHA256}</code></td></tr>
           </table>
-          <h4 style="margin-top: 1rem;">Restore Plan:</h4>
-          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <h4 class="u-mt-4">Restore Plan:</h4>
+          <div class="flex-col-gap-sm">
             ${data.restorePlan.map((step, i) => `
-              <div style="padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px;">
+              <div class="bordered-section">
                 <strong>${i + 1}. ${step.step}</strong>
                 <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">${step.action}</div>
               </div>
@@ -2935,32 +2974,32 @@ async function loadLearningNudges() {
     });
 
     if (nudges.length === 0) {
-      div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>✅ No Suggestions</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">System is running optimally!</div></div>';
+      div.innerHTML = '<div class="empty-state" class="u-py-8 u-px-4"><div>✅ No Suggestions</div><div class="description-text">System is running optimally!</div></div>';
       return;
     }
 
-    let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+    let html = '<div class="flex-col-gap">';
     nudges.forEach(nudge => {
       html += `
-        <div style="padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); border-left: 3px solid var(--primary);">
-          <div style="font-weight: 600; margin-bottom: 0.5rem;">💡 ${nudge.title}</div>
+        <div class="bordered-primary-section">
+          <div class="fw-600 u-mb-2">💡 ${nudge.title}</div>
           <div style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.75rem;">${nudge.question}</div>
           <div style="font-size: 0.8125rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 4px; margin-bottom: 0.75rem;">
             <strong>Suggestion:</strong> ${nudge.suggestedInsight}
           </div>
-          <button class="btn btn-sm btn-primary" onclick="handleNudgeAction('${nudge.id}', '${nudge.action}')" style="width: 100%;">
+          <button class="btn btn-sm btn-primary" onclick="handleNudgeAction('${nudge.id}', '${nudge.action}')" class="w-full">
             ${nudge.action}
           </button>
         </div>
       `;
     });
     html += '</div>';
-    html += '<div style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: 6px; font-size: 0.875rem; color: var(--text-light);">💡 These suggestions are generated based on your current system state and usage patterns.</div>';
+    html += '<div class="info-box-full">💡 These suggestions are generated based on your current system state and usage patterns.</div>';
 
     div.innerHTML = html;
   } catch (error) {
     console.error('Failed to load learning nudges:', error);
-    div.innerHTML = '<div class="empty-state" style="padding: 2rem 1rem;"><div>⚠️ Unable to load suggestions</div><div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.5rem;">Please refresh the page.</div></div>';
+    div.innerHTML = '<div class="empty-state" class="u-py-8 u-px-4"><div>⚠️ Unable to load suggestions</div><div class="description-text">Please refresh the page.</div></div>';
   }
 }
 
@@ -3115,16 +3154,16 @@ async function loadAIOpsStatus() {
     }
 
     // === v13.5: Display system health checks from ops status ===
-    let checksHTML = '<div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.875rem;">';
+    let checksHTML = '<div class="flex-col-gap-sm u-text-base">';
 
     if (opsStatus.checks && opsStatus.checks.length > 0) {
       opsStatus.checks.forEach(check => {
         const icon = check.status === 'ok' ? '✅' : check.status === 'warning' ? '⚠️' : '❌';
         const color = check.status === 'ok' ? 'var(--success)' : check.status === 'warning' ? 'var(--warning)' : 'var(--danger)';
         checksHTML += `
-          <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg); border-radius: 4px;">
-            <span style="font-size: 1.25rem;">${icon}</span>
-            <div style="flex: 1;">
+          <div class="flex-gap-2-items-center" style="padding: 0.5rem; background: var(--bg); border-radius: 4px;">
+            <span class="u-text-1-25">${icon}</span>
+            <div class="u-flex-1">
               <strong>${check.name}</strong>
               <div style="color: ${color}; font-size: 0.8125rem;">${check.message}</div>
             </div>
@@ -3137,7 +3176,7 @@ async function loadAIOpsStatus() {
     if (opsStatus.dqi_issues && opsStatus.dqi_issues.length > 0) {
       checksHTML += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--bg); border-radius: 4px; border-left: 3px solid var(--warning);">
         <strong>⚠️ Data Quality Issues</strong>
-        <ul style="margin: 0.5rem 0 0 1.5rem; font-size: 0.8125rem;">`;
+        <ul class="nested-list-item">`;
 
       opsStatus.dqi_issues.forEach(issue => {
         checksHTML += `<li>${issue.type}: ${issue.count} occurrences (-${issue.penalty} pts)</li>`;
@@ -3264,7 +3303,7 @@ async function loadLearningTimeline() {
         return;
       }
 
-      let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+      let html = '<div class="flex-col-gap">';
       insights.slice(0, 10).forEach(insight => {
         const timestamp = new Date(insight.created_at);
         const confidence = parseFloat(insight.confidence) || 0;
@@ -3275,12 +3314,12 @@ async function loadLearningTimeline() {
         else if (confidence >= 0.85) badge = '🟡';
 
         html += `
-          <div style="padding: 0.75rem; background: var(--bg); border-left: 3px solid var(--primary); border-radius: 4px;">
-            <div style="display: flex; justify-content: between; align-items: start; gap: 0.5rem;">
-              <span style="font-size: 1.25rem;">${badge}</span>
-              <div style="flex: 1;">
-                <div style="font-weight: 500; font-size: 0.875rem;">${insight.title || 'No title'}</div>
-                <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
+          <div class="bordered-left-primary">
+            <div class="flex-gap-2" style="justify-content: between; align-items: start;">
+              <span class="u-text-1-25">${badge}</span>
+              <div class="u-flex-1">
+                <div class="u-font-medium u-text-base">${insight.title || 'No title'}</div>
+                <div class="description-small-mt">
                   ${formatTimeAgo(timestamp)} • ${insight.source || 'AI Learning Engine'} • ${(confidence * 100).toFixed(0)}% confidence
                 </div>
               </div>
@@ -3328,7 +3367,7 @@ async function triggerJob(jobName) {
 // ============================================================================
 
 /**
- * Load Cognitive Intelligence Overview (v13.0)
+ * Load Cognitive Intelligence Overview (v13.0 + v14.5.0 CSP)
  * Displays AI confidence trends, forecast accuracy, and active modules
  */
 async function loadCognitiveIntelligence() {
@@ -3345,45 +3384,45 @@ async function loadCognitiveIntelligence() {
 
     // Render simple status charts
     const chartsEl = document.getElementById('cognitiveCharts');
-    let chartsHTML = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">';
+    let chartsHTML = '<div class="cognitive-charts-grid-2col">';
 
     // PDF Extraction Status
-    chartsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 6px;">';
-    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">Invoice Extraction</div>';
+    chartsHTML += '<div class="cognitive-chart-card">';
+    chartsHTML += '<div class="cognitive-chart-title">Invoice Extraction</div>';
     chartsHTML += `
-      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-        <div style="width: 80px; font-size: 0.75rem;">Coverage</div>
-        <div style="flex: 1; background: rgba(255,255,255,0.2); border-radius: 4px; height: 24px; position: relative;">
-          <div style="background: #10b981; width: ${stats.pdfs?.coverage || 0}%; height: 100%; border-radius: 4px;"></div>
-          <div style="position: absolute; right: 4px; top: 3px; font-size: 0.75rem; font-weight: 600;">${stats.pdfs?.coverage || 0}%</div>
+      <div class="progress-bar-wrapper">
+        <div class="progress-bar-label">Coverage</div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill u-w-${Math.round((stats.pdfs?.coverage || 0) / 5) * 5}"></div>
+          <div class="progress-bar-value">${stats.pdfs?.coverage || 0}%</div>
         </div>
       </div>
-      <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.5rem;">
+      <div class="chart-footer">
         ${stats.pdfs?.withDates || 0}/${stats.pdfs?.total || 0} invoices with dates
       </div>
     `;
     chartsHTML += '</div>';
 
     // System Status
-    chartsHTML += '<div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 6px;">';
-    chartsHTML += '<div style="font-weight: 600; margin-bottom: 0.5rem;">System Status</div>';
+    chartsHTML += '<div class="cognitive-chart-card">';
+    chartsHTML += '<div class="cognitive-chart-title">System Status</div>';
     chartsHTML += `
-      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+      <div class="cognitive-chart-stats">
+        <div class="cognitive-stat-row">
           <span>PDFs Processed</span>
-          <span style="font-weight: 600;">${stats.pdfs?.total || 0}</span>
+          <span>${stats.pdfs?.total || 0}</span>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+        <div class="cognitive-stat-row">
           <span>FIFO Tracking</span>
-          <span style="font-weight: 600;">${stats.fifo?.totalCases > 0 ? stats.fifo.totalCases + ' cases' : stats.fifo?.invoicesReady > 0 ? stats.fifo.invoicesReady + ' ready' : 'Not enabled'}</span>
+          <span>${stats.fifo?.totalCases > 0 ? stats.fifo.totalCases + ' cases' : stats.fifo?.invoicesReady > 0 ? stats.fifo.invoicesReady + ' ready' : 'Not enabled'}</span>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+        <div class="cognitive-stat-row">
           <span>Inventory Items</span>
-          <span style="font-weight: 600;">${stats.inventory?.totalItems || 0}</span>
+          <span>${stats.inventory?.totalItems || 0}</span>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+        <div class="cognitive-stat-row">
           <span>Total Value</span>
-          <span style="font-weight: 600;">$${((stats.pdfs?.totalAmount || 0) / 1000).toFixed(1)}K</span>
+          <span>$${((stats.pdfs?.totalAmount || 0) / 1000).toFixed(1)}K</span>
         </div>
       </div>
     `;
@@ -3480,20 +3519,20 @@ async function loadActivityFeed() {
       badge: stats.pdfs?.coverage === 100 ? 'success' : 'info'
     });
 
-    let html = '<div style="max-height: 400px; overflow-y: auto; font-size: 0.875rem;">';
+    let html = '<div class="activity-feed-container">';
     activities.forEach(activity => {
       const timestamp = new Date(activity.timestamp);
       const ageText = formatTimeAgo(timestamp);
 
       html += `
-        <div style="display: flex; gap: 0.75rem; padding: 0.75rem; border-bottom: 1px solid var(--border);">
-          <div style="font-size: 1.5rem;">${activity.icon}</div>
-          <div style="flex: 1;">
-            <div style="font-weight: 500;">${activity.event}</div>
-            <div style="color: var(--text-light); font-size: 0.8125rem; margin-top: 0.125rem;">
+        <div class="activity-item">
+          <div class="activity-icon">${activity.icon}</div>
+          <div class="activity-content">
+            <div class="activity-event">${activity.event}</div>
+            <div class="activity-description">
               ${activity.description} • ${ageText}
             </div>
-            ${activity.badge ? `<div class="badge badge-${activity.badge}" style="margin-top: 0.25rem;">Active</div>` : ''}
+            ${activity.badge ? `<div class="badge badge-${activity.badge} activity-badge">Active</div>` : ''}
           </div>
         </div>
       `;
@@ -3521,7 +3560,7 @@ async function loadLearningInsights() {
     const data = await fetchAPI('/owner/ops/learning-insights?limit=20');
 
     if (!data.insights || data.insights.length === 0) {
-      insightsEl.innerHTML = '<div class="empty-state" style="padding: 2rem;"><div>No learning insights yet</div></div>';
+      insightsEl.innerHTML = '<div class="empty-state" class="u-p-8"><div>No learning insights yet</div></div>';
       return;
     }
 
@@ -3578,7 +3617,7 @@ function showError(context, message) {
   return `
     <div class="alert alert-danger">
       <strong>Error:</strong> ${message}
-      <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+      <div class="u-mt-2 u-text-base">
         Context: ${context} | <a href="#" onclick="location.reload()" style="color: inherit; text-decoration: underline;">Reload page</a>
       </div>
     </div>
@@ -3618,7 +3657,7 @@ async function loadUnassignedItems(page = 1) {
     const data = await fetchAPI(`/owner/locations/unassigned?${params}`);
 
     if (!data.items || data.items.length === 0) {
-      listEl.innerHTML = '<tr><td colspan="5" class="empty-state" style="padding: 2rem;">No unassigned items found</td></tr>';
+      listEl.innerHTML = '<tr><td colspan="5" class="empty-state" class="u-p-8">No unassigned items found</td></tr>';
       paginationEl.innerHTML = '';
       totalEl.textContent = '0';
       return;
@@ -3657,7 +3696,7 @@ async function loadUnassignedItems(page = 1) {
     if (page > 1) {
       html += `<button type="button" class="btn btn-sm btn-secondary" onclick="loadUnassignedItems(${page - 1})">« Prev</button>`;
     }
-    html += `<span style="margin: 0 1rem;">Page ${page} of ${totalPages}</span>`;
+    html += `<span class="mx-4">Page ${page} of ${totalPages}</span>`;
     if (page < totalPages) {
       html += `<button type="button" class="btn btn-sm btn-secondary" onclick="loadUnassignedItems(${page + 1})">Next »</button>`;
     }
@@ -3969,11 +4008,11 @@ async function openWorkspace(workspaceId) {
     // Show items if available
     if (workspace.items && workspace.items.length > 0) {
       html += `
-        <div class="card" style="margin-top: 1rem;">
+        <div class="card" class="u-mt-4">
           <div class="card-header">
             <h4>Items (${workspace.items.length})</h4>
           </div>
-          <div style="max-height: 400px; overflow-y: auto;">
+          <div class="modal-scrollable-content-400">
             <table class="table">
               <thead>
                 <tr>
@@ -4005,7 +4044,7 @@ async function openWorkspace(workspaceId) {
       `;
     } else {
       html += `
-        <div class="alert alert-info" style="margin-top: 1rem;">
+        <div class="alert alert-info" class="u-mt-4">
           No items in this workspace yet. Items can be added during the count process.
         </div>
       `;
@@ -4014,11 +4053,11 @@ async function openWorkspace(workspaceId) {
     // Show invoices if available
     if (workspace.invoices && workspace.invoices.length > 0) {
       html += `
-        <div class="card" style="margin-top: 1rem;">
+        <div class="card" class="u-mt-4">
           <div class="card-header">
             <h4>Attached Invoices (${workspace.invoices.length})</h4>
           </div>
-          <div style="max-height: 300px; overflow-y: auto;">
+          <div class="scrollable-300">
             <table class="table">
               <thead>
                 <tr>
@@ -4052,33 +4091,33 @@ async function openWorkspace(workspaceId) {
 
     // Add action sections for attaching counts, PDFs, and uploading files
     html += `
-      <div class="card" style="margin-top: 1rem;">
+      <div class="card" class="u-mt-4">
         <div class="card-header">
           <h4>📎 Attach Data to Workspace</h4>
         </div>
         <div class="card-body">
-          <div class="grid grid-3" style="gap: 1rem;">
+          <div class="grid grid-3" class="flex-gap-4">
 
             <!-- Attach Inventory Count -->
             <div>
-              <h5 style="margin-bottom: 0.5rem;">📊 Inventory Count</h5>
-              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachCountModal('${workspaceId}')" style="width: 100%;">
+              <h5 class="u-mb-2">📊 Inventory Count</h5>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachCountModal('${workspaceId}')" class="w-full">
                 Attach Existing Count
               </button>
             </div>
 
             <!-- Attach GFS PDFs -->
             <div>
-              <h5 style="margin-bottom: 0.5rem;">📄 GFS Orders</h5>
-              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachPDFsModal('${workspaceId}')" style="width: 100%;">
+              <h5 class="u-mb-2">📄 GFS Orders</h5>
+              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachPDFsModal('${workspaceId}')" class="w-full">
                 Attach PDFs
               </button>
             </div>
 
             <!-- Upload File -->
             <div>
-              <h5 style="margin-bottom: 0.5rem;">📤 Upload File</h5>
-              <button type="button" class="btn btn-success btn-sm" onclick="openUploadFileModal('${workspaceId}')" style="width: 100%;">
+              <h5 class="u-mb-2">📤 Upload File</h5>
+              <button type="button" class="btn btn-success btn-sm" onclick="openUploadFileModal('${workspaceId}')" class="w-full">
                 Upload PDF/Excel
               </button>
             </div>
@@ -4156,11 +4195,11 @@ async function openAttachCountModal(workspaceId) {
         <div class="card-header">
           <h4>Select Inventory Count</h4>
         </div>
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div class="modal-scrollable-content-400">
           <table class="table">
             <thead>
               <tr>
-                <th style="width: 40px;"></th>
+                <th class="w-40"></th>
                 <th>Count ID</th>
                 <th>Date</th>
                 <th>Location</th>
@@ -4190,7 +4229,7 @@ async function openAttachCountModal(workspaceId) {
             </tbody>
           </table>
         </div>
-        <div style="margin-top: 1rem; text-align: right;">
+        <div class="mt-right">
           <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
           <button type="button" class="btn btn-primary" onclick="attachCountToWorkspace('${workspaceId}')">Attach Count</button>
         </div>
@@ -4249,11 +4288,11 @@ async function openAttachPDFsModal(workspaceId) {
         <div class="card-header">
           <h4>Select PDFs to Attach</h4>
         </div>
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div class="modal-scrollable-content-400">
           <table class="table">
             <thead>
               <tr>
-                <th style="width: 40px;"><input type="checkbox" id="selectAllPDFs" onchange="toggleSelectAllPDFs()" /></th>
+                <th class="w-40"><input type="checkbox" id="selectAllPDFs" onchange="toggleSelectAllPDFs()" /></th>
                 <th>Filename</th>
                 <th>Date</th>
                 <th>Vendor</th>
@@ -4281,7 +4320,7 @@ async function openAttachPDFsModal(workspaceId) {
             </tbody>
           </table>
         </div>
-        <div style="margin-top: 1rem; text-align: right;">
+        <div class="mt-right">
           <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
           <button type="button" class="btn btn-primary" onclick="attachPDFsToWorkspace('${workspaceId}')">Attach Selected</button>
         </div>
@@ -4345,7 +4384,7 @@ function openUploadFileModal(workspaceId) {
           <div class="form-group">
             <label class="form-label">Select File (PDF or Excel)</label>
             <input type="file" class="input" id="workspaceFile" accept=".pdf,.xlsx,.xls" required />
-            <small style="color: var(--text-light); font-size: 0.75rem;">Accepted formats: PDF, XLSX, XLS</small>
+            <small class="description-text-small">Accepted formats: PDF, XLSX, XLS</small>
           </div>
           <div class="form-group">
             <label class="form-label">Notes (optional)</label>
@@ -4353,7 +4392,7 @@ function openUploadFileModal(workspaceId) {
           </div>
         </form>
       </div>
-      <div style="margin-top: 1rem; text-align: right; padding: 0 1rem 1rem;">
+      <div class="footer-right-padded">
         <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
         <button type="button" class="btn btn-success" onclick="uploadFileToWorkspace('${workspaceId}')">Upload</button>
       </div>
