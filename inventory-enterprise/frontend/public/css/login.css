@@ -192,6 +192,48 @@ body {
   display: block;
 }
 
+/* System Owner Information */
+.system-owner-info {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 25px;
+  text-align: center;
+}
+
+.system-owner-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #667eea;
+  margin-bottom: 8px;
+}
+
+.system-owner-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 6px;
+}
+
+.system-owner-contact {
+  font-size: 13px;
+}
+
+.system-owner-contact a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.system-owner-contact a:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
 .footer {
   text-align: center;
   margin-top: 35px;
@@ -227,8 +269,21 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* Utility classes for CSP-compliant show/hide */
+.u-hidden {
+  display: none !important;
+}
+
+.u-block {
+  display: block !important;
+}
+
 #dashboardContainer {
   display: none;
+}
+
+#loginContainer {
+  display: block;
 }
 
 .error-message-hint {

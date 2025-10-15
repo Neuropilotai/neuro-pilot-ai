@@ -5,250 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inventory Management System - Login</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .login-container {
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      width: 100%;
-      max-width: 450px;
-      padding: 50px 40px;
-    }
-
-    .logo {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-
-    .logo-icon {
-      font-size: 64px;
-      margin-bottom: 15px;
-    }
-
-    .logo-text {
-      font-size: 28px;
-      font-weight: 700;
-      color: #1a202c;
-      margin-bottom: 8px;
-    }
-
-    .logo-subtitle {
-      font-size: 14px;
-      color: #718096;
-    }
-
-    .form-group {
-      margin-bottom: 24px;
-    }
-
-    .form-group label {
-      display: block;
-      color: #4a5568;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 14px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 15px;
-      transition: all 0.3s;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-    }
-
-    .login-btn {
-      width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-      margin-top: 10px;
-    }
-
-    .login-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-    }
-
-    .login-btn:active {
-      transform: translateY(0);
-    }
-
-    .login-btn:disabled {
-      background: #cbd5e0;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .error-message {
-      color: #e53e3e;
-      background: #fff5f5;
-      padding: 12px 16px;
-      border-radius: 10px;
-      margin-top: 15px;
-      font-size: 14px;
-      display: none;
-      border-left: 4px solid #e53e3e;
-    }
-
-    .error-message.show {
-      display: block;
-    }
-
-    .divider {
-      text-align: center;
-      margin: 30px 0 20px;
-      position: relative;
-    }
-
-    .divider:before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 50%;
-      width: 100%;
-      height: 1px;
-      background: #e2e8f0;
-    }
-
-    .divider span {
-      background: white;
-      padding: 0 15px;
-      position: relative;
-      color: #a0aec0;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .owner-link {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 14px;
-      background: #f7fafc;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      color: #667eea;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 600;
-      transition: all 0.3s;
-      cursor: pointer;
-      border: none;
-      width: 100%;
-    }
-
-    .owner-link:hover {
-      background: #edf2f7;
-      border-color: #667eea;
-      transform: translateY(-1px);
-    }
-
-    .owner-link:disabled {
-      background: #e2e8f0;
-      color: #a0aec0;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .success-message {
-      color: #38a169;
-      background: #f0fff4;
-      padding: 12px 16px;
-      border-radius: 10px;
-      margin-top: 15px;
-      font-size: 14px;
-      display: none;
-      border-left: 4px solid #38a169;
-    }
-
-    .success-message.show {
-      display: block;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 35px;
-      padding-top: 25px;
-      border-top: 1px solid #e2e8f0;
-      font-size: 12px;
-      color: #a0aec0;
-    }
-
-    .footer a {
-      color: #667eea;
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    .footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* Loading spinner */
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      margin-right: 8px;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    #dashboardContainer {
-      display: none;
-    }
-
-    @media (max-width: 480px) {
-      .login-container {
-        padding: 40px 30px;
-      }
-
-      .logo-icon {
-        font-size: 48px;
-      }
-
-      .logo-text {
-        font-size: 24px;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="/public/css/login.css">
 </head>
 <body>
   <div id="loginContainer">
@@ -299,13 +56,22 @@
       </div>
 
       <!-- Owner Device Quick Login -->
-      <button type="button" class="owner-link" id="ownerQuickLoginBtn" onclick="handleOwnerDeviceLogin()">
+      <button type="button" class="owner-link" id="ownerQuickLoginBtn">
         <span>🔐</span>
         <span>Owner Quick Login (Device)</span>
         <span>→</span>
       </button>
 
       <div id="ownerLoginMessage" class="success-message"></div>
+
+      <!-- System Owner Information -->
+      <div class="system-owner-info">
+        <div class="system-owner-header">System Owner</div>
+        <div class="system-owner-name">David Mikulis</div>
+        <div class="system-owner-contact">
+          <a href="mailto:Neuro.Pilot.AI@gmail.com">Neuro.Pilot.AI@gmail.com</a>
+        </div>
+      </div>
 
       <!-- Footer -->
       <div class="footer">
@@ -330,80 +96,6 @@
   </div>
 
   <script src="app.js"></script>
-  <script>
-    // Update copyright year dynamically
-    document.addEventListener('DOMContentLoaded', function() {
-      const currentYear = new Date().getFullYear();
-      const footerElement = document.querySelector('.footer');
-      if (footerElement) {
-        footerElement.innerHTML = footerElement.innerHTML.replace(/©\s*\d{4}/, `© ${currentYear}`);
-      }
-    });
-
-    // Owner Device Quick Login Handler
-    async function handleOwnerDeviceLogin() {
-      const btn = document.getElementById('ownerQuickLoginBtn');
-      const messageDiv = document.getElementById('ownerLoginMessage');
-      const errorDiv = document.getElementById('loginError');
-
-      // Reset messages
-      errorDiv.classList.remove('show');
-      messageDiv.classList.remove('show');
-
-      // Disable button and show loading state
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span><span>Authenticating device...</span>';
-
-      try {
-        const response = await fetch('http://localhost:8083/api/auth/device-login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          // Store auth token
-          localStorage.setItem('authToken', data.accessToken);
-
-          // Show success message
-          messageDiv.textContent = '✅ Device authenticated! Redirecting to Owner Console...';
-          messageDiv.classList.add('show');
-
-          // Redirect to owner console after short delay
-          setTimeout(() => {
-            window.location.href = '/owner-super-console.html';
-          }, 800);
-
-        } else {
-          // Show error message
-          errorDiv.textContent = data.error || 'Device authentication failed';
-          errorDiv.innerHTML = `
-            <strong>Device Not Authorized</strong><br>
-            ${data.error || 'This device is not registered for owner access.'}<br>
-            <small style="margin-top: 8px; display: block;">
-              ${data.hint || 'Please login with email/password from the authorized device first to register it.'}
-            </small>
-          `;
-          errorDiv.classList.add('show');
-
-          // Re-enable button
-          btn.disabled = false;
-          btn.innerHTML = '<span>🔐</span><span>Owner Quick Login (Device)</span><span>→</span>';
-        }
-
-      } catch (error) {
-        console.error('Device login error:', error);
-        errorDiv.textContent = 'Network error: ' + error.message;
-        errorDiv.classList.add('show');
-
-        // Re-enable button
-        btn.disabled = false;
-        btn.innerHTML = '<span>🔐</span><span>Owner Quick Login (Device)</span><span>→</span>';
-      }
-    }
-  </script>
+  <script src="/public/js/login.js"></script>
 </body>
 </html>
