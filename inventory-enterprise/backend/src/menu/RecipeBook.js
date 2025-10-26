@@ -23,109 +23,99 @@ const policy = {
   cycleStartDate: new Date('2025-01-01') // Anchor date for calculations
 };
 
-// Seed recipes (plausible item codes)
+// Seed recipes - Load from JSON file if exists, or use defaults
 function seedRecipes() {
-  const seedData = [
-    {
-      id: 'RCP-CHICK-BIRYANI',
-      name: 'Chicken Biryani',
-      cuisine: 'South Asian',
-      allergens: ['dairy'],
-      basePortions: [
-        { itemCode: 'RICE-BASM-20KG', description: 'Basmati Rice 20kg', unit: 'g', basePerPerson: 160, packSize: { qty: 20000, unit: 'g' } },
-        { itemCode: 'CHICK-BRST-5KG', description: 'Chicken Breast', unit: 'g', basePerPerson: 180, packSize: { qty: 5000, unit: 'g' } },
-        { itemCode: 'ONION-YELLOW-10KG', description: 'Yellow Onion', unit: 'g', basePerPerson: 25, packSize: { qty: 10000, unit: 'g' } },
-        { itemCode: 'SPICE-BIRYANI-1KG', description: 'Biryani Spice Mix', unit: 'g', basePerPerson: 3, packSize: { qty: 1000, unit: 'g' } },
-        { itemCode: 'OIL-VEG-20L', description: 'Vegetable Oil', unit: 'ml', basePerPerson: 6, packSize: { qty: 20000, unit: 'ml' } }
-      ],
-      notes: 'Hold back 10% rice for service wave 2; finish with fried onions + yogurt raita.'
-    },
-    {
-      id: 'RCP-PANEER-BUTTER',
-      name: 'Paneer Butter Masala',
-      cuisine: 'South Asian',
-      allergens: ['dairy'],
-      basePortions: [
-        { itemCode: 'PANEER-5KG', description: 'Paneer Cubes', unit: 'g', basePerPerson: 120, packSize: { qty: 5000, unit: 'g' } },
-        { itemCode: 'TOMATO-PASTE-5KG', description: 'Tomato Paste', unit: 'g', basePerPerson: 90, packSize: { qty: 5000, unit: 'g' } },
-        { itemCode: 'CREAM-35-1L', description: 'Cream 35%', unit: 'ml', basePerPerson: 20, packSize: { qty: 1000, unit: 'ml' } },
-        { itemCode: 'BUTTER-UNSALTED-1KG', description: 'Unsalted Butter', unit: 'g', basePerPerson: 10, packSize: { qty: 1000, unit: 'g' } },
-        { itemCode: 'SPICE-GARAM-500G', description: 'Garam Masala', unit: 'g', basePerPerson: 2, packSize: { qty: 500, unit: 'g' } }
-      ],
-      notes: 'Vegetarian option; garnish with fresh coriander.'
-    },
-    {
-      id: 'RCP-NAAN',
-      name: 'Naan Bread',
-      cuisine: 'South Asian',
-      allergens: ['gluten', 'dairy'],
-      basePortions: [
-        { itemCode: 'NAAN-12PK', description: 'Naan 12-pack', unit: 'each', basePerPerson: 1.2, packSize: { qty: 12, unit: 'each' } }
-      ],
-      notes: 'Warm before serving.'
-    },
-    {
-      id: 'RCP-SALAD-MIX',
-      name: 'Mixed Garden Salad',
-      cuisine: 'Universal',
-      allergens: [],
-      basePortions: [
-        { itemCode: 'GREENS-MIX-12KG', description: 'Mixed Greens', unit: 'g', basePerPerson: 120, packSize: { qty: 12000, unit: 'g' } },
-        { itemCode: 'CUCUMBER-5KG', description: 'Cucumber', unit: 'g', basePerPerson: 40, packSize: { qty: 5000, unit: 'g' } },
-        { itemCode: 'TOMATO-CHERRY-2KG', description: 'Cherry Tomatoes', unit: 'g', basePerPerson: 40, packSize: { qty: 2000, unit: 'g' } },
-        { itemCode: 'DRESSING-RANCH-4L', description: 'Ranch Dressing', unit: 'ml', basePerPerson: 20, packSize: { qty: 4000, unit: 'ml' } }
-      ],
-      notes: 'Keep chilled until service.'
-    },
-    {
-      id: 'RCP-RAITA',
-      name: 'Cucumber Raita',
-      cuisine: 'South Asian',
-      allergens: ['dairy'],
-      basePortions: [
-        { itemCode: 'YOGURT-PLAIN-4L', description: 'Plain Yogurt', unit: 'ml', basePerPerson: 80, packSize: { qty: 4000, unit: 'ml' } },
-        { itemCode: 'CUCUMBER-5KG', description: 'Cucumber', unit: 'g', basePerPerson: 25, packSize: { qty: 5000, unit: 'g' } },
-        { itemCode: 'CUMIN-GROUND-500G', description: 'Ground Cumin', unit: 'g', basePerPerson: 1, packSize: { qty: 500, unit: 'g' } },
-        { itemCode: 'SALT-KOSHER-5KG', description: 'Kosher Salt', unit: 'g', basePerPerson: 1, packSize: { qty: 5000, unit: 'g' } }
-      ],
-      notes: 'Mix 30 min before service; keep refrigerated.'
-    },
-    {
-      id: 'RCP-DHAL-TADKA',
-      name: 'Dhal Tadka',
-      cuisine: 'South Asian',
-      allergens: [],
-      basePortions: [
-        { itemCode: 'LENTILS-RED-20KG', description: 'Red Lentils', unit: 'g', basePerPerson: 120, packSize: { qty: 20000, unit: 'g' } },
-        { itemCode: 'ONION-YELLOW-10KG', description: 'Yellow Onion', unit: 'g', basePerPerson: 20, packSize: { qty: 10000, unit: 'g' } },
-        { itemCode: 'TOMATO-5KG', description: 'Tomatoes', unit: 'g', basePerPerson: 30, packSize: { qty: 5000, unit: 'g' } },
-        { itemCode: 'GHEE-2KG', description: 'Ghee', unit: 'g', basePerPerson: 6, packSize: { qty: 2000, unit: 'g' } },
-        { itemCode: 'SPICE-TADKA-1KG', description: 'Tadka Spice Mix', unit: 'g', basePerPerson: 3, packSize: { qty: 1000, unit: 'g' } }
-      ],
-      notes: 'Lentil curry; vegan if ghee replaced with oil.'
-    },
-    {
-      id: 'RCP-BAKED-FISH',
-      name: 'Herb-Crusted Baked Fish',
-      cuisine: 'Mediterranean',
-      allergens: ['fish'],
-      basePortions: [
-        { itemCode: 'FISH-COD-5KG', description: 'Cod Fillet', unit: 'g', basePerPerson: 190, packSize: { qty: 5000, unit: 'g' } },
-        { itemCode: 'LEMON-JUICE-1L', description: 'Lemon Juice', unit: 'ml', basePerPerson: 10, packSize: { qty: 1000, unit: 'ml' } },
-        { itemCode: 'HERB-ITALIAN-500G', description: 'Italian Herb Mix', unit: 'g', basePerPerson: 1, packSize: { qty: 500, unit: 'g' } },
-        { itemCode: 'OIL-OLIVE-5L', description: 'Olive Oil', unit: 'ml', basePerPerson: 6, packSize: { qty: 5000, unit: 'ml' } }
-      ],
-      notes: 'Bake at 375°F for 18-20 min.'
+  const fs = require('fs');
+  const path = require('path');
+
+  let seedData = [];
+  const jsonPath = path.join(__dirname, '../../data/menu_seed.json');
+
+  try {
+    if (fs.existsSync(jsonPath)) {
+      const fileData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      seedData = fileData.recipes || [];
+      logger.info(`Loaded ${seedData.length} recipes from menu_seed.json`);
     }
-  ];
+  } catch (error) {
+    logger.warn('Could not load menu_seed.json, using default recipes:', error.message);
+  }
+
+  // If no JSON or empty, generate default recipes for all 4 weeks
+  if (seedData.length === 0) {
+    seedData = generateDefaultRecipes();
+  }
 
   seedData.forEach(recipe => {
-    recipe.createdAt = new Date().toISOString();
-    recipe.updatedAt = new Date().toISOString();
+    if (!recipe.createdAt) recipe.createdAt = new Date().toISOString();
+    if (!recipe.updatedAt) recipe.updatedAt = new Date().toISOString();
     recipes.set(recipe.id, recipe);
   });
 
-  logger.info(`Seeded ${recipes.size} recipes`);
+  logger.info(`Seeded ${recipes.size} total recipes for menu system`);
+}
+
+// Generate 84 default recipes (4 weeks × 7 days × 3 meals)
+function generateDefaultRecipes() {
+  const meals = ['Breakfast', 'Lunch', 'Dinner'];
+  const days = ['Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday'];
+  const recipes = [];
+
+  const breakfastNames = ['Scrambled Eggs & Toast', 'Pancakes & Syrup', 'Oatmeal Bar', 'French Toast',
+    'Bagels & Cream Cheese', 'Breakfast Burrito', 'Cereal Bar'];
+  const lunchNames = ['Chicken Biryani', 'Pasta Bolognese', 'Grilled Cheese & Soup', 'Stir Fry',
+    'Fish & Chips', 'Tacos', 'Pizza'];
+  const dinnerNames = ['Beef Stew', 'Baked Salmon', 'Roast Chicken', 'Meatloaf', 'Pork Chops',
+    'Lamb Curry', 'Beef Stroganoff'];
+
+  let recipeId = 0;
+  for (let week = 1; week <= 4; week++) {
+    for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+      for (let mealIdx = 0; mealIdx < 3; mealIdx++) {
+        const meal = meals[mealIdx];
+        const day = days[dayIdx];
+        let mealName;
+
+        if (meal === 'Breakfast') {
+          mealName = breakfastNames[recipeId % breakfastNames.length];
+        } else if (meal === 'Lunch') {
+          mealName = lunchNames[recipeId % lunchNames.length];
+        } else {
+          mealName = dinnerNames[recipeId % dinnerNames.length];
+        }
+
+        recipes.push({
+          id: `RCP-W${week}-${day.substring(0,3).toUpperCase()}-${meal.substring(0,2).toUpperCase()}-${recipeId}`,
+          name: `${mealName} (Week ${week})`,
+          meal: meal,
+          week: week,
+          day: day,
+          cuisine: 'International',
+          allergens: [],
+          basePortions: [
+            {
+              itemCode: `MAIN-${recipeId}`,
+              description: `Main ingredient for ${mealName}`,
+              unit: 'g',
+              basePerPerson: 180,
+              packSize: { qty: 5000, unit: 'g' }
+            },
+            {
+              itemCode: `SIDE-${recipeId}`,
+              description: `Side for ${mealName}`,
+              unit: 'g',
+              basePerPerson: 120,
+              packSize: { qty: 5000, unit: 'g' }
+            }
+          ],
+          notes: `Prepared for Week ${week}, ${day} ${meal}`
+        });
+        recipeId++;
+      }
+    }
+  }
+
+  return recipes;
 }
 
 // Initialize seed data
@@ -133,28 +123,52 @@ seedRecipes();
 
 /**
  * Auto-populate day lineups for 4-week cycle
+ * Assigns 3 recipes per day (breakfast, lunch, dinner) based on metadata
  */
 function autoPopulateDayLineups() {
   const Planner = require('./Planner');
   const weeks = Planner.buildWeeksStructure();
   const recipeArray = Array.from(recipes.values());
 
-  // Assign recipes to days in rotation
-  let recipeIdx = 0;
-  for (const week of weeks) {
-    for (const day of week.days) {
-      // Assign 1-2 recipes per day (rotating through available recipes)
-      const dayRecipes = [
-        recipeArray[recipeIdx % recipeArray.length]?.id,
-        recipeArray[(recipeIdx + 1) % recipeArray.length]?.id
-      ].filter(Boolean);
+  let assignedCount = 0;
 
-      setDayRecipes(day.isoDate, dayRecipes);
-      recipeIdx += 2;
+  for (let weekIdx = 0; weekIdx < weeks.length; weekIdx++) {
+    const week = weeks[weekIdx];
+    const weekNumber = weekIdx + 1;
+
+    for (let dayIdx = 0; dayIdx < week.days.length; dayIdx++) {
+      const day = week.days[dayIdx];
+      const dayName = day.dayName;
+
+      // Find recipes matching this week and day
+      const dayRecipes = recipeArray.filter(r =>
+        r.week === weekNumber && r.day === dayName
+      );
+
+      // If we have week/day specific recipes, use them
+      if (dayRecipes.length > 0) {
+        // Sort by meal order: Breakfast, Lunch, Dinner
+        const mealOrder = { 'Breakfast': 0, 'Lunch': 1, 'Dinner': 2 };
+        dayRecipes.sort((a, b) => (mealOrder[a.meal] || 99) - (mealOrder[b.meal] || 99));
+
+        setDayRecipes(day.isoDate, dayRecipes.map(r => r.id));
+        assignedCount += dayRecipes.length;
+      } else {
+        // Fallback: assign any 3 recipes for variety
+        const startIdx = (weekIdx * 7 + dayIdx) * 3;
+        const fallbackRecipes = [
+          recipeArray[startIdx % recipeArray.length]?.id,
+          recipeArray[(startIdx + 1) % recipeArray.length]?.id,
+          recipeArray[(startIdx + 2) % recipeArray.length]?.id
+        ].filter(Boolean);
+
+        setDayRecipes(day.isoDate, fallbackRecipes);
+        assignedCount += fallbackRecipes.length;
+      }
     }
   }
 
-  logger.info(`Auto-populated ${weeks.length * 7} days with recipes`);
+  logger.info(`Auto-populated ${weeks.length * 7} days with ${assignedCount} recipe assignments`);
 }
 
 // Auto-populate on startup

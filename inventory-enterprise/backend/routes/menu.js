@@ -44,6 +44,22 @@ function checkRateLimit(ip) {
 }
 
 /**
+ * Transform recipe to frontend format
+ */
+function transformRecipe(recipe) {
+  if (!recipe) return null;
+
+  return {
+    id: recipe.id,
+    name: recipe.name,
+    mealType: recipe.meal, // Transform 'meal' to 'mealType'
+    description: recipe.notes || '',
+    servings: recipe.basePortions?.length || 0,
+    items: recipe.calculatedLines || []
+  };
+}
+
+/**
  * GET /api/menu/weeks
  * Get 4-week menu structure with dates
  */
@@ -54,7 +70,8 @@ router.get('/weeks', (req, res) => {
     // Populate recipes for each day
     weeks.forEach(week => {
       week.days.forEach(day => {
-        day.recipes = RecipeBook.getDayRecipes(day.isoDate);
+        const recipes = RecipeBook.getDayRecipes(day.isoDate);
+        day.recipes = recipes.map(transformRecipe);
       });
     });
 
@@ -96,9 +113,16 @@ router.get('/week/:n', (req, res) => {
       headcount,
       days: days.map(isoDate => {
         const recipes = RecipeBook.getDayRecipes(isoDate);
-        const scaledRecipes = recipes.map(recipe =>
-          RecipeBook.scaleRecipeForHeadcount(recipe.id)
-        );
+        const scaledRecipes = recipes.map(recipe => {
+          const scaled = RecipeBook.scaleRecipeForHeadcount(recipe.id);
+          return transformRecipe(scaled);
+        });
+
+        // Debug logging
+        if (recipes.length > 0) {
+          const mealTypes = recipes.map(r => r.meal).join(', ');
+          logger.info(`Day ${isoDate}: ${recipes.length} recipes - Meals: ${mealTypes}`);
+        }
 
         return {
           isoDate,
@@ -190,9 +214,27 @@ router.get('/recipe/:id', (req, res) => {
       });
     }
 
+    // Transform calculatedLines to items with proper field names
+    const items = (scaled.calculatedLines || []).map(line => ({
+      item_code: line.itemCode,
+      item_name: line.description,
+      qty_scaled: line.issueQty,
+      unit: line.issueUnit,
+      pack_size: line.packSize?.qty || 1
+    }));
+
+    const transformed = {
+      id: scaled.id,
+      name: scaled.name,
+      mealType: scaled.meal, // Transform 'meal' to 'mealType'
+      description: scaled.notes || '',
+      servings: scaled.headcount || RecipeBook.getHeadcount(),
+      items
+    };
+
     res.json({
       success: true,
-      recipe: scaled
+      recipe: transformed
     });
   } catch (error) {
     logger.error(`GET /api/menu/recipe/${req.params.id} error:`, error);
@@ -359,12 +401,21 @@ router.get('/shopping-list', (req, res) => {
     const shoppingList = ShoppingList.generateWeeklyShoppingList(weekNum);
     const csv = ShoppingList.exportAsCSV(shoppingList, weekNum);
 
+    // Transform to frontend format
+    const items = shoppingList.map(item => ({
+      item_code: item.itemCode,
+      item_name: item.description,
+      totalQty: item.totalIssueQty,
+      unit: item.unit,
+      pack_size: item.packSize?.qty || 1
+    }));
+
     res.json({
       success: true,
       week: weekNum,
       headcount: RecipeBook.getHeadcount(),
-      items: shoppingList,
-      total: shoppingList.length,
+      items,
+      total: items.length,
       csv
     });
   } catch (error) {
@@ -380,6 +431,14 @@ router.get('/shopping-list', (req, res) => {
 router.get('/policy', (req, res) => {
   try {
     const policy = RecipeBook.getPolicy();
+
+    // Debug: Log meal type distribution
+    const allRecipes = RecipeBook.getAllRecipes();
+    const mealCounts = allRecipes.reduce((acc, r) => {
+      acc[r.meal] = (acc[r.meal] || 0) + 1;
+      return acc;
+    }, {});
+    logger.info(`Recipe meal distribution: ${JSON.stringify(mealCounts)}`);
 
     res.json({
       success: true,

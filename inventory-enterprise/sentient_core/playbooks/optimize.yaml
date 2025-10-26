@@ -1,0 +1,146 @@
+# Optimize Playbook
+# Auto-remediation for cost overruns and resource inefficiency
+
+name: "Resource Optimization"
+description: "Optimize resource allocation and reduce costs"
+action: "optimize_resources"
+severity: ["low", "medium"]
+incident_types:
+  - cost_overrun
+  - resource_waste
+  - over_provisioning
+
+# Playbook steps
+steps:
+  - name: "Analyze current resource utilization"
+    type: "command"
+    params:
+      command: |
+        # Query Prometheus for average utilization over last 24h
+        python3 sentient_core/scripts/analyze_utilization.py
+      timeout: 60
+
+  - name: "Identify optimization opportunities"
+    type: "command"
+    params:
+      command: |
+        # Check for:
+        # - Underutilized instances (CPU < 40% for 24h)
+        # - Oversized database (connections < 50% of limit)
+        # - Unused Cloudflare features
+        python3 sentient_core/scripts/find_optimization_opportunities.py
+      timeout: 60
+
+  - name: "Scale down if consistently underutilized"
+    type: "api"
+    params:
+      method: "POST"
+      url: "https://backboard.railway.app/graphql"
+      headers:
+        Content-Type: "application/json"
+      body:
+        query: |
+          mutation {
+            serviceInstanceUpdate(
+              input: {
+                serviceId: "${RAILWAY_SERVICE_ID}"
+                replicas: ${optimized_instances}
+              }
+            ) {
+              id
+            }
+          }
+    conditions:
+      avg_cpu_24h: "<40"
+      current_instances: ">1"
+
+  - name: "Optimize database connections"
+    type: "command"
+    params:
+      command: |
+        # Update Neon database settings
+        curl -X PATCH "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${NEON_BRANCH_ID}" \
+          -H "Authorization: Bearer ${NEON_API_KEY}" \
+          -H "Content-Type: application/json" \
+          -d '{"settings": {"max_connections": ${optimized_connections}}}'
+      timeout: 30
+
+  - name: "Disable unused Cloudflare features"
+    type: "command"
+    params:
+      command: |
+        # Disable features with no recent usage
+        python3 sentient_core/scripts/optimize_cloudflare.py
+      timeout: 30
+
+  - name: "Update cost thresholds"
+    type: "command"
+    params:
+      command: |
+        # Update terraform vars with new cost targets
+        sed -i 's/monthly_budget_usd = .*/monthly_budget_usd = 35/' infrastructure/terraform/terraform.tfvars
+      timeout: 10
+
+  - name: "Apply Terraform changes"
+    type: "terraform"
+    params:
+      directory: "infrastructure/terraform"
+      action: "apply"
+
+  - name: "Wait for optimization to take effect"
+    type: "wait"
+    params:
+      seconds: 60
+
+# Verification checks
+verification:
+  metrics_check:
+    current_cost:
+      query: "sum(cost_usd_daily) * 30"
+      threshold: 35
+      condition: "less_than"
+    cpu_usage:
+      query: "avg(cpu_usage_percent)"
+      threshold: 60
+      condition: "greater_than"  # Ensure not too low (waste)
+    p95_latency:
+      query: "histogram_quantile(0.95, http_request_duration_ms)"
+      threshold: 400
+      condition: "less_than"  # Ensure performance not degraded
+
+  health_check:
+    url: "${BACKEND_URL}/health"
+    expected_status: 200
+
+# Rollback procedure
+rollback:
+  - name: "Restore previous resource allocation"
+    type: "terraform"
+    params:
+      directory: "infrastructure/terraform"
+      action: "apply"
+      state_file: "rollback_state.tfstate"
+
+# Expected outcomes
+expected_outcomes:
+  - "Monthly cost reduced to <$35"
+  - "CPU utilization 50-75% (optimal range)"
+  - "No performance degradation"
+  - "Maintained 99.95% SLA"
+
+# Cost impact
+cost_impact:
+  estimated_savings_monthly: 10.00  # USD
+  target_monthly_cost: 35.00  # USD
+
+# Estimated execution time
+estimated_execution_time_seconds: 180
+
+# Safety guardrails
+safety:
+  min_instances: 1
+  min_database_connections: 20
+  max_cpu_target: 80  # Don't optimize to point of overload
+  verification_wait_seconds: 60
+  preserve_sla: true
+  sla_target: 99.95

@@ -165,6 +165,56 @@ if (typeof window !== 'undefined') {
   };
 }
 
+/**
+ * Automatically refresh token if expired or about to expire
+ * @param {string} baseUrl - API base URL
+ * @returns {Promise<string>} Valid access token
+ * @throws {Error} If refresh fails or no refresh token available
+ */
+export async function refreshIfNeeded(baseUrl) {
+  const token = getToken();
+
+  // If token is valid and not expired, return it
+  if (token && !isTokenExpired()) {
+    return token;
+  }
+
+  // Get refresh token
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    logout();
+    throw new Error('no_refresh_token');
+  }
+
+  try {
+    // Request new tokens
+    const response = await fetch(`${baseUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      logout();
+      throw new Error('refresh_failed');
+    }
+
+    const data = await response.json();
+
+    // Update tokens
+    setToken(data.token);
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
+
+    return data.token;
+  } catch (error) {
+    logout();
+    throw error;
+  }
+}
+
 export default {
   setToken,
   getToken,
@@ -174,5 +224,6 @@ export default {
   getTokenPayload,
   isTokenExpired,
   logout,
-  initAuth
+  initAuth,
+  refreshIfNeeded
 };

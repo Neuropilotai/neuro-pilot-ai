@@ -5,14 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Owner Super Console | NeuroInnovate Inventory v3.2.0</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/public/css/owner-super.css?v=15.5.4">
+  <link rel="stylesheet" href="/public/css/owner-super.css?v=15.7.1">
 </head>
 <body>
   <header>
     <div class="logo">
-      🧠 NeuroPilot v15.5.4 • The Living Inventory Intelligence Console
+      🧠 NeuroPilot v15.7.0 • The Living Inventory Intelligence Console
       <span id="liveBadge" class="badge badge-live">
         LIVE 🟢
+      </span>
+      <span id="healthBadge" class="badge badge-health" onclick="checkHealth()" title="Click to refresh health status">
+        <span id="healthIcon">⏳</span> <span id="healthText">Checking...</span>
       </span>
       <span class="badge badge-version">
         SUPER • data:/api/owner/dashboard
@@ -24,6 +27,7 @@
     <div class="user-info">
       <span id="currentUser"></span>
       <span class="token-ttl" id="tokenTTL"></span>
+      <span id="authStatus"></span>
       <button type="button" class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
     </div>
   </header>
@@ -42,6 +46,9 @@
       <div class="tab" onclick="switchTab('forecast')">📈 Forecast</div>
       <div class="tab" onclick="switchTab('menu')">🍽️ Menu</div>
       <div class="tab" onclick="switchTab('financials')">💰 Financials</div>
+      <div class="tab" onclick="switchTab('item-bank')">🏦 Item Bank</div>
+      <div class="tab" onclick="switchTab('governance')">⚛️ Governance</div>
+      <div class="tab" onclick="switchTab('intelligence')">🔮 Intelligence</div>
       <div class="tab" onclick="switchTab('reports')">📋 Reports</div>
       <div class="tab" onclick="switchTab('settings')">⚙️ Settings</div>
     </div>
@@ -665,6 +672,9 @@
           <button type="button" class="btn btn-sm menu-week-btn" data-week="3">Week 3</button>
           <button type="button" class="btn btn-sm menu-week-btn" data-week="4">Week 4</button>
           <span class="menu-current-week-badge" id="menuCurrentWeekBadge"></span>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="setCurrentWeekBtn" style="margin-left: 10px;">
+            📌 Set as Current Week
+          </button>
         </div>
 
         <!-- Week Info Banner -->
@@ -924,6 +934,289 @@
       </div>
     </div>
 
+    <!-- Governance Tab (v15.8.0) -->
+    <div id="governance" class="tab-panel">
+      <!-- Governance Score Cards -->
+      <div class="grid grid-5">
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceScore">--</div>
+          <div class="stat-label">Governance Score</div>
+          <span class="badge" id="governanceStatusBadge">--</span>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceFinance">--</div>
+          <div class="stat-label">💰 Finance</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceHealth">--</div>
+          <div class="stat-label">🏥 Health</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceAI">--</div>
+          <div class="stat-label">🧠 AI</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceMenu">--</div>
+          <div class="stat-label">📊 Menu</div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">⚛️ Quantum Governance Controls</h3>
+          <div class="flex-gap-1">
+            <button type="button" class="btn btn-primary" id="governanceRefreshBtn">↻ Refresh</button>
+            <button type="button" class="btn btn-warning" id="governanceRecomputeBtn">🔄 Recompute</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- v15.9.0: Governance Trends & Forecasts -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📈 Governance Trends & Forecasts (v15.9.0)</h3>
+          <div class="flex-gap-1">
+            <button type="button" class="btn btn-primary" id="governanceTrendsRefreshBtn">↻ Refresh Trends</button>
+            <button type="button" class="btn btn-success" id="governanceRecomputeDailyBtn" data-rbac-disable="canEditGovernance">📊 Record Daily Scores</button>
+            <button type="button" class="btn btn-warning" id="governanceRecomputeForecastBtn" data-rbac-disable="canEditGovernance">🔮 Recompute Forecasts</button>
+          </div>
+        </div>
+
+        <!-- Trend Controls -->
+        <div class="governance-trends-controls">
+          <div class="flex-gap-1">
+            <div class="form-group">
+              <label class="form-label">Period</label>
+              <select class="select" id="governanceTrendsPeriod" aria-label="Trends period">
+                <option value="7">7 days</option>
+                <option value="14">14 days</option>
+                <option value="30" selected>30 days</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pillar</label>
+              <select class="select" id="governanceTrendsPillar" aria-label="Trends pillar">
+                <option value="all" selected>All Pillars</option>
+                <option value="finance">💰 Finance</option>
+                <option value="health">🏥 Health</option>
+                <option value="ai">🧠 AI</option>
+                <option value="menu">📊 Menu</option>
+                <option value="composite">⚛️ Composite</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Forecast Horizon</label>
+              <select class="select" id="governanceTrendsForecastHorizon" aria-label="Forecast horizon">
+                <option value="7">7 days</option>
+                <option value="14" selected>14 days</option>
+                <option value="30">30 days</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trends Chart Container -->
+        <div id="governanceTrendsContainer">
+          <div class="loading"><div class="spinner"></div> Loading trends...</div>
+        </div>
+      </div>
+
+      <!-- Alerts Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🚨 Active Governance Alerts</h3>
+        </div>
+        <table class="table" id="governanceAlertsTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Message</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="governanceAlertsBody">
+            <tr><td colspan="5" class="loading">Click Refresh to load alerts...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Intelligence Tab (v16.0.0) -->
+    <div id="intelligence" class="tab-panel">
+      <!-- Intelligence Score Header -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">🔮 Governance Intelligence Dashboard</h3>
+          <div class="gi-header-actions">
+            <select id="gi-locale" class="btn btn-sm">
+              <option value="en">🇬🇧 English</option>
+              <option value="fr">🇫🇷 Français</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadIntelligence()">↻ Refresh</button>
+            <button type="button" class="btn btn-sm btn-primary u-owner-only" onclick="recomputeIntelligence()">🔄 Recompute</button>
+            <button type="button" class="btn btn-sm btn-primary u-owner-only" onclick="generateIntelligenceReport()">📄 Report</button>
+          </div>
+        </div>
+
+        <!-- Intelligence Score Cards -->
+        <div class="grid grid-5 gi-score-grid">
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-score">--</div>
+            <div class="stat-label">Intelligence Score</div>
+            <span class="badge" id="gi-score-badge">--</span>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-finance">--</div>
+            <div class="stat-label">💰 Finance</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-health">--</div>
+            <div class="stat-label">❤️ Health</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-ai">--</div>
+            <div class="stat-label">🤖 AI</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-menu">--</div>
+            <div class="stat-label">🍽️ Menu</div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="gi-trend-container">
+          <h4 class="gi-trend-title">📈 7-Day Intelligence Trend</h4>
+          <svg id="gi-trend" width="100%" height="80" class="gi-trend-svg"></svg>
+        </div>
+      </div>
+
+      <!-- Insights Section -->
+      <div class="card gi-card-spaced">
+        <div class="card-header">
+          <h3 class="card-title">💡 <span id="gi-insights-title">Insights</span></h3>
+          <span class="badge" id="gi-insights-count">0</span>
+        </div>
+        <div id="gi-insights" class="card-body gi-insights-body">
+          <p class="gi-placeholder-text">Click Refresh to load insights...</p>
+        </div>
+      </div>
+
+      <!-- Active Anomalies Table -->
+      <div class="card gi-card-spaced">
+        <div class="card-header">
+          <h3 class="card-title">🚨 <span id="gi-anomalies-title">Active Anomalies</span></h3>
+          <span class="badge" id="gi-anomalies-count">0</span>
+        </div>
+        <div class="table-wrap">
+          <table class="table" aria-label="Active Anomalies">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Pillar</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Δ%</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="gi-anomalies-body">
+              <tr><td colspan="6" class="loading">Click Refresh to load anomalies...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Forecast & Trends Section (v16.1.0) -->
+      <div class="card gi-card-spaced">
+        <div class="card-header">
+          <h3 class="card-title">📈 <span id="gi-forecast-title">Forecast & Trends</span></h3>
+          <div class="gi-header-actions">
+            <label for="gi-forecast-pillar" class="gi-control-label">Pillar:</label>
+            <select id="gi-forecast-pillar" class="input gi-control-input">
+              <option value="composite">🔮 Composite</option>
+              <option value="finance">💰 Finance</option>
+              <option value="health">❤️ Health</option>
+              <option value="ai">🤖 AI</option>
+              <option value="menu">🍽️ Menu</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Forecast Controls -->
+        <div id="gi-forecast-controls" class="u-flex u-gap-8 u-items-center gi-forecast-controls">
+          <div class="gi-control-group">
+            <label for="gi-alpha" class="gi-control-label">
+              <span id="gi-alpha-label">Smoothing (α):</span>
+            </label>
+            <input type="range" id="gi-alpha" min="0.1" max="1.0" step="0.05" value="0.5"
+                   class="forecast-slider gi-alpha-slider">
+            <span id="gi-alpha-value" class="gi-alpha-value">0.5</span>
+          </div>
+
+          <div class="gi-control-group">
+            <label for="gi-forecast-window" class="gi-control-label">
+              <span id="gi-window-label">Window:</span>
+            </label>
+            <select id="gi-forecast-window" class="input gi-control-input">
+              <option value="7">7 Days</option>
+              <option value="14" selected>14 Days</option>
+              <option value="30">30 Days</option>
+            </select>
+          </div>
+
+          <div class="gi-control-group">
+            <label for="gi-forecast-horizon" class="gi-control-label">
+              <span id="gi-horizon-label">Forecast:</span>
+            </label>
+            <select id="gi-forecast-horizon" class="input gi-control-input">
+              <option value="7">7 Days</option>
+              <option value="14" selected>14 Days</option>
+              <option value="30">30 Days</option>
+            </select>
+          </div>
+
+          <button type="button" id="gi-simulate-btn" class="btn btn-sm btn-primary u-owner-only"
+                  onclick="simulateForecast()">
+            🔮 <span id="gi-simulate-label">Simulate</span>
+          </button>
+
+          <button type="button" class="btn btn-sm btn-secondary" onclick="loadForecastChart()">
+            ↻ <span id="gi-refresh-forecast-label">Refresh</span>
+          </button>
+        </div>
+
+        <!-- Forecast Chart -->
+        <div class="gi-chart-container">
+          <svg id="gi-forecast-chart" width="100%" height="300" class="gi-chart-svg">
+          </svg>
+
+          <!-- Legend -->
+          <div class="gi-legend">
+            <div class="gi-legend-item">
+              <div class="gi-legend-line-actual"></div>
+              <span id="gi-legend-actual">Actual</span>
+            </div>
+            <div class="gi-legend-item">
+              <div class="gi-legend-line-forecast"></div>
+              <span id="gi-legend-forecast">Forecast</span>
+            </div>
+            <div class="gi-legend-item">
+              <div class="gi-legend-band"></div>
+              <span id="gi-legend-confidence">Confidence Band</span>
+            </div>
+          </div>
+
+          <!-- Chart Info -->
+          <div id="gi-forecast-info" class="gi-chart-info">
+            <span id="gi-forecast-info-text">Click Refresh to load forecast chart...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Reports Tab -->
     <div id="reports" class="tab-panel">
       <!-- GFS Monthly Reports Quick Access -->
@@ -955,6 +1248,172 @@
         </div>
         <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()">📥 Export CSV</button>
         <div id="reportContent"></div>
+      </div>
+    </div>
+
+    <!-- Item Bank Tab (v16.2.0) -->
+    <div id="item-bank" class="tab-panel">
+      <!-- Top Finance Strip -->
+      <div class="finance-strip" id="financeStrip">
+        <div class="finance-strip-loading">Loading finance summary...</div>
+      </div>
+
+      <!-- Invoice Integrity Badge -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">💰 Invoice Integrity Status</h3>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-integrity">↻ Refresh</button>
+        </div>
+        <div class="grid grid-4">
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-badge-status">--</div>
+            <div class="stat-label">Balance Status</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-total-invoices">--</div>
+            <div class="stat-label">Total Invoices</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-imbalanced">--</div>
+            <div class="stat-label">Imbalanced</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-total-delta">$0.00</div>
+            <div class="stat-label">Total Delta</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary np-btn-revalidate" id="btn-revalidate-period">🔄 Revalidate Period</button>
+      </div>
+
+      <!-- Item Bank Management -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🏦 Item Bank Catalog</h3>
+          <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-primary" id="btn-upload-csv">📤 Upload CSV</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="btn-export-csv">📥 Export CSV</button>
+            <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-items">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- CSV Upload Area (Hidden by default) -->
+        <div class="upload-area u-hide" id="csv-upload-area">
+          <div class="upload-drop-zone" id="csv-drop-zone">
+            <p>📁 Drag & drop CSV file here or click to browse</p>
+            <input type="file" id="csv-file-input" accept=".csv" class="u-hide">
+          </div>
+          <div class="upload-progress u-hide" id="csv-upload-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" id="csv-progress-fill"></div>
+            </div>
+            <p id="csv-upload-status">Uploading...</p>
+          </div>
+        </div>
+
+        <!-- Search & Filter -->
+        <div class="filter-bar">
+          <input type="text" id="item-search" placeholder="🔍 Search by description, SKU, or UPC..." class="form-control">
+          <select id="filter-finance-code" class="form-control">
+            <option value="">All Finance Codes</option>
+            <option value="BAKE">BAKE</option>
+            <option value="BEV+ECO">BEV+ECO</option>
+            <option value="MILK">MILK</option>
+            <option value="GROC+MISC">GROC+MISC</option>
+            <option value="MEAT">MEAT</option>
+            <option value="PROD">PROD</option>
+            <option value="CLEAN">CLEAN</option>
+            <option value="PAPER">PAPER</option>
+            <option value="FREIGHT">FREIGHT</option>
+            <option value="LINEN">LINEN</option>
+            <option value="PROPANE">PROPANE</option>
+            <option value="OTHER">OTHER</option>
+          </select>
+          <select id="filter-status" class="form-control">
+            <option value="ACTIVE">Active Only</option>
+            <option value="RETIRED">Retired Only</option>
+            <option value="">All Status</option>
+          </select>
+        </div>
+
+        <!-- Item Bank Table -->
+        <div class="table-responsive">
+          <table class="table" id="item-bank-table">
+            <thead>
+              <tr>
+                <th>GFS Item #</th>
+                <th>Description</th>
+                <th>Pack Size</th>
+                <th>UOM</th>
+                <th>Finance Code</th>
+                <th>GST</th>
+                <th>QST</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="item-bank-tbody">
+              <tr>
+                <td colspan="9" class="text-center">No items loaded. Click Refresh to load items.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar">
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-prev-page" disabled>← Previous</button>
+          <span id="pagination-info">Page 1 of 1</span>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-next-page" disabled>Next →</button>
+        </div>
+      </div>
+
+      <!-- Needs Mapping Queue -->
+      <div class="card u-owner-only">
+        <div class="card-header">
+          <h3 class="card-title">⚠️ Needs Mapping Queue</h3>
+          <span class="badge" id="needs-mapping-count">--</span>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-queue">↻ Refresh</button>
+        </div>
+        <p class="card-description">
+          Invoice lines with low confidence (< 80%) or fallback mappings requiring manual review.
+        </p>
+        <div class="table-responsive">
+          <table class="table mapping-queue-table" id="mapping-queue-table">
+            <thead>
+              <tr>
+                <th>Invoice ID</th>
+                <th>Line</th>
+                <th>Description</th>
+                <th>GFS Item #</th>
+                <th>AI Suggested Code</th>
+                <th>Confidence</th>
+                <th>Strategy</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-queue-tbody">
+              <tr>
+                <td colspan="8" class="text-center">No items needing mapping. All lines are mapped with high confidence!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Item Bank Statistics -->
+      <div class="grid grid-3">
+        <div class="card stat-card">
+          <div class="stat-value" id="stat-active-items">--</div>
+          <div class="stat-label">Active Items</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="stat-needs-mapping">--</div>
+          <div class="stat-label">Needs Mapping</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="stat-mapping-auto-pct">--</div>
+          <div class="stat-label">Auto-Mapped %</div>
+        </div>
       </div>
     </div>
 
@@ -1849,8 +2308,8 @@
   <script src="/public/js/rbac-client.js?v=15.5.0"></script>
 
   <!-- v14.3: Shared Console Core (Zero Drift) -->
-  <script src="owner-console-core.js?v=14.3.0"></script>
+  <script src="owner-console-core.js?v=14.3.1"></script>
 
-  <script src="owner-super-console.js?v=15.5.4"></script>
+  <script src="owner-super-console.js?v=15.7.1"></script>
 </body>
 </html>

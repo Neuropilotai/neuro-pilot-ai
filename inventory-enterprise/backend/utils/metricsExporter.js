@@ -2,6 +2,23 @@
  * Prometheus Metrics Exporter
  * Comprehensive metrics for inventory system monitoring
  * Compatible with Prometheus 2.x and Grafana
+ *
+ * @version 15.5.0 - PII SANITIZATION POLICY
+ *
+ * v15.5 RBAC HARDENING & GO-LIVE GATE:
+ * =====================================
+ * ALL METRICS LABELS SANITIZED TO PREVENT PII EXPOSURE
+ *
+ * Allowed Labels: { tenant, role, env }
+ * Prohibited Labels: email, name, user_id, item_code, entity_id, invoice_number
+ *
+ * Rationale:
+ * - Prometheus metrics are often stored long-term and may be accessible to operations teams
+ * - Labels are indexed and high-cardinality labels (like item codes) can cause performance issues
+ * - Compliance requirements (GDPR, CCPA) prohibit exposing PII in monitoring systems
+ * - Tenant-level aggregation provides sufficient granularity for monitoring without exposing sensitive data
+ *
+ * All methods have been updated to accept (tenant, env) instead of (itemCode, userId, etc.)
  */
 
 const promClient = require('prom-client');
@@ -164,10 +181,11 @@ class MetricsExporter {
       buckets: [0.1, 0.5, 1, 2, 5, 10, 30]
     });
 
+    // v15.5: Sanitized - removed entity_id PII, added tenant/env
     this.aiModelAccuracy = new promClient.Gauge({
       name: 'ai_model_accuracy_mape',
       help: 'AI model accuracy (Mean Absolute Percentage Error)',
-      labelNames: ['model_type', 'entity_id']
+      labelNames: ['model_type', 'tenant', 'env']
     });
 
     this.aiModelsActive = new promClient.Gauge({
@@ -182,10 +200,11 @@ class MetricsExporter {
       labelNames: ['status']
     });
 
+    // v15.5: Sanitized - removed item_code PII
     this.aiAnomaliesDetected = new promClient.Counter({
       name: 'ai_anomalies_detected_total',
       help: 'Total consumption anomalies detected',
-      labelNames: ['item_code']
+      labelNames: ['tenant', 'env']
     });
 
     // ========================================================================
@@ -198,16 +217,18 @@ class MetricsExporter {
       labelNames: ['source', 'status']
     });
 
+    // v15.5: Sanitized - removed item_code PII
     this.aiAccuracyMape = new promClient.Gauge({
       name: 'ai_accuracy_mape',
       help: 'Current MAPE for item forecast accuracy',
-      labelNames: ['item_code']
+      labelNames: ['tenant', 'env']
     });
 
+    // v15.5: Sanitized - removed item_code PII
     this.aiAccuracyRmse = new promClient.Gauge({
       name: 'ai_accuracy_rmse',
       help: 'Current RMSE for item forecast accuracy',
-      labelNames: ['item_code']
+      labelNames: ['tenant', 'env']
     });
 
     this.aiAutotrainTriggersTotal = new promClient.Counter({
@@ -229,16 +250,18 @@ class MetricsExporter {
       labelNames: ['trigger']
     });
 
+    // v15.5: Sanitized - removed item_code PII
     this.aiRlPolicyCommitsTotal = new promClient.Counter({
       name: 'ai_rl_policy_commits_total',
       help: 'Total RL policy commits',
-      labelNames: ['item_code']
+      labelNames: ['tenant', 'env']
     });
 
+    // v15.5: Sanitized - removed item_code PII
     this.aiRlRewardGauge = new promClient.Gauge({
       name: 'ai_rl_reward_gauge',
       help: 'Current RL reward for item policy',
-      labelNames: ['item_code']
+      labelNames: ['tenant', 'env']
     });
 
     // ========================================================================
@@ -358,10 +381,11 @@ class MetricsExporter {
       help: 'Number of items recommended for reorder'
     });
 
+    // v15.5: Sanitized - removed item_code PII
     this.inventoryStockoutsTotal = new promClient.Counter({
       name: 'inventory_stockouts_total',
       help: 'Total stockout events',
-      labelNames: ['item_code']
+      labelNames: ['tenant', 'env']
     });
 
     // ========================================================================
@@ -542,6 +566,41 @@ class MetricsExporter {
     });
 
     // ========================================================================
+    // AI FORECAST ORDERS METRICS (v15.5.0-2025-10-13)
+    // ========================================================================
+
+    this.forecastRunTotal = new promClient.Counter({
+      name: 'forecast_run_total',
+      help: 'Total number of forecast runs'
+    });
+
+    this.forecastAccuracyPct = new promClient.Gauge({
+      name: 'forecast_accuracy_pct',
+      help: 'Current forecast accuracy percentage'
+    });
+
+    this.orderRecommendationTotal = new promClient.Counter({
+      name: 'order_recommendation_generated_total',
+      help: 'Total number of order recommendations generated'
+    });
+
+    this.forecastFeedbackReceivedTotal = new promClient.Counter({
+      name: 'ai_feedback_received_total',
+      help: 'Total feedback received on forecasts',
+      labelNames: ['feedback_type']
+    });
+
+    this.forecastOrderApprovedTotal = new promClient.Counter({
+      name: 'forecast_order_approved_total',
+      help: 'Total orders approved from forecasts'
+    });
+
+    this.forecastLearningAppliedTotal = new promClient.Counter({
+      name: 'forecast_learning_applied_total',
+      help: 'Total learning cycles applied to forecasting engine'
+    });
+
+    // ========================================================================
     // PHASE 3: AUTONOMOUS LEARNING LAYER METRICS (v3.0.0-2025-10-08)
     // ========================================================================
 
@@ -667,6 +726,286 @@ class MetricsExporter {
       buckets: [1, 5, 10, 30, 60, 120, 300, 600]
     });
 
+    // ========================================================================
+    // DATABASE RETRY METRICS (v13.0.2-2025-10-19)
+    // ========================================================================
+
+    this.dbRetryAttempts = new promClient.Counter({
+      name: 'db_retry_attempts_total',
+      help: 'Total database retry attempts',
+      labelNames: ['service', 'operation', 'attempt']
+    });
+
+    this.dbRetrySuccess = new promClient.Counter({
+      name: 'db_retry_success_total',
+      help: 'Successful database operations after retry',
+      labelNames: ['service', 'operation', 'attempts_used']
+    });
+
+    this.dbRetryExhausted = new promClient.Counter({
+      name: 'db_retry_exhausted_total',
+      help: 'Database operations that failed after all retries',
+      labelNames: ['service', 'operation', 'error_code']
+    });
+
+    this.watchdogMutexSkips = new promClient.Counter({
+      name: 'watchdog_mutex_skips_total',
+      help: 'Watchdog cycles skipped due to mutex lock'
+    });
+
+    this.aiIntelligenceIndex = new promClient.Gauge({
+      name: 'ai_intelligence_index',
+      help: 'Current AI Intelligence Index (0-100)',
+      labelNames: ['component']
+    });
+
+    // ========================================================================
+    // STABILITY LAYER METRICS (v16.3.0-2025-10-19)
+    // ========================================================================
+
+    this.stabilityScore = new promClient.Gauge({
+      name: 'stability_score',
+      help: 'Overall stability health score (0-100)'
+    });
+
+    this.stabilityObservations = new promClient.Counter({
+      name: 'stability_observations_total',
+      help: 'Total stability observations recorded',
+      labelNames: ['service', 'operation']
+    });
+
+    this.stabilitySuccessRate = new promClient.Gauge({
+      name: 'stability_success_rate',
+      help: 'Stability success rate percentage (0-100)'
+    });
+
+    this.stabilityAvgAttempts = new promClient.Gauge({
+      name: 'stability_avg_attempts',
+      help: 'Average retry attempts per operation'
+    });
+
+    this.stabilityLockRate = new promClient.Gauge({
+      name: 'stability_lock_rate',
+      help: 'Database lock event rate percentage (0-100)'
+    });
+
+    this.stabilityRecommendations = new promClient.Counter({
+      name: 'stability_recommendations_total',
+      help: 'Total stability tuning recommendations generated',
+      labelNames: ['author', 'applied']
+    });
+
+    this.stabilityPolicyUpdates = new promClient.Counter({
+      name: 'stability_policy_updates_total',
+      help: 'Total stability policy updates',
+      labelNames: ['updated_by']
+    });
+
+    this.stabilityTuningCycles = new promClient.Counter({
+      name: 'stability_tuning_cycles_total',
+      help: 'Total tuning cycles executed'
+    });
+
+    this.stabilityCurrentMaxRetries = new promClient.Gauge({
+      name: 'stability_current_max_retries',
+      help: 'Current max retry attempts policy value'
+    });
+
+    this.stabilityCurrentBaseDelayMs = new promClient.Gauge({
+      name: 'stability_current_base_delay_ms',
+      help: 'Current base delay milliseconds policy value'
+    });
+
+    this.stabilityCurrentJitterPct = new promClient.Gauge({
+      name: 'stability_current_jitter_pct',
+      help: 'Current jitter percentage policy value'
+    });
+
+    this.stabilityCurrentCronIntervalMin = new promClient.Gauge({
+      name: 'stability_current_cron_interval_min',
+      help: 'Current cron minimum interval minutes policy value'
+    });
+
+    this.stabilityThrottleEvents = new promClient.Counter({
+      name: 'stability_throttle_events_total',
+      help: 'Total cron throttle events triggered'
+    });
+
+    // ========================================================================
+    // QUANTUM GOVERNANCE METRICS (v15.8.0-2025-10-18)
+    // ========================================================================
+
+    this.governanceScoreGauge = new promClient.Gauge({
+      name: 'governance_score_current',
+      help: 'Current governance composite score (0-100)',
+      labelNames: ['status']
+    });
+
+    this.governancePillarGauge = new promClient.Gauge({
+      name: 'governance_pillar_score',
+      help: 'Governance pillar scores (0-100)',
+      labelNames: ['pillar']
+    });
+
+    this.governanceAlertsCounter = new promClient.Counter({
+      name: 'governance_alerts_total',
+      help: 'Total governance alerts detected',
+      labelNames: ['type', 'severity']
+    });
+
+    this.governanceSnapshotCounter = new promClient.Counter({
+      name: 'governance_snapshot_total',
+      help: 'Total governance snapshots computed'
+    });
+
+    // ========================================================================
+    // GOVERNANCE TRENDS & FORECASTING METRICS (v15.9.0-2025-10-18)
+    // ========================================================================
+
+    this.governanceScoreCompositeGauge = new promClient.Gauge({
+      name: 'governance_score_composite_current',
+      help: 'Current governance composite score (0-100)'
+    });
+
+    this.governanceScorePillarGauge = new promClient.Gauge({
+      name: 'governance_score_pillar_current',
+      help: 'Current pillar scores (0-100)',
+      labelNames: ['pillar']
+    });
+
+    this.governanceTrendPointsCounter = new promClient.Counter({
+      name: 'governance_trend_points_total',
+      help: 'Total trend data points recorded',
+      labelNames: ['pillar']
+    });
+
+    this.governanceForecastRunsCounter = new promClient.Counter({
+      name: 'governance_forecast_runs_total',
+      help: 'Total forecast runs executed'
+    });
+
+    this.governanceForecastRuntimeHistogram = new promClient.Histogram({
+      name: 'governance_forecast_runtime_seconds',
+      help: 'Forecast computation runtime',
+      buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10]
+    });
+
+    // ========================================================================
+    // GOVERNANCE INTELLIGENCE METRICS (v16.0.0-2025-10-18)
+    // ========================================================================
+
+    this.governanceIntelligenceScoreGauge = new promClient.Gauge({
+      name: 'governance_intelligence_score',
+      help: 'Current governance intelligence score (0-100)'
+    });
+
+    this.governanceAnomalyCountGauge = new promClient.Gauge({
+      name: 'governance_anomaly_count',
+      help: 'Count of governance anomalies by pillar and severity',
+      labelNames: ['pillar', 'severity']
+    });
+
+    this.governanceReportGenerationsCounter = new promClient.Counter({
+      name: 'governance_report_generations_total',
+      help: 'Total governance intelligence reports generated',
+      labelNames: ['locale']
+    });
+
+    this.governanceInsightGenerationsCounter = new promClient.Counter({
+      name: 'governance_insight_generations_total',
+      help: 'Total governance insights generated',
+      labelNames: ['pillar', 'locale']
+    });
+
+    // ========================================================================
+    // GOVERNANCE LIVE DASHBOARD METRICS (v16.4.0-2025-10-19)
+    // ========================================================================
+
+    this.governanceLiveHitsTotal = new promClient.Counter({
+      name: 'governance_live_hits_total',
+      help: 'Total hits to governance live status API'
+    });
+
+    this.governanceSparklineHitsTotal = new promClient.Counter({
+      name: 'governance_sparkline_hits_total',
+      help: 'Total hits to governance sparkline API',
+      labelNames: ['pillar']
+    });
+
+    this.governanceSseTicksTotal = new promClient.Counter({
+      name: 'governance_sse_ticks_total',
+      help: 'Total SSE heartbeat ticks sent to governance live clients'
+    });
+
+    this.governanceLiveLatencyMs = new promClient.Gauge({
+      name: 'governance_live_latency_ms',
+      help: 'Latest governance live API response latency in milliseconds'
+    });
+
+    // ========================================================================
+    // UNIFIED GOVERNANCE PANEL UI METRICS (v16.5.0-2025-10-19)
+    // ========================================================================
+
+    this.uiHitsTotal = new promClient.Counter({
+      name: 'ui_hits_total',
+      help: 'Total hits to UI API endpoints',
+      labelNames: ['endpoint']
+    });
+
+    this.uiActionsTotal = new promClient.Counter({
+      name: 'ui_actions_total',
+      help: 'Total UI actions performed by users',
+      labelNames: ['action']
+    });
+
+    this.uiWebSocketConnectionsGauge = new promClient.Gauge({
+      name: 'ui_websocket_connections_current',
+      help: 'Current number of active WebSocket connections for governance panel'
+    });
+
+    this.uiPanelRenderDuration = new promClient.Histogram({
+      name: 'ui_panel_render_duration_ms',
+      help: 'UI panel render duration in milliseconds',
+      labelNames: ['panel'],
+      buckets: [10, 50, 100, 250, 500, 1000, 2000]
+    });
+
+    // ========================================================================
+    // FINANCE ENFORCEMENT METRICS (v16.2.0-2025-10-18)
+    // ========================================================================
+
+    this.itemBankActiveTotalGauge = new promClient.Gauge({
+      name: 'item_bank_active_total',
+      help: 'Total active items in the item bank'
+    });
+
+    this.financeNeedsMappingTotalGauge = new promClient.Gauge({
+      name: 'finance_needs_mapping_total',
+      help: 'Total invoice lines needing mapping review (confidence < 0.80)'
+    });
+
+    this.invoiceImbalanceTotalCounter = new promClient.Counter({
+      name: 'invoice_imbalance_total',
+      help: 'Total invoices with balance imbalances (>±2¢)'
+    });
+
+    this.financeAIMappingAutoPctGauge = new promClient.Gauge({
+      name: 'finance_ai_mapping_auto_pct',
+      help: 'Percentage of mappings auto-assigned with confidence >= 0.80 (0-100)'
+    });
+
+    this.financeTaxMismatchTotalCounter = new promClient.Counter({
+      name: 'finance_tax_mismatch_total',
+      help: 'Total tax calculation mismatches detected',
+      labelNames: ['tax_type']
+    });
+
+    this.financePeriodVerifiedTotalGauge = new promClient.Gauge({
+      name: 'finance_period_verified_total',
+      help: 'Verified period totals by period',
+      labelNames: ['period']
+    });
+
     // Register all metrics
     this.register.registerMetric(this.httpRequestDuration);
     this.register.registerMetric(this.httpRequestsTotal);
@@ -729,6 +1068,14 @@ class MetricsExporter {
     this.register.registerMetric(this.complianceChecksTotal);
     this.register.registerMetric(this.complianceAuditDuration);
 
+    // Register forecast order metrics (v15.5.0)
+    this.register.registerMetric(this.forecastRunTotal);
+    this.register.registerMetric(this.forecastAccuracyPct);
+    this.register.registerMetric(this.orderRecommendationTotal);
+    this.register.registerMetric(this.forecastFeedbackReceivedTotal);
+    this.register.registerMetric(this.forecastOrderApprovedTotal);
+    this.register.registerMetric(this.forecastLearningAppliedTotal);
+
     // Register Phase 3 metrics (v3.0.0)
     this.register.registerMetric(this.phase3TunerProposalsTotal);
     this.register.registerMetric(this.phase3TunerApplyDuration);
@@ -750,12 +1097,58 @@ class MetricsExporter {
     this.register.registerMetric(this.phase3CronExecutionTotal);
     this.register.registerMetric(this.phase3CronDuration);
 
+    // Register Database Retry metrics (v13.0.2)
+    this.register.registerMetric(this.dbRetryAttempts);
+    this.register.registerMetric(this.dbRetrySuccess);
+    this.register.registerMetric(this.dbRetryExhausted);
+    this.register.registerMetric(this.watchdogMutexSkips);
+    this.register.registerMetric(this.aiIntelligenceIndex);
+
     // Register v3.1.0 local training metrics
     this.register.registerMetric(this.aiLocalTrainingWallSeconds);
     this.register.registerMetric(this.aiLocalTrainingMape);
     this.register.registerMetric(this.aiLocalTrainingRmse);
     this.register.registerMetric(this.aiReleasePromotionsTotal);
     this.register.registerMetric(this.aiReleaseRollbacksTotal);
+
+    // Register Quantum Governance metrics (v15.8.0)
+    this.register.registerMetric(this.governanceScoreGauge);
+    this.register.registerMetric(this.governancePillarGauge);
+    this.register.registerMetric(this.governanceAlertsCounter);
+    this.register.registerMetric(this.governanceSnapshotCounter);
+
+    // Register Governance Trends metrics (v15.9.0)
+    this.register.registerMetric(this.governanceScoreCompositeGauge);
+    this.register.registerMetric(this.governanceScorePillarGauge);
+    this.register.registerMetric(this.governanceTrendPointsCounter);
+    this.register.registerMetric(this.governanceForecastRunsCounter);
+    this.register.registerMetric(this.governanceForecastRuntimeHistogram);
+
+    // Register Governance Intelligence metrics (v16.0.0)
+    this.register.registerMetric(this.governanceIntelligenceScoreGauge);
+    this.register.registerMetric(this.governanceAnomalyCountGauge);
+    this.register.registerMetric(this.governanceReportGenerationsCounter);
+    this.register.registerMetric(this.governanceInsightGenerationsCounter);
+
+    // Register Governance Live Dashboard metrics (v16.4.0)
+    this.register.registerMetric(this.governanceLiveHitsTotal);
+    this.register.registerMetric(this.governanceSparklineHitsTotal);
+    this.register.registerMetric(this.governanceSseTicksTotal);
+    this.register.registerMetric(this.governanceLiveLatencyMs);
+
+    // Register UI metrics (v16.5.0)
+    this.register.registerMetric(this.uiHitsTotal);
+    this.register.registerMetric(this.uiActionsTotal);
+    this.register.registerMetric(this.uiWebSocketConnectionsGauge);
+    this.register.registerMetric(this.uiPanelRenderDuration);
+
+    // Register Finance Enforcement metrics (v16.2.0)
+    this.register.registerMetric(this.itemBankActiveTotalGauge);
+    this.register.registerMetric(this.financeNeedsMappingTotalGauge);
+    this.register.registerMetric(this.invoiceImbalanceTotalCounter);
+    this.register.registerMetric(this.financeAIMappingAutoPctGauge);
+    this.register.registerMetric(this.financeTaxMismatchTotalCounter);
+    this.register.registerMetric(this.financePeriodVerifiedTotalGauge);
   }
 
   /**
@@ -849,8 +1242,9 @@ class MetricsExporter {
     }
   }
 
-  setAiModelAccuracy(modelType, entityId, mape) {
-    this.aiModelAccuracy.labels(modelType, entityId).set(mape);
+  // v15.5: Updated signature - removed entityId PII, added tenant/env
+  setAiModelAccuracy(modelType, tenant, env, mape) {
+    this.aiModelAccuracy.labels(modelType, tenant || 'default', env || 'production').set(mape);
   }
 
   setAiModelsActive(modelType, count) {
@@ -861,8 +1255,9 @@ class MetricsExporter {
     this.aiConsumptionDerivedTotal.labels(status).inc();
   }
 
-  recordAnomalyDetected(itemCode) {
-    this.aiAnomaliesDetected.labels(itemCode).inc();
+  // v15.5: Updated signature - removed itemCode PII, added tenant/env
+  recordAnomalyDetected(tenant, env) {
+    this.aiAnomaliesDetected.labels(tenant || 'default', env || 'production').inc();
   }
 
   /**
@@ -872,12 +1267,16 @@ class MetricsExporter {
     this.aiFeedbackIngestTotal.labels(source, status).inc();
   }
 
-  recordAccuracyMetric(itemCode, mape, rmse) {
+  // v15.5: Updated signature - removed itemCode PII, added tenant/env
+  recordAccuracyMetric(tenant, env, mape, rmse) {
+    const tenantLabel = tenant || 'default';
+    const envLabel = env || 'production';
+
     if (mape !== undefined && mape !== null) {
-      this.aiAccuracyMape.labels(itemCode).set(mape);
+      this.aiAccuracyMape.labels(tenantLabel, envLabel).set(mape);
     }
     if (rmse !== undefined && rmse !== null) {
-      this.aiAccuracyRmse.labels(itemCode).set(rmse);
+      this.aiAccuracyRmse.labels(tenantLabel, envLabel).set(rmse);
     }
   }
 
@@ -893,12 +1292,14 @@ class MetricsExporter {
     this.aiRetrainFailuresTotal.labels(trigger).inc();
   }
 
-  recordRLPolicyCommit(itemCode, improvementPercent) {
-    this.aiRlPolicyCommitsTotal.labels(itemCode).inc();
+  // v15.5: Updated signature - removed itemCode PII, added tenant/env
+  recordRLPolicyCommit(tenant, env, improvementPercent) {
+    this.aiRlPolicyCommitsTotal.labels(tenant || 'default', env || 'production').inc();
   }
 
-  recordRLReward(itemCode, reward) {
-    this.aiRlRewardGauge.labels(itemCode).set(reward);
+  // v15.5: Updated signature - removed itemCode PII, added tenant/env
+  recordRLReward(tenant, env, reward) {
+    this.aiRlRewardGauge.labels(tenant || 'default', env || 'production').set(reward);
   }
 
   /**
@@ -964,8 +1365,9 @@ class MetricsExporter {
     this.inventoryReorderRecommendations.set(count);
   }
 
-  recordStockout(itemCode) {
-    this.inventoryStockoutsTotal.labels(itemCode).inc();
+  // v15.5: Updated signature - removed itemCode PII, added tenant/env
+  recordStockout(tenant, env) {
+    this.inventoryStockoutsTotal.labels(tenant || 'default', env || 'production').inc();
   }
 
   /**
@@ -1088,16 +1490,17 @@ class MetricsExporter {
   /**
    * Owner AI Operational Intelligence Metrics (v2.8.0)
    */
-  recordOwnerAIReorderRequest(actor, tenant, itemCount) {
+  // v15.5: Updated signature - removed actor PII, kept tenant/env only
+  recordOwnerAIReorderRequest(tenant, env, itemCount) {
     if (!this.ownerAIReorderRequestsTotal) {
       this.ownerAIReorderRequestsTotal = new promClient.Counter({
         name: 'owner_ai_reorder_requests_total',
         help: 'Total owner AI reorder recommendation requests',
-        labelNames: ['actor', 'tenant'],
+        labelNames: ['tenant', 'env'],
         registers: [this.register]
       });
     }
-    this.ownerAIReorderRequestsTotal.labels(actor, tenant).inc(itemCount || 1);
+    this.ownerAIReorderRequestsTotal.labels(tenant || 'default', env || 'production').inc(itemCount || 1);
   }
 
   recordOwnerAIAnomalyTriage(action, severity) {
@@ -1349,6 +1752,432 @@ class MetricsExporter {
    */
   incRollback() {
     this.aiReleaseRollbacksTotal.inc();
+  }
+
+  // ========================================================================
+  // FORECAST ORDER RECORDING METHODS (v15.5.0-2025-10-13)
+  // ========================================================================
+
+  /**
+   * Record forecast run execution
+   * @param {number} itemsForecasted - Number of items forecasted
+   */
+  recordForecastRun(itemsForecasted = 1) {
+    this.forecastRunTotal.inc();
+    if (itemsForecasted > 0) {
+      this.orderRecommendationTotal.inc(itemsForecasted);
+    }
+  }
+
+  /**
+   * Set forecast accuracy percentage
+   * @param {number} accuracyPct - Accuracy percentage (0-100)
+   */
+  setForecastAccuracy(accuracyPct) {
+    this.forecastAccuracyPct.set(accuracyPct);
+  }
+
+  /**
+   * Record forecast feedback submission
+   * @param {string} feedbackType - Type of feedback (adjustment|approval|rejection)
+   */
+  recordForecastFeedback(feedbackType) {
+    this.forecastFeedbackReceivedTotal.labels(feedbackType).inc();
+  }
+
+  /**
+   * Record forecast order approval
+   * @param {number} count - Number of orders approved
+   */
+  recordForecastOrderApproval(count = 1) {
+    this.forecastOrderApprovedTotal.inc(count);
+  }
+
+  /**
+   * Record forecast learning cycle applied
+   */
+  recordForecastLearningApplied() {
+    this.forecastLearningAppliedTotal.inc();
+  }
+
+  // ========================================================================
+  // QUANTUM GOVERNANCE RECORDING METHODS (v15.8.0-2025-10-18)
+  // ========================================================================
+
+  /**
+   * Set governance composite score
+   * @param {string} status - Status label (Healthy|Warning|Action)
+   * @param {number} score - Composite score (0-100)
+   */
+  setGovernanceScore(status, score) {
+    this.governanceScoreGauge.labels(status).set(score);
+  }
+
+  /**
+   * Set governance pillar score
+   * @param {string} pillar - Pillar name (finance|health|ai|menu)
+   * @param {number} score - Pillar score (0-100)
+   */
+  setGovernancePillarScore(pillar, score) {
+    this.governancePillarGauge.labels(pillar).set(score);
+  }
+
+  /**
+   * Record governance alert
+   * @param {string} type - Alert type (e.g., FINANCE_DRIFT, AI_STALE_FEEDBACK)
+   * @param {string} severity - Severity level (info|warning|critical)
+   */
+  recordGovernanceAlert(type, severity) {
+    this.governanceAlertsCounter.labels(type, severity).inc();
+  }
+
+  /**
+   * Record governance snapshot computation
+   */
+  recordGovernanceSnapshot() {
+    this.governanceSnapshotCounter.inc();
+  }
+
+  // ========================================================================
+  // GOVERNANCE TRENDS & FORECASTING RECORDING METHODS (v15.9.0-2025-10-18)
+  // ========================================================================
+
+  /**
+   * Record daily scores for all pillars
+   * @param {Object} scores - { finance, health, ai, menu, composite }
+   */
+  recordGovernanceDailyScores(scores) {
+    if (scores.composite != null) {
+      this.governanceScoreCompositeGauge.set(scores.composite);
+    }
+
+    const pillars = ['finance', 'health', 'ai', 'menu'];
+    pillars.forEach(pillar => {
+      if (scores[pillar] != null) {
+        this.governanceScorePillarGauge.labels(pillar).set(scores[pillar]);
+        this.governanceTrendPointsCounter.labels(pillar).inc();
+      }
+    });
+
+    // Also increment composite trend points
+    if (scores.composite != null) {
+      this.governanceTrendPointsCounter.labels('composite').inc();
+    }
+  }
+
+  /**
+   * Increment forecast runs counter
+   */
+  incrementGovernanceForecastRuns() {
+    this.governanceForecastRunsCounter.inc();
+  }
+
+  /**
+   * Record forecast runtime
+   * @param {number} runtime - Runtime in seconds
+   */
+  recordGovernanceForecastRuntime(runtime) {
+    this.governanceForecastRuntimeHistogram.observe(runtime);
+  }
+
+  // ========================================================================
+  // GOVERNANCE INTELLIGENCE RECORDING METHODS (v16.0.0-2025-10-18)
+  // ========================================================================
+
+  /**
+   * Record governance intelligence score
+   * @param {number} score - Intelligence score (0-100)
+   */
+  recordGovernanceIntelligenceScore(score) {
+    this.governanceIntelligenceScoreGauge.set(score);
+  }
+
+  /**
+   * Record anomaly count for a specific pillar and severity
+   * @param {string} pillar - Pillar name (finance|health|ai|menu|composite)
+   * @param {string} severity - Severity level (low|medium|high|critical)
+   * @param {number} count - Number of anomalies
+   */
+  recordGovernanceAnomalyCount(pillar, severity, count) {
+    this.governanceAnomalyCountGauge.labels(pillar, severity).set(count);
+  }
+
+  /**
+   * Increment governance report generations
+   * @param {string} locale - Report locale (en|fr)
+   */
+  incrementGovernanceReportGenerations(locale = 'en') {
+    this.governanceReportGenerationsCounter.labels(locale).inc();
+  }
+
+  /**
+   * Increment governance insight generations
+   * @param {string} pillar - Pillar name (finance|health|ai|menu|composite)
+   * @param {string} locale - Insight locale (en|fr)
+   */
+  incrementGovernanceInsightGenerations(pillar, locale = 'en') {
+    this.governanceInsightGenerationsCounter.labels(pillar, locale).inc();
+  }
+
+  // ========================================================================
+  // FINANCE ENFORCEMENT RECORDING METHODS (v16.2.0-2025-10-18)
+  // ========================================================================
+
+  /**
+   * Record item bank active total
+   * @param {number} total - Total active items in item bank
+   */
+  recordItemBankActiveTotal(total) {
+    this.itemBankActiveTotalGauge.set(total);
+  }
+
+  /**
+   * Record finance needs mapping total
+   * @param {number} total - Total invoice lines needing mapping review
+   */
+  recordFinanceNeedsMappingTotal(total) {
+    this.financeNeedsMappingTotalGauge.set(total);
+  }
+
+  /**
+   * Increment invoice imbalance counter
+   * @param {number} count - Number of imbalanced invoices to increment by
+   */
+  recordInvoiceImbalanceTotal(count = 1) {
+    this.invoiceImbalanceTotalCounter.inc(count);
+  }
+
+  /**
+   * Record finance AI mapping auto percentage
+   * @param {number} percentage - Percentage of auto-assigned mappings (0-100)
+   */
+  recordFinanceAIMappingAutoPct(percentage) {
+    this.financeAIMappingAutoPctGauge.set(percentage);
+  }
+
+  /**
+   * Increment tax mismatch counter
+   * @param {string} taxType - Tax type (gst|qst)
+   */
+  recordFinanceTaxMismatch(taxType) {
+    this.financeTaxMismatchTotalCounter.labels(taxType).inc();
+  }
+
+  /**
+   * Record verified period total
+   * @param {string} period - Fiscal period (e.g., FY26-P01)
+   * @param {number} value - 1 for verified, 0 for unverified
+   */
+  recordFinancePeriodVerifiedTotal(period, value = 1) {
+    this.financePeriodVerifiedTotalGauge.labels(period).set(value);
+  }
+
+  // ========================================================================
+  // DATABASE RETRY RECORDING METHODS (v13.0.2-2025-10-19)
+  // ========================================================================
+
+  /**
+   * Record database retry attempt
+   * @param {string} service - Service name (menu_predictor, feedback_trainer)
+   * @param {string} operation - Operation name (getPredictedUsageForToday, etc.)
+   * @param {number} attempt - Attempt number (1, 2, 3)
+   */
+  recordDbRetryAttempt(service, operation, attempt) {
+    this.dbRetryAttempts.labels(service, operation, String(attempt)).inc();
+  }
+
+  /**
+   * Record successful database operation after retry
+   * @param {string} service - Service name
+   * @param {string} operation - Operation name
+   * @param {number} attemptsUsed - Number of attempts used (1, 2, or 3)
+   */
+  recordDbRetrySuccess(service, operation, attemptsUsed) {
+    this.dbRetrySuccess.labels(service, operation, String(attemptsUsed)).inc();
+  }
+
+  /**
+   * Record database retry exhaustion (all retries failed)
+   * @param {string} service - Service name
+   * @param {string} operation - Operation name
+   * @param {string} errorCode - SQLite error code
+   */
+  recordDbRetryExhausted(service, operation, errorCode) {
+    this.dbRetryExhausted.labels(service, operation, errorCode || 'UNKNOWN').inc();
+  }
+
+  /**
+   * Record watchdog mutex skip
+   */
+  recordWatchdogMutexSkip() {
+    this.watchdogMutexSkips.inc();
+  }
+
+  /**
+   * Set AI Intelligence Index
+   * @param {string} component - Component name (forecast, learning, overall)
+   * @param {number} score - Intelligence index score (0-100)
+   */
+  setAiIntelligenceIndex(component, score) {
+    this.aiIntelligenceIndex.labels(component).set(score);
+  }
+
+  // ========================================================================
+  // STABILITY LAYER RECORDING METHODS (v16.3.0-2025-10-19)
+  // ========================================================================
+
+  /**
+   * Set stability score
+   * @param {number} score - Stability health score (0-100)
+   */
+  setStabilityScore(score) {
+    this.stabilityScore.set(score);
+  }
+
+  /**
+   * Record stability observation
+   * @param {string} service - Service name
+   * @param {string} operation - Operation name
+   */
+  recordStabilityObservation(service, operation) {
+    this.stabilityObservations.labels(service, operation).inc();
+  }
+
+  /**
+   * Set stability success rate
+   * @param {number} rate - Success rate percentage (0-100)
+   */
+  setStabilitySuccessRate(rate) {
+    this.stabilitySuccessRate.set(rate);
+  }
+
+  /**
+   * Set stability average attempts
+   * @param {number} avgAttempts - Average retry attempts
+   */
+  setStabilityAvgAttempts(avgAttempts) {
+    this.stabilityAvgAttempts.set(avgAttempts);
+  }
+
+  /**
+   * Set stability lock rate
+   * @param {number} rate - Lock event rate percentage (0-100)
+   */
+  setStabilityLockRate(rate) {
+    this.stabilityLockRate.set(rate);
+  }
+
+  /**
+   * Record stability recommendation
+   * @param {string} author - Author (AUTO or email)
+   * @param {boolean} applied - Whether recommendation was applied
+   */
+  recordStabilityRecommendation(author, applied = false) {
+    this.stabilityRecommendations.labels(author, applied ? 'true' : 'false').inc();
+  }
+
+  /**
+   * Record stability policy update
+   * @param {string} updatedBy - Email or SYSTEM
+   */
+  recordStabilityPolicyUpdate(updatedBy) {
+    this.stabilityPolicyUpdates.labels(updatedBy).inc();
+  }
+
+  /**
+   * Record stability tuning cycle
+   */
+  recordStabilityTuningCycle() {
+    this.stabilityTuningCycles.inc();
+  }
+
+  /**
+   * Set current policy values
+   * @param {object} policy - Policy object with max_retries, base_delay_ms, jitter_pct, cron_min_interval_min
+   */
+  setStabilityPolicyValues(policy) {
+    this.stabilityCurrentMaxRetries.set(policy.max_retries);
+    this.stabilityCurrentBaseDelayMs.set(policy.base_delay_ms);
+    this.stabilityCurrentJitterPct.set(policy.jitter_pct);
+    this.stabilityCurrentCronIntervalMin.set(policy.cron_min_interval_min);
+  }
+
+  /**
+   * Record throttle event
+   */
+  recordStabilityThrottleEvent() {
+    this.stabilityThrottleEvents.inc();
+  }
+
+  // ========================================================================
+  // GOVERNANCE LIVE DASHBOARD HELPERS (v16.4.0)
+  // ========================================================================
+
+  /**
+   * Record a hit to the governance live status API
+   */
+  recordGovernanceLiveHit() {
+    this.governanceLiveHitsTotal.inc();
+  }
+
+  /**
+   * Record a hit to the governance sparkline API
+   * @param {string} pillar - The pillar name (composite, finance, health, ai, menu)
+   */
+  recordGovernanceSparklineHit(pillar) {
+    this.governanceSparklineHitsTotal.labels(pillar).inc();
+  }
+
+  /**
+   * Record an SSE tick sent to governance live clients
+   */
+  recordGovernanceSseTick() {
+    this.governanceSseTicksTotal.inc();
+  }
+
+  /**
+   * Set governance live API latency
+   * @param {number} latencyMs - Latency in milliseconds
+   */
+  setGovernanceLiveLatency(latencyMs) {
+    this.governanceLiveLatencyMs.set(latencyMs);
+  }
+
+  // ========================================================================
+  // UNIFIED GOVERNANCE PANEL UI HELPERS (v16.5.0)
+  // ========================================================================
+
+  /**
+   * Record a hit to a UI API endpoint
+   * @param {string} endpoint - The endpoint name (e.g., 'governance_predictive_trend', 'governance_unified')
+   */
+  incrementUIHit(endpoint) {
+    this.uiHitsTotal.labels(endpoint).inc();
+  }
+
+  /**
+   * Record a UI action performed by a user
+   * @param {string} action - The action name (e.g., 'refresh_all', 'generate_report', 'recompute_ai')
+   */
+  incrementUIAction(action) {
+    this.uiActionsTotal.labels(action).inc();
+  }
+
+  /**
+   * Set the current number of active WebSocket connections
+   * @param {number} count - The current connection count
+   */
+  setUIWebSocketConnections(count) {
+    this.uiWebSocketConnectionsGauge.set(count);
+  }
+
+  /**
+   * Record UI panel render duration
+   * @param {string} panel - The panel name (e.g., 'governance_command_center', 'predictive_trend')
+   * @param {number} durationMs - Duration in milliseconds
+   */
+  recordUIPanelRenderDuration(panel, durationMs) {
+    this.uiPanelRenderDuration.labels(panel).observe(durationMs);
   }
 }
 

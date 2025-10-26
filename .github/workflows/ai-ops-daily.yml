@@ -1,0 +1,351 @@
+# ================================================================
+# NeuroPilot v17.3 - AI Ops Automation Pipeline
+# ================================================================
+# Runs AI Ops Brain cycle every 6 hours
+# Trains anomaly model daily at 3 AM UTC
+# Generates daily intelligence report at 9 AM UTC
+# ================================================================
+
+name: AI Ops Autonomous Optimization
+
+on:
+  schedule:
+    # AI Ops cycle every 6 hours
+    - cron: '0 */6 * * *'
+    # Anomaly trainer daily at 3 AM UTC
+    - cron: '0 3 * * *'
+    # Daily report at 9 AM UTC
+    - cron: '0 9 * * *'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode to run'
+        required: true
+        default: 'ops_cycle'
+        type: choice
+        options:
+          - ops_cycle
+          - train_model
+          - daily_report
+          - full_cycle
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ================================================================
+  # JOB: AI Ops Brain Cycle
+  # ================================================================
+  ops_brain_cycle:
+    name: Run AI Ops Brain Cycle
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'ops_cycle' ||
+      github.event_name == 'schedule' && github.event.schedule == '0 */6 * * *'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: inventory-enterprise
+        run: |
+          pip install --upgrade pip
+          pip install -r ai_ops/requirements.txt
+
+      - name: Run Ops Brain
+        working-directory: inventory-enterprise
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_CLOUD_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+        run: |
+          python ai_ops/ops_brain.py --auto-run
+
+      - name: Commit Terraform changes
+        if: success()
+        run: |
+          git config --global user.name "AI Ops Brain"
+          git config --global user.email "ai-ops@neuropilot.ai"
+
+          if [[ -n $(git status --porcelain infrastructure/terraform/) ]]; then
+            git add infrastructure/terraform/terraform.tfvars
+            git commit -m "chore(ai-ops): auto-tune thresholds based on AI recommendations
+
+            🤖 Autonomous optimization by Ops Brain
+            - Updated scaling thresholds
+            - Optimized for SLA + cost balance
+            - Generated at $(date -u +'%Y-%m-%d %H:%M UTC')
+
+            [skip ci]"
+            git push
+            echo "✅ Terraform changes committed"
+          else
+            echo "ℹ️  No changes to commit"
+          fi
+
+      - name: Upload Ops Brain logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: ops-brain-logs
+          path: /var/log/neuropilot/ops_brain.log
+
+  # ================================================================
+  # JOB: Train Anomaly Detection Model
+  # ================================================================
+  train_anomaly_model:
+    name: Train Anomaly Detection Model
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'train_model' ||
+      github.event_name == 'schedule' && github.event.schedule == '0 3 * * *'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: inventory-enterprise
+        run: |
+          pip install --upgrade pip
+          pip install -r ai_ops/requirements.txt
+
+      - name: Download historical data
+        working-directory: inventory-enterprise
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_CLOUD_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+        run: |
+          # First run Ops Brain to collect latest metrics
+          python ai_ops/ops_brain.py --auto-run || true
+
+      - name: Train model
+        working-directory: inventory-enterprise
+        run: |
+          python ai_ops/scripts/anomaly_trainer.py --lookback-hours 24
+
+      - name: Commit trained model
+        if: success()
+        run: |
+          git config --global user.name "AI Ops Trainer"
+          git config --global user.email "ai-ops@neuropilot.ai"
+
+          if [[ -n $(git status --porcelain inventory-enterprise/ai_ops/models/) ]]; then
+            git add inventory-enterprise/ai_ops/models/
+            git commit -m "chore(ai-ops): update anomaly detection model
+
+            🎓 Incremental training completed
+            - Trained on last 24h of metrics
+            - Model updated with latest patterns
+            - Generated at $(date -u +'%Y-%m-%d %H:%M UTC')
+
+            [skip ci]"
+            git push
+            echo "✅ Model committed"
+          else
+            echo "ℹ️  No model updates"
+          fi
+
+      - name: Upload training logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-logs
+          path: inventory-enterprise/ai_ops/models/training_log.json
+
+  # ================================================================
+  # JOB: Generate Daily Intelligence Report
+  # ================================================================
+  daily_intelligence_report:
+    name: Generate Daily Report
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'daily_report' ||
+      github.event_name == 'schedule' && github.event.schedule == '0 9 * * *'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: inventory-enterprise
+        run: |
+          pip install --upgrade pip
+          pip install -r ai_ops/requirements.txt
+
+      - name: Generate report
+        working-directory: inventory-enterprise
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_CLOUD_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python ai_ops/scripts/daily_report.py
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: daily-report
+          path: inventory-enterprise/ai_ops/reports/daily_report_*.json
+
+  # ================================================================
+  # JOB: Full AI Ops Cycle (Manual)
+  # ================================================================
+  full_ai_ops_cycle:
+    name: Full AI Ops Cycle
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'full_cycle'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: inventory-enterprise
+        run: |
+          pip install --upgrade pip
+          pip install -r ai_ops/requirements.txt
+
+      - name: Step 1 - Run Ops Brain
+        working-directory: inventory-enterprise
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_CLOUD_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+        run: |
+          echo "🧠 Running Ops Brain..."
+          python ai_ops/ops_brain.py --auto-run
+
+      - name: Step 2 - Train Model
+        working-directory: inventory-enterprise
+        run: |
+          echo "🎓 Training anomaly model..."
+          python ai_ops/scripts/anomaly_trainer.py --lookback-hours 24
+
+      - name: Step 3 - Generate Report
+        working-directory: inventory-enterprise
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_CLOUD_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          echo "📊 Generating daily report..."
+          python ai_ops/scripts/daily_report.py
+
+      - name: Commit all changes
+        if: success()
+        run: |
+          git config --global user.name "AI Ops System"
+          git config --global user.email "ai-ops@neuropilot.ai"
+
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git commit -m "chore(ai-ops): full cycle update
+
+            🤖 Complete AI Ops cycle executed
+            - Ops Brain optimized thresholds
+            - Anomaly model retrained
+            - Daily intelligence report generated
+            - Timestamp: $(date -u +'%Y-%m-%d %H:%M UTC')
+
+            [skip ci]"
+            git push
+            echo "✅ All changes committed"
+          else
+            echo "ℹ️  No changes to commit"
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: full-cycle-artifacts
+          path: |
+            inventory-enterprise/ai_ops/models/
+            inventory-enterprise/ai_ops/reports/
+            /var/log/neuropilot/*.log
+
+  # ================================================================
+  # JOB: Notify Results
+  # ================================================================
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [ops_brain_cycle, train_anomaly_model, daily_intelligence_report]
+    if: always()
+
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [[ "${{ needs.ops_brain_cycle.result }}" == "success" || "${{ needs.train_anomaly_model.result }}" == "success" || "${{ needs.daily_intelligence_report.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"${{ steps.status.outputs.emoji }} AI Ops Pipeline: ${{ steps.status.outputs.status }}\",
+              \"blocks\": [{
+                \"type\": \"section\",
+                \"text\": {
+                  \"type\": \"mrkdwn\",
+                  \"text\": \"*AI Ops Pipeline Results*\n• Ops Brain: ${{ needs.ops_brain_cycle.result }}\n• Model Training: ${{ needs.train_anomaly_model.result }}\n• Daily Report: ${{ needs.daily_intelligence_report.result }}\"
+                }
+              }]
+            }"

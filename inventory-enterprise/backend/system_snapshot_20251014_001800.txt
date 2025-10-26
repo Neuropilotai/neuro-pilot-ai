@@ -1,0 +1,178 @@
+
+[0;36m=============================================[0m
+[0;36mNeuroPilot Enterprise System Snapshot[0m
+[0;36m=============================================[0m
+[2025-10-14 00:18:00] Generated at: Tue Oct 14 00:18:00 EDT 2025
+[2025-10-14 00:18:00] Snapshot file: ./system_snapshot_20251014_001800.txt
+[2025-10-14 00:18:00] 
+
+[0;36m=============================================[0m
+[0;36mSYSTEM INFORMATION[0m
+[0;36m=============================================[0m
+[0;34mHostname: Davids-MacBook-Pro.local[0m
+[0;34mOS: Darwin 25.1.0[0m
+[0;34mArchitecture: arm64[0m
+[0;34mTimestamp: 2025-10-14 04:18:00 UTC[0m
+[0;34mCPU: Apple M3 Pro[0m
+[0;34mCPU Cores: 11[0m
+[0;34mMemory: 18 GB[0m
+[0;34mDisk Space:[0m
+/dev/disk3s1s1   460Gi    14Gi   275Gi     5%    451k  2.9G    0%   /
+/dev/disk3s6     460Gi   5.0Gi   275Gi     2%       5  2.9G    0%   /System/Volumes/VM
+/dev/disk3s2     460Gi    14Gi   275Gi     5%    1.9k  2.9G    0%   /System/Volumes/Preboot
+/dev/disk3s4     460Gi   756Mi   275Gi     1%     522  2.9G    0%   /System/Volumes/Update
+/dev/disk2s2     500Mi   6.0Mi   481Mi     2%       1  4.9M    0%   /System/Volumes/xarts
+/dev/disk2s1     500Mi   5.6Mi   481Mi     2%      30  4.9M    0%   /System/Volumes/iSCPreboot
+/dev/disk2s3     500Mi   2.6Mi   481Mi     1%      92  4.9M    0%   /System/Volumes/Hardware
+/dev/disk3s5     460Gi   149Gi   275Gi    36%    2.4M  2.9G    0%   /System/Volumes/Data
+/dev/disk6s1     3.6Ti   212Gi   3.4Ti     6%       1     0  100%   /Volumes/My Passport
+/dev/disk4s1     996Mi   666Mi   330Mi    67%    9.7k  4.3G    0%   /Volumes/Cursor Installer
+/dev/disk1s1     5.0Gi   1.9Gi   3.0Gi    40%      63   32M    0%   /System/Volumes/Update/SFR/mnt1
+/dev/disk3s1     460Gi    14Gi   275Gi     5%    451k  2.9G    0%   /System/Volumes/Update/mnt1
+
+[0;36m=============================================[0m
+[0;36mVERSION INFORMATION[0m
+[0;36m=============================================[0m
+[0;34mNode.js: v24.4.1[0m
+[0;34mnpm: 11.4.2[0m
+[0;34mSQLite: 3.51.0[0m
+[0;34m[0m
+[0;34mApplication version (package.json): 3.0.0[0m
+[0;34m[0m
+[0;34mLatest database migration: 018_create_v_current_inventory_view[0m
+
+[0;36m=============================================[0m
+[0;36mDATABASE SNAPSHOT[0m
+[0;36m=============================================[0m
+[0;32m✅ Database found: data/enterprise_inventory.db[0m
+[0;34mDatabase size: 144M[0m
+[0;34mDatabase SHA256: bb91fb0d70c3def7b1b0ba2706ffc67cd8c45624f5623c0c267bb121d8ed4f2c[0m
+[0;34m[0m
+[0;34mApplied Migrations:[0m
+1|001_add_versioning|2025-10-07 21:21:05
+2|002_add_ai_tables|2025-10-07 21:21:05
+3|015_restore_ai_learning_tables|2025-10-12 08:37:23
+4|016_load_rotation_schedule_knowledge|2025-10-12 08:44:16
+5|017_create_missing_forecast_views|2025-10-12 08:52:46
+6|018_create_v_current_inventory_view|2025-10-12 08:57:20
+[0;34m[0m
+[0;34mTotal tables: 63[0m
+[0;34m[0m
+[0;34mRBAC Tables:[0m
+[1;33m⚠️  No RBAC tables found (requires migration 023, 025)[0m
+[0;34m[0m
+[0;34mAudit Tables:[0m
+[1;33m⚠️  No audit tables found (requires migration 021)[0m
+[0;34m[0m
+[0;34mRecord Counts (selected tables):[0m
+[0;34m  migrations: 6 records[0m
+[0;34m  invoice_line_items: 5887 records[0m
+[0;34m  inventory_items: 607 records[0m
+[0;34m  ai_forecasts: 0 records[0m
+[0;34m  ai_forecast_history: 0 records[0m
+
+[0;36m=============================================[0m
+[0;36mRBAC MATRIX[0m
+[0;36m=============================================[0m
+[1;33m⚠️  user_roles table not found - RBAC not implemented[0m
+[0;34mExpected roles:[0m
+[0;34m  - OWNER (Level 4): Full system access[0m
+[0;34m  - FINANCE (Level 3): Finance workspace, exports, reports[0m
+[0;34m  - OPS (Level 2): Forecasts, inventory, read-only finance[0m
+[0;34m  - READONLY (Level 1): Reports only[0m
+[0;34m[0m
+[0;34mRoute Protection Analysis:[0m
+[0;32m✅ Found 51 requireRole() gates in routes[0m
+[0;34m[0m
+[0;34mTop protected routes:[0m
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER),
+routes/inventory-reconcile.js:  requireRole(ROLES.FINANCE, ROLES.OWNER, ROLES.OPS, ROLES.READONLY),
+
+[0;36m=============================================[0m
+[0;36mSTORAGE & NAS VERIFICATION[0m
+[0;36m=============================================[0m
+[0;34mChecking for NAS mounts...[0m
+[0;32m✅ NAS mount(s) found:[0m
+/dev/disk1s1     5.0Gi   1.9Gi   3.0Gi    40%      63   32M    0%   /System/Volumes/Update/SFR/mnt1
+/dev/disk3s1     460Gi    14Gi   275Gi     5%    451k  2.9G    0%   /System/Volumes/Update/mnt1
+[0;34m[0m
+[0;34mChecking backup directory...[0m
+[1;33m⚠️  Backup directory not found: /mnt/finance_share/backups[0m
+[0;34m[0m
+[0;34mLocal data directory:[0m
+172M	data
+[0;34mData files:[0m
+total 295768
+-rw-r--r--@ 1 davidmikulis  staff    10K Oct 11 13:56 bacon_sausage_matching_analysis.txt
+-rw-r--r--@ 1 davidmikulis  staff   103B Oct  8 17:29 cache.json
+-rw-r--r--@ 1 davidmikulis  staff    10K Oct 11 13:53 chicken_inventory_analysis.txt
+-rw-r--r--@ 1 davidmikulis  staff   139M Oct 14 00:00 enterprise_inventory.db
+-rw-r--r--@ 1 davidmikulis  staff   165K Oct 11 13:52 fifo_inventory_report.txt
+-rw-r--r--@ 1 davidmikulis  staff   2.7K Oct 13 11:19 generate_full_menu.js
+-rw-r--r--@ 1 davidmikulis  staff   120K Oct 13 13:40 inventory.db
+-rw-r--r--@ 1 davidmikulis  staff    17K Oct 13 11:19 menu_seed.json
+drwxr-xr-x@ 2 davidmikulis  staff    64B Oct  9 10:46 models
+drwxr-xr-x@ 3 davidmikulis  staff    96B Oct  9 08:19 pdfs
+-rw-r--r--@ 1 davidmikulis  staff    23K Oct 13 17:05 reconciliation_report_run9.csv
+drwxr-xr-x@ 2 davidmikulis  staff    64B Oct 12 08:24 uploads
+
+[0;36m=============================================[0m
+[0;36mNETWORK & TLS CONFIGURATION[0m
+[0;36m=============================================[0m
+[0;34mChecking application server...[0m
+[0;32m✅ Application server running on port 8083[0m
+[0;32m✅ Health endpoint responsive (HTTP 200)[0m
+[0;34m[0m
+[0;34mChecking Nginx reverse proxy...[0m
+[1;33m⚠️  Nginx not installed[0m
+[0;34m[0m
+[0;34mChecking TLS certificates...[0m
+[1;33m⚠️  TLS certificate not found (expected path: /etc/nginx/ssl/neuropilot.crt)[0m
+
+[0;36m=============================================[0m
+[0;36mMETRICS SNAPSHOT[0m
+[0;36m=============================================[0m
+[0;34mAttempting to fetch metrics...[0m
+[1;33m⚠️  Metrics endpoint not accessible or metrics not configured[0m
+[0;34mExpected metrics:[0m
+[0;34m  - user_login_total[0m
+[0;34m  - forecast_run_total[0m
+[0;34m  - backup_success_total[0m
+[0;34m  - audit_events_total[0m
+[0;34m  - export_request_total[0m
+[0;34m[0m
+[0;34mChecking Prometheus...[0m
+[1;33m⚠️  Prometheus not installed[0m
+
+[0;36m=============================================[0m
+[0;36mCONFIGURATION SUMMARY[0m
+[0;36m=============================================[0m
+[0;34mEnvironment configuration:[0m
+[0;32m✅ .env file exists[0m
+[0;34m  NODE_ENV: production[0m
+[1;33m⚠️    FORECAST_SHADOW_MODE: not set[0m
+[1;33m⚠️    TLS_ENABLED: not set[0m
+[0;34m[0m
+[1;33m⚠️  .env.production file not found[0m
+[0;34m[0m
+[0;34mAvailable scripts:[0m
+[0;32m✅   backup_db.sh[0m
+[0;32m✅   restore_db.sh[0m
+[0;32m✅   verify_v15_5_1_production.sh[0m
+[0;32m✅   test_first_user_invite.sh[0m
+[0;34m[0m
+[0;34mScripts found: 4/4[0m
+
+[0;36m=============================================[0m
+[0;36mSNAPSHOT COMPLETE[0m
+[0;36m=============================================[0m
+[2025-10-14 00:18:00] System snapshot saved to: ./system_snapshot_20251014_001800.txt
+[2025-10-14 00:18:00] Timestamp: 2025-10-14 04:18:00 UTC

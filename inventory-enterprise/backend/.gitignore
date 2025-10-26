@@ -1,0 +1,50 @@
+# Secrets & Security
+.jwt_secret
+.refresh_secret
+.env
+.env.local
+.env.production
+*.pem
+*.key
+*.cert
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+data/
+
+# Logs
+*.log
+logs/
+server.log
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build artifacts
+dist/
+build/
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

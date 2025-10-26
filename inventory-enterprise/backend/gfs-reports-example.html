@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GFS Fiscal Reports - Fixed</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 30px;
+    }
+
+    h1 {
+      font-size: 32px;
+      color: #1a202c;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #718096;
+      margin-bottom: 30px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+      background: #edf2f7;
+      color: #4a5568;
+    }
+
+    .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    .status {
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status.success {
+      background: #f0fff4;
+      color: #38a169;
+      border-left: 4px solid #38a169;
+      display: block;
+    }
+
+    .status.error {
+      background: #fff5f5;
+      color: #e53e3e;
+      border-left: 4px solid #e53e3e;
+      display: block;
+    }
+
+    .status.info {
+      background: #ebf8ff;
+      color: #3182ce;
+      border-left: 4px solid #3182ce;
+      display: block;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .metric-card {
+      background: #f7fafc;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a202c;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead {
+      background: #f7fafc;
+    }
+
+    th {
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #4a5568;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 15px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    tr:hover {
+      background: #f7fafc;
+    }
+
+    .number {
+      text-align: right;
+      font-family: 'Courier New', monospace;
+    }
+
+    .balanced {
+      color: #38a169;
+      font-weight: 600;
+    }
+
+    .unbalanced {
+      color: #e53e3e;
+      font-weight: 600;
+    }
+
+    .validation-section {
+      margin-top: 30px;
+    }
+
+    .validation-card {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+
+    .validation-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .validation-details {
+      font-size: 12px;
+      color: #718096;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .loader {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: #718096;
+    }
+
+    .loader.active {
+      display: block;
+    }
+
+    .spinner {
+      border: 3px solid #e2e8f0;
+      border-top-color: #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 GFS Fiscal Reports - Fixed</h1>
+    <p class="subtitle">Stable, deterministic reports with integer-cent math (v2.0.0)</p>
+
+    <div class="controls">
+      <button class="btn btn-primary" onclick="loadReports()">
+        <span>🔄</span>
+        <span>Load Reports</span>
+      </button>
+      <button class="btn btn-secondary" onclick="exportCSV()">
+        <span>📥</span>
+        <span>Export CSV</span>
+      </button>
+      <button class="btn btn-secondary" onclick="exportJSON()">
+        <span>📄</span>
+        <span>Export JSON</span>
+      </button>
+      <button class="btn btn-secondary" onclick="runValidation()">
+        <span>✓</span>
+        <span>Validate All</span>
+      </button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="loader" id="loader">
+      <div class="spinner"></div>
+      <div>Processing fiscal reports...</div>
+    </div>
+
+    <div id="metrics" class="metrics" style="display: none;"></div>
+
+    <div class="table-container" id="reportTable" style="display: none;">
+      <table>
+        <thead id="tableHeader"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="validation-section" id="validationSection" style="display: none;">
+      <h2 style="font-size: 20px; margin-bottom: 15px;">🔍 Balance Validation</h2>
+      <div id="validationCards"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { buildFiscalReports, exportToCSV, exportToJSON } from './fy-report-fix.js';
+
+    let currentReports = null;
+
+    // Make functions globally accessible
+    window.loadReports = loadReports;
+    window.exportCSV = exportCSVHandler;
+    window.exportJSON = exportJSONHandler;
+    window.runValidation = runValidation;
+
+    /**
+     * Load and process fiscal reports
+     */
+    async function loadReports() {
+      showLoader();
+      hideStatus();
+
+      try {
+        // Fetch invoice data from API
+        const response = await fetch('/api/owner/reports/invoices');
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch data: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        // Build reports using the fix
+        currentReports = buildFiscalReports(data.invoices || []);
+
+        // Display results
+        displayMetrics(currentReports.metadata);
+        displayReportTable(currentReports.periodSummaries);
+        displayValidation(currentReports.validations);
+
+        hideLoader();
+        showStatus('success', `✅ Reports generated successfully! ${currentReports.metadata.fiscalPeriods} periods, ${currentReports.metadata.uniqueInvoices} invoices processed.`);
+
+      } catch (error) {
+        console.error('Error loading reports:', error);
+        hideLoader();
+        showStatus('error', `❌ Error: ${error.message}`);
+      }
+    }
+
+    /**
+     * Display metrics cards
+     */
+    function displayMetrics(metadata) {
+      const metricsDiv = document.getElementById('metrics');
+      metricsDiv.style.display = 'grid';
+
+      metricsDiv.innerHTML = `
+        <div class="metric-card">
+          <div class="metric-label">Input Rows</div>
+          <div class="metric-value">${metadata.inputRows.toLocaleString()}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Unique Invoices</div>
+          <div class="metric-value">${metadata.uniqueInvoices.toLocaleString()}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Fiscal Periods</div>
+          <div class="metric-value">${metadata.fiscalPeriods}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Balance Status</div>
+          <div class="metric-value ${metadata.allBalanced ? 'balanced' : 'unbalanced'}">
+            ${metadata.allBalanced ? '✅ Balanced' : '❌ Errors'}
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Display report table
+     */
+    function displayReportTable(periodSummaries) {
+      const tableDiv = document.getElementById('reportTable');
+      const headerDiv = document.getElementById('tableHeader');
+      const bodyDiv = document.getElementById('tableBody');
+
+      tableDiv.style.display = 'block';
+
+      // Build header
+      const columns = [
+        'Fiscal Period',
+        'Invoice Count',
+        'Total Invoice Amount',
+        'Other Costs',
+        '60110010 BAKE',
+        '60110020 BEV + ECO',
+        '60110030 MILK',
+        'GST',
+        'QST'
+      ];
+
+      headerDiv.innerHTML = `
+        <tr>
+          ${columns.map(col => `<th>${col}</th>`).join('')}
+        </tr>
+      `;
+
+      // Build rows
+      bodyDiv.innerHTML = periodSummaries.map(period => `
+        <tr>
+          <td>${period['Fiscal Period']}</td>
+          <td class="number">${period['Invoice Count']}</td>
+          <td class="number">$${period['Total Invoice Amount'].toFixed(2)}</td>
+          <td class="number">$${period['Other Costs'].toFixed(2)}</td>
+          <td class="number">$${period['60110010 BAKE'].toFixed(2)}</td>
+          <td class="number">$${period['60110020 BEV + ECO'].toFixed(2)}</td>
+          <td class="number">$${period['60110030 MILK'].toFixed(2)}</td>
+          <td class="number">$${period['63107000 GST'].toFixed(2)}</td>
+          <td class="number">$${period['63107100 QST'].toFixed(2)}</td>
+        </tr>
+      `).join('');
+    }
+
+    /**
+     * Display validation results
+     */
+    function displayValidation(validations) {
+      const section = document.getElementById('validationSection');
+      const cardsDiv = document.getElementById('validationCards');
+
+      section.style.display = 'block';
+
+      cardsDiv.innerHTML = validations.map(v => `
+        <div class="validation-card">
+          <div class="validation-header">
+            <strong>${v.fiscalPeriod}</strong>
+            <span class="${v.balanced ? 'balanced' : 'unbalanced'}">
+              ${v.balanced ? '✅ Balanced' : '❌ Unbalanced'}
+            </span>
+          </div>
+          <div class="validation-details">
+            <div>
+              <div style="font-weight: 600;">Calculated</div>
+              <div>${v.calculatedTotal}¢</div>
+            </div>
+            <div>
+              <div style="font-weight: 600;">Reported</div>
+              <div>${v.reportedTotal}¢</div>
+            </div>
+            <div>
+              <div style="font-weight: 600;">Difference</div>
+              <div class="${v.balanced ? '' : 'unbalanced'}">${v.difference}¢</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /**
+     * Export to CSV
+     */
+    function exportCSVHandler() {
+      if (!currentReports) {
+        showStatus('error', '❌ No reports to export. Load reports first.');
+        return;
+      }
+
+      const csv = exportToCSV(currentReports.periodSummaries);
+      downloadFile(csv, 'fiscal-reports.csv', 'text/csv');
+      showStatus('success', '✅ CSV exported successfully!');
+    }
+
+    /**
+     * Export to JSON
+     */
+    function exportJSONHandler() {
+      if (!currentReports) {
+        showStatus('error', '❌ No reports to export. Load reports first.');
+        return;
+      }
+
+      const json = exportToJSON(currentReports);
+      downloadFile(json, 'fiscal-reports.json', 'application/json');
+      showStatus('success', '✅ JSON exported successfully!');
+    }
+
+    /**
+     * Run validation
+     */
+    function runValidation() {
+      if (!currentReports) {
+        showStatus('error', '❌ No reports to validate. Load reports first.');
+        return;
+      }
+
+      const allBalanced = currentReports.validations.every(v => v.balanced);
+      const balanced = currentReports.validations.filter(v => v.balanced).length;
+      const total = currentReports.validations.length;
+
+      if (allBalanced) {
+        showStatus('success', `✅ All ${total} fiscal periods are perfectly balanced!`);
+      } else {
+        showStatus('error', `❌ ${total - balanced} of ${total} periods have balance errors.`);
+      }
+
+      // Scroll to validation section
+      document.getElementById('validationSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /**
+     * Download file helper
+     */
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /**
+     * UI helpers
+     */
+    function showLoader() {
+      document.getElementById('loader').classList.add('active');
+    }
+
+    function hideLoader() {
+      document.getElementById('loader').classList.remove('active');
+    }
+
+    function showStatus(type, message) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.className = `status ${type}`;
+      statusDiv.textContent = message;
+    }
+
+    function hideStatus() {
+      document.getElementById('status').className = 'status';
+    }
+
+    // Auto-load reports on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      showStatus('info', '💡 Click "Load Reports" to generate fiscal reports with stable, deterministic calculations.');
+    });
+  </script>
+</body>
+</html>

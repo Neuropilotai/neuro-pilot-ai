@@ -1,5 +1,5 @@
 /**
- * NeuroPilot Owner Super Console Styles (v14.4.1)
+ * NeuroPilot Owner Super Console Styles (v15.4.0)
  * Extracted from inline styles for CSP compliance
  * No 'unsafe-inline' required
  */
@@ -49,6 +49,27 @@ header {
   padding: 0 2rem;
   overflow-x: auto;
 }
+
+/* v15.4.0: Two-Row Navigation Layout */
+.tabs-2rows {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  padding: 0;
+  overflow-x: visible;
+}
+
+.tabs-row {
+  display: flex;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs-row:last-child {
+  border-bottom: none;
+}
+
 .tab {
   padding: 1rem 1.5rem;
   cursor: pointer;
@@ -1566,12 +1587,10 @@ header {
   font-weight: 700;
 }
 
-/* Calendar Grid */
+/* Calendar Grid - v15.1: Reset to simple container for new layout */
 .menu-calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 1rem;
-  padding: 1.5rem;
+  display: block;
+  padding: 0;
   min-height: 400px;
 }
 
@@ -1778,3 +1797,1190 @@ header {
     text-align: center;
   }
 }
+
+/* ============================================
+   v15.0 Menu Calendar Grid (7×3 Meal-Based Layout)
+   ============================================ */
+
+/* Calendar Wrapper */
+.menu-calendar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Calendar Header (Day Names) */
+.menu-calendar-header {
+  display: grid;
+  grid-template-columns: 120px repeat(7, 1fr);
+  gap: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.menu-day-header {
+  padding: 1rem 0.5rem;
+  text-align: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.menu-day-header:last-child {
+  border-right: none;
+}
+
+.menu-day-name {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.menu-day-date {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  margin-top: 0.25rem;
+}
+
+.menu-day-today {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white !important;
+}
+
+.menu-day-current {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+/* Meal Rows */
+.menu-meal-row {
+  display: grid;
+  grid-template-columns: 120px repeat(7, 1fr);
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  min-height: 120px;
+}
+
+.menu-meal-row:last-child {
+  border-bottom: none;
+}
+
+.menu-meal-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.menu-cell {
+  padding: 0.75rem;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.menu-cell:hover {
+  background: var(--bg);
+}
+
+.menu-cell:last-child {
+  border-right: none;
+}
+
+.menu-cell-empty {
+  color: var(--text-light);
+  font-size: 0.875rem;
+  text-align: center;
+  opacity: 0.5;
+}
+
+/* Policy Lock */
+.menu-cell-locked {
+  background: #f3f4f6 !important;
+  opacity: 0.6;
+}
+
+.menu-lock-overlay {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 1.25rem;
+  opacity: 0.5;
+}
+
+/* Recipe Chips */
+.recipe-chip {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.recipe-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.recipe-chip-name {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+}
+
+.recipe-chip-qty {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+/* Recipe Drawer Sections */
+.recipe-meta {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.recipe-servings {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.recipe-description {
+  padding: 1rem;
+  background: var(--bg);
+  border-left: 4px solid var(--primary);
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+.recipe-items-section {
+  margin-top: 1.5rem;
+}
+
+.recipe-items-section h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+/* Responsive Layout */
+@media (max-width: 1400px) {
+  .menu-calendar-header,
+  .menu-meal-row {
+    grid-template-columns: 100px repeat(7, 1fr);
+  }
+  
+  .menu-meal-label {
+    font-size: 0.8125rem;
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .menu-cell {
+    padding: 0.5rem;
+  }
+  
+  .recipe-chip {
+    padding: 0.375rem 0.5rem;
+  }
+  
+  .recipe-chip-name {
+    font-size: 0.75rem;
+  }
+  
+  .recipe-chip-qty {
+    font-size: 0.6875rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .menu-calendar-header,
+  .menu-meal-row {
+    grid-template-columns: 80px repeat(7, 1fr);
+  }
+  
+  .menu-day-name {
+    font-size: 0.75rem;
+  }
+  
+  .menu-day-date {
+    font-size: 0.6875rem;
+  }
+}
+
+/* v15.2.0: Inventory Reconciliation Styles */
+.reconcile-section {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.reconcile-section:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.reconcile-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.reconcile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.reconcile-stat {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.reconcile-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.reconcile-stat-label {
+  font-size: 0.875rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.reconcile-stat-over .reconcile-stat-value {
+  color: #10b981;
+}
+
+.reconcile-stat-short .reconcile-stat-value {
+  color: #ef4444;
+}
+
+.reconcile-table-section {
+  margin-top: 1.5rem;
+}
+
+.reconcile-table-section h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.flex-space-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   v15.2.3: Broken Links Details/Summary (CSP Fix)
+   ============================================ */
+.details-summary-clickable {
+  cursor: pointer;
+  padding: 0.5rem;
+  background: var(--surface);
+  border-radius: 6px;
+}
+
+.details-content-scrollable {
+  margin-top: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ============================================
+   v15.5.0: Shadow Mode & RBAC Styles
+   ============================================ */
+
+/* Warning Card */
+.card-warn {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+  margin-bottom: 1.5rem;
+}
+
+.card-warn .card-header {
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+}
+
+.card-warn .card-title {
+  color: white;
+}
+
+.card-warn .stat-card {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.card-warn .stat-value {
+  color: white;
+}
+
+.card-warn .stat-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Disabled Button */
+.btn-disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--border) !important;
+  color: var(--text-light) !important;
+  pointer-events: none;
+}
+
+/* Full Width Button */
+.btn-full {
+  width: 100%;
+}
+
+/* Badge Secondary (Gray) */
+.badge-secondary {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* Alert Success */
+.alert-success {
+  background: #d1fae5;
+  color: #065f46;
+  border-left: 4px solid var(--success);
+}
+
+/* ============================================
+   v15.5.0: Export Confirmation Modal Styles
+   ============================================ */
+
+/* Export Detail Value */
+.export-detail-value {
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+/* Export Rate Meter */
+.export-rate-meter {
+  width: 100%;
+  height: 32px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.export-rate-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #f59e0b 70%, #ef4444 100%);
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+/* Export Notice List */
+.export-notice-list {
+  margin-top: 0.75rem;
+  padding-left: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.export-notice-list li {
+  margin-bottom: 0.25rem;
+}
+
+/* GFS Invoice Management Styles (v15.5.4) */
+.gfs-stats-grid {
+  margin-top: 1rem;
+}
+
+.gfs-progress-bar {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* ============================================
+   v15.9.0: Governance Trends & Forecasting
+   ============================================ */
+
+/* Trends Controls */
+.governance-trends-controls {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+/* Trends Grid */
+.governance-trends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Trend Card */
+.governance-trend-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+  transition: all 0.2s;
+}
+
+.governance-trend-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Trend Header */
+.governance-trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.governance-trend-label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+/* Sparkline Container */
+.governance-trend-sparkline {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+/* Sparkline SVG */
+.governance-sparkline-svg {
+  width: 100%;
+  height: auto;
+}
+
+/* Forecast Display */
+.governance-trend-forecast {
+  font-size: 0.875rem;
+  color: var(--text-light);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Badge Colors for Trends */
+.badge-green {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-amber {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Grid Layout - 5 columns */
+.grid-5 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+/* ============================================
+   v16.0.0: Governance Intelligence Severity Badges
+   ============================================ */
+
+/* Severity Badge - Critical */
+.severity-critical {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Severity Badge - High */
+.severity-high {
+  background: #fed7aa;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Severity Badge - Medium */
+.severity-medium {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Severity Badge - Low */
+.severity-low {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* ============================================
+   v16.1.0: Governance Predictive Control Panel
+   ============================================ */
+
+/* Forecast Slider */
+.forecast-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 6px;
+  background: linear-gradient(to right, #e0e0e0 0%, #1976d2 100%);
+  border-radius: 3px;
+  outline: none;
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+
+.forecast-slider:hover {
+  opacity: 1;
+}
+
+.forecast-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #1976d2;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.forecast-slider::-webkit-slider-thumb:hover {
+  background: #1565c0;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.forecast-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #1976d2;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.forecast-slider::-moz-range-thumb:hover {
+  background: #1565c0;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Forecast Chart Styles */
+#gi-forecast-chart {
+  display: block;
+  width: 100%;
+}
+
+#gi-forecast-chart circle {
+  cursor: pointer;
+  transition: r 0.2s;
+}
+
+#gi-forecast-chart circle:hover {
+  r: 6;
+}
+
+/* Forecast Controls Container */
+#gi-forecast-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ============================================
+   v16.2.0: Item Bank & Finance Enforcement
+   ============================================ */
+
+/* Finance Integrity Badges */
+.finance-badge-ok {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  border: 2px solid #10b981;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.finance-badge-warn {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  border: 2px solid #f59e0b;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.finance-badge-error {
+  display: inline-block;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 2px solid #ef4444;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Finance Strip - Sticky Header */
+.finance-strip {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.finance-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.finance-strip-item {
+  text-align: center;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.2s;
+}
+
+.finance-strip-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.finance-strip-code {
+  font-weight: 700;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.finance-strip-count {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.finance-strip-loading {
+  text-align: center;
+  padding: 0.5rem;
+  opacity: 0.8;
+}
+
+/* Mapping Queue Table */
+.mapping-queue-table {
+  font-size: 0.875rem;
+}
+
+.mapping-queue-table tbody tr {
+  transition: background 0.2s;
+}
+
+.mapping-queue-table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.05);
+}
+
+/* CSV Upload Area */
+.upload-area {
+  margin-bottom: 1.5rem;
+}
+
+.upload-drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg);
+}
+
+.upload-drop-zone:hover,
+.upload-drop-zone.drag-over {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.upload-drop-zone p {
+  color: var(--text-light);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.upload-progress {
+  margin-top: 1rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 24px;
+  background: var(--bg);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+#csv-upload-status {
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+/* Filter Bar */
+.filter-bar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-bar .form-control {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Pagination Bar */
+.pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+#pagination-info {
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+/* Finance Code Badges */
+.badge-finance-bake {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-finance-bev\+eco {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-finance-milk {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.badge-finance-groc\+misc {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.badge-finance-meat {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge-finance-prod {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-finance-clean {
+  background: #cffafe;
+  color: #155e75;
+}
+
+.badge-finance-paper {
+  background: #fce7f3;
+  color: #9f1239;
+}
+
+.badge-finance-freight {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.badge-finance-linen {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.badge-finance-propane {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.badge-finance-other {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* Action Buttons */
+.btn-xs {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
+.np-btn-confirm {
+  background: var(--primary);
+  color: white;
+  transition: all 0.2s;
+}
+
+.np-btn-confirm:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.np-btn-revalidate {
+  background: #f59e0b;
+  color: white;
+  transition: all 0.2s;
+}
+
+.np-btn-revalidate:hover {
+  background: #d97706;
+}
+
+/* Table Responsive */
+.table-responsive {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+/* Form Control */
+.form-control {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Button Group */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Card Description */
+.card-description {
+  font-size: 0.875rem;
+  color: var(--text-light);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+/* RBAC - Owner Only Utility */
+.u-owner-only {
+  /* This class is for semantic purposes; visibility controlled by JS */
+}
+
+/* Text Utilities */
+.text-center {
+  text-align: center;
+}
+
+/* Badge Error (for confidence < 50%) */
+.badge-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ============================================
+   Governance Intelligence - CSP Compliance (Fix for v16.0/16.1)
+   ============================================ */
+
+/* Header Actions */
+.gi-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Score Grid */
+.gi-score-grid {
+  margin-top: 16px;
+}
+
+/* Trend Container */
+.gi-trend-container {
+  margin-top: 24px;
+}
+
+.gi-trend-title {
+  margin-bottom: 12px;
+}
+
+.gi-trend-svg {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #f9f9f9;
+}
+
+/* Card Spacing */
+.gi-card-spaced {
+  margin-top: 24px;
+}
+
+/* Insights Body */
+.gi-insights-body {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.gi-placeholder-text {
+  color: #999;
+}
+
+/* Forecast Controls */
+.gi-forecast-controls {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.gi-control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gi-control-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.gi-control-input {
+  width: auto;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.gi-alpha-slider {
+  width: 120px;
+}
+
+.gi-alpha-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-width: 36px;
+}
+
+/* Chart Container */
+.gi-chart-container {
+  padding: 16px;
+}
+
+.gi-chart-svg {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #f9f9f9;
+}
+
+/* Legend */
+.gi-legend {
+  display: flex;
+  gap: 24px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+  justify-content: center;
+}
+
+.gi-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gi-legend-line-actual {
+  width: 20px;
+  height: 3px;
+  background: #1976d2;
+}
+
+.gi-legend-line-forecast {
+  width: 20px;
+  height: 3px;
+  background: #00acc1;
+}
+
+.gi-legend-band {
+  width: 20px;
+  height: 8px;
+  background: rgba(0, 172, 193, 0.2);
+  border: 1px solid rgba(0, 172, 193, 0.4);
+}
+
+/* Chart Info */
+.gi-chart-info {
+  margin-top: 12px;
+  padding: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: var(--text-light);
+  text-align: center;
+}
+
+/* Gap Utilities for GI Controls */
+.u-gap-8 {
+  gap: 8px;
+}
+
+.u-items-center {
+  align-items: center;
+}
+
+/* ============================================
+   Health & Auth Status Styles (v15.7.1)
+   CSP-Compliant - No inline styles
+   ============================================ */
+
+/* Health Badge - Clickable */
+.badge-health {
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+
+/* Auth Warning Banner */
+.auth-warning-banner {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  background: #ff9800;
+  color: white;
+  padding: 15px 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  z-index: 9999;
+  max-width: 400px;
+}
+
+.auth-warning-banner a {
+  color: white;
+  text-decoration: underline;
+}
+
+.auth-warning-banner button {
+  margin-left: 10px;
+  background: rgba(0,0,0,0.2);
+  border: none;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.auth-warning-banner button:hover {
+  background: rgba(0,0,0,0.3);
+}
+
+/* Auth Status Indicators */
+.auth-status-authenticated {
+  color: #4caf50;
+  font-size: 12px;
+}
+
+.auth-status-login {
+  color: #ff9800;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.auth-status-login:hover {
+  text-decoration: underline;
+}
+

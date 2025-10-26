@@ -17,6 +17,32 @@ const fs = require('fs').promises;
 const requireOwnerAccess = requireOwner;
 
 /**
+ * GET /api/owner/config
+ * v15.5.0: Returns app configuration (shadow mode, etc.)
+ */
+router.get('/config', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      config: {
+        shadowMode: process.env.FORECAST_SHADOW_MODE === 'true',
+        dualControl: process.env.DUAL_CONTROL_ENABLED === 'true',
+        exportRateLimit: parseInt(process.env.EXPORT_RATE_LIMIT_PER_MIN) || 5,
+        rbacEnabled: true,
+        version: '15.5.4',
+        environment: process.env.NODE_ENV || 'development'
+      }
+    });
+  } catch (error) {
+    console.error('Owner config error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/owner/dashboard
  * Returns comprehensive dashboard data for owner console
  */
@@ -1645,6 +1671,258 @@ router.get('/counts/available', authenticateToken, requireOwnerAccess, async (re
   } catch (error) {
     console.error('GET /api/owner/counts/available error:', error);
     res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/counts/history
+ * List all inventory counts for Count tab history table (v15.2.2)
+ */
+router.get('/counts/history', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const db = require('../config/database');
+    const limit = parseInt(req.query.limit) || 50;
+
+    // Get all inventory counts with item counts
+    const counts = await db.all(`
+      SELECT
+        ic.id,
+        ic.created_at,
+        ic.approved_at,
+        ic.closed_at,
+        ic.status,
+        ic.location_id,
+        sl.name as location_name,
+        COUNT(DISTINCT icr.id) as item_count,
+        'MONTHLY' as count_type
+      FROM inventory_counts ic
+      LEFT JOIN storage_locations sl ON sl.id = ic.location_id
+      LEFT JOIN inventory_count_rows icr ON icr.count_id = ic.id
+      GROUP BY ic.id
+      ORDER BY ic.created_at DESC
+      LIMIT ?
+    `, [limit]);
+
+    res.json({
+      ok: true,
+      success: true,
+      counts: counts || []
+    });
+
+  } catch (error) {
+    console.error('GET /api/owner/counts/history error:', error);
+    res.status(500).json({
+      ok: false,
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================================================
+// Count PDF Management (v15.2.3)
+// ============================================================================
+
+/**
+ * GET /api/owner/counts/:countId/pdfs
+ * Get PDFs attached to a count
+ */
+router.get('/counts/:countId/pdfs', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const db = require('../config/database');
+    const { countId } = req.params;
+
+    // Get attached PDFs
+    const pdfs = await db.all(`
+      SELECT
+        d.id,
+        d.filename,
+        d.invoice_date,
+        d.vendor,
+        d.invoice_amount,
+        d.created_at,
+        cd.attached_at,
+        cd.attached_by
+      FROM count_documents cd
+      JOIN documents d ON d.id = cd.document_id
+      WHERE cd.count_id = ?
+      ORDER BY d.invoice_date DESC
+    `, [countId]);
+
+    res.json({
+      ok: true,
+      success: true,
+      pdfs: pdfs || []
+    });
+
+  } catch (error) {
+    console.error('GET /api/owner/counts/:countId/pdfs error:', error);
+    res.status(500).json({
+      ok: false,
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/counts/:countId/pdfs/available
+ * Get PDFs available to attach to a count (not already attached)
+ */
+router.get('/counts/:countId/pdfs/available', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const db = require('../config/database');
+    const { countId } = req.params;
+
+    // Get PDFs not yet attached to this count
+    const pdfs = await db.all(`
+      SELECT
+        d.id,
+        d.filename,
+        d.invoice_date,
+        d.vendor,
+        d.invoice_amount,
+        d.created_at
+      FROM documents d
+      WHERE d.mime_type = 'application/pdf'
+        AND d.deleted_at IS NULL
+        AND d.id NOT IN (
+          SELECT document_id FROM count_documents WHERE count_id = ?
+        )
+      ORDER BY d.invoice_date DESC
+      LIMIT 100
+    `, [countId]);
+
+    res.json({
+      ok: true,
+      success: true,
+      pdfs: pdfs || []
+    });
+
+  } catch (error) {
+    console.error('GET /api/owner/counts/:countId/pdfs/available error:', error);
+    res.status(500).json({
+      ok: false,
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/owner/counts/:countId/pdfs/attach
+ * Attach PDFs to a count
+ */
+router.post('/counts/:countId/pdfs/attach', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const db = require('../config/database');
+    const { countId } = req.params;
+    const { document_ids } = req.body;
+
+    // Validate input
+    if (!document_ids || !Array.isArray(document_ids) || document_ids.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        error: 'document_ids array is required'
+      });
+    }
+
+    // Verify count exists
+    const count = await db.get(`SELECT id FROM inventory_counts WHERE id = ?`, [countId]);
+    if (!count) {
+      return res.status(404).json({
+        ok: false,
+        success: false,
+        error: 'Count not found'
+      });
+    }
+
+    const now = new Date().toISOString();
+    const attachedBy = req.user?.email || 'owner';
+    let attached = 0;
+    let skipped = 0;
+
+    await db.run('BEGIN TRANSACTION');
+
+    try {
+      for (const documentId of document_ids) {
+        // Verify document exists
+        const document = await db.get(`SELECT id FROM documents WHERE id = ? AND deleted_at IS NULL`, [documentId]);
+
+        if (!document) {
+          console.warn(`Document ${documentId} not found, skipping`);
+          skipped++;
+          continue;
+        }
+
+        // Insert into count_documents
+        const result = await db.run(`
+          INSERT OR IGNORE INTO count_documents (count_id, document_id, attached_by, attached_at)
+          VALUES (?, ?, ?, ?)
+        `, [countId, documentId, attachedBy, now]);
+
+        if (result.changes > 0) {
+          attached++;
+        } else {
+          skipped++;
+        }
+      }
+
+      await db.run('COMMIT');
+
+      res.json({
+        ok: true,
+        success: true,
+        message: `Attached ${attached} PDFs, skipped ${skipped} duplicates`,
+        attached,
+        skipped
+      });
+
+    } catch (err) {
+      await db.run('ROLLBACK');
+      throw err;
+    }
+
+  } catch (error) {
+    console.error('POST /api/owner/counts/:countId/pdfs/attach error:', error);
+    res.status(500).json({
+      ok: false,
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/owner/counts/:countId/pdfs/:documentId
+ * Detach a PDF from a count
+ */
+router.delete('/counts/:countId/pdfs/:documentId', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const db = require('../config/database');
+    const { countId, documentId } = req.params;
+
+    // Delete the attachment
+    const result = await db.run(`
+      DELETE FROM count_documents
+      WHERE count_id = ? AND document_id = ?
+    `, [countId, documentId]);
+
+    res.json({
+      ok: true,
+      success: true,
+      removed: result.changes,
+      message: result.changes > 0 ? 'PDF detached successfully' : 'PDF not found'
+    });
+
+  } catch (error) {
+    console.error('DELETE /api/owner/counts/:countId/pdfs/:documentId error:', error);
+    res.status(500).json({
+      ok: false,
       success: false,
       error: error.message
     });

@@ -217,7 +217,32 @@ class RealtimeBus extends EventEmitter {
     });
   }
 
-  // === v13.5: Latency tracking methods ===
+  // === v13.5: Latency tracking and emit counters ===
+
+  /**
+   * Get AI Ops channel health for composite scoring
+   * Tracks 24h emit activity on ai_event and ai_ops channels
+   */
+  getOpsChannelHealth() {
+    const now = Date.now();
+    const dayAgo = now - (24 * 60 * 60 * 1000);
+
+    // Check both ai_event and ai_ops channels
+    const aiEventLastEmit = this.lastEmit['ai_event'] || null;
+    const aiOpsLastEmit = this.lastEmit['ai_ops'] || null;
+    const mostRecentEmit = Math.max(aiEventLastEmit || 0, aiOpsLastEmit || 0);
+
+    // Count emits in last 24h (approximate from emit counts and last emit time)
+    const aiEventCount = this.emitCount['ai_event'] || 0;
+    const aiOpsCount = this.emitCount['ai_ops'] || 0;
+    const totalEmits24h = aiEventCount + aiOpsCount;
+
+    return {
+      recentEmit: mostRecentEmit > 0 && (now - mostRecentEmit) < (24 * 60 * 60 * 1000),
+      emits24h: totalEmits24h,
+      lastEmitTs: mostRecentEmit > 0 ? new Date(mostRecentEmit).toISOString() : null
+    };
+  }
 
   /**
    * Track forecast job latency

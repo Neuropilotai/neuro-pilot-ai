@@ -1,0 +1,20 @@
+# NeuroPilot v17.1 Terraform Variables
+# Copy this file to terraform.tfvars and fill in your values
+
+# Cloudflare
+cloudflare_api_token = "your_cloudflare_api_token_here"
+cloudflare_zone_id   = "your_cloudflare_zone_id_here"
+
+# Deployment Hosts
+vercel_host  = "neuropilot-inventory-abc123.vercel.app"
+railway_host = "neuropilot-api-production-xyz.up.railway.app"
+
+# Database
+neon_database_url = "postgresql://user:pass@host.neon.tech/neuropilot?sslmode=require"
+
+# Grafana Cloud (optional)
+grafana_url     = "https://your-org.grafana.net"
+grafana_api_key = "your_grafana_api_key_here"
+
+# Environment
+environment = "production"

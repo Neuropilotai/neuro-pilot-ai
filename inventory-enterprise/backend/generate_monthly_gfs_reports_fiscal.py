@@ -196,7 +196,7 @@ def generate_fiscal_period_report(period_info):
     SELECT
         ili.invoice_number,
         ili.description as item_name,
-        ili.unit_price * ili.quantity as total_price
+        ili.line_total as total_price
     FROM invoice_line_items ili
     WHERE ili.invoice_number IN ({})
     """.format(','.join(['?'] * len(df_invoices)))

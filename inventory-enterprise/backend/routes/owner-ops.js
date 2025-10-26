@@ -772,6 +772,42 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
     // === v13.5: Data Quality Index ===
     const dqiResult = await computeDataQualityIndex(db);
 
+    // === v15.3: Financial Accuracy ===
+    const { getFinancialAccuracyMetric } = require('../src/ai/FinancialAccuracy');
+    const financialAccuracyResult = await getFinancialAccuracyMetric(db);
+
+    // === v15.5: Order Forecast Accuracy ===
+    let orderForecastAccuracy = null;
+    let lastOrderForecastRun = null;
+    try {
+      // Get latest accuracy from ai_forecast_accuracy table
+      const latestAccuracy = await db.get(`
+        SELECT accuracy_pct, calculation_date
+        FROM ai_forecast_accuracy
+        ORDER BY calculation_date DESC
+        LIMIT 1
+      `);
+
+      if (latestAccuracy) {
+        orderForecastAccuracy = Math.round(latestAccuracy.accuracy_pct * 10) / 10;
+      }
+
+      // Get last order forecast run from breadcrumbs
+      const lastRun = await db.get(`
+        SELECT ran_at
+        FROM ai_ops_breadcrumbs
+        WHERE job = 'ai_order_forecast'
+        ORDER BY ran_at DESC
+        LIMIT 1
+      `);
+
+      if (lastRun) {
+        lastOrderForecastRun = lastRun.ran_at;
+      }
+    } catch (err) {
+      logger.debug('Order forecast accuracy not available:', err.message);
+    }
+
     // === v13.5: Predictive Health & Anomaly Diagnostics ===
     let predictiveHealth = {
       forecast_latency_avg: null,
@@ -879,6 +915,17 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       dqi_change_pct: dqiResult.change_pct,
       dqi_color: dqiResult.color,
       dqi_issues: dqiResult.issues,
+
+      // === v15.3: Financial Accuracy ===
+      financial_accuracy: financialAccuracyResult.financial_accuracy,
+      financial_accuracy_color: financialAccuracyResult.color,
+
+      // === v15.5: Order Forecast Accuracy ===
+      order_forecast_accuracy: orderForecastAccuracy,
+      order_forecast_accuracy_color: orderForecastAccuracy !== null
+        ? (orderForecastAccuracy >= 90 ? 'green' : orderForecastAccuracy >= 75 ? 'yellow' : 'red')
+        : 'gray',
+      last_order_forecast_ts: lastOrderForecastRun,
 
       // === v13.5: Predictive Health Metrics ===
       forecast_latency_avg: predictiveHealth.forecast_latency_avg,
@@ -1631,6 +1678,84 @@ async function computeAIIntelligenceIndex(database) {
     };
   }
 }
+
+// ============================================================================
+// v15.2.3: BROKEN LINK DETECTION & 404 TELEMETRY
+// ============================================================================
+
+// Import 404 telemetry functions
+const {
+  getRecent404s,
+  get404Stats,
+  getCounters
+} = require('../middleware/404-telemetry');
+
+/**
+ * GET /api/owner/ops/broken-links/recent
+ * v15.2.3: Get recent 404s for broken link detection
+ * Returns detailed 404 telemetry with path, type, referer, timestamp
+ */
+router.get('/broken-links/recent', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+
+    // Get recent 404s from telemetry
+    const recent404s = getRecent404s(limit);
+
+    // Get 404 stats (grouped by path with counts)
+    const stats = get404Stats(50);
+
+    // Get counters (total counts by type)
+    const counters = getCounters();
+
+    res.json({
+      success: true,
+      recent: recent404s,
+      stats,
+      counters,
+      total: recent404s.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Broken links fetch failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch broken links',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/ops/broken-links/stats
+ * v15.2.3: Get aggregated 404 statistics
+ * Returns top broken links grouped by path with counts and referers
+ */
+router.get('/broken-links/stats', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+
+    const stats = get404Stats(limit);
+    const counters = getCounters();
+
+    res.json({
+      success: true,
+      stats,
+      counters,
+      total: stats.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Broken links stats fetch failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch broken links stats',
+      message: error.message
+    });
+  }
+});
 
 // Export router and helper functions for reuse
 module.exports = router;

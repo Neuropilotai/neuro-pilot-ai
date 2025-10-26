@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Meta Tags (Proper Order) -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Version & Governance -->
+  <meta name="version" content="14.3.3">
+  <meta name="governance-checksum" content="auto-generated-sha256">
+  <meta name="description" content="NeuroInnovate Owner Console - Unified Enterprise Interface for AI-powered inventory management">
+  <meta name="author" content="NeuroPilot.AI">
+
+  <!-- Page Info -->
+  <title>Owner Console | NeuroInnovate Inventory v14.3.3</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+  <!-- External Styles -->
+  <link rel="stylesheet" href="owner-console.css?v=14.3.3">
+</head>
+<body>
+  <!-- Skip to Main Content (Accessibility) -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- Governance Alert Banner (Hidden by default, shown by JS) -->
+  <div id="governanceAlert" class="governance-banner" role="alert" aria-live="polite" aria-atomic="true">
+    <!-- Populated by checkGovernance() -->
+  </div>
+
+  <!-- Header -->
+  <header role="banner">
+    <div class="logo">
+      🧠 NeuroPilot v14.3.3 • The Living Inventory Intelligence Console
+      <span id="liveBadge" class="badge badge-success" style="margin-left: 0.75rem; animation: pulse 2s infinite;">
+        LIVE 🟢
+      </span>
+      <span class="badge badge-primary" style="margin-left: 0.5rem;">
+        UNIFIED • data:/api/owner/dashboard
+      </span>
+    </div>
+    <div class="user-info">
+      <span id="currentUser" aria-label="Current user"></span>
+      <span class="token-ttl" id="tokenTTL" aria-label="Token time remaining"></span>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="logout()" aria-label="Logout">Logout</button>
+    </div>
+  </header>
+
+  <!-- Tab Navigation -->
+  <nav class="tabs" role="tablist" aria-label="Console navigation">
+    <button role="tab" aria-selected="true" aria-controls="dashboard-panel" id="tab-dashboard" class="tab active" onclick="switchTab('dashboard')" tabindex="0">
+      📊 Dashboard
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="inventory-panel" id="tab-inventory" class="tab" onclick="switchTab('inventory')" tabindex="-1">
+      📦 Inventory
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="locations-panel" id="tab-locations" class="tab" onclick="switchTab('locations')" tabindex="-1">
+      📍 Locations
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="pdfs-panel" id="tab-pdfs" class="tab" onclick="switchTab('pdfs')" tabindex="-1">
+      📄 Orders/PDFs
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="count-panel" id="tab-count" class="tab" onclick="switchTab('count')" tabindex="-1">
+      🔢 Count
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="playground-panel" id="tab-playground" class="tab" onclick="switchTab('playground')" tabindex="-1">
+      🎮 Playground
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="ai-panel" id="tab-ai" class="tab" onclick="switchTab('ai')" tabindex="-1">
+      🤖 AI Console
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="forecast-panel" id="tab-forecast" class="tab" onclick="switchTab('forecast')" tabindex="-1">
+      📈 Forecast
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="reports-panel" id="tab-reports" class="tab" onclick="switchTab('reports')" tabindex="-1">
+      📋 Reports
+    </button>
+    <button role="tab" aria-selected="false" aria-controls="settings-panel" id="tab-settings" class="tab" onclick="switchTab('settings')" tabindex="-1">
+      ⚙️ Settings
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="main-content" class="container content" role="main">
+    <!-- Dashboard Tab -->
+    <div id="dashboard" class="tab-panel active" role="tabpanel" aria-labelledby="tab-dashboard" tabindex="0">
+      <!-- Cognitive Overview (from owner-console.html) -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <div class="card-header" style="border-bottom-color: rgba(255,255,255,0.2);">
+          <h3 class="card-title" style="color: white;">🧠 Cognitive Overview - AI Intelligence Status</h3>
+          <button type="button" class="btn btn-sm" style="background: rgba(255,255,255,0.3); color: white;" onclick="loadCognitiveIntelligence()" aria-label="Refresh cognitive overview">
+            ↻ Refresh
+          </button>
+        </div>
+        <div class="grid grid-4">
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="aiConfidenceAvg" aria-label="AI Confidence">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">AI Confidence (7d avg)</div>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="forecastAccuracyAvg" aria-label="Forecast Accuracy">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">Forecast Accuracy</div>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="activeModulesCount" aria-label="Active modules">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">Active AI Modules</div>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2rem; font-weight: 700;" id="learningAppliedCount" aria-label="Learning applied">--</div>
+            <div style="font-size: 0.875rem; opacity: 0.9; margin-top: 0.5rem;">Learning Applied (7d)</div>
+          </div>
+        </div>
+        <div id="cognitiveCharts" style="margin-top: 1rem; padding: 0 1rem 1rem;"></div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-4">
+        <div class="card stat-card">
+          <div class="stat-value" id="systemHealth" aria-label="System health">--</div>
+          <div class="stat-label">System Health</div>
+        </div>
+        <div class="card stat-card" style="cursor: pointer;" onclick="showForecastDetail()" title="Click to see details">
+          <div class="stat-value" id="forecastCoverage" aria-label="Forecast coverage">--</div>
+          <div class="stat-label">Forecast Coverage</div>
+        </div>
+        <div class="card stat-card" style="cursor: pointer;" onclick="showStockoutDetail()" title="Click to see details">
+          <div class="stat-value" id="stockoutCount" aria-label="Stockout risk">--</div>
+          <div class="stat-label">Stockout Risk</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="lastAIRun" aria-label="Last AI training">--</div>
+          <div class="stat-label">Last AI Training</div>
+        </div>
+      </div>
+
+      <!-- AI Activity Feed -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">📡 Live AI Activity Feed</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadActivityFeed()" aria-label="Refresh activity feed">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="activityFeed" role="log" aria-live="polite"></div>
+      </div>
+
+      <!-- Database Stats & Recent Activity -->
+      <div class="grid grid-2" style="margin-top: 1.5rem;">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Database Statistics</h3>
+          </div>
+          <div id="dbStats"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Recent Activity</h3>
+          </div>
+          <div id="recentActivity" role="log" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory Tab -->
+    <div id="inventory" class="tab-panel" role="tabpanel" aria-labelledby="tab-inventory" tabindex="0" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="inventorySearch" placeholder="Search items..." aria-label="Search inventory">
+          <button type="button" class="btn btn-primary" onclick="loadInventory()" aria-label="Search inventory">
+            🔍 Search
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="openSpotCheckModal()" aria-label="Open spot check">
+            📋 Spot Check
+          </button>
+        </div>
+        <div id="inventoryTable" role="region" aria-label="Inventory table"></div>
+      </div>
+    </div>
+
+    <!-- Locations Tab -->
+    <div id="locations" class="tab-panel" role="tabpanel" aria-labelledby="tab-locations" tabindex="0" hidden>
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Storage Locations</h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-sm btn-success" onclick="openAddLocationModal()" aria-label="Add new location">
+                ➕ Add New
+              </button>
+              <button type="button" class="btn btn-sm btn-primary" onclick="loadLocations()" aria-label="Refresh locations">
+                ↻ Refresh
+              </button>
+            </div>
+          </div>
+          <div id="locationsList" role="list"></div>
+        </div>
+        <div class="card" style="grid-column: span 2;">
+          <div class="card-header">
+            <h3 class="card-title">Items at Location</h3>
+            <span id="selectedLocation" aria-live="polite"></span>
+          </div>
+          <div id="locationItems" role="region"></div>
+        </div>
+      </div>
+
+      <!-- Unassigned Items Panel -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">📦 Unassigned Items</h3>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-sm btn-success" onclick="assignSelectedItems()" id="assignSelectedBtn" disabled aria-label="Assign selected items">
+              📍 Assign Selected
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadUnassignedItems()" aria-label="Refresh unassigned items">
+              ↻ Refresh
+            </button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="unassignedSearch" placeholder="Search items..." oninput="debounceUnassignedSearch()" aria-label="Search unassigned items">
+          <span style="color: var(--text-light); font-size: 0.875rem;">
+            Total: <strong id="unassignedTotal" aria-live="polite">--</strong>
+          </span>
+        </div>
+        <div style="max-height: 500px; overflow-y: auto;">
+          <table class="table" role="table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">
+                  <input type="checkbox" id="selectAllUnassigned" onchange="toggleSelectAllUnassigned()" aria-label="Select all unassigned items">
+                </th>
+                <th>Item Code</th>
+                <th>Name</th>
+                <th>Unit</th>
+                <th style="width: 100px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="unassignedList"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="unassignedPagination" role="navigation" aria-label="Pagination"></div>
+      </div>
+    </div>
+
+    <!-- PDFs Tab -->
+    <div id="pdfs" class="tab-panel" role="tabpanel" aria-labelledby="tab-pdfs" tabindex="0" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="pdfSearch" placeholder="Search invoice number..." aria-label="Search PDFs">
+          <select class="select" id="pdfStatus" onchange="loadPDFs()" aria-label="Filter by status">
+            <option value="all">All PDFs</option>
+            <option value="unprocessed">Unprocessed</option>
+            <option value="processed">Processed</option>
+          </select>
+          <button type="button" class="btn btn-primary" onclick="loadPDFs()" aria-label="Search PDFs">
+            🔍 Search
+          </button>
+          <button type="button" class="btn btn-success" onclick="openUploadPDFModal()" aria-label="Upload PDF">
+            📤 Upload PDF
+          </button>
+          <button type="button" class="btn btn-success" onclick="openIncludeOrdersModal()" aria-label="Include in count">
+            ✓ Include in Count
+          </button>
+        </div>
+        <div id="pdfTable" role="region" aria-label="PDF table"></div>
+      </div>
+    </div>
+
+    <!-- Count Tab -->
+    <div id="count" class="tab-panel" role="tabpanel" aria-labelledby="tab-count" tabindex="0" hidden>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Start New Count</h3>
+          </div>
+          <form onsubmit="event.preventDefault(); startCount();" aria-label="Start new count form">
+            <div class="form-group">
+              <label class="form-label" for="countLocation">Location (optional)</label>
+              <select class="select" id="countLocation">
+                <option value="">Select location...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="countNotes">Notes</label>
+              <textarea class="textarea" id="countNotes" placeholder="Count notes..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;" aria-label="Start count">
+              🎯 Start Count
+            </button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Active Count</h3>
+            <span id="activeCountId" aria-live="polite"></span>
+          </div>
+          <div id="activeCountDetails"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 1.5rem; display: none;" id="countProcessPanel">
+        <div class="card-header">
+          <h3 class="card-title">Count Process Panel</h3>
+        </div>
+        <div id="countProcessDetails"></div>
+      </div>
+    </div>
+
+    <!-- Playground Tab (Month-End Workflow) -->
+    <div id="playground" class="tab-panel" role="tabpanel" aria-labelledby="tab-playground" tabindex="0" hidden>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🎮 Month-End Playground - Workspace Manager</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadPlayground()" aria-label="Refresh playground">
+            ↻ Refresh
+          </button>
+        </div>
+        <div class="alert alert-info" role="status">
+          <strong>Month-End Workflow:</strong> Create workspaces, attach invoices, count inventory across locations, and generate usage reports.
+        </div>
+        <div id="playgroundPanel"></div>
+      </div>
+    </div>
+
+    <!-- AI Console Tab -->
+    <div id="ai" class="tab-panel" role="tabpanel" aria-labelledby="tab-ai" tabindex="0" hidden>
+      <!-- AI Ops System Health Panel -->
+      <div class="card" style="margin-bottom: 1.5rem; border: 2px solid var(--primary);">
+        <div class="card-header">
+          <h3 class="card-title">🚀 AI Ops System Health (v14.3 Unified)</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadAIOpsStatus()" aria-label="Refresh AI Ops status">
+            ↻ Refresh
+          </button>
+        </div>
+        <div class="grid grid-4" id="aiOpsHealthGrid">
+          <div class="stat-card">
+            <div class="stat-value" id="opsHealthScore" style="color: var(--success);" aria-label="Health score">--</div>
+            <div class="stat-label">Health Score</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsDQIScore" style="font-size: 1.5rem;" aria-label="Data quality">--</div>
+            <div class="stat-label">🧮 Data Quality (DQI)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsForecastLatency" style="font-size: 1.5rem;" aria-label="Forecast latency">--</div>
+            <div class="stat-label">⚙️ Forecast Latency</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsLearningDivergence" style="font-size: 1.5rem;" aria-label="Learning divergence">--</div>
+            <div class="stat-label">🧩 Learning Divergence</div>
+          </div>
+        </div>
+        <div id="aiOpsChecks" style="margin-top: 1rem;" role="status"></div>
+      </div>
+
+      <!-- Cron Schedule Summary -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">⏰ Autonomous Cron Schedule</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_forecast')" aria-label="Run forecast now">
+            ▶️ Run Forecast Now
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_learning')" aria-label="Run learning now">
+            ▶️ Run Learning Now
+          </button>
+        </div>
+        <div class="grid grid-2" id="cronSchedule">
+          <div>
+            <strong>🔮 Daily Forecast (06:00)</strong>
+            <div id="forecastLastRun" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;" aria-live="polite">Last: --</div>
+            <div id="forecastNextRun" style="font-size: 0.875rem; color: var(--text-light);">Next: --</div>
+          </div>
+          <div>
+            <strong>🧠 Daily Learning (21:00)</strong>
+            <div id="learningLastRun" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;" aria-live="polite">Last: --</div>
+            <div id="learningNextRun" style="font-size: 0.875rem; color: var(--text-light);">Next: --</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Learning Timeline -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">📚 Learning Timeline (Last 10 Insights)</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningTimeline()" aria-label="Refresh learning timeline">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="learningTimeline" role="log"></div>
+      </div>
+
+      <!-- AI Widgets Grid -->
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Reorder Recommendations</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIReorder()" aria-label="Refresh reorder recommendations">↻</button>
+          </div>
+          <div id="aiReorderList" role="list"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Anomaly Watchlist</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIAnomalies()" aria-label="Refresh anomaly watchlist">↻</button>
+          </div>
+          <div id="aiAnomalyList" role="list"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">System Upgrade Advisor</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIUpgrade()" aria-label="Refresh upgrade advisor">↻</button>
+          </div>
+          <div id="aiUpgradeAdvice" role="region"></div>
+        </div>
+      </div>
+
+      <!-- Owner Feedback & Training -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Owner Feedback & Training</h3>
+        </div>
+        <form onsubmit="event.preventDefault(); submitFeedback();" aria-label="AI feedback form">
+          <div class="form-group">
+            <label class="sr-only" for="aiFeedback">AI Feedback</label>
+            <textarea class="textarea" id="aiFeedback" placeholder="Enter feedback (e.g., 'coffee 1.5 cups/person', 'eggs 2 per person for breakfast')" aria-label="AI feedback"></textarea>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <button type="submit" class="btn btn-primary" aria-label="Submit feedback">💬 Submit Feedback</button>
+            <button type="button" class="btn btn-success" onclick="trainAI()" aria-label="Train AI now">🚀 Train Now</button>
+            <button type="button" class="btn btn-secondary" onclick="loadFeedbackHistory()" aria-label="View feedback history">📜 History</button>
+          </div>
+        </form>
+        <div id="feedbackHistory" style="margin-top: 1rem;" role="region"></div>
+      </div>
+
+      <!-- AI Learning Nudge -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">AI Learning Nudge</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningNudges()" aria-label="Refresh learning nudges">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="learningNudges" role="region"></div>
+      </div>
+    </div>
+
+    <!-- Forecast Tab -->
+    <div id="forecast" class="tab-panel" role="tabpanel" aria-labelledby="tab-forecast" tabindex="0" hidden>
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Population Controls</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadPopulation()" aria-label="Refresh population">↻</button>
+        </div>
+        <form onsubmit="event.preventDefault(); updatePopulation();" aria-label="Population controls form">
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div>
+              <label class="form-label" for="totalPopulation">Total Population</label>
+              <input type="number" class="input" id="totalPopulation" style="width: 120px;" aria-label="Total population">
+            </div>
+            <div>
+              <label class="form-label" for="indianCount">Indian Meals</label>
+              <input type="number" class="input" id="indianCount" style="width: 120px;" aria-label="Indian meal count">
+            </div>
+            <button type="submit" class="btn btn-primary" aria-label="Update population">💾 Update</button>
+            <button type="button" class="chip" onclick="adjustPopulation(25, 0)">+25 People</button>
+            <button type="button" class="chip" onclick="adjustPopulation(-25, 0)">-25 People</button>
+            <button type="button" class="chip" onclick="adjustPopulation(0, 5)">+5 Indian</button>
+            <button type="button" class="chip" onclick="adjustPopulation(0, -5)">-5 Indian</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Stockout Alerts</h3>
+        </div>
+        <div id="stockoutAlerts" role="alert" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Today's Predictions</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadDailyForecast()" aria-label="Refresh forecast">
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="forecastTable" role="region"></div>
+      </div>
+    </div>
+
+    <!-- Reports Tab -->
+    <div id="reports" class="tab-panel" role="tabpanel" aria-labelledby="tab-reports" tabindex="0" hidden>
+      <!-- GFS Monthly Reports -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div class="card-header" style="border-bottom-color: rgba(255,255,255,0.2);">
+          <h3 class="card-title" style="color: white;">📊 GFS Monthly Accounting Reports</h3>
+          <span class="badge" style="background: rgba(255,255,255,0.3); color: white;">181 Invoices | $2.13M</span>
+        </div>
+        <div style="padding: 0.5rem 0;">
+          <p style="opacity: 0.95; font-size: 0.875rem; margin-bottom: 1rem;">
+            Access all monthly GFS accounting reports (Jan-Sep 2025) with clickable PDF links, cost code breakdowns, and copy/paste ready format.
+          </p>
+          <button type="button" class="btn" style="background: white; color: #667eea; width: 100%; font-weight: 600; font-size: 1rem;" onclick="openGFSReports()" aria-label="Open GFS reports">
+            🚀 Open GFS Monthly Reports Dashboard
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Tiered Reporting Center</h3>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;" role="tablist" aria-label="Report types">
+          <button role="tab" class="chip active" id="reportTab-executive" onclick="switchReportTab('executive')" aria-selected="true">👔 Executive</button>
+          <button role="tab" class="chip" id="reportTab-ops" onclick="switchReportTab('ops')" aria-selected="false">📊 Ops Manager</button>
+          <button role="tab" class="chip" id="reportTab-production" onclick="switchReportTab('production')" aria-selected="false">👨‍🍳 Production</button>
+          <button role="tab" class="chip" id="reportTab-purchasing" onclick="switchReportTab('purchasing')" aria-selected="false">🛒 Purchasing</button>
+          <button role="tab" class="chip" id="reportTab-finance" onclick="switchReportTab('finance')" aria-selected="false">💰 Finance</button>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()" style="margin-bottom: 1rem;" aria-label="Export report to CSV">
+          📥 Export CSV
+        </button>
+        <div id="reportContent" role="region"></div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-settings" tabindex="0" hidden>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Device Binding</h3>
+          </div>
+          <div id="deviceInfo"></div>
+          <button type="button" class="btn btn-primary" onclick="rebindDevice()" style="width: 100%; margin-top: 1rem;" aria-label="Rebind device">
+            🔐 Rebind Device
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Console Preferences</h3>
+          </div>
+          <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 0.5rem;">
+              <input type="checkbox" id="warmCache" aria-label="Warm forecast cache">
+              <span>Warm Forecast Cache on Load</span>
+            </label>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="exportDailyCSV()" style="width: 100%;" aria-label="Export daily summary">
+            📥 Export Daily Summary CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: 1.5rem;">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">System Orchestration</h3>
+          </div>
+          <button type="button" class="btn btn-success" onclick="orchestrateStart()" style="width: 100%; margin-bottom: 0.5rem;" aria-label="Start all services">
+            🚀 Start All Services
+          </button>
+          <button type="button" class="btn btn-warning" onclick="orchestrateStop()" style="width: 100%;" aria-label="Stop all services">
+            🛑 Stop All Services (Safe)
+          </button>
+          <div id="orchestrationStatus" style="margin-top: 1rem;" role="status" aria-live="polite"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Backup & Recovery</h3>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="createRecoveryKit()" style="width: 100%; margin-bottom: 0.5rem;" aria-label="Create recovery kit">
+            💾 Create Recovery Kit
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="verifyRecoveryKit()" style="width: 100%; margin-bottom: 0.5rem;" aria-label="Verify recovery kit">
+            🔍 Verify Recovery Kit
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="dryRunRestore()" style="width: 100%;" aria-label="Dry run restore">
+            🔄 Dry-Run Restore
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">Audit Chain</h3>
+        </div>
+        <div id="auditInfo" role="region"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modals (Consolidated from both consoles) -->
+  <!-- PDF Modal -->
+  <div id="pdfModal" class="modal" role="dialog" aria-labelledby="pdfModalTitle" aria-modal="true">
+    <div class="modal-content" style="max-width: 95%; max-height: 95%;">
+      <div class="modal-header">
+        <h3 id="pdfModalTitle">PDF Viewer</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closePDFModal()" aria-label="Close PDF viewer">✕ Close</button>
+      </div>
+      <div class="modal-body" style="padding: 0; height: 80vh;">
+        <iframe id="pdfFrame" style="width: 100%; height: 100%; border: none;" title="PDF document"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Include Orders Modal -->
+  <div id="includeOrdersModal" class="modal" role="dialog" aria-labelledby="includeOrdersModalTitle" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="includeOrdersModalTitle">Include PDFs in Count</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeIncludeOrdersModal()" aria-label="Close modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" role="status">
+          Select PDFs to include in the month-end count. Only unprocessed PDFs are shown.
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="includeCountId">Count ID</label>
+          <input type="text" class="input" id="includeCountId" placeholder="Enter count ID" aria-label="Count ID">
+        </div>
+        <div class="checkbox-list" id="pdfCheckboxList" role="group" aria-label="PDF selection"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeIncludeOrdersModal()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="includeSelectedPDFs()">✓ Include Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload PDF Modal -->
+  <div id="uploadPDFModal" class="modal" role="dialog" aria-labelledby="uploadPDFModalTitle" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="uploadPDFModalTitle">Upload PDF Invoice</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeUploadPDFModal()" aria-label="Close modal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="uploadPDFForm" onsubmit="event.preventDefault(); uploadPDF();">
+          <div class="form-group">
+            <label class="form-label" for="pdfFile">Select PDF File *</label>
+            <input type="file" class="input" id="pdfFile" accept="application/pdf" required aria-required="true">
+            <small style="color: var(--text-light); font-size: 0.75rem;">Max size: 50MB. Only PDF files are allowed.</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pdfNotes">Notes (optional)</label>
+            <textarea class="textarea" id="pdfNotes" placeholder="e.g., GFS invoice, weekly order, etc."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeUploadPDFModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="uploadPDF()">📤 Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location Create/Edit Modal -->
+  <div id="locationModal" class="modal" role="dialog" aria-labelledby="locationModalTitle" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="locationModalTitle">Add New Location</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeLocationModal()" aria-label="Close modal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="locationForm" onsubmit="event.preventDefault(); saveLocation();">
+          <input type="hidden" id="locationEditCode">
+          <div class="form-group">
+            <label class="form-label" for="locationCode">Location ID *</label>
+            <input type="text" class="input" id="locationCode" placeholder="e.g., cooler-01" required aria-required="true">
+            <small style="color: var(--text-light); font-size: 0.75rem;">Use lowercase with hyphens (e.g., "freezer-a2", "walk-in-d1")</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="locationName">Location Name *</label>
+            <input type="text" class="input" id="locationName" placeholder="e.g., Walk-in Freezer 1" required aria-required="true">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="locationType">Type</label>
+            <select class="select" id="locationType">
+              <option value="warehouse">Warehouse</option>
+              <option value="refrigerated">Refrigerated</option>
+              <option value="frozen">Frozen</option>
+              <option value="dry">Dry Storage</option>
+              <option value="kitchen">Kitchen</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeLocationModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveLocation()">💾 Save Location</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign Locations Modal -->
+  <div id="assignLocationsModal" class="modal" role="dialog" aria-labelledby="assignLocationsModalTitle" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="assignLocationsModalTitle">Assign Items to Locations</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeAssignLocationsModal()" aria-label="Close modal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info" role="status">
+          <strong id="assignItemsCount">0 items</strong> will be assigned to selected locations.
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="assignLocationSelect">Select Locations (multiple) *</label>
+          <select class="select" id="assignLocationSelect" multiple size="10" style="height: 250px;" aria-required="true">
+            <!-- Populated dynamically -->
+          </select>
+          <small style="color: var(--text-light); font-size: 0.75rem;">Hold Ctrl (Windows) or Cmd (Mac) to select multiple locations</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeAssignLocationsModal()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="confirmAssignLocations()">✓ Assign</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workspace Details Modal (v14.3) -->
+  <div id="workspaceModal" class="modal" role="dialog" aria-labelledby="workspaceModalTitle" aria-modal="true">
+    <div class="modal-content" style="max-width: 1200px;">
+      <div class="modal-header">
+        <h3 id="workspaceModalTitle">🎮 Workspace Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeWorkspaceModal()" aria-label="Close modal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="workspaceDetails" role="region" aria-live="polite">
+          <div class="loading"><div class="spinner"></div> Loading workspace...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Close</button>
+        <button type="button" class="btn btn-primary" id="workspaceUsageBtn" onclick="viewWorkspaceUsage()" style="display: none;">
+          📊 View Usage Report
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forecast Detail Modal -->
+  <div id="forecastDetailModal" class="modal" role="dialog" aria-labelledby="forecastDetailModalTitle" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="forecastDetailModalTitle">📈 Forecast Coverage Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeForecastDetailModal()" aria-label="Close modal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="forecastDetailContent" role="region"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeForecastDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stockout Risk Detail Modal -->
+  <div id="stockoutDetailModal" class="modal" role="dialog" aria-labelledby="stockoutDetailModalTitle" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="stockoutDetailModalTitle">⚠️ Stockout Risk Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeStockoutDetailModal()" aria-label="Close modal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="stockoutDetailContent" role="region"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeStockoutDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Version Footer -->
+  <footer class="version-footer" role="contentinfo">
+    <p>
+      <strong>NeuroInnovate Owner Console v14.3.3</strong> • Console Unification + Governance<br>
+      Generated with <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a> •
+      Governance Checksum: <code id="governanceChecksum">calculating...</code>
+    </p>
+  </footer>
+
+  <!-- Scripts -->
+  <!-- v14.3: Shared Console Core (Zero Drift) -->
+  <script src="owner-console-core.js?v=14.3.3"></script>
+
+  <!-- Unified Console Logic -->
+  <script>
+    // Governance Health Check (runs every 60 seconds)
+    async function checkGovernance() {
+      try {
+        const res = await fetchAPI('/owner/ops/status');
+        if (!res || !res.ai_ops_health) return;
+
+        const healthPct = res.ai_ops_health.score;
+        const alert = document.getElementById('governanceAlert');
+
+        if (healthPct < 50) {
+          alert.className = 'governance-banner alert-danger active';
+          alert.innerHTML = `⚠️ <strong>CRITICAL:</strong> AI Ops Health at ${healthPct}%. Immediate attention required! <a href="#ai" onclick="switchTab('ai')" style="text-decoration:underline;margin-left:1rem;">View AI Console →</a>`;
+        } else if (healthPct < 80) {
+          alert.className = 'governance-banner alert-warning active';
+          alert.innerHTML = `⚡ <strong>WARNING:</strong> AI Ops Health at ${healthPct}%. Review recommended. <a href="#ai" onclick="switchTab('ai')" style="text-decoration:underline;margin-left:1rem;">View AI Console →</a>`;
+        } else {
+          alert.className = 'governance-banner alert-success active';
+          alert.innerHTML = `✅ <strong>HEALTHY:</strong> AI Ops Health at ${healthPct}%. All systems operational.`;
+          // Auto-hide after 3 seconds if healthy
+          setTimeout(() => {
+            alert.classList.remove('active');
+          }, 3000);
+        }
+      } catch (err) {
+        console.error('Governance check failed:', err);
+      }
+    }
+
+    // Calculate governance checksum (SHA-256 of version + timestamp)
+    async function calculateGovernanceChecksum() {
+      const version = '14.3.3';
+      const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const data = `${version}-${timestamp}`;
+
+      try {
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        document.getElementById('governanceChecksum').textContent = hashHex.substring(0, 16) + '...';
+      } catch (err) {
+        document.getElementById('governanceChecksum').textContent = 'calculation-failed';
+      }
+    }
+
+    // Enhanced tab switching with keyboard support
+    function switchTab(tabName) {
+      // Remove active from all tabs
+      document.querySelectorAll('.tab').forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+        t.setAttribute('tabindex', '-1');
+      });
+
+      // Remove active from all panels
+      document.querySelectorAll('.tab-panel').forEach(p => {
+        p.classList.remove('active');
+        p.setAttribute('hidden', '');
+      });
+
+      // Activate selected tab
+      const tab = document.getElementById(`tab-${tabName}`);
+      if (tab) {
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        tab.setAttribute('tabindex', '0');
+      }
+
+      // Activate selected panel
+      const panel = document.getElementById(tabName);
+      if (panel) {
+        panel.classList.add('active');
+        panel.removeAttribute('hidden');
+        panel.focus();
+      }
+    }
+
+    // Keyboard shortcuts (Alt+1 through Alt+0 for tabs)
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const tabs = ['dashboard', 'inventory', 'locations', 'pdfs', 'count', 'playground', 'ai', 'forecast', 'reports'];
+        const index = parseInt(e.key) - 1;
+        if (index < tabs.length) {
+          switchTab(tabs[index]);
+        }
+      }
+      if (e.altKey && e.key === '0') {
+        e.preventDefault();
+        switchTab('settings');
+      }
+    });
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('🚀 NeuroInnovate Owner Console v14.3.3 - Unified');
+
+      // Calculate governance checksum
+      await calculateGovernanceChecksum();
+
+      // Run governance check immediately
+      await checkGovernance();
+
+      // Set up governance check interval (every 60 seconds)
+      setInterval(checkGovernance, 60000);
+
+      // Load dashboard (from owner-console-core.js)
+      if (typeof loadDashboard === 'function') {
+        await loadDashboard();
+      }
+
+      console.log('✅ Console initialized with governance monitoring');
+    });
+  </script>
+</body>
+</html>

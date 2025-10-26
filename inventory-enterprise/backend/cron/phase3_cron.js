@@ -2,8 +2,9 @@
  * Phase 3 Cron Jobs - Autonomous Learning Layer
  * Scheduled tasks for AI tuning, health prediction, security scanning, governance
  * v13.0.1: Added self-healing watchdog for job recovery
+ * v13.0.2: Reduced watchdog frequency to every 15 minutes and added mutex locks for database contention
  *
- * @version 13.0.1
+ * @version 13.0.2
  * @author NeuroInnovate AI Team
  */
 
@@ -20,15 +21,23 @@ const GovernanceReportService = require('../src/ai/governance/GovernanceReportSe
 const MenuPredictor = require('../src/ai/forecast/MenuPredictor');
 const FeedbackTrainer = require('../src/ai/forecast/FeedbackTrainer');
 
+// NeuroPilot v15.5.0: Order Forecasting + Recommendation Engine
+const ForecastingEngine = require('../src/ai/forecast/ForecastingEngine');
+
 // NeuroPilot v13.0: In-memory timestamp tracking
 let _lastForecastRun = null;
 let _lastLearningRun = null;
+let _lastOrderForecastRun = null; // v15.5.0: Order forecasting
 
 // NeuroPilot v13.0.1: Watchdog tracking and re-entrancy guards
 let _forecastRunning = false;
 let _learningRunning = false;
+let _orderForecastRunning = false; // v15.5.0: Order forecasting guard
 let _lastWatchdogCheck = null;
 let _watchdogRecoveries = []; // Track recoveries in last 24h
+
+// NeuroPilot v13.0.2: Mutex locks for preventing concurrent cron execution
+let _watchdogRunning = false;
 
 class Phase3CronScheduler {
   constructor(db, metricsExporter, realtimeBus = null) {
@@ -272,6 +281,195 @@ class Phase3CronScheduler {
 
     this.jobs.push({ name: 'ai_learning', schedule: '0 21 * * *', job: learningJob });
 
+    // ========== DAILY 02:00: AI Order Forecasting + Recommendations (v15.5.0) ==========
+    const orderForecastJob = cron.schedule('0 2 * * *', async () => {
+      if (_orderForecastRunning) {
+        logger.warn('Phase3Cron: Order forecasting already running, skipping scheduled run');
+        return;
+      }
+
+      _orderForecastRunning = true;
+      const jobStart = Date.now();
+      logger.info('Phase3Cron: [DAILY 02:00] 📦 Generating AI order forecasts and recommendations');
+
+      try {
+        // v15.5.0: Instantiate ForecastingEngine with database
+        const forecastEngine = new ForecastingEngine(this.db);
+        const result = await forecastEngine.generateForecast({ horizonDays: 7 });
+
+        // Calculate accuracy from past forecasts
+        const accuracy = await forecastEngine.calculateAccuracy();
+
+        // Apply pending feedback to improve future forecasts
+        const learningResult = await forecastEngine.applyPendingFeedback();
+
+        // Record forecast metrics (v15.5.0)
+        if (this.metricsExporter?.recordForecastRun) {
+          this.metricsExporter.recordForecastRun(result.items_forecasted);
+        }
+        if (this.metricsExporter?.setForecastAccuracy && accuracy.accuracy_pct !== null) {
+          this.metricsExporter.setForecastAccuracy(accuracy.accuracy_pct);
+        }
+        if (this.metricsExporter?.recordForecastLearningApplied && learningResult.applied_count > 0) {
+          this.metricsExporter.recordForecastLearningApplied();
+        }
+
+        // Record timestamp
+        _lastOrderForecastRun = new Date().toISOString();
+        await this.recordBreadcrumb('ai_order_forecast', _lastOrderForecastRun);
+
+        const duration = Date.now() - jobStart;
+
+        logger.info('Phase3Cron: AI order forecast complete', {
+          run_id: result.run_id,
+          items_forecasted: result.items_forecasted,
+          avg_confidence: result.avg_confidence,
+          forecast_accuracy: accuracy.accuracy_pct,
+          feedback_applied: learningResult.applied_count,
+          duration: duration / 1000
+        });
+
+        // Persist to breadcrumbs with metadata
+        await this.db.run(`
+          INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          'ai_order_forecast',
+          _lastOrderForecastRun,
+          'order_forecast_completed',
+          duration,
+          JSON.stringify({
+            run_id: result.run_id,
+            items_forecasted: result.items_forecasted,
+            avg_confidence: result.avg_confidence,
+            forecast_accuracy: accuracy.accuracy_pct || null,
+            feedback_applied: learningResult.applied_count
+          }),
+          _lastOrderForecastRun
+        ]);
+
+        // Record cron job execution
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('ai_order_forecast', 'success', duration / 1000);
+        }
+
+        // Emit AI event for activity feed
+        if (this.realtimeBus) {
+          this.realtimeBus.emit('ai_event', {
+            type: 'order_forecast_completed',
+            at: _lastOrderForecastRun,
+            ms: duration,
+            items_forecasted: result.items_forecasted,
+            avg_confidence: result.avg_confidence,
+            forecast_accuracy: accuracy.accuracy_pct || null
+          });
+        }
+
+      } catch (error) {
+        logger.error('Phase3Cron: AI order forecast failed', { error: error.message, stack: error.stack });
+
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('ai_order_forecast', 'error', (Date.now() - jobStart) / 1000);
+        }
+      } finally {
+        _orderForecastRunning = false;
+      }
+    });
+
+    this.jobs.push({ name: 'ai_order_forecast', schedule: '0 2 * * *', job: orderForecastJob });
+
+    // ========== DAILY 02:05: Record Governance Daily Scores (v15.9.0) ==========
+    const GovernanceTrendService = require('../src/governance/GovernanceTrendService');
+
+    const governanceDailyJob = cron.schedule('5 2 * * *', async () => {
+      const jobStart = Date.now();
+      logger.info('Phase3Cron: [DAILY 02:05] 📊 Recording governance daily scores');
+
+      try {
+        const govTrendService = new GovernanceTrendService(this.db);
+        const result = await govTrendService.recordDailyScores({ source: 'auto' });
+
+        const duration = Date.now() - jobStart;
+
+        logger.info('Phase3Cron: Governance daily scores recorded', {
+          as_of: result.as_of,
+          scores: result.scores,
+          duration: duration / 1000
+        });
+
+        // Record cron job execution
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('governance_daily', 'success', duration / 1000);
+        }
+
+        // Emit AI event for activity feed
+        if (this.realtimeBus) {
+          this.realtimeBus.emit('ai_event', {
+            type: 'governance_daily_recorded',
+            at: result.as_of,
+            ms: duration,
+            scores: result.scores
+          });
+        }
+
+      } catch (error) {
+        logger.error('Phase3Cron: Governance daily recording failed', { error: error.message, stack: error.stack });
+
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('governance_daily', 'error', (Date.now() - jobStart) / 1000);
+        }
+      }
+    });
+
+    this.jobs.push({ name: 'governance_daily', schedule: '5 2 * * *', job: governanceDailyJob });
+
+    // ========== DAILY 02:10: Compute Governance Forecasts (v15.9.0) ==========
+    const governanceForecastJob = cron.schedule('10 2 * * *', async () => {
+      const jobStart = Date.now();
+      logger.info('Phase3Cron: [DAILY 02:10] 🔮 Computing governance forecasts');
+
+      try {
+        const govTrendService = new GovernanceTrendService(this.db);
+        const result = await govTrendService.computeForecast({
+          horizons: [7, 14, 30],
+          method: 'exp_smoothing'
+        });
+
+        const duration = Date.now() - jobStart;
+
+        logger.info('Phase3Cron: Governance forecasts computed', {
+          run_id: result.run_id,
+          forecast_count: result.forecasts.length,
+          duration: duration / 1000
+        });
+
+        // Record cron job execution
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('governance_forecast', 'success', duration / 1000);
+        }
+
+        // Emit AI event for activity feed
+        if (this.realtimeBus) {
+          this.realtimeBus.emit('ai_event', {
+            type: 'governance_forecast_computed',
+            at: new Date().toISOString(),
+            ms: duration,
+            run_id: result.run_id,
+            forecast_count: result.forecasts.length
+          });
+        }
+
+      } catch (error) {
+        logger.error('Phase3Cron: Governance forecast failed', { error: error.message, stack: error.stack });
+
+        if (this.metricsExporter?.recordPhase3CronExecution) {
+          this.metricsExporter.recordPhase3CronExecution('governance_forecast', 'error', (Date.now() - jobStart) / 1000);
+        }
+      }
+    });
+
+    this.jobs.push({ name: 'governance_forecast', schedule: '10 2 * * *', job: governanceForecastJob });
+
     // ========== DAILY 02:20: Generate AI Tuning Proposals ==========
     const generateProposalsJob = cron.schedule('20 2 * * *', async () => {
       const jobStart = Date.now();
@@ -460,8 +658,15 @@ class Phase3CronScheduler {
 
     this.jobs.push({ name: 'cleanup', schedule: '0 */6 * * *', job: cleanupJob });
 
-    // ========== EVERY 10 MINUTES: Self-Healing Watchdog (v13.0.1) ==========
-    const watchdogJob = cron.schedule('*/10 * * * *', async () => {
+    // ========== EVERY 15 MINUTES: Self-Healing Watchdog (v13.0.2) ==========
+    const watchdogJob = cron.schedule('*/15 * * * *', async () => {
+      // v13.0.2: Mutex lock to prevent concurrent watchdog execution
+      if (_watchdogRunning) {
+        logger.warn('Phase3Cron: Watchdog already running, skipping this cycle');
+        return;
+      }
+
+      _watchdogRunning = true;
       _lastWatchdogCheck = new Date().toISOString();
       const now = Date.now();
       const STALE_THRESHOLD = 26 * 60 * 60 * 1000; // 26 hours in ms
@@ -541,10 +746,13 @@ class Phase3CronScheduler {
 
       } catch (error) {
         logger.error('Phase3Cron: Watchdog check failed', { error: error.message });
+      } finally {
+        // v13.0.2: Always release the mutex lock
+        _watchdogRunning = false;
       }
     });
 
-    this.jobs.push({ name: 'watchdog', schedule: '*/10 * * * *', job: watchdogJob });
+    this.jobs.push({ name: 'watchdog', schedule: '*/15 * * * *', job: watchdogJob });
 
     this.isRunning = true;
 
@@ -771,6 +979,67 @@ class Phase3CronScheduler {
             }
           } finally {
             _learningRunning = false;
+          }
+          break;
+
+        case 'ai_order_forecast':
+          if (_orderForecastRunning) {
+            return { success: false, error: 'Order forecasting already running' };
+          }
+          _orderForecastRunning = true;
+          try {
+            // v15.5.0: Instantiate ForecastingEngine with database
+            const forecastEngine = new ForecastingEngine(this.db);
+            const forecastResult = await forecastEngine.generateForecast({ horizonDays: 7 });
+            const accuracy = await forecastEngine.calculateAccuracy();
+            const learningResult = await forecastEngine.applyPendingFeedback();
+
+            // Record forecast metrics (v15.5.0)
+            if (this.metricsExporter?.recordForecastRun) {
+              this.metricsExporter.recordForecastRun(forecastResult.items_forecasted);
+            }
+            if (this.metricsExporter?.setForecastAccuracy && accuracy.accuracy_pct !== null) {
+              this.metricsExporter.setForecastAccuracy(accuracy.accuracy_pct);
+            }
+            if (this.metricsExporter?.recordForecastLearningApplied && learningResult.applied_count > 0) {
+              this.metricsExporter.recordForecastLearningApplied();
+            }
+
+            _lastOrderForecastRun = new Date().toISOString();
+            await this.recordBreadcrumb('ai_order_forecast', _lastOrderForecastRun);
+
+            const duration = Date.now() - jobStart;
+
+            // Persist breadcrumb with duration
+            await this.db.run(`
+              INSERT OR REPLACE INTO ai_ops_breadcrumbs (job, ran_at, action, duration_ms, metadata, created_at)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `, [
+              'ai_order_forecast',
+              _lastOrderForecastRun,
+              'order_forecast_completed',
+              duration,
+              JSON.stringify({
+                manual_trigger: true,
+                run_id: forecastResult.run_id,
+                items_forecasted: forecastResult.items_forecasted,
+                avg_confidence: forecastResult.avg_confidence,
+                forecast_accuracy: accuracy.accuracy_pct || null
+              }),
+              _lastOrderForecastRun
+            ]);
+
+            if (this.realtimeBus) {
+              this.realtimeBus.emit('ai_event', {
+                type: 'order_forecast_completed',
+                at: _lastOrderForecastRun,
+                ms: duration,
+                items_forecasted: forecastResult.items_forecasted,
+                avg_confidence: forecastResult.avg_confidence
+              });
+            }
+          } finally {
+            _orderForecastRunning = false;
           }
           break;
 

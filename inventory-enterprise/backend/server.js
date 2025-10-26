@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 require('dotenv').config();
 
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth-db'); // Database-backed auth (v16.5.1)
 const inventoryRoutes = require('./routes/inventory');
 const inventoryCountsRoutes = require('./routes/inventory-counts-api'); // v3.0.0 Inventory Counts
 const userRoutes = require('./routes/users');
@@ -16,6 +16,9 @@ const webhooksRoutes = require('./routes/webhooks_2025-10-07');
 // PASS H v2.4.1 - Admin Management APIs
 const tenantsRoutes = require('./routes/tenants');
 const rolesRoutes = require('./routes/roles-api');
+
+// v15.5.3 - Admin User Management (RBAC)
+const adminUsersRoutes = require('./routes/admin-users');
 
 // PASS P v2.8.0 - Next Generation Features
 const aiForecastRoutes = require('./routes/ai-forecast');
@@ -34,8 +37,26 @@ const ownerReleaseRoutes = require('./routes/owner-release');
 // v6.7 - Daily Predictive Demand (Menu + Breakfast + Beverage Forecasting)
 const ownerForecastRoutes = require('./routes/owner-forecast');
 
+// v15.6.0 - Count by Invoice (Finance-First Workflow)
+const countSessionsRoutes = require('./routes/count-sessions');
+
+// v15.7.0 - System Health Monitoring & Audit (Production-Hardened v2.0)
+const healthRoutes = require('./routes/health-v2');
+
+// v15.8.0 - Quantum Governance Layer (Unified Governance Scoring)
+const governanceRoutes = require('./routes/governance');
+
+// v16.4.0 - Live Governance Dashboard
+const governanceLiveRoutes = require('./routes/governance-live');
+
+// v16.6.0 - Adaptive Intelligence & Auto-Recovery (Predictive Stability Layer)
+const stabilityRoutes = require('./routes/stability');
+
 // Phase 3: Autonomous Learning & Optimization Layer
 const Phase3CronScheduler = require('./cron/phase3_cron');
+
+// Phase 4: Governance Intelligence Layer (v16.0.0)
+const Phase4CronScheduler = require('./cron/phase4_cron');
 
 // v4.1.0 - Quantum Defense Governance
 const QuantumKeyManager = require('./security/quantum_key_manager');
@@ -63,6 +84,12 @@ const ComplianceAudit = require('./aiops/ComplianceAudit');
 // Metrics Exporter
 const metricsExporter = require('./utils/metricsExporter');
 
+// v15.2.3: 404 Telemetry for broken link detection
+const { telemetry404, getPrometheusMetrics: get404Metrics } = require('./middleware/404-telemetry');
+
+// v15.3: Financial metrics
+const { getPrometheusMetrics: getFinancialMetrics } = require('./utils/financialMetrics');
+
 // NeuroPilot v12.5 - Real-Time Event Bus
 const realtimeBus = require('./utils/realtimeBus');
 
@@ -88,6 +115,9 @@ let auditLogger = null;
 // Phase 3: Autonomous Learning services
 let phase3Cron = null;
 
+// Phase 4: Governance Intelligence services (v16.0.0)
+let phase4Cron = null;
+
 // v4.1.0 Quantum Governance services
 let quantumKeys = null;
 let complianceEngine = null;
@@ -100,7 +130,24 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],  // v14.4.1: Removed unsafe-inline (XSS protection for <script> tags)
       scriptSrcAttr: ["'unsafe-inline'"],  // Allow inline event handlers (onclick, etc) - TODO: refactor to addEventListener
-      styleSrc: ["'self'"],  // v14.4.2: Removed unsafe-inline (inline styles extracted to CSS)
+      styleSrc: [
+        "'self'",
+        "'unsafe-hashes'",  // v15.6.0: Required for style="" attributes (hashes work on attributes only with this keyword)
+        // v15.6.0: Allow specific inline style attributes from GFS Monthly Reports (external HTML)
+        "'sha256-Tg4tEsPAlo7J4B2bew62dRrIHfpbMcixC7sQBsWitfY='",
+        "'sha256-8OV+oVjSIOJEykH2ijm4bjq+9ELswX3kM4oH0O7fKRA='",
+        "'sha256-NUM9PdiyywFyGocGUA5zbnSZnXq+mwTNJQ73ozDQGwk='",
+        "'sha256-NNSuuKivjI/j6nzhhHwO0742gfX7d5rj54r+PxzOA4E='",
+        // v15.7.0: Owner super console inline styles
+        "'sha256-ffZMQGAFUenGepQ836v7CxciTo15oLvN17CzFLikgao='",
+        // v15.7.0: Recipe drawer inline styles
+        "'sha256-sHWBVxrleOiO/CvNi8MbDTn7amOI6xeHmn6lM24vcxU='",
+        "'sha256-DL2IXj82ZaxyeudYyUlldcmA2Ado0C8vLkhPmTFfEd8='",
+        "'sha256-NHarn8wEqJqUQoKwsaJttWeSqzOSSPTy65p3Z6aS0Qs='",
+        "'sha256-7VXlcg/uSZugHSa6UtIG2/44ju460LiO4M0CyQfraX8='",
+        "'sha256-mnRyqew64Lcv5/Qgb/4HP8LfJi5MjjQCGLPt+/cJZis='",
+        "'sha256-C1Wm2thZBI0ZnFrVeGrUcPYUjGDDKSysR0ReamqR6+o='"
+      ],  // v14.4.2: Removed unsafe-inline (inline styles extracted to CSS)
       imgSrc: ["'self'", "data:", "blob:"],
       // Allow both localhost and 127.0.0.1 for local development + WebSocket
       connectSrc: [
@@ -175,6 +222,21 @@ setInterval(() => {
   logger.debug(`Redirect telemetry GC: ${redirects.length} entries retained`);
 }, 6 * 60 * 60 * 1000);
 
+// v15.2.3: Mount legacy path redirects BEFORE static middleware
+const redirectsRouter = require('./routes/redirects');
+app.use(redirectsRouter);
+
+// v15.1.0: Add Cache-Control headers to prevent browser caching issues
+app.use((req, res, next) => {
+  // Disable caching for HTML, JS, and CSS files
+  if (req.path.match(/\.(html|js|css)$/)) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/dashboard', express.static(path.join(__dirname, '../frontend/dashboard')));
@@ -206,6 +268,11 @@ app.use('/api/webhooks', authenticateToken, resolveTenant, webhooksRoutes);
 // PASS H v2.4.1 - Admin Management APIs
 app.use('/api/tenants', authenticateToken, resolveTenant, tenantsRoutes);
 app.use('/api/roles', authenticateToken, resolveTenant, rolesRoutes);
+
+// v15.5.3 - Admin User Management (OWNER only)
+const { requireRole } = require('./security/rbac');
+const { ROLES } = requireRole;
+app.use('/api/admin', authenticateToken, adminUsersRoutes);
 
 // PASS P v2.8.0 - Next Generation APIs
 app.use('/api/ai/forecast', authenticateToken, resolveTenant, aiForecastRoutes.router);
@@ -252,6 +319,64 @@ app.use('/api/owner/ops', authenticateToken, requireOwnerDevice, ownerOpsRoutes)
 const ownerDashboardStatsRoutes = require('./routes/owner-dashboard-stats');
 app.use('/api/owner/dashboard', authenticateToken, requireOwnerDevice, ownerDashboardStatsRoutes);
 
+// v14.4.2 - Menu Planning (4-week calendar, recipes, shopping lists)
+const menuRoutes = require('./routes/menu');
+app.use('/api/menu', authenticateToken, requireOwnerDevice, menuRoutes);
+
+// v15.2.0 - Inventory Reconciliation (H1 2025 PDF Intake + Physical vs System)
+const inventoryReconcileRoutes = require('./routes/inventory-reconcile');
+app.use('/api/inventory', authenticateToken, requireOwnerDevice, inventoryReconcileRoutes);
+
+// v15.4.0 - Finance Workspace (KPIs, summaries, pivots, AI copilot)
+const financeRoutes = require('./routes/finance');
+app.use('/api/finance', authenticateToken, requireOwnerDevice, financeRoutes);
+
+// v15.5.0 - AI Forecasting + Order Recommendation Engine
+const ownerForecastOrdersRoutes = require('./routes/owner-forecast-orders');
+app.use('/api/owner/forecast-orders', authenticateToken, requireOwnerDevice, ownerForecastOrdersRoutes);
+
+// v15.6.0 - Count by Invoice (Finance-First Workflow)
+app.use('/api/owner/counts', authenticateToken, requireOwnerDevice, countSessionsRoutes);
+
+// v15.7.0 - System Health Monitoring & Audit
+// Note: Auth handled per-route in health-v2.js (/status is public, others require OWNER/FINANCE)
+app.use('/api/health', healthRoutes);
+
+// v15.8.0 - Quantum Governance Layer (Unified Governance Scoring)
+// Note: Auth handled per-route in governance.js (/status requires OWNER/FINANCE/OPS, /report requires OWNER/FINANCE, /recompute requires OWNER)
+app.use('/api/governance', governanceRoutes);
+
+// v15.9.0 - Governance Forecasting & Trend Analytics
+const governanceTrendsRoutes = require('./routes/governance-trends');
+app.use('/api/governance', governanceTrendsRoutes);
+
+// v16.0.0 - Governance Intelligence Dashboard (Anomaly Detection + Bilingual Insights)
+const governanceIntelligenceRoutes = require('./routes/governance-intelligence');
+app.use('/api/governance/intelligence', governanceIntelligenceRoutes);
+
+// v16.5.0 - Predictive Governance API (Unified Command Center + 7-day Forecasting)
+// Note: Auth handled per-route in governance-predictive.js (requires OWNER/FINANCE/OPS)
+const governancePredictiveRoutes = require('./routes/governance-predictive');
+app.use('/api/governance/predictive', governancePredictiveRoutes);
+
+// v16.4.0 - Live Governance Dashboard (Real-time scores + sparklines)
+// Note: Auth handled per-route in governance-live.js (requires OWNER/FINANCE/OPS)
+app.use(governanceLiveRoutes);
+
+// v16.6.0 - Adaptive Intelligence & Auto-Recovery (Predictive Stability Layer)
+// Canonical path (new)
+app.use('/api/ai/adaptive', stabilityRoutes);
+
+// Legacy alias (deprecated, kept for backward compatibility)
+app.use('/api/stability', (req, res, next) => {
+  logger.warn('[DEPRECATION] /api/stability* → use /api/ai/adaptive*', {
+    path: req.originalUrl,
+    ip: req.ip,
+    user: req.user?.email || 'unauthenticated'
+  });
+  next();
+}, stabilityRoutes);
+
 // v14.4: Track server start time for uptime calculation
 const serverStartTime = Date.now();
 
@@ -271,8 +396,8 @@ app.get('/health', async (req, res) => {
 
   res.json({
     status: 'ok',
-    app: 'inventory-enterprise-v14.4.2',
-    version: '14.4.2',
+    app: 'inventory-enterprise-v16.5.0',
+    version: '16.5.0',
     features: {
       multiTenancy: true,
       rbac: true,
@@ -351,7 +476,11 @@ app.get('/metrics', async (req, res) => {
   try {
     res.set('Content-Type', metricsExporter.register.contentType);
     const metrics = await metricsExporter.getMetrics();
-    res.send(metrics);
+    // v15.2.3: Include broken link metrics
+    const brokenLinkMetrics = get404Metrics();
+    // v15.3: Include financial metrics
+    const financialMetrics = getFinancialMetrics();
+    res.send(metrics + '\n' + brokenLinkMetrics + '\n' + financialMetrics);
   } catch (error) {
     logger.error('Error generating metrics:', error);
     res.status(500).send('Error generating metrics');
@@ -363,7 +492,11 @@ app.get('/api/metrics', async (req, res) => {
   try {
     res.set('Content-Type', metricsExporter.register.contentType);
     const metrics = await metricsExporter.getMetrics();
-    res.send(metrics);
+    // v15.2.3: Include broken link metrics
+    const brokenLinkMetrics = get404Metrics();
+    // v15.3: Include financial metrics
+    const financialMetrics = getFinancialMetrics();
+    res.send(metrics + '\n' + brokenLinkMetrics + '\n' + financialMetrics);
   } catch (error) {
     logger.error('Error generating metrics:', error);
     res.status(500).send('Error generating metrics');
@@ -375,19 +508,39 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Catch-all route for SPA (after all API routes)
-app.get('*', (req, res) => {
+// v15.2.3: Catch-all route for SPA (sets status, lets telemetry log, then sends response)
+app.get('*', (req, res, next) => {
   // Don't catch requests for static files (.html, .js, .css, etc.)
   if (req.path.match(/\.(html|js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
-    // Let express.static middleware handle these
-    return res.status(404).send('File not found');
+    // File not found - set status and let telemetry middleware log it
+    res.status(404);
+    return next();
   }
 
   // Only serve frontend for non-API routes
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
   } else {
+    // API endpoint not found - set status and let telemetry middleware log it
+    res.status(404);
+    next();
+  }
+});
+
+// v15.2.3: Mount 404 telemetry AFTER all routes (logs 404s before response sent)
+app.use(telemetry404);
+
+// v15.2.3: Final 404 handler (sends response after telemetry logs)
+app.use((req, res) => {
+  if (res.headersSent) {
+    return;
+  }
+
+  // If we reach here, it's a 404
+  if (req.path.startsWith('/api')) {
     res.status(404).json({ error: 'API endpoint not found' });
+  } else {
+    res.status(404).send('File not found');
   }
 });
 
@@ -399,7 +552,7 @@ const httpServer = http.createServer(app);
 // Start server (SECURITY FIX: Bind to localhost only)
 httpServer.listen(PORT, '127.0.0.1', async () => {
   console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🚀 NeuroInnovate Inventory Enterprise System v14.4.2');
+  console.log('🚀 NeuroInnovate Inventory Enterprise System v16.5.0');
   console.log('═══════════════════════════════════════════════════════════════');
   console.log(`📡 Server running on port ${PORT}`);
   console.log(`📝 Default admin: neuro.pilot.ai@gmail.com / Admin123!@#`);
@@ -409,8 +562,24 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
   // Initialize PASS P - Infrastructure (v2.8.0)
   const db = require('./config/database');
 
-  // Make database available to routes (for v6.7 forecast routes)
+  // Make database and metrics available to routes
   app.locals.db = db;
+  app.locals.metrics = metricsExporter;
+
+  // v15.2.2: Run schema migrations (safe column additions)
+  try {
+    console.log('🔄 Running schema migrations...');
+    const { runIssueUnitMigration } = require('./src/db/runMigrations');
+    const migrationResult = await runIssueUnitMigration(db);
+    if (migrationResult.success) {
+      console.log(`  ✅ Schema migration complete (${migrationResult.columnsAdded} columns added)`);
+    } else {
+      console.warn(`  ⚠️  Schema migration warning: ${migrationResult.error}`);
+    }
+  } catch (migrationError) {
+    console.error('  ⚠️  Schema migration failed:', migrationError.message);
+    // Continue startup - non-fatal
+  }
 
   // v13.0: Make realtimeBus available to routes
   app.set('realtimeBus', realtimeBus);
@@ -490,7 +659,7 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
     console.error('  ⚠️  Audit logging not available');
   }
 
-  console.log('  ✨ v14.4.2 Infrastructure ACTIVE\n');
+  console.log('  ✨ v16.5.0 Infrastructure ACTIVE\n');
 
   // Initialize PASS F - Real-Time Intelligence Layer (v2.3.0)
   try {
@@ -627,6 +796,28 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
     console.error('  ⚠️  Warning: Phase 3 features may not be available\n');
   }
 
+  // Initialize Phase 4 - Governance Intelligence Layer (v16.0.0)
+  try {
+    console.log('🔮 Initializing Phase 4: Governance Intelligence Layer (v16.0.0)...');
+
+    phase4Cron = new Phase4CronScheduler(db, metricsExporter, realtimeBus);
+    phase4Cron.start();
+
+    // Make available to routes
+    app.locals.phase4Cron = phase4Cron;
+    app.set('phase4Cron', phase4Cron);
+
+    console.log('  ✅ Intelligence Anomaly Detection ready (daily 03:00)');
+    console.log('  ✅ Intelligence Insight Generation ready (daily 03:05, bilingual)');
+    console.log('  ✅ Intelligence Score Computation ready (daily 03:10)');
+    console.log('  ✅ Weekly PDF Report Generator ready (Sunday 04:00, EN+FR)');
+    console.log('  🔄 Scheduled jobs: 4 active');
+    console.log('  ✨ Phase 4 Governance Intelligence ACTIVE\n');
+  } catch (error) {
+    logger.error('Failed to initialize Phase 4 Governance Intelligence:', error);
+    console.error('  ⚠️  Warning: Phase 4 features may not be available\n');
+  }
+
   // Initialize v3.1.0 - Local AI Training on Apple Silicon
   try {
     console.log('🍎 Initializing Local AI Training on Apple Silicon (v3.1.0)...');
@@ -725,6 +916,12 @@ const gracefulShutdown = async (signal) => {
     if (phase3Cron) {
       console.log('Stopping Phase 3 Autonomous Learning cron jobs...');
       phase3Cron.stop();
+    }
+
+    // Stop Phase 4 Governance Intelligence
+    if (phase4Cron) {
+      console.log('Stopping Phase 4 Governance Intelligence cron jobs...');
+      phase4Cron.stop();
     }
 
     // Stop real-time components

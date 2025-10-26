@@ -418,7 +418,7 @@ router.get('/me', authenticateToken, (req, res) => {
   try {
     // Get fresh user data
     const user = Array.from(users.values()).find(u => u.id === req.user.id);
-    
+
     if (!user || !user.isActive) {
       return res.status(404).json({
         error: 'User not found or inactive',
@@ -452,6 +452,78 @@ router.get('/me', authenticateToken, (req, res) => {
     res.status(500).json({
       error: 'Failed to get user information',
       code: 'USER_INFO_ERROR'
+    });
+  }
+});
+
+// GET /api/auth/capabilities
+// v15.5.0: Get user capabilities and role constants for frontend RBAC
+router.get('/capabilities', authenticateToken, (req, res) => {
+  try {
+    const { ROLES: RBAC_ROLES, ROLE_HIERARCHY, canPerformAction } = require('../security/rbac');
+
+    // Get fresh user data
+    const user = Array.from(users.values()).find(u => u.id === req.user.id);
+
+    if (!user || !user.isActive) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found or inactive',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Build capabilities object based on user role
+    // v15.5.3: Normalize role to uppercase for consistent comparison
+    const userRole = (user.role || 'READONLY').toUpperCase();
+
+    // Determine what actions user can perform
+    const capabilities = {
+      canViewFinance: canPerformAction(req.user, 'READ', 'finance'),
+      canExportFinance: canPerformAction(req.user, 'EXPORT', 'finance'),
+      canEditFinance: canPerformAction(req.user, 'UPDATE', 'finance'),
+      canApproveFinance: canPerformAction(req.user, 'APPROVE', 'finance'),
+
+      canViewForecast: canPerformAction(req.user, 'READ', 'forecast'),
+      canCreateForecast: canPerformAction(req.user, 'CREATE', 'forecast'),
+      canApproveForecast: canPerformAction(req.user, 'APPROVE', 'forecast'),
+
+      canManageUsers: userRole === 'OWNER',
+      canViewSettings: userRole === 'OWNER',
+
+      canViewDocuments: canPerformAction(req.user, 'READ', 'documents'),
+      canMapCategories: canPerformAction(req.user, 'UPDATE', 'mappings'),
+
+      // Tab-level visibility
+      showFinanceTab: ['FINANCE', 'OWNER'].includes(userRole),
+      showForecastTab: ['OPS', 'FINANCE', 'OWNER'].includes(userRole),
+      showSettingsTab: userRole === 'OWNER',
+      showReportsTab: ['FINANCE', 'OWNER'].includes(userRole)
+    };
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: userRole,
+        roleLevel: ROLE_HIERARCHY[userRole] || 0
+      },
+      capabilities,
+      roles: RBAC_ROLES,
+      roleHierarchy: ROLE_HIERARCHY
+    });
+
+  } catch (error) {
+    securityLog('capabilities_error', 'medium', {
+      error: error.message,
+      userId: req.user?.id
+    }, req);
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get user capabilities',
+      code: 'CAPABILITIES_ERROR'
     });
   }
 });

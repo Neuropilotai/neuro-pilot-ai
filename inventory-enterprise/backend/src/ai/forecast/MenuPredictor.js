@@ -1,5 +1,5 @@
 /**
- * MenuPredictor.js - v6.8
+ * MenuPredictor.js - v6.9
  * Predicts daily usage from menu calendar + breakfast + beverages
  *
  * Uses v_predicted_usage_today_v2 view which aggregates:
@@ -8,6 +8,9 @@
  * - Population-based beverage demand
  *
  * Note: Database wrapper from config/database.js already returns Promises
+ *
+ * v6.9 Changes: Added database retry logic with exponential backoff
+ * to handle SQLite lock contention during concurrent cron execution
  */
 
 class MenuPredictor {
@@ -20,6 +23,32 @@ class MenuPredictor {
   }
 
   /**
+   * Retry wrapper for database operations with exponential backoff
+   * Handles SQLite BUSY/LOCKED errors during concurrent access
+   * @private
+   */
+  async _withDatabaseRetry(operation, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const isSqliteError = error.code === 'SQLITE_ERROR' ||
+                             error.code === 'SQLITE_BUSY' ||
+                             error.code === 'SQLITE_LOCKED' ||
+                             (error.message && error.message.includes('no such table'));
+
+        if (isSqliteError && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 100; // 200ms, 400ms, 800ms
+          console.log(`[MenuPredictor] DB retry ${attempt}/${maxRetries} after ${delay}ms - Error: ${error.message}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  /**
    * Get predicted usage for today (menu + breakfast + beverages)
    * @returns {Object} { date, items[], summary }
    */
@@ -27,8 +56,8 @@ class MenuPredictor {
     const date = new Date().toISOString().split('T')[0];
 
     try {
-      // Get aggregated predictions from view
-      const items = await this.dbAll(`
+      // Get aggregated predictions from view (with retry logic)
+      const items = await this._withDatabaseRetry(() => this.dbAll(`
         SELECT
           item_code,
           item_name,
@@ -42,7 +71,7 @@ class MenuPredictor {
           num_recipes_using
         FROM v_predicted_usage_today_v2
         ORDER BY stock_out_risk DESC, total_predicted_qty DESC
-      `);
+      `));
 
       // Calculate summary statistics
       const summary = {
@@ -91,7 +120,7 @@ class MenuPredictor {
     const date = new Date().toISOString().split('T')[0];
 
     try {
-      const items = await this.dbAll(`
+      const items = await this._withDatabaseRetry(() => this.dbAll(`
         SELECT
           item_code,
           item_name,
@@ -114,7 +143,7 @@ class MenuPredictor {
             ELSE 4
           END,
           shortage_qty DESC
-      `);
+      `));
 
       // Group by risk level
       const critical = items.filter(i => i.risk_level === 'CRITICAL');
@@ -150,18 +179,17 @@ class MenuPredictor {
    */
   async getPopulationStats() {
     try {
-      const pop = await this.dbGet(`
+      const pop = await this._withDatabaseRetry(() => this.dbGet(`
         SELECT
           effective_date,
-          total_count,
+          total_population,
           indian_count,
           beverages_profile,
-          breakfast_profile,
-          notes
+          breakfast_profile
         FROM site_population
         WHERE effective_date = DATE('now')
         LIMIT 1
-      `);
+      `));
 
       if (!pop) {
         return {
@@ -173,11 +201,10 @@ class MenuPredictor {
       return {
         success: true,
         effective_date: pop.effective_date,
-        total_count: pop.total_count,
+        total_count: pop.total_population,
         indian_count: pop.indian_count,
         beverages_profile: JSON.parse(pop.beverages_profile || '{}'),
-        breakfast_profile: JSON.parse(pop.breakfast_profile || '{}'),
-        notes: pop.notes
+        breakfast_profile: JSON.parse(pop.breakfast_profile || '{}')
       };
 
     } catch (error) {
@@ -196,16 +223,16 @@ class MenuPredictor {
     try {
       const date = new Date().toISOString().split('T')[0];
 
-      // Get existing record
-      const existing = await this.dbGet(`
+      // Get existing record (with retry logic)
+      const existing = await this._withDatabaseRetry(() => this.dbGet(`
         SELECT population_id, beverages_profile, breakfast_profile
         FROM site_population
         WHERE effective_date = DATE('now')
-      `);
+      `));
 
       if (existing) {
         // Update existing
-        const updateFields = ['total_count = ?'];
+        const updateFields = ['total_population = ?'];
         const params = [totalCount];
 
         if (indianCount !== null) {
@@ -216,11 +243,11 @@ class MenuPredictor {
         updateFields.push('updated_at = CURRENT_TIMESTAMP');
         params.push(existing.population_id);
 
-        await this.dbRun(`
+        await this._withDatabaseRetry(() => this.dbRun(`
           UPDATE site_population
           SET ${updateFields.join(', ')}
           WHERE population_id = ?
-        `, params);
+        `, params));
 
         return {
           success: true,
@@ -231,11 +258,11 @@ class MenuPredictor {
         };
 
       } else {
-        // Insert new record with defaults
-        await this.dbRun(`
+        // Insert new record with defaults (with retry logic)
+        await this._withDatabaseRetry(() => this.dbRun(`
           INSERT INTO site_population (
             effective_date,
-            total_count,
+            total_population,
             indian_count,
             beverages_profile,
             breakfast_profile,
@@ -266,7 +293,7 @@ class MenuPredictor {
             jam_packets_per_person: 1
           }),
           'Created via MenuPredictor'
-        ]);
+        ]));
 
         return {
           success: true,
@@ -317,14 +344,14 @@ class MenuPredictor {
       let totalValue = 0;
 
       for (const item of items) {
-        const layer = await this.dbGet(`
+        const layer = await this._withDatabaseRetry(() => this.dbGet(`
           SELECT unit_cost_cents
           FROM fifo_cost_layers
           WHERE item_code = ?
             AND remaining_qty > 0
           ORDER BY received_at DESC
           LIMIT 1
-        `, [item.item_code]);
+        `, [item.item_code]));
 
         if (layer) {
           totalValue += Math.abs(item.shortage_qty) * layer.unit_cost_cents;

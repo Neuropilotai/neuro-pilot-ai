@@ -65,6 +65,23 @@ const defaultAdmin = {
 
 users.set(defaultAdmin.email, defaultAdmin);
 
+// v15.5.3: Add OWNER user from database (owner-001) to in-memory store
+const v15Owner = {
+  id: 'owner-001',
+  email: 'owner@neuropilot.local',
+  password: bcrypt.hashSync('', 10), // No password - JWT token only
+  role: ROLES.OWNER,
+  firstName: 'System',
+  lastName: 'Owner',
+  isActive: true,
+  createdAt: new Date('2025-10-14T10:07:44').toISOString(),
+  lastLogin: null,
+  failedAttempts: 0,
+  lockedUntil: null
+};
+
+users.set(v15Owner.email, v15Owner);
+
 // JWT token generation
 const generateTokens = (user) => {
   const payload = {
@@ -133,8 +150,11 @@ const authenticateToken = (req, res, next) => {
       });
     }
 
+    // v15.5.3: Support both 'id' and 'user_id' fields in JWT payload
+    const userId = decoded.id || decoded.user_id;
+
     // Check if user is still active
-    const user = Array.from(users.values()).find(u => u.id === decoded.id);
+    const user = Array.from(users.values()).find(u => u.id === userId);
     if (!user || !user.isActive) {
       return res.status(403).json({
         error: 'User account is inactive',
@@ -142,7 +162,19 @@ const authenticateToken = (req, res, next) => {
       });
     }
 
-    req.user = decoded;
+    // v15.5.3: Normalize role to uppercase for RBAC module compatibility
+    const normalizedRole = (decoded.role || '').toUpperCase();
+
+    // Build normalized req.user object
+    req.user = {
+      id: userId,
+      email: decoded.email,
+      role: normalizedRole,
+      roles: [normalizedRole],  // RBAC module expects array
+      permissions: PERMISSIONS[ROLES[normalizedRole]] || [],
+      tenant_id: decoded.tenant_id
+    };
+
     next();
   });
 };

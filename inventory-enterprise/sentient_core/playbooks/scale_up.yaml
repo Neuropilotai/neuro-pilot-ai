@@ -1,0 +1,145 @@
+# Scale Up Playbook
+# Auto-remediation for CPU overload and latency spikes
+
+name: "Horizontal Scale Up"
+description: "Scale up instances to handle increased load"
+action: "scale_up"
+severity: ["medium", "high", "critical"]
+incident_types:
+  - cpu_overload
+  - latency_spike
+  - high_traffic
+
+# Playbook steps
+steps:
+  - name: "Check current instance count"
+    type: "command"
+    params:
+      command: |
+        railway service status --service ${RAILWAY_SERVICE_ID} --json | jq '.replicas'
+      timeout: 30
+
+  - name: "Calculate target instances"
+    type: "command"
+    params:
+      command: |
+        # Get current count and add 1-2 instances
+        CURRENT=$(railway service status --service ${RAILWAY_SERVICE_ID} --json | jq '.replicas')
+        TARGET=$((CURRENT + 2))
+        if [ $TARGET -gt 5 ]; then TARGET=5; fi
+        echo $TARGET
+      timeout: 30
+
+  - name: "Scale up Railway service"
+    type: "api"
+    params:
+      method: "POST"
+      url: "https://backboard.railway.app/graphql"
+      headers:
+        Content-Type: "application/json"
+      body:
+        query: |
+          mutation {
+            serviceInstanceUpdate(
+              input: {
+                serviceId: "${RAILWAY_SERVICE_ID}"
+                replicas: ${target_instances}
+              }
+            ) {
+              id
+              replicas
+            }
+          }
+
+  - name: "Wait for new instances to start"
+    type: "wait"
+    params:
+      seconds: 60
+
+  - name: "Verify new instances are healthy"
+    type: "command"
+    params:
+      command: |
+        railway service health --service ${RAILWAY_SERVICE_ID}
+      timeout: 30
+
+  - name: "Update Terraform state"
+    type: "terraform"
+    params:
+      directory: "infrastructure/terraform"
+      action: "apply"
+      variables:
+        min_instances: "${target_instances}"
+
+  - name: "Wait for traffic distribution"
+    type: "wait"
+    params:
+      seconds: 30
+
+# Verification checks
+verification:
+  metrics_check:
+    cpu_usage:
+      query: "avg(cpu_usage_percent)"
+      threshold: 75
+      condition: "less_than"
+    p95_latency:
+      query: "histogram_quantile(0.95, http_request_duration_ms)"
+      threshold: 300
+      condition: "less_than"
+    active_instances:
+      query: "count(up{job='backend'})"
+      threshold: 2
+      condition: "greater_than"
+
+  health_check:
+    url: "${BACKEND_URL}/health"
+    expected_status: 200
+
+# Rollback procedure
+rollback:
+  - name: "Scale back to previous instance count"
+    type: "api"
+    params:
+      method: "POST"
+      url: "https://backboard.railway.app/graphql"
+      body:
+        query: |
+          mutation {
+            serviceInstanceUpdate(
+              input: {
+                serviceId: "${RAILWAY_SERVICE_ID}"
+                replicas: ${previous_instances}
+              }
+            ) {
+              id
+            }
+          }
+
+  - name: "Restore Terraform state"
+    type: "terraform"
+    params:
+      directory: "infrastructure/terraform"
+      action: "apply"
+
+# Expected outcomes
+expected_outcomes:
+  - "CPU usage drops below 75%"
+  - "p95 latency drops below 300ms"
+  - "Load distributed across instances"
+  - "No increase in error rate"
+
+# Cost impact
+cost_impact:
+  estimated_additional_monthly: 15.00  # USD per additional instance
+  max_acceptable_cost: 50.00  # USD total
+
+# Estimated execution time
+estimated_execution_time_seconds: 150
+
+# Safety guardrails
+safety:
+  max_instances: 5
+  min_instances: 1
+  cooldown_period_seconds: 300
+  verification_wait_seconds: 30

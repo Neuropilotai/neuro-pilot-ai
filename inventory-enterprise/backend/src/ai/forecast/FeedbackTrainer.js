@@ -1,5 +1,5 @@
 /**
- * FeedbackTrainer.js - v6.8
+ * FeedbackTrainer.js - v6.9
  * AI learning from owner free-text comments
  *
  * Parses comments like:
@@ -14,6 +14,9 @@
  *   - menu_calendar quantities
  *
  * Note: Database wrapper from config/database.js already returns Promises
+ *
+ * v6.9 Changes: Added database retry logic with exponential backoff
+ * to handle SQLite lock contention during concurrent cron execution
  */
 
 const BeverageMath = require('./BeverageMath');
@@ -50,6 +53,32 @@ class FeedbackTrainer {
   }
 
   /**
+   * Retry wrapper for database operations with exponential backoff
+   * Handles SQLite BUSY/LOCKED errors during concurrent access
+   * @private
+   */
+  async _withDatabaseRetry(operation, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        const isSqliteError = error.code === 'SQLITE_ERROR' ||
+                             error.code === 'SQLITE_BUSY' ||
+                             error.code === 'SQLITE_LOCKED' ||
+                             (error.message && error.message.includes('no such table'));
+
+        if (isSqliteError && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 100; // 200ms, 400ms, 800ms
+          console.log(`[FeedbackTrainer] DB retry ${attempt}/${maxRetries} after ${delay}ms - Error: ${error.message}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  /**
    * Store comment in database
    * @param {string} commentText - Free-text comment from owner
    * @param {string} userEmail - Owner email
@@ -58,7 +87,7 @@ class FeedbackTrainer {
    */
   async storeComment(commentText, userEmail = 'owner@neuroinnovate.local', source = 'owner_console') {
     try {
-      const result = await this.dbRun(`
+      const result = await this._withDatabaseRetry(() => this.dbRun(`
         INSERT INTO ai_feedback_comments (
           comment_text,
           comment_source,
@@ -66,7 +95,7 @@ class FeedbackTrainer {
           applied,
           created_at
         ) VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
-      `, [commentText, source, userEmail]);
+      `, [commentText, source, userEmail]));
 
       return {
         success: true,
@@ -173,12 +202,12 @@ class FeedbackTrainer {
    */
   async applyLearningFromComment(commentId) {
     try {
-      // Get comment
-      const comment = await this.dbGet(`
+      // Get comment (with retry logic)
+      const comment = await this._withDatabaseRetry(() => this.dbGet(`
         SELECT comment_id, comment_text, applied
         FROM ai_feedback_comments
         WHERE comment_id = ?
-      `, [commentId]);
+      `, [commentId]));
 
       if (!comment) {
         return {
@@ -198,12 +227,12 @@ class FeedbackTrainer {
       const parsed = this.parseComment(comment.comment_text);
 
       if (parsed.intent === 'unknown' || parsed.confidence < 0.5) {
-        await this.dbRun(`
+        await this._withDatabaseRetry(() => this.dbRun(`
           UPDATE ai_feedback_comments
           SET parsed_intent = 'unknown',
               updated_at = CURRENT_TIMESTAMP
           WHERE comment_id = ?
-        `, [commentId]);
+        `, [commentId]));
 
         return {
           success: false,
@@ -247,8 +276,8 @@ class FeedbackTrainer {
           };
       }
 
-      // Mark comment as applied
-      await this.dbRun(`
+      // Mark comment as applied (with retry logic)
+      await this._withDatabaseRetry(() => this.dbRun(`
         UPDATE ai_feedback_comments
         SET parsed_intent = ?,
             parsed_item_code = ?,
@@ -258,7 +287,7 @@ class FeedbackTrainer {
             applied_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
         WHERE comment_id = ?
-      `, [parsed.intent, parsed.item || parsed.recipe || null, parsed.value, parsed.unit, commentId]);
+      `, [parsed.intent, parsed.item || parsed.recipe || null, parsed.value, parsed.unit, commentId]));
 
       return {
         success: true,
@@ -279,12 +308,12 @@ class FeedbackTrainer {
    */
   async applyAllPendingComments() {
     try {
-      const pending = await this.dbAll(`
+      const pending = await this._withDatabaseRetry(() => this.dbAll(`
         SELECT comment_id
         FROM ai_feedback_comments
         WHERE applied = 0
         ORDER BY created_at ASC
-      `);
+      `));
 
       const results = {
         total: pending.length,
@@ -333,12 +362,12 @@ class FeedbackTrainer {
   async _applyBeveragePerPerson(parsed) {
     const { item, value, unit } = parsed;
 
-    const pop = await this.dbGet(`
+    const pop = await this._withDatabaseRetry(() => this.dbGet(`
       SELECT population_id, beverages_profile
       FROM site_population
       WHERE effective_date = DATE('now')
       LIMIT 1
-    `);
+    `));
 
     if (!pop) {
       throw new Error('No population record for today');
@@ -363,12 +392,12 @@ class FeedbackTrainer {
     const oldValue = profile[key] || 0;
     profile[key] = value;
 
-    await this.dbRun(`
+    await this._withDatabaseRetry(() => this.dbRun(`
       UPDATE site_population
       SET beverages_profile = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE population_id = ?
-    `, [JSON.stringify(profile), pop.population_id]);
+    `, [JSON.stringify(profile), pop.population_id]));
 
     return {
       table: 'site_population',
@@ -386,12 +415,12 @@ class FeedbackTrainer {
   async _applyBeveragePerCup(parsed) {
     const { item, value, unit } = parsed;
 
-    const pop = await this.dbGet(`
+    const pop = await this._withDatabaseRetry(() => this.dbGet(`
       SELECT population_id, beverages_profile
       FROM site_population
       WHERE effective_date = DATE('now')
       LIMIT 1
-    `);
+    `));
 
     if (!pop) {
       throw new Error('No population record for today');
@@ -413,12 +442,12 @@ class FeedbackTrainer {
     const oldValue = profile[key] || 0;
     profile[key] = value;
 
-    await this.dbRun(`
+    await this._withDatabaseRetry(() => this.dbRun(`
       UPDATE site_population
       SET beverages_profile = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE population_id = ?
-    `, [JSON.stringify(profile), pop.population_id]);
+    `, [JSON.stringify(profile), pop.population_id]));
 
     return {
       table: 'site_population',
@@ -436,12 +465,12 @@ class FeedbackTrainer {
   async _applyBreakfastPerPerson(parsed) {
     const { item, value, unit } = parsed;
 
-    const pop = await this.dbGet(`
+    const pop = await this._withDatabaseRetry(() => this.dbGet(`
       SELECT population_id, breakfast_profile
       FROM site_population
       WHERE effective_date = DATE('now')
       LIMIT 1
-    `);
+    `));
 
     if (!pop) {
       throw new Error('No population record for today');
@@ -469,12 +498,12 @@ class FeedbackTrainer {
     const oldValue = profile[key] || 0;
     profile[key] = value;
 
-    await this.dbRun(`
+    await this._withDatabaseRetry(() => this.dbRun(`
       UPDATE site_population
       SET breakfast_profile = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE population_id = ?
-    `, [JSON.stringify(profile), pop.population_id]);
+    `, [JSON.stringify(profile), pop.population_id]));
 
     return {
       table: 'site_population',
@@ -492,14 +521,14 @@ class FeedbackTrainer {
   async _applyRecipeQty(parsed) {
     const { recipe, value } = parsed;
 
-    // Find matching recipe (fuzzy match on display_name)
-    const recipeRecord = await this.dbGet(`
+    // Find matching recipe (fuzzy match on display_name) with retry logic
+    const recipeRecord = await this._withDatabaseRetry(() => this.dbGet(`
       SELECT recipe_code, display_name
       FROM recipes
       WHERE LOWER(display_name) LIKE ?
          OR LOWER(recipe_code) LIKE ?
       LIMIT 1
-    `, [`%${recipe}%`, `%${recipe}%`]);
+    `, [`%${recipe}%`, `%${recipe}%`]));
 
     if (!recipeRecord) {
       throw new Error(`Recipe not found: ${recipe}`);
@@ -508,20 +537,20 @@ class FeedbackTrainer {
     // Update menu_calendar for today
     const date = new Date().toISOString().split('T')[0];
 
-    const existing = await this.dbGet(`
+    const existing = await this._withDatabaseRetry(() => this.dbGet(`
       SELECT calendar_id, qty
       FROM menu_calendar
       WHERE recipe_code = ? AND plan_date = ?
-    `, [recipeRecord.recipe_code, date]);
+    `, [recipeRecord.recipe_code, date]));
 
     if (existing) {
       const oldValue = existing.qty;
-      await this.dbRun(`
+      await this._withDatabaseRetry(() => this.dbRun(`
         UPDATE menu_calendar
         SET qty = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE calendar_id = ?
-      `, [value, existing.calendar_id]);
+      `, [value, existing.calendar_id]));
 
       return {
         table: 'menu_calendar',
@@ -531,10 +560,10 @@ class FeedbackTrainer {
       };
 
     } else {
-      await this.dbRun(`
+      await this._withDatabaseRetry(() => this.dbRun(`
         INSERT INTO menu_calendar (recipe_code, plan_date, qty)
         VALUES (?, ?, ?)
-      `, [recipeRecord.recipe_code, date, value]);
+      `, [recipeRecord.recipe_code, date, value]));
 
       return {
         table: 'menu_calendar',
@@ -552,21 +581,21 @@ class FeedbackTrainer {
   async _applySetPopulation(parsed) {
     const { value } = parsed;
 
-    const pop = await this.dbGet(`
+    const pop = await this._withDatabaseRetry(() => this.dbGet(`
       SELECT population_id, total_count
       FROM site_population
       WHERE effective_date = DATE('now')
       LIMIT 1
-    `);
+    `));
 
     if (pop) {
       const oldValue = pop.total_count;
-      await this.dbRun(`
+      await this._withDatabaseRetry(() => this.dbRun(`
         UPDATE site_population
         SET total_count = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE population_id = ?
-      `, [value, pop.population_id]);
+      `, [value, pop.population_id]));
 
       return {
         table: 'site_population',
@@ -586,21 +615,21 @@ class FeedbackTrainer {
   async _applySetIndianPopulation(parsed) {
     const { value } = parsed;
 
-    const pop = await this.dbGet(`
+    const pop = await this._withDatabaseRetry(() => this.dbGet(`
       SELECT population_id, indian_count
       FROM site_population
       WHERE effective_date = DATE('now')
       LIMIT 1
-    `);
+    `));
 
     if (pop) {
       const oldValue = pop.indian_count;
-      await this.dbRun(`
+      await this._withDatabaseRetry(() => this.dbRun(`
         UPDATE site_population
         SET indian_count = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE population_id = ?
-      `, [value, pop.population_id]);
+      `, [value, pop.population_id]));
 
       return {
         table: 'site_population',

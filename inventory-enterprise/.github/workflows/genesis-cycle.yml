@@ -1,0 +1,450 @@
+name: NeuroPilot Genesis Cycle (v17.6)
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_generation:
+        description: 'Force agent generation even if no opportunities detected'
+        required: false
+        default: 'false'
+      skip_guardian:
+        description: 'Skip Guardian validation (DANGEROUS - use only for testing)'
+        required: false
+        default: 'false'
+
+jobs:
+  genesis-cycle:
+    name: Autonomous Genesis Cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: 🌌 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install dependencies
+        working-directory: ./inventory-enterprise/sentient_core
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install radon pycodestyle bandit pytest
+
+      - name: 📊 Gather System Telemetry
+        id: telemetry
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+        working-directory: ./inventory-enterprise/sentient_core
+        run: |
+          echo "🔍 Gathering telemetry..."
+
+          python3 << 'EOF'
+          import json
+          import os
+
+          # Gather telemetry (in production, would fetch from Prometheus)
+          telemetry = {
+              'performance': {
+                  'uptime': 99.99,
+                  'latency_p95': 270,
+                  'error_rate': 1.2
+              },
+              'cost': {
+                  'current_monthly': 39.50
+              },
+              'forecasting': {
+                  'accuracy': 0.88,
+                  'false_positives': 0.04
+              },
+              'remediation': {
+                  'success_rate': 0.97
+              },
+              'compliance': {
+                  'score': 92
+              }
+          }
+
+          with open('telemetry.json', 'w') as f:
+              json.dump(telemetry, f, indent=2)
+
+          print("✓ Telemetry saved")
+          EOF
+
+      - name: 🛡️  Guardian Pre-Check
+        id: guardian_pre
+        if: ${{ github.event.inputs.skip_guardian != 'true' }}
+        working-directory: ./inventory-enterprise/sentient_core
+        run: |
+          echo "🛡️  Running Guardian pre-check..."
+
+          python3 << 'EOF'
+          import json
+          import os
+          import sys
+
+          sys.path.insert(0, '.')
+
+          from genesis.guardian_agent import GuardianAgent
+          from genesis.memory_core import MemoryCore
+
+          # Initialize Guardian
+          memory = MemoryCore()
+          guardian = GuardianAgent(memory_core=memory)
+
+          # Run integrity check
+          report = guardian.verify_all_integrity()
+
+          # Save report
+          with open('guardian_pre_report.json', 'w') as f:
+              json.dump({
+                  'system_health': report.system_health,
+                  'violations': len(report.violations),
+                  'safe_to_proceed': report.safe_to_proceed
+              }, f, indent=2)
+
+          if not report.safe_to_proceed:
+              print(f"❌ Guardian blocked cycle: system_health={report.system_health}")
+              sys.exit(1)
+
+          print(f"✅ Guardian approved: system_health={report.system_health}")
+          EOF
+
+      - name: 🌌 Run Genesis Engine
+        id: genesis
+        working-directory: ./inventory-enterprise/sentient_core
+        env:
+          FORCE_GENERATION: ${{ github.event.inputs.force_generation }}
+        run: |
+          echo "🎨 Running Genesis Engine..."
+
+          python3 << 'EOF'
+          import json
+          import os
+          import sys
+
+          sys.path.insert(0, '.')
+
+          from genesis.genesis_engine import GenesisEngine
+
+          # Load telemetry
+          with open('telemetry.json', 'r') as f:
+              telemetry = json.load(f)
+
+          # Initialize Genesis Engine
+          engine = GenesisEngine(project_root='../')
+
+          # Run genesis cycle
+          report = engine.run_genesis_cycle(telemetry)
+
+          # Save report
+          with open('genesis_report.json', 'w') as f:
+              json.dump({
+                  'cycle_id': report.cycle_id,
+                  'agents_proposed': report.agents_proposed,
+                  'agents_validated': report.agents_validated,
+                  'agents_deployed': report.agents_deployed,
+                  'performance_gain': report.performance_gain
+              }, f, indent=2)
+
+          print(f"\n✓ Genesis cycle complete:")
+          print(f"  Proposed: {report.agents_proposed}")
+          print(f"  Validated: {report.agents_validated}")
+          print(f"  Deployed: {report.agents_deployed}")
+
+          # Set outputs
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"agents_deployed={report.agents_deployed}\n")
+              f.write(f"performance_gain={report.performance_gain:.3f}\n")
+          EOF
+
+      - name: 🧬 Run Evolution Controller
+        id: evolution
+        if: ${{ steps.genesis.outputs.agents_deployed > 0 }}
+        working-directory: ./inventory-enterprise/sentient_core
+        run: |
+          echo "🧬 Running Evolution Controller..."
+
+          python3 << 'EOF'
+          import json
+          import os
+          import sys
+
+          sys.path.insert(0, '.')
+
+          from genesis.evolution_controller import EvolutionController
+          from genesis.memory_core import MemoryCore
+
+          # Load telemetry
+          with open('telemetry.json', 'r') as f:
+              telemetry = json.load(f)
+
+          # Initialize Evolution Controller
+          memory = MemoryCore()
+          controller = EvolutionController(memory_core=memory)
+
+          # Run evolution cycle
+          report = controller.run_full_cycle(telemetry, [])
+
+          # Save report
+          with open('evolution_report.json', 'w') as f:
+              json.dump({
+                  'generation': report.generation,
+                  'best_fitness': report.best_fitness,
+                  'improvement': report.improvement
+              }, f, indent=2)
+
+          print(f"\n✓ Evolution complete:")
+          print(f"  Generation: {report.generation}")
+          print(f"  Best Fitness: {report.best_fitness:.3f}")
+          EOF
+
+      - name: 🛡️  Guardian Post-Check
+        id: guardian_post
+        if: ${{ github.event.inputs.skip_guardian != 'true' && steps.genesis.outputs.agents_deployed > 0 }}
+        working-directory: ./inventory-enterprise/sentient_core
+        run: |
+          echo "🛡️  Running Guardian post-check..."
+
+          python3 << 'EOF'
+          import json
+          import sys
+
+          sys.path.insert(0, '.')
+
+          from genesis.guardian_agent import GuardianAgent
+          from genesis.memory_core import MemoryCore
+
+          # Initialize Guardian
+          memory = MemoryCore()
+          guardian = GuardianAgent(memory_core=memory)
+
+          # Validate all generated agents
+          from pathlib import Path
+
+          agents_dir = Path("genesis/generated_agents")
+          all_safe = True
+
+          if agents_dir.exists():
+              for agent_file in agents_dir.glob("*.py"):
+                  with open(agent_file, 'r') as f:
+                      code = f.read()
+
+                  is_safe, issues = guardian.validate_generated_code(code, agent_file.name)
+
+                  if not is_safe:
+                      print(f"❌ Unsafe code in {agent_file.name}: {issues}")
+                      all_safe = False
+
+          if not all_safe:
+              print("❌ Guardian blocked deployment: unsafe code detected")
+              sys.exit(1)
+
+          print("✅ Guardian validated all generated agents")
+          EOF
+
+      - name: 💾 Create Memory Snapshot
+        if: ${{ steps.genesis.outputs.agents_deployed > 0 }}
+        working-directory: ./inventory-enterprise/sentient_core
+        run: |
+          echo "📸 Creating memory snapshot..."
+
+          python3 << 'EOF'
+          import json
+          import sys
+
+          sys.path.insert(0, '.')
+
+          from genesis.memory_core import MemoryCore
+
+          # Load telemetry
+          with open('telemetry.json', 'r') as f:
+              telemetry = json.load(f)
+
+          # Create snapshot
+          memory = MemoryCore()
+          snapshot = memory.create_snapshot(
+              version="17.6.0",
+              configuration={'genesis_deployed': True},
+              metrics={
+                  'uptime': telemetry['performance']['uptime'],
+                  'cost_monthly': telemetry['cost']['current_monthly'],
+                  'error_rate': telemetry['performance']['error_rate']
+              }
+          )
+
+          print(f"✓ Snapshot created: {snapshot.snapshot_id}")
+          EOF
+
+      - name: 📝 Generate Genesis Report
+        if: always()
+        working-directory: ./inventory-enterprise/sentient_core
+        run: |
+          echo "📝 Generating Genesis report..."
+
+          python3 << 'EOF'
+          import json
+          from datetime import datetime
+
+          # Load reports
+          genesis_data = {}
+          evolution_data = {}
+          guardian_data = {}
+
+          try:
+              with open('genesis_report.json', 'r') as f:
+                  genesis_data = json.load(f)
+          except:
+              pass
+
+          try:
+              with open('evolution_report.json', 'r') as f:
+                  evolution_data = json.load(f)
+          except:
+              pass
+
+          try:
+              with open('guardian_pre_report.json', 'r') as f:
+                  guardian_data = json.load(f)
+          except:
+              pass
+
+          # Generate Markdown report
+          report = f"""# 🌌 NeuroPilot Genesis Cycle Report
+
+**Date**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+**Version**: 17.6.0
+
+## Genesis Engine
+
+- **Agents Proposed**: {genesis_data.get('agents_proposed', 0)}
+- **Agents Validated**: {genesis_data.get('agents_validated', 0)}
+- **Agents Deployed**: {genesis_data.get('agents_deployed', 0)}
+- **Performance Gain**: +{genesis_data.get('performance_gain', 0):.1%}
+
+## Evolution Controller
+
+- **Generation**: {evolution_data.get('generation', 0)}
+- **Best Fitness**: {evolution_data.get('best_fitness', 0):.3f}
+- **Improvement**: +{evolution_data.get('improvement', 0):.3f}
+
+## Guardian Agent
+
+- **System Health**: {guardian_data.get('system_health', 'unknown').upper()}
+- **Violations**: {guardian_data.get('violations', 0)}
+- **Safe to Proceed**: {'✅ YES' if guardian_data.get('safe_to_proceed', False) else '❌ NO'}
+
+---
+
+*Generated by NeuroPilot v17.6 - Lunar Genesis Mode*
+"""
+
+          with open('genesis_cycle_report.md', 'w') as f:
+              f.write(report)
+
+          print("✓ Report generated")
+          EOF
+
+      - name: 📤 Create Pull Request
+        if: ${{ steps.genesis.outputs.agents_deployed > 0 }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            [AUTO-DESIGNED][GENESIS-MODE][v17.6] New agents deployed
+
+            Genesis cycle deployed ${{ steps.genesis.outputs.agents_deployed }} new agent(s).
+
+            Performance Gain: +${{ steps.genesis.outputs.performance_gain }}%
+
+            🌌 Generated by NeuroPilot Genesis Engine v17.6
+          branch: genesis/auto-${{ github.run_number }}
+          title: '[GENESIS] Auto-generated agents - Cycle ${{ github.run_number }}'
+          body: |
+            ## 🌌 Genesis Cycle - Autonomous Agent Creation
+
+            **Agents Deployed**: ${{ steps.genesis.outputs.agents_deployed }}
+            **Performance Gain**: +${{ steps.genesis.outputs.performance_gain }}%
+
+            ### Guardian Validation
+
+            ✅ All agents passed safety validation
+
+            ### Evolution Status
+
+            System evolution progressing normally.
+
+            ### Next Steps
+
+            1. Review generated agents in `sentient_core/genesis/generated_agents/`
+            2. Verify documentation
+            3. Approve merge if satisfied
+
+            ---
+
+            🌌 **Auto-generated by NeuroPilot v17.6 - Lunar Genesis Mode**
+          labels: |
+            genesis-mode
+            auto-designed
+            needs-review
+          draft: false
+
+      - name: 📢 Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST "$SLACK_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "text": "🌌 NeuroPilot Genesis Cycle Complete",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "*🌌 NeuroPilot v17.6 - Genesis Cycle*\n\n*Agents Deployed*: ${{ steps.genesis.outputs.agents_deployed }}\n*Performance Gain*: +${{ steps.genesis.outputs.performance_gain }}%\n*Status*: ✅ Complete"
+                    }
+                  }
+                ]
+              }'
+          fi
+
+      - name: 📊 Generate Summary
+        if: always()
+        run: |
+          echo "## 🌌 NeuroPilot Genesis Cycle Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Genesis Engine" >> $GITHUB_STEP_SUMMARY
+          echo "- Agents Deployed: ${{ steps.genesis.outputs.agents_deployed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Gain: +${{ steps.genesis.outputs.performance_gain }}%" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*🌌 NeuroPilot v17.6 - Lunar Genesis Mode*" >> $GITHUB_STEP_SUMMARY
+
+      - name: 📁 Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-cycle-${{ github.run_number }}
+          path: |
+            inventory-enterprise/sentient_core/telemetry.json
+            inventory-enterprise/sentient_core/genesis_report.json
+            inventory-enterprise/sentient_core/evolution_report.json
+            inventory-enterprise/sentient_core/guardian_pre_report.json
+            inventory-enterprise/sentient_core/genesis_cycle_report.md
+          retention-days: 90

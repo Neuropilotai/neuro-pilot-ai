@@ -1,0 +1,317 @@
+# NeuroPilot v17.4 - Sentient Cloud Configuration
+# Auto-remediation, predictive optimization, and self-governance settings
+
+# === SENTIENT CORE ===
+sentient:
+  enabled: true
+  version: "17.4.0"
+  cycle_interval_hours: 3  # Run every 3 hours
+  human_oversight_minutes_per_week: 1  # Target: <1 min/week
+
+# === PREDICTIVE FORECASTING ===
+forecasting:
+  enabled: true
+  forecast_horizon_hours: 12  # Predict 6-12 hours ahead
+
+  models:
+    lstm:
+      enabled: true
+      window_size: 48  # 48 × 30min = 24 hours
+      training_interval_hours: 24
+      epochs: 50
+      batch_size: 32
+
+    prophet:
+      enabled: true
+      daily_seasonality: true
+      weekly_seasonality: true
+      training_interval_hours: 24
+
+    gbdt:
+      enabled: true
+      n_estimators: 100
+      max_depth: 6
+      training_interval_hours: 24
+
+  # Ensemble voting weights
+  ensemble_weights:
+    lstm: 0.40
+    prophet: 0.35
+    gbdt: 0.25
+
+  # Minimum confidence for predictions
+  min_confidence: 0.70
+
+  # Require N successful forecasts before auto-action
+  min_successful_forecasts: 2
+
+# === AUTONOMOUS REMEDIATION ===
+remediation:
+  enabled: true
+
+  # Safety guardrails
+  safety:
+    dry_run_first: true
+    verification_required: true
+    auto_rollback: true
+    max_actions_per_cycle: 2
+    min_confidence_threshold: 0.85
+    cooldown_period_seconds: 300
+    verification_wait_seconds: 30
+
+  # Playbook settings
+  playbooks:
+    restart:
+      enabled: true
+      max_restarts_per_day: 3
+      min_time_between_restarts_minutes: 60
+
+    scale_up:
+      enabled: true
+      max_instances: 5
+      min_instances: 1
+      scale_increment: 1
+      cooldown_minutes: 5
+
+    optimize:
+      enabled: true
+      min_optimization_interval_hours: 12
+      preserve_sla: true
+
+  # Incident type to playbook mapping
+  incident_mappings:
+    cpu_overload: "scale_up"
+    memory_exhaustion: "restart"
+    latency_spike: "scale_up"
+    error_surge: "restart"
+    cost_overrun: "optimize"
+
+# === SELF-AUDIT & COMPLIANCE ===
+compliance:
+  enabled: true
+  audit_schedule_cron: "0 5 * * *"  # Daily at 5 AM UTC
+
+  thresholds:
+    max_critical_findings: 0
+    max_high_findings: 2
+    min_overall_score: 80
+
+  checks:
+    iac_compliance: true
+    terraform_drift: true
+    zero_trust_policies: true
+    security_practices: true
+    operations_history: true
+    sla_compliance: true
+    cost_compliance: true
+
+  # Zero-trust requirements
+  zero_trust:
+    require_auth_all_routes: true
+    enforce_https: true
+    restrict_cors: true
+    validate_jwt: true
+    rotate_secrets_days: 90
+
+# === SLA & UPTIME ===
+sla:
+  target_percentage: 99.99  # 99.99% uptime
+  measurement_window_hours: 24
+
+  # Incident severity thresholds
+  severity_thresholds:
+    critical:
+      error_rate: 10.0  # %
+      p95_latency: 1000  # ms
+      cpu_usage: 95.0  # %
+    high:
+      error_rate: 5.0
+      p95_latency: 500
+      cpu_usage: 85.0
+    medium:
+      error_rate: 3.0
+      p95_latency: 400
+      cpu_usage: 75.0
+    low:
+      error_rate: 2.0
+      p95_latency: 300
+      cpu_usage: 65.0
+
+# === COST MANAGEMENT ===
+cost:
+  monthly_budget_usd: 35.00
+  alert_thresholds:
+    warning: 0.80  # 80% of budget
+    critical: 0.96  # 96% of budget
+
+  # Cost optimization targets
+  optimization:
+    target_cost_usd: 30.00
+    min_cost_usd: 25.00  # Don't optimize below this
+    target_cpu_utilization: 0.65  # 65% optimal
+    target_memory_utilization: 0.70  # 70% optimal
+
+  # Service cost limits (USD/month)
+  service_limits:
+    railway: 20.00
+    neon: 10.00
+    cloudflare: 3.00
+    grafana: 2.00
+    other: 5.00
+
+# === ANOMALY DETECTION (from v17.3) ===
+anomaly_detection:
+  sensitivity: 0.92  # 0.0-1.0 (higher = more sensitive)
+
+  algorithms:
+    zscore:
+      enabled: true
+      threshold: 3.0
+
+    ewma:
+      enabled: true
+      span: 20
+      deviation_threshold: 0.3
+
+    seasonal:
+      enabled: true
+      period: 24  # hours
+      min_data_points: 48
+
+  # Gaussian Mixture Model settings
+  gmm:
+    n_components: 3
+    covariance_type: "full"
+    max_iter: 100
+    warm_start: true
+
+# === REINFORCEMENT LEARNING (from v17.3) ===
+reinforcement_learning:
+  enabled: true
+
+  # Reward function: reward = SLA_compliance - cost_variance
+  reward:
+    sla_weight: 1.0
+    cost_weight: 1.0
+    latency_weight: 0.5
+
+  # Learning parameters
+  learning:
+    rate: 0.01
+    convergence_threshold: 0.02
+    max_iterations: 1000
+    training_interval_hours: 24
+
+# === NOTIFICATIONS ===
+notifications:
+  slack:
+    enabled: true
+    webhook_url_env: "SLACK_WEBHOOK_URL"
+    notify_on:
+      - remediation_start
+      - remediation_complete
+      - remediation_failed
+      - critical_anomaly
+      - forecast_high_probability
+      - audit_failed
+
+  notion:
+    enabled: true
+    token_env: "NOTION_TOKEN"
+    database_id_env: "NOTION_DATABASE_ID"
+    log_all_events: true
+
+  grafana:
+    enabled: true
+    url_env: "GRAFANA_URL"
+    api_key_env: "GRAFANA_API_KEY"
+    create_annotations: true
+
+  pagerduty:
+    enabled: false
+    integration_key_env: "PAGERDUTY_KEY"
+    notify_on:
+      - critical_anomaly
+      - remediation_failed
+      - sla_breach
+
+# === METRICS & MONITORING ===
+metrics:
+  prometheus_url_env: "PROMETHEUS_URL"
+  collection_interval_seconds: 30
+  retention_days: 30
+
+  # Metrics to track
+  track:
+    - cpu_usage
+    - memory_usage
+    - p95_latency
+    - p99_latency
+    - error_rate
+    - request_rate
+    - database_query_time
+    - active_instances
+    - current_cost
+
+# === STATE TRACKING ===
+state:
+  file_path: "sentient_core/models/sentient_state.json"
+
+  track:
+    total_cycles: true
+    successful_predictions: true
+    false_positives: true
+    remediations_executed: true
+    remediations_successful: true
+    incidents_prevented: true
+    cost_savings_usd: true
+    average_response_time_seconds: true
+    uptime_percentage: true
+    human_interventions: true
+
+# === LOGGING ===
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+  outputs:
+    console: true
+    file: true
+    file_path: "logs/sentient/sentient.log"
+    max_file_size_mb: 100
+    backup_count: 5
+
+  structured: true
+  include_timestamps: true
+  include_cycle_id: true
+
+# === FEATURE FLAGS ===
+features:
+  autonomous_scaling: true
+  autonomous_restart: true
+  autonomous_optimization: true
+  self_learning: true
+  predictive_mode: true
+  zero_trust_enforcement: true
+  cost_optimization: true
+  compliance_scanning: true
+
+# === ENVIRONMENT ===
+environment: "production"  # development, staging, production
+
+# === INTEGRATIONS ===
+integrations:
+  railway:
+    api_token_env: "RAILWAY_API_TOKEN"
+    service_id_env: "RAILWAY_SERVICE_ID"
+
+  neon:
+    api_key_env: "NEON_API_KEY"
+    project_id_env: "NEON_PROJECT_ID"
+
+  cloudflare:
+    api_token_env: "CLOUDFLARE_API_TOKEN"
+    zone_id_env: "CLOUDFLARE_ZONE_ID"
+
+  sentry:
+    dsn_env: "SENTRY_DSN"
+    auth_token_env: "SENTRY_AUTH_TOKEN"

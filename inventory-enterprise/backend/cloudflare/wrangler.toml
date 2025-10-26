@@ -1,0 +1,96 @@
+# Cloudflare Workers Configuration - NeuroPilot v17.1
+# Automates DNS, WAF, and cache rules via Wrangler CLI
+
+name = "neuropilot-edge"
+type = "javascript"
+account_id = "" # Set via: wrangler whoami
+workers_dev = true
+route = ""
+zone_id = "" # Set via environment variable CF_ZONE_ID
+
+compatibility_date = "2024-01-01"
+
+# ================================================================
+# ENVIRONMENT VARIABLES
+# ================================================================
+[env.production]
+name = "neuropilot-edge-production"
+vars = { ENVIRONMENT = "production" }
+
+[env.staging]
+name = "neuropilot-edge-staging"
+vars = { ENVIRONMENT = "staging" }
+
+# ================================================================
+# KV NAMESPACES (Cache Layer)
+# ================================================================
+kv_namespaces = [
+  { binding = "CACHE", id = "", preview_id = "" }
+]
+
+# ================================================================
+# ROUTES (Multi-Region)
+# ================================================================
+[[route]]
+pattern = "api.neuropilot.ai/*"
+zone_name = "neuropilot.ai"
+
+[[route]]
+pattern = "inventory.neuropilot.ai/*"
+zone_name = "neuropilot.ai"
+
+# ================================================================
+# DURABLE OBJECTS (Session State)
+# ================================================================
+[durable_objects]
+bindings = [
+  { name = "SESSION_STATE", class_name = "SessionState", script_name = "neuropilot-edge" }
+]
+
+# ================================================================
+# BUILD CONFIGURATION
+# ================================================================
+[build]
+command = "npm install && npm run build"
+cwd = "./cloudflare"
+
+[build.upload]
+format = "service-worker"
+
+# ================================================================
+# TRIGGERS (Cron Jobs)
+# ================================================================
+[triggers]
+crons = [
+  "0 */6 * * *"  # Health check every 6 hours
+]
+
+# ================================================================
+# COMPATIBILITY FLAGS
+# ================================================================
+[compatibility_flags]
+nodejs_compat = true
+
+# ================================================================
+# USAGE MODEL
+# ================================================================
+usage_model = "bundled" # Free tier: 100k req/day
+
+# ================================================================
+# OBSERVABILITY
+# ================================================================
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
+# ================================================================
+# NOTES
+# ================================================================
+# Setup:
+#   1. Install Wrangler: npm install -g wrangler
+#   2. Login: wrangler login
+#   3. Get Account ID: wrangler whoami
+#   4. Create KV namespace: wrangler kv:namespace create CACHE
+#   5. Deploy: wrangler deploy
+#
+# Cost: $0/month (free tier: 100k requests/day, 10ms CPU time)

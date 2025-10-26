@@ -156,6 +156,72 @@ function parseVendor(filename) {
 }
 
 /**
+ * Infer service window from invoice date (v13.5+)
+ * For GFS: generates window like "Wed→Sun W2" using invoice date and fiscal week
+ *
+ * @param {string} invoiceDate - ISO date string (YYYY-MM-DD)
+ * @param {string} vendor - Vendor name (GFS, Sysco, US Foods)
+ * @returns {string|null} Service window string or null if no date
+ */
+function inferServiceWindow(invoiceDate, vendor = 'GFS') {
+  if (!invoiceDate) return null;
+
+  try {
+    const date = new Date(invoiceDate + 'T00:00:00'); // Force local time
+    if (isNaN(date.getTime())) return null;
+
+    const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const dayOfMonth = date.getDate();
+
+    // Calculate fiscal week (1-4) based on day of month
+    const fiscalWeek = Math.ceil(dayOfMonth / 7);
+
+    // GFS typical delivery patterns:
+    // - Weekday deliveries typically cover Mon→Fri
+    // - Weekend deliveries typically cover Sat→Sun or Wed→Sun
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    let startDay, endDay;
+
+    if (vendor === 'GFS' || vendor === 'Gordon Food Service') {
+      // GFS pattern: if invoice is mid-week (Tue-Thu), likely covers Wed→Sun
+      // If invoice is Mon or Fri, likely covers Mon→Fri
+      // If invoice is weekend, likely covers previous Wed→Sun
+      if (dayOfWeek >= 2 && dayOfWeek <= 4) {
+        // Tue, Wed, Thu → infer Wed→Sun service window
+        startDay = 'Wed';
+        endDay = 'Sun';
+      } else if (dayOfWeek === 1 || dayOfWeek === 5) {
+        // Mon or Fri → infer Mon→Fri service window
+        startDay = 'Mon';
+        endDay = 'Fri';
+      } else {
+        // Sat or Sun → infer Wed→Sun service window
+        startDay = 'Wed';
+        endDay = 'Sun';
+      }
+    } else if (vendor === 'Sysco') {
+      // Sysco typically delivers on weekdays
+      startDay = 'Mon';
+      endDay = 'Fri';
+    } else if (vendor === 'US Foods') {
+      // US Foods typically delivers on weekdays
+      startDay = 'Mon';
+      endDay = 'Fri';
+    } else {
+      // Default pattern
+      startDay = dayNames[dayOfWeek];
+      endDay = dayNames[(dayOfWeek + 4) % 7]; // +4 days forward
+    }
+
+    return `${startDay}→${endDay} W${fiscalWeek}`;
+  } catch (err) {
+    console.error('Error inferring service window:', err);
+    return null;
+  }
+}
+
+/**
  * Persist invoice metadata to documents table (v13.1)
  * Updates invoice_date, invoice_number, vendor columns for quick queries
  */
@@ -375,6 +441,9 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         });
       }
 
+      // v13.5+: Infer service window from invoice date and vendor
+      const serviceWindow = inferServiceWindow(invoiceDate, vendorName);
+
       enriched.push({
         id: doc.id,
         filename: doc.filename,
@@ -382,6 +451,7 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         invoiceDate: invoiceDate,
         vendor: vendorName,
         amount: totalAmount,
+        inferredServiceWindow: serviceWindow, // v13.5+: Wed→Sun W2 format
         createdAt: doc.created_at,
         isProcessed: !!doc.linked_count_id,
         includedInCount: !!doc.linked_count_id, // v13.1: explicit inclusion flag
@@ -1092,6 +1162,192 @@ router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Upload failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/owner/pdfs/workspaces/:workspaceId/attach
+ * Attach PDFs to a count workspace (v14.1)
+ *
+ * Body:
+ * {
+ *   pdfIds: string[]  // array of document IDs
+ * }
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   data: {
+ *     attached: number,
+ *     skipped: number,
+ *     workspaceId: string
+ *   }
+ * }
+ */
+router.post('/workspaces/:workspaceId/attach', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const { pdfIds } = req.body;
+
+    // Validation
+    if (!pdfIds || !Array.isArray(pdfIds) || pdfIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'pdfIds array is required and must not be empty'
+      });
+    }
+
+    // Ensure workspace_invoices table exists (idempotent)
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS workspace_invoices (
+        workspace_id TEXT NOT NULL,
+        document_id TEXT NOT NULL,
+        attached_at TEXT NOT NULL,
+        PRIMARY KEY (workspace_id, document_id)
+      )
+    `);
+
+    // Verify workspace exists
+    const workspace = await db.get(`
+      SELECT id, status FROM count_workspaces WHERE id = ?
+    `, [workspaceId]);
+
+    if (!workspace) {
+      return res.status(404).json({
+        success: false,
+        error: 'Workspace not found'
+      });
+    }
+
+    if (workspace.status !== 'open') {
+      return res.status(400).json({
+        success: false,
+        error: 'Workspace is closed'
+      });
+    }
+
+    let attached = 0;
+    let skipped = 0;
+    const now = new Date().toISOString();
+
+    // Attach each PDF
+    for (const pdfId of pdfIds) {
+      try {
+        // Verify PDF exists
+        const pdf = await db.get(`
+          SELECT id FROM documents WHERE id = ? AND mime_type = 'application/pdf' AND deleted_at IS NULL
+        `, [pdfId]);
+
+        if (!pdf) {
+          console.warn(`PDF ${pdfId} not found or not a PDF`);
+          skipped++;
+          continue;
+        }
+
+        // Check if already attached
+        const existing = await db.get(`
+          SELECT workspace_id FROM workspace_invoices WHERE workspace_id = ? AND document_id = ?
+        `, [workspaceId, pdfId]);
+
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        // Attach PDF to workspace
+        await db.run(`
+          INSERT INTO workspace_invoices (workspace_id, document_id, attached_at)
+          VALUES (?, ?, ?)
+        `, [workspaceId, pdfId, now]);
+
+        attached++;
+
+      } catch (pdfError) {
+        console.error(`Error attaching PDF ${pdfId}:`, pdfError);
+        skipped++;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        attached: attached,
+        skipped: skipped,
+        workspaceId: workspaceId,
+        message: `Attached ${attached} invoices, skipped ${skipped}`
+      }
+    });
+
+  } catch (error) {
+    console.error('Error attaching PDFs to workspace:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to attach PDFs to workspace',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/pdfs/suggest
+ * Suggest PDFs for a workspace based on date range (v14.3)
+ *
+ * Query params:
+ * - start: YYYY-MM-DD (period start date)
+ * - end: YYYY-MM-DD (period end date)
+ *
+ * Returns PDFs with invoice_date falling between start and end
+ */
+router.get('/suggest', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+
+    // Validation
+    if (!start || !end) {
+      return res.status(400).json({
+        success: false,
+        error: 'start and end date parameters are required (YYYY-MM-DD format)'
+      });
+    }
+
+    // Query PDFs within date range
+    const pdfs = await db.all(`
+      SELECT
+        d.id,
+        d.filename,
+        d.invoice_number as invoiceNumber,
+        d.invoice_date as invoiceDate,
+        d.vendor,
+        d.invoice_amount as amount,
+        d.created_at as createdAt
+      FROM documents d
+      WHERE d.mime_type = 'application/pdf'
+        AND d.deleted_at IS NULL
+        AND d.invoice_date >= ?
+        AND d.invoice_date <= ?
+      ORDER BY d.invoice_date DESC
+    `, [start, end]);
+
+    // Enrich with service window inference
+    const enriched = pdfs.map(pdf => ({
+      ...pdf,
+      inferredServiceWindow: inferServiceWindow(pdf.invoiceDate, pdf.vendor || 'GFS')
+    }));
+
+    res.json({
+      success: true,
+      suggested: enriched,
+      period: { start, end },
+      count: enriched.length
+    });
+
+  } catch (error) {
+    console.error('Error suggesting PDFs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to suggest PDFs',
       message: error.message
     });
   }

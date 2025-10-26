@@ -1,454 +1,311 @@
-# Quantum Governance System Verification Report
-**Date:** 2025-10-10
-**System:** NeuroInnovate Inventory Enterprise v2.8.0
-**Report Type:** Real Command Outputs - No Placeholders
+<file name=backend/routes/owner-ops.js>
+'use strict';
 
----
+const express = require('express');
+const router = express.Router();
+const LearningSignals = require('../src/ai/LearningSignals');
+// v15.3 Financial Accuracy
+const { getFinancialAccuracyMetric } = require('../src/ai/FinancialAccuracy');
 
-## Executive Summary
-
-✅ **Quantum Key Manager:** Operational
-⚠️ **Test Suite:** Partial (timing issues with Kyber operations)
-✅ **Server Integration:** Complete
-✅ **Validation Daemon:** Running (1 firewall check failed)
-❌ **Leak Scan:** 30 critical issues detected
-
----
-
-## 1. Quantum Key Initialization
-
-### Command:
-```bash
-cd ~/neuro-pilot-ai/inventory-enterprise/backend
-node -e "const QKM=require('./security/quantum_key_manager');(new QKM()).initialize().then(()=>console.log('✅ Keys ready')).catch(console.error)"
-```
-
-### Output:
-```
-🔐 Generating new Ed25519 keypair...
-🔐 Generating new Kyber512 keypair...
-✅ Quantum Key Manager initialized
-   Ed25519 Public Key: 1sYMHU+feGxsYwyO...
-✅ Keys ready
-```
-
-**Result:** ✅ **SUCCESS**
-**Time:** ~30 seconds (keychain operations)
-
----
-
-## 2. Quantum Governance Test Suite
-
-### Command:
-```bash
-bash scripts/test_quantum_governance_v4.1.sh
-```
-
-### Quick Test Results (10 Core Tests):
-
-| # | Test | Status | Details |
-|---|------|--------|---------|
-| 1 | Quantum Key Manager init | ✅ PASS | Initialized successfully |
-| 2 | Ed25519 signature generation | ⏱️ TIMEOUT | Kyber operations too slow |
-| 3 | Signature verification | ⏱️ TIMEOUT | Kyber operations too slow |
-| 4 | macOS Keychain storage | ✅ PASS | Keys stored in keychain |
-| 5 | Compliance Engine init | ⏱️ TIMEOUT | Slow initialization |
-| 6 | Server localhost binding | ✅ PASS | Bound to 127.0.0.1 |
-| 7 | Database permissions | ⚠️ WARN | Permissions vary by system |
-| 8 | Server health endpoint | ✅ PASS | Returns `{"status":"ok"}` |
-| 9 | Memory usage | ✅ PASS | ~100-150MB |
-| 10 | Validation daemon | ⚠️ SKIP | Path configuration issue |
-
-**Summary:**
-- **Passed:** 5/10
-- **Timeout:** 3/10
-- **Warning/Skip:** 2/10
-- **Failed:** 0/10
-
-**Issue:** Kyber512 post-quantum crypto operations are computationally expensive, causing timeouts in test suite. Functionality is confirmed working, but tests need longer timeouts.
-
-**Recommendation:**
-```bash
-# Disable Kyber for faster testing:
-{ kyberEnabled: false }
-
-# Or increase test timeouts to 60+ seconds
-```
-
----
-
-## 3. Server.js Integration
-
-### Imports (Lines 37-38):
-```javascript
-const QuantumKeyManager = require('./security/quantum_key_manager');
-const AutonomousCompliance = require('./security/autonomous_compliance');
-```
-
-### Initialization (Lines 472-491):
-```javascript
-// Quantum Key Manager
-quantumKeys = new QuantumKeyManager({
-  rotationInterval: 604800000, // 7 days
-  kyberEnabled: false, // Simplified for production
-  autoRotate: true
-});
-await quantumKeys.initialize();
-console.log('  ✅ Quantum Key Manager active (weekly rotation)');
-
-// Autonomous Compliance Engine
-complianceEngine = new AutonomousCompliance({
-  dbPath: './db/inventory_enterprise.db',
-  frameworks: ['soc2', 'iso27001', 'owasp'],
-  scoreThreshold: 85,
-  reportInterval: 86400000 // 24 hours
-});
-await complianceEngine.initialize();
-console.log('  ✅ Compliance Engine active (daily reports)');
-
-// Make quantum keys available for signing
-app.locals.quantumKeys = quantumKeys;
-app.locals.complianceEngine = complianceEngine;
-```
-
-### Governance Agent (Lines 367-374):
-```javascript
-governanceAgent = new GovernanceAgent({
-  learningInterval: parseInt(process.env.GOVERNANCE_LEARNING_INTERVAL) || 86400000,
-  adaptationEnabled: process.env.GOVERNANCE_ADAPTATION_ENABLED === 'true',
-  confidenceThreshold: parseFloat(process.env.GOVERNANCE_CONFIDENCE_THRESHOLD) || 0.85
-});
-
-await governanceAgent.initialize();
-await governanceAgent.start();
-console.log('  ✅ Governance Agent started (24h learning cycles)');
-```
-
-**Result:** ✅ **FULLY INTEGRATED**
-
-**Weekly Rotation:** Configured at 7 days (604,800,000 ms)
-**Compliance Reports:** Daily (86,400,000 ms)
-**Daemon Status:** Available via `app.locals`
-
----
-
-## 4. Validation Daemon Execution
-
-### Command:
-```bash
-python3 security/governance_validation_daemon.py > /tmp/qdl_daemon.log 2>&1 &
-tail -n 20 /tmp/qdl_daemon.log
-```
-
-### Process Status:
-```bash
-$ ps aux | grep governance_validation
-davidmikulis  15853  0.0  0.1  435274736  23168  ??  SN  2:22AM  0:00.06
-  /opt/homebrew/.../Python security/governance_validation_daemon.py
-```
-
-**PID:** 15853
-**Status:** ✅ Running
-**Memory:** 23 MB
-
-### Validation Output:
-```bash
-$ jq '.' /tmp/qdl_validation.json
-```
-
-```json
-{
-  "timestamp": "2025-10-10T06:22:29.428704Z",
-  "overall_status": "FAIL",
-  "checks": {
-    "process_integrity": {
-      "passed": true,
-      "violations": [],
-      "files_checked": 4
-    },
-    "database_checksum": {
-      "passed": true,
-      "integrity": "ok",
-      "hash": "f078469862787535"
-    },
-    "firewall_state": {
-      "passed": false,
-      "application_firewall": false,
-      "packet_filter": false
-    },
-    "quantum_key_freshness": {
-      "passed": true,
-      "key_exists": true,
-      "rotation_due": false
-    },
-    "network_isolation": {
-      "passed": true,
-      "localhost_bound": true,
-      "no_wildcard": true
+// Owner Ops Status
+router.get('/api/owner/ops/status', async (req, res, next) => {
+  try {
+    // v15.3: Financial Accuracy metric
+    let financialAccuracyResult = { financial_accuracy: null, color: 'gray' };
+    try {
+      financialAccuracyResult = await getFinancialAccuracyMetric(req.app.locals.db);
+    } catch (e) {
+      console.error('FinancialAccuracy metric error:', e.message || e);
     }
-  },
-  "failed_checks": [
-    "firewall_state"
-  ]
-}
-```
 
-### Overall Status:
-```bash
-$ jq '.overall_status' /tmp/qdl_validation.json
-"FAIL"
-```
-
-**Daemon Results:**
-- ✅ Process integrity: PASS (4 files checked)
-- ✅ Database checksum: PASS (f078469862787535)
-- ❌ Firewall state: **FAIL** (application firewall disabled)
-- ✅ Quantum key freshness: PASS (no rotation needed)
-- ✅ Network isolation: PASS (localhost-only binding confirmed)
-
-**Failed Check:** `firewall_state`
-- macOS Application Firewall: **Disabled**
-- Packet Filter (pf): **Disabled**
-
-**Note:** Firewall disabled is acceptable for localhost-only development. For production, enable firewall:
-```bash
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
-```
-
----
-
-## 5. Leak Scanner Results
-
-### Command:
-```bash
-node scripts/scan_outbound_requests.js
-```
-
-### Scan Summary:
-- **Files Scanned:** 127 JavaScript files
-- **Total Lines:** 46,977
-- **Critical Issues:** 30 🚨
-- **Warnings:** 38 ⚠️
-- **Authorized Calls:** 3 ℹ️
-
-### Critical Issues Breakdown:
-
-#### **Category 1: Dangerous Functions (24 issues)**
-These are intentional system calls, not security risks:
-
-| File | Count | Function | Purpose |
-|------|-------|----------|---------|
-| `quantum_key_manager.js` | 5 | `execSync()` | macOS Keychain integration |
-| `autonomous_compliance.js` | 4 | `execSync()` | Compliance checks (firewall, DB) |
-| `appleMetrics.js` | 9 | `execSync()` | Apple Silicon hardware metrics |
-| `appleHardware.js` | 4 | `execSync()` | GPU/NPU detection |
-| `ComplianceAudit.js` | 2 | `Function()` | Dynamic check creation |
-
-**Assessment:** ✅ **FALSE POSITIVES** - These are legitimate system integrations, not security vulnerabilities.
-
-#### **Category 2: Hardcoded Secrets (3 issues)**
-
-1. **scripts/scan_outbound_requests.js:94-95**
-   - Pattern: `aws_access_key_id`, `private_key`
-   - **Status:** ⚠️ These are EXAMPLE patterns in the scanner itself (not real secrets)
-
-2. **scripts/verify_owner_occ.js:16**
-   - Pattern: `PASSWORD = 'Admin123!@#'`
-   - **Status:** ⚠️ Test script for owner verification
-   - **Action Required:** Move to environment variable
-
-#### **Category 3: Code Execution (3 issues)**
-
-1. **middleware/validation.js:35,38**
-   - Functions: `eval()`, `Function()`
-   - **Status:** 🚨 **CRITICAL** - Should use safe alternatives
-   - **Action Required:** Replace with schema validation (Joi/Ajv)
-
-2. **db/DatabaseAdapter.js:153**
-   - Function: `fs.writeFile()` to code directory
-   - **Status:** 🚨 **CRITICAL** - Self-modification risk
-   - **Action Required:** Restrict writes to data directories only
-
-### Warnings (38 non-critical):
-
-**Network Calls (16):**
-- Test files using `axios`, `http.request`, `fetch`
-- All calls to `localhost:8083` (internal testing)
-- **Status:** ✅ Safe (localhost-only)
-
-**File Writes (22):**
-- Compliance reports to `./reports/`
-- Training data to `./training/`
-- Logs to `./logs/`
-- **Status:** ⚠️ Review directory permissions
-
-### Authorized Calls (3):
-
-1. **aiops/InsightGenerator.js:310,344**
-   - LLM API calls for executive summaries (aggregated metrics only)
-   - **Status:** ✅ Authorized
-
-2. **services/webhookDispatcher_2025-10-07.js:246**
-   - User-configured webhook endpoints
-   - **Status:** ✅ Authorized
-
----
-
-## 6. Localhost-Only Binding Verification
-
-### Command:
-```bash
-lsof -i :8083 | grep LISTEN
-```
-
-### Output:
-```
-node  10985  davidmikulis  14u  IPv4  0x9b6a3e77bc3c3393  0t0  TCP localhost:us-srv (LISTEN)
-```
-
-### Detailed Check:
-```bash
-$ netstat -an | grep 8083 | grep LISTEN
-tcp4  0  0  127.0.0.1.8083  *.*  LISTEN
-```
-
-### Code Verification:
-```javascript
-// server.js line 530
-httpServer.listen(PORT, '127.0.0.1', async () => {
-  console.log('🚀 NeuroInnovate Inventory Enterprise System v2.8.0');
+    // existing health stats building here
+    const status = {
+      // ... other health stats ...
+      // === v15.3: Financial Accuracy ===
+      financial_accuracy: financialAccuracyResult.financial_accuracy,
+      financial_accuracy_color: financialAccuracyResult.color,
+    };
+    res.json(status);
+  } catch (err) {
+    next(err);
+  }
 });
-```
 
-**Result:** ✅ **CONFIRMED LOCALHOST-ONLY**
-- Binding: `127.0.0.1:8083` (IPv4 loopback)
-- No `0.0.0.0` wildcard binding
-- No external network access possible
+module.exports = router;
+</file>
 
----
+<file name=backend/server.js>
+'use strict';
 
-## 7. System Health Status
+const express = require('express');
+const app = express();
 
-### Memory & CPU:
-```bash
-$ ps -p 10985 -o pid,rss,pcpu,command
-PID    RSS   %CPU  COMMAND
-10985  151872  0.3  node server.js
-```
+// ... other requires and setup ...
 
-**Memory:** 148 MB (well under 500 MB limit)
-**CPU:** 0.3% (well under 20% limit)
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', 'text/plain; version=0.0.4');
 
-### Server Health:
-```bash
-$ curl -s http://localhost:8083/health | jq '.status, .version'
-"ok"
-"2.8.0"
-```
+  const lines = [
+    // existing metrics lines here
+  ];
 
-**Status:** ✅ Healthy
-**Uptime:** Continuous since startup
+  // v15.3 Financial metrics
+  try {
+    const db = app.locals.db || require('./db');
+    const row = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT value, as_of FROM ai_ops_health_metrics WHERE metric='financial_accuracy' ORDER BY as_of DESC LIMIT 1",
+        (err, r) => err ? reject(err) : resolve(r)
+      );
+    });
+    const accuracy = row ? Number(row.value) : 0;
+    lines.push(`financial_usage_accuracy_pct ${accuracy}`);
+  } catch (e) {
+    lines.push(`financial_usage_accuracy_pct 0`);
+  }
+  // expose import counter if present (defaults to 0)
+  const finImportTotal = (app.locals.metrics && app.locals.metrics.financial_import_total) || 0;
+  lines.push(`financial_import_total{period="2025H1"} ${finImportTotal}`);
 
----
+  res.send(lines.join('\n') + '\n');
+});
 
-## Overall Assessment
+// ... rest of server.js ...
+</file>
 
-### ✅ Operational Components:
-1. **Quantum Key Manager** - Generating Ed25519/Kyber keys
-2. **Localhost Binding** - Confirmed 127.0.0.1 only
-3. **Server Integration** - Quantum modules loaded
-4. **Validation Daemon** - Running and monitoring (PID 15853)
-5. **Network Isolation** - No external connections
-6. **Database Integrity** - Checksum validated
-7. **Process Integrity** - File whitelist enforced
+<file name=backend/routes/inventory-reconcile.js>
+'use strict';
 
-### ⚠️ Warnings:
-1. **Firewall Disabled** - Not critical for localhost-only, but recommended for defense-in-depth
-2. **Test Timeouts** - Kyber operations need 60+ second timeouts
-3. **Hardcoded Test Password** - Move to `.env`
+const express = require('express');
+const router = express.Router();
 
-### 🚨 Critical Actions Required:
-1. **middleware/validation.js** - Remove `eval()` and `Function()`, use schema validation
-2. **db/DatabaseAdapter.js:153** - Restrict file writes to data directories only
-3. **Test Suite** - Increase timeout values or disable Kyber for faster tests
+// ... other requires and code ...
 
----
+router.post('/api/inventory/reconcile/import-pdfs', async (req, res, next) => {
+  try {
+    // ... import logic ...
 
-## Recommendations
+    // Assuming here the response object is built like this:
+    const responseObj = { importedCount, vendors, totalValue, importId, financialData };
 
-### Immediate (Critical):
-```bash
-# 1. Fix validation.js eval() usage
-sed -i '' 's/eval(/\/\/ DISABLED: eval(/g' middleware/validation.js
+    // v15.3 metrics: bump import total
+    if (!req.app.locals.metrics) req.app.locals.metrics = {};
+    req.app.locals.metrics.financial_import_total = (req.app.locals.metrics.financial_import_total || 0) + 1;
 
-# 2. Enable firewall
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
+    res.json(responseObj);
+  } catch (err) {
+    next(err);
+  }
+});
 
-# 3. Move test password to environment
-echo "OWNER_TEST_PASSWORD=Admin123!@#" >> .env.test
-```
+module.exports = router;
+</file>
 
-### Short-term (1 week):
-1. Refactor `eval()` to Joi schema validation
-2. Implement file write sandboxing
-3. Add automated security scanning to CI/CD
-4. Document all `execSync()` usage with justification
+<file name=scripts/verify_financial_import.sh>
+#!/usr/bin/env bash
+set -euo pipefail
 
-### Long-term (1 month):
-1. Implement Content Security Policy (CSP)
-2. Add runtime integrity monitoring
-3. Automated key rotation testing
-4. Penetration testing of quantum crypto implementation
+# chmod +x scripts/verify_financial_import.sh
 
----
+BASE="http://127.0.0.1:8083"
+TOKEN="${TOKEN:-}"
 
-## Conclusion
+if [[ -z "${TOKEN}" ]]; then
+  echo "ERROR: Set TOKEN env var with a valid bearer token."
+  exit 2
+fi
 
-**Overall Grade:** ⚠️ **B+ (85%)**
+hdr=(-H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json")
 
-The Quantum Governance system is **operational and functional** with strong security fundamentals:
-- ✅ Quantum cryptography working
-- ✅ Network isolation confirmed
-- ✅ Daemon monitoring active
-- ✅ Server integration complete
+echo "== Step 1: Monthly summary Jan–Jun 2025 =="
+curl -s "${hdr[@]}" \
+  "${BASE}/api/inventory/reconcile/financial-summary?group=month&from=2025-01-01&to=2025-06-30" | jq '.summaries | length'
 
-However, **3 critical code vulnerabilities** need immediate remediation:
-- `eval()` in validation middleware
-- Self-modification risk in database adapter
-- Hardcoded test credentials
+echo "== Step 2: Latest financial accuracy metric =="
+curl -s "${BASE}/api/owner/ops/status" -H "Authorization: Bearer ${TOKEN}" | jq '.financial_accuracy, .financial_accuracy_color'
 
-**Timeline to Production-Ready:** 1-2 weeks (after critical fixes)
+echo "== Step 3: Metrics exposure =="
+curl -s "${BASE}/metrics" | grep -E "financial_import_total|financial_usage_accuracy_pct" || {
+  echo "Missing metrics lines"; exit 3;
+}
 
----
+echo "All checks passed."
+</file>
 
-## Appendix: Test Commands for Verification
+<file name=frontend/owner-super-console.html>
+<!-- ... existing tabs ... -->
+<button id="tab-usage-financials" class="np-tab-btn" data-tab="usage-financials">📊 Usage &amp; Financials</button>
 
-```bash
-# Re-run all tests
-cd ~/neuro-pilot-ai/inventory-enterprise/backend
+<!-- ... existing tab content ... -->
 
-# 1. Initialize keys
-node -e "const Q=require('./security/quantum_key_manager');new Q().initialize().then(()=>console.log('✅'))"
+<section id="tabview-usage-financials" class="np-tabview u-hide">
+  <div class="u-flex u-gap-12 u-items-center u-mb-12">
+    <label for="uf-period">Period</label>
+    <select id="uf-period" class="np-input">
+      <option value="2025H1">H1 2025 (Jan–Jun)</option>
+    </select>
+    <label for="uf-group">Group by</label>
+    <select id="uf-group" class="np-input">
+      <option value="month">Month</option>
+      <option value="week">Week</option>
+    </select>
+    <button id="uf-refresh" class="np-btn">Refresh</button>
+    <button id="uf-export" class="np-btn">Export CSV</button>
+    <button id="uf-gen-pdf" class="np-btn">Generate Client PDF</button>
+  </div>
+  <div class="u-grid u-gap-12 u-mb-12">
+    <div class="stat-card">
+      <div class="stat-label">Financial Accuracy</div>
+      <div id="uf-accuracy" class="stat-value">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Food+Freight Reimb.</div>
+      <div id="uf-reimb" class="stat-value">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Other Costs</div>
+      <div id="uf-other" class="stat-value">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">GST / QST</div>
+      <div id="uf-tax" class="stat-value">—</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="np-table" id="uf-table" aria-label="Usage and Financials">
+      <thead>
+        <tr>
+          <th>Vendor</th><th>Date</th><th>Invoice #</th>
+          <th>BAKE</th><th>BEV+ECO</th><th>MILK</th><th>GROC+MISC</th>
+          <th>MEAT</th><th>PROD</th><th>CLEAN</th><th>PAPER</th><th>FREIGHT</th>
+          <th>GST</th><th>QST</th><th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="uf-tbody"></tbody>
+    </table>
+  </div>
+</section>
+</file>
 
-# 2. Check daemon
-ps aux | grep governance_validation_daemon
+<file name=frontend/owner-super-console.js>
+// ===== v15.3 Usage & Financials =====
+(function(){
+  const $ = (sel) => document.querySelector(sel);
+  const fmt = (n) => (n==null? '—' : Number(n).toLocaleString('en-CA', {minimumFractionDigits:2, maximumFractionDigits:2}));
+  async function fetchJSON(url){
+    const res = await fetch(H.route(url), { headers: authHeaders() });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+  function authHeaders(){
+    const t = localStorage.getItem('authToken') || window.authToken;
+    const h = { 'Accept':'application/json' };
+    if (t) h['Authorization'] = `Bearer ${t}`;
+    return h;
+  }
+  async function loadFinancialSummary(){
+    const group = $('#uf-group').value;
+    const url = group === 'month'
+      ? '/api/inventory/reconcile/financial-summary?group=month&from=2025-01-01&to=2025-06-30'
+      : '/api/inventory/reconcile/financial-summary?group=week&month=2025-09';
+    const data = await fetchJSON(url);
+    renderFinancials(data);
+    await refreshFinancialAccuracy();
+  }
+  async function refreshFinancialAccuracy(){
+    try{
+      const st = await fetchJSON('/api/owner/ops/status');
+      $('#uf-accuracy').textContent = st.financial_accuracy != null ? `${fmt(st.financial_accuracy)} %` : '—';
+    }catch(e){
+      console.warn('financial accuracy fetch failed', e);
+      $('#uf-accuracy').textContent = '—';
+    }
+  }
+  function renderFinancials(data){
+    const tb = $('#uf-tbody');
+    tb.innerHTML = '';
+    let reimb = 0, other = 0, gst = 0, qst = 0;
+    const rows = (data.rows || data.summaries || []);
+    for (const r of rows){
+      const cat = r.category_totals || r.categories || {};
+      const row = document.createElement('tr');
+      const d = (r.invoice_date || r.date || '').slice(0,10);
+      row.innerHTML = `
+        <td>${r.vendor || r.vendor_name || '—'}</td>
+        <td>${d}</td>
+        <td>${r.invoice_number || r.invoice_no || '—'}</td>
+        <td class="ar">${fmt(cat.BAKE)}</td>
+        <td class="ar">${fmt(cat['BEV+ECO'] || cat.BEV_ECO)}</td>
+        <td class="ar">${fmt(cat.MILK)}</td>
+        <td class="ar">${fmt(cat['GROC+MISC'] || cat.GROC_MISC)}</td>
+        <td class="ar">${fmt(cat.MEAT)}</td>
+        <td class="ar">${fmt(cat.PROD)}</td>
+        <td class="ar">${fmt(cat.CLEAN)}</td>
+        <td class="ar">${fmt(cat.PAPER)}</td>
+        <td class="ar">${fmt(cat.FREIGHT)}</td>
+        <td class="ar">${fmt(r.gst)}</td>
+        <td class="ar">${fmt(r.qst)}</td>
+        <td class="ar">${fmt(r.total_amount || r.total)}</td>`;
+      tb.appendChild(row);
+      const food = (cat.BAKE||0)+(cat['BEV+ECO']||cat.BEV_ECO||0)+(cat.MILK||0)+(cat['GROC+MISC']||cat.GROC_MISC||0)+(cat.MEAT||0)+(cat.PROD||0);
+      reimb += food + (cat.FREIGHT||0);
+      other += (cat.CLEAN||0)+(cat.PAPER||0);
+      gst += Number(r.gst||0);
+      qst += Number(r.qst||0);
+    }
+    $('#uf-reimb').textContent = fmt(reimb);
+    $('#uf-other').textContent = fmt(other);
+    $('#uf-tax').textContent = `${fmt(gst)} / ${fmt(qst)}`;
+  }
+  function exportCSV(){
+    const rows = [['Vendor','Date','Invoice #','BAKE','BEV+ECO','MILK','GROC+MISC','MEAT','PROD','CLEAN','PAPER','FREIGHT','GST','QST','Total']];
+    document.querySelectorAll('#uf-tbody tr').forEach(tr => {
+      const cells=[...tr.children].map(td=> td.textContent);
+      rows.push(cells);
+    });
+    const csv = rows.map(r=> r.join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'usage_financials_2025H1.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  async function generatePDF(){
+    const body = { period:{type:'month', value:'2025-06'}, locale: 'en' };
+    const res = await fetch(H.route('/api/inventory/reconcile/client-report'), {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){ toastError('PDF generation failed'); return; }
+    const j = await res.json();
+    if (j.url) window.open(H.asset(j.url), '_blank');
+  }
+  function bindUF(){
+    const tabBtn = document.getElementById('tab-usage-financials');
+    if (tabBtn) tabBtn.addEventListener('click', () => {
+      switchTab('usage-financials');
+      loadFinancialSummary().catch(console.error);
+    });
+    const refresh = document.getElementById('uf-refresh');
+    refresh && refresh.addEventListener('click', () => loadFinancialSummary().catch(console.error));
+    const exp = document.getElementById('uf-export');
+    exp && exp.addEventListener('click', exportCSV);
+    const gen = document.getElementById('uf-gen-pdf');
+    gen && gen.addEventListener('click', () => generatePDF().catch(console.error));
+  }
+  document.addEventListener('DOMContentLoaded', bindUF);
+})();
+</file>
 
-# 3. View validation results
-jq '.' /tmp/qdl_validation.json
+<file name=CHANGELOG.md>
+## v15.3.0 — Financial Accuracy & Usage (2025-10-13)
+- feat: wire FinancialAccuracy into Owner Ops status (weight 0.15, G/Y/R thresholds)
+- feat: new “Usage & Financials” tab (H1 2025, CSV export, accuracy chip)
+- feat: Prometheus metrics: financial_import_total, financial_usage_accuracy_pct
+- chore: add verification script scripts/verify_financial_import.sh
+- note: PDF generator endpoint stubbed; UI button present (EN/FR wiring next)
 
-# 4. Check localhost binding
-lsof -i :8083 | grep LISTEN
-
-# 5. Run leak scanner
-node scripts/scan_outbound_requests.js
-
-# 6. Server health
-curl -s http://localhost:8083/health | jq .
-```
-
----
-
-**Report Generated:** 2025-10-10T06:25:00Z
-**Engineer:** Claude Code (Systems Verification)
-**Next Review:** 2025-10-17T00:00:00Z (Weekly)
-1
+<!-- existing changelog entries below -->
+</file>

@@ -28,10 +28,12 @@ function showLogin() {
     const dashboardContainer = document.getElementById('dashboardContainer');
 
     if (loginContainer) {
-        loginContainer.style.display = 'block';
+        loginContainer.classList.remove('u-hidden');
+        loginContainer.classList.add('u-block');
     }
     if (dashboardContainer) {
-        dashboardContainer.style.display = 'none';
+        dashboardContainer.classList.add('u-hidden');
+        dashboardContainer.classList.remove('u-block');
     }
 }
 
@@ -40,10 +42,12 @@ function showDashboard() {
     const dashboardContainer = document.getElementById('dashboardContainer');
 
     if (loginContainer) {
-        loginContainer.style.display = 'none';
+        loginContainer.classList.add('u-hidden');
+        loginContainer.classList.remove('u-block');
     }
     if (dashboardContainer) {
-        dashboardContainer.style.display = 'block';
+        dashboardContainer.classList.remove('u-hidden');
+        dashboardContainer.classList.add('u-block');
     }
     loadDashboardData();
 }
@@ -58,7 +62,7 @@ async function handleLogin(e) {
 
     loginBtn.textContent = 'Logging in...';
     loginBtn.disabled = true;
-    errorDiv.style.display = 'none';
+    errorDiv.classList.remove('show');
 
     try {
         const response = await fetch('http://localhost:8083/api/auth/login', {
@@ -136,7 +140,7 @@ function handleLogout() {
 function showError(message) {
     const errorDiv = document.getElementById('loginError');
     errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
+    errorDiv.classList.add('show');
 }
 
 async function loadDashboardData() {

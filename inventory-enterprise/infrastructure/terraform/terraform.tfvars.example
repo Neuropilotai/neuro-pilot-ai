@@ -1,0 +1,106 @@
+# ================================================================
+# NeuroPilot v17.2 Terraform Variables
+# ================================================================
+# Copy this file to terraform.tfvars and fill in your values
+# NEVER commit terraform.tfvars to version control!
+# ================================================================
+
+# Environment Configuration
+environment  = "production"  # production, staging, or development
+project_name = "neuropilot-inventory"
+
+# Domain Configuration
+domain_name = "neuropilot.ai"
+
+# ================================================================
+# CLOUDFLARE
+# ================================================================
+# Get your API token from: https://dash.cloudflare.com/profile/api-tokens
+# Required permissions: Zone.DNS, Zone.Settings, Zone.Firewall
+cloudflare_api_token  = "your-cloudflare-api-token-here"
+cloudflare_zone_id    = "your-zone-id-here"
+cloudflare_account_id = "your-account-id-here"
+
+# ================================================================
+# RAILWAY
+# ================================================================
+# Get your API token from: https://railway.app/account/tokens
+railway_api_token      = "your-railway-api-token-here"
+railway_project_id     = "your-railway-project-id"
+railway_primary_region = "us-east1"
+railway_secondary_region = "us-west1"
+
+# ================================================================
+# NEON DATABASE
+# ================================================================
+# Get your API key from: https://console.neon.tech/app/settings/api-keys
+neon_api_key       = "your-neon-api-key-here"
+neon_project_id    = "your-neon-project-id"
+neon_primary_region = "aws-us-east-1"
+
+# ================================================================
+# GRAFANA CLOUD
+# ================================================================
+# Sign up for free: https://grafana.com/auth/sign-up/create-user
+# Get API key from: https://grafana.com/orgs/YOUR_ORG/api-keys
+grafana_cloud_url = "https://your-org.grafana.net"
+grafana_api_key   = "your-grafana-api-key-here"
+grafana_org_id    = "1"
+
+# ================================================================
+# SENTRY
+# ================================================================
+# Sign up for free: https://sentry.io/signup/
+# Get auth token from: https://sentry.io/settings/account/api/auth-tokens/
+sentry_org_slug   = "your-sentry-org"
+sentry_auth_token = "your-sentry-auth-token-here"
+
+# ================================================================
+# VERCEL (Frontend)
+# ================================================================
+# Your Vercel deployment URL (set automatically after first deploy)
+vercel_deployment_url = "neuropilot-inventory.vercel.app"
+
+# ================================================================
+# COST MANAGEMENT
+# ================================================================
+enable_cost_alerts  = true
+monthly_budget_usd  = 50
+
+# ================================================================
+# AUTO-SCALING
+# ================================================================
+enable_auto_scaling    = true
+min_instances          = 1
+max_instances          = 5
+cpu_threshold_percent  = 80
+
+# ================================================================
+# HIGH AVAILABILITY
+# ================================================================
+enable_multi_region   = false  # Set to true for production HA
+enable_auto_failover  = false  # Requires multi-region
+
+# ================================================================
+# SECURITY
+# ================================================================
+enable_waf              = true
+enable_ddos_protection  = true
+enable_rate_limiting    = true
+
+# ================================================================
+# MONITORING & ALERTS
+# ================================================================
+alert_email             = "devops@your-company.com"
+slack_webhook_url       = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+pagerduty_integration_key = ""  # Optional, for critical alerts
+
+# ================================================================
+# NOTES
+# ================================================================
+# 1. Generate secure secrets with: openssl rand -hex 32
+# 2. Store this file securely (use .gitignore)
+# 3. For team environments, use Terraform Cloud workspaces
+# 4. Rotate API tokens every 90 days
+# 5. Enable multi-region for production workloads
+# 6. Review cost estimates before applying changes

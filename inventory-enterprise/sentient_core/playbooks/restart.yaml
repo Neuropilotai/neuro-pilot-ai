@@ -1,0 +1,136 @@
+# Restart Playbook
+# Auto-remediation for memory leaks and service errors
+
+name: "Graceful Service Restart"
+description: "Restart services gracefully with zero-downtime rolling restart"
+action: "restart_services"
+severity: ["medium", "high"]
+incident_types:
+  - memory_exhaustion
+  - error_surge
+  - service_degradation
+
+# Playbook steps
+steps:
+  - name: "Pre-restart health check"
+    type: "api"
+    params:
+      method: "GET"
+      url: "${BACKEND_URL}/health"
+      expected_status: 200
+
+  - name: "Scale up temporarily (add 1 instance)"
+    type: "api"
+    params:
+      method: "POST"
+      url: "https://backboard.railway.app/graphql"
+      headers:
+        Content-Type: "application/json"
+      body:
+        query: |
+          mutation {
+            serviceInstanceUpdate(
+              input: {
+                serviceId: "${RAILWAY_SERVICE_ID}"
+                replicas: 3
+              }
+            ) {
+              id
+            }
+          }
+
+  - name: "Wait for new instance to be healthy"
+    type: "wait"
+    params:
+      seconds: 45
+
+  - name: "Restart instances one by one"
+    type: "command"
+    params:
+      command: |
+        railway service restart --service ${RAILWAY_SERVICE_ID}
+      timeout: 120
+
+  - name: "Wait for restart completion"
+    type: "wait"
+    params:
+      seconds: 60
+
+  - name: "Scale back to normal (2 instances)"
+    type: "api"
+    params:
+      method: "POST"
+      url: "https://backboard.railway.app/graphql"
+      headers:
+        Content-Type: "application/json"
+      body:
+        query: |
+          mutation {
+            serviceInstanceUpdate(
+              input: {
+                serviceId: "${RAILWAY_SERVICE_ID}"
+                replicas: 2
+              }
+            ) {
+              id
+            }
+          }
+
+  - name: "Post-restart health check"
+    type: "api"
+    params:
+      method: "GET"
+      url: "${BACKEND_URL}/health"
+      expected_status: 200
+
+# Verification checks
+verification:
+  metrics_check:
+    memory_usage:
+      query: "avg(memory_usage_percent)"
+      threshold: 70
+      condition: "less_than"
+    error_rate:
+      query: "sum(rate(http_requests_total{status=~'5..'}[5m]))"
+      threshold: 2.0
+      condition: "less_than"
+
+  health_check:
+    url: "${BACKEND_URL}/health"
+    expected_status: 200
+
+# Rollback procedure
+rollback:
+  - name: "Restore previous instance count"
+    type: "api"
+    params:
+      method: "POST"
+      url: "https://backboard.railway.app/graphql"
+      body:
+        query: |
+          mutation {
+            serviceInstanceUpdate(
+              input: {
+                serviceId: "${RAILWAY_SERVICE_ID}"
+                replicas: 2
+              }
+            ) {
+              id
+            }
+          }
+
+# Expected outcomes
+expected_outcomes:
+  - "Memory usage drops below 70%"
+  - "Error rate drops below 2%"
+  - "All instances healthy"
+  - "Response time improves by 20%"
+
+# Estimated execution time
+estimated_execution_time_seconds: 180
+
+# Safety guardrails
+safety:
+  max_concurrent_restarts: 1
+  min_healthy_instances: 1
+  verification_wait_seconds: 60

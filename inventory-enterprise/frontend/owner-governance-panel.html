@@ -1,0 +1,205 @@
+<!--
+  owner-governance-panel.html (v16.5.0)
+
+  Unified Governance Command Center
+  - Combines Governance Score, Finance Integrity, AI Intelligence, Health Score
+  - Real-time WebSocket updates
+  - Predictive trend visualization with 7-day forecast
+  - System control toolbar
+
+  Include in owner-super-console.html:
+  <div id="governance-command-center"></div>
+  <script>
+    fetch('/owner-governance-panel.html')
+      .then(r => r.text())
+      .then(html => document.getElementById('governance-command-center').innerHTML = html);
+  </script>
+-->
+
+<link rel="stylesheet" href="/public/css/governance-panel.css">
+
+<!-- Command Center Header -->
+<div class="governance-command-center">
+  <div class="command-center-header">
+    <h2>🎯 Governance Command Center</h2>
+    <div class="header-actions">
+      <button id="refresh-all-btn" class="control-btn" title="Refresh All">
+        <span class="icon">↻</span> Refresh
+      </button>
+      <button id="generate-report-btn" class="control-btn" title="Generate Weekly Report">
+        <span class="icon">📄</span> Report
+      </button>
+      <button id="verify-finance-btn" class="control-btn" title="Verify Finance Period">
+        <span class="icon">🔒</span> Verify
+      </button>
+      <button id="recompute-ai-btn" class="control-btn" title="AI Recompute">
+        <span class="icon">⚙️</span> Recompute
+      </button>
+    </div>
+  </div>
+
+  <!-- Unified Status Grid -->
+  <div class="unified-status-grid">
+    <!-- Composite Governance Score -->
+    <div class="status-card status-primary" id="governance-score-card">
+      <div class="status-header">
+        <h3>Composite Governance</h3>
+        <span class="status-badge" id="governance-badge">🟢</span>
+      </div>
+      <div class="status-value">
+        <span class="score" id="governance-score">--</span>
+        <span class="score-unit">/100</span>
+      </div>
+      <div class="status-trend">
+        <span id="governance-trend-icon">→</span>
+        <span id="governance-trend-value">--</span>
+      </div>
+      <div class="status-footer">
+        <a href="#governance-detail" class="detail-link">View Details →</a>
+      </div>
+    </div>
+
+    <!-- Finance Integrity -->
+    <div class="status-card" id="finance-card">
+      <div class="status-header">
+        <h3>Finance Integrity</h3>
+        <span class="status-badge" id="finance-badge">🟢</span>
+      </div>
+      <div class="status-value">
+        <span class="score" id="finance-score">--</span>
+        <span class="score-unit">/100</span>
+      </div>
+      <div class="status-meta">
+        <span id="finance-status">Loading...</span>
+      </div>
+      <div class="status-footer">
+        <a href="/owner-super-console.html#finance" class="detail-link">View Finance →</a>
+      </div>
+    </div>
+
+    <!-- AI Intelligence -->
+    <div class="status-card" id="ai-card">
+      <div class="status-header">
+        <h3>AI Intelligence</h3>
+        <span class="status-badge" id="ai-badge">🟢</span>
+      </div>
+      <div class="status-value">
+        <span class="score" id="ai-score">--</span>
+        <span class="score-unit">/100</span>
+      </div>
+      <div class="status-meta">
+        <span id="ai-status">Loading...</span>
+      </div>
+      <div class="status-footer">
+        <a href="/owner-super-console.html#intelligence" class="detail-link">View Intelligence →</a>
+      </div>
+    </div>
+
+    <!-- Health Score -->
+    <div class="status-card" id="health-card">
+      <div class="status-header">
+        <h3>System Health</h3>
+        <span class="status-badge" id="health-badge">🟢</span>
+      </div>
+      <div class="status-value">
+        <span class="score" id="health-score">--</span>
+        <span class="score-unit">/100</span>
+      </div>
+      <div class="status-meta">
+        <span id="health-status">Loading...</span>
+      </div>
+      <div class="status-footer">
+        <a href="/owner-super-console.html#health" class="detail-link">View Health →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts Panel -->
+  <div class="alerts-panel" id="alerts-panel" style="display: none;">
+    <div class="alerts-header">
+      <h3>⚠️ Active Alerts</h3>
+      <button class="dismiss-all-btn" id="dismiss-alerts-btn">Dismiss All</button>
+    </div>
+    <div class="alerts-list" id="alerts-list">
+      <!-- Alerts populated by JS -->
+    </div>
+  </div>
+
+  <!-- Predictive Trend Chart -->
+  <div class="predictive-trend-section">
+    <div class="trend-header">
+      <h3>📈 Predictive Governance Trend</h3>
+      <div class="trend-controls">
+        <label>
+          Pillar:
+          <select id="trend-pillar-select" class="trend-select">
+            <option value="composite" selected>Composite</option>
+            <option value="finance">Finance</option>
+            <option value="ai">AI Intelligence</option>
+            <option value="health">Health</option>
+            <option value="menu">Menu Forecast</option>
+          </select>
+        </label>
+        <label>
+          Forecast:
+          <select id="trend-horizon-select" class="trend-select">
+            <option value="7" selected>7 Days</option>
+            <option value="14">14 Days</option>
+            <option value="30">30 Days</option>
+          </select>
+        </label>
+        <button id="trend-refresh-btn" class="trend-btn">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Canvas for Chart -->
+    <div class="trend-chart-container">
+      <canvas id="governance-trend-chart" width="800" height="300"></canvas>
+    </div>
+
+    <!-- Trend Metadata -->
+    <div class="trend-metadata">
+      <div class="meta-item">
+        <span class="meta-label">Current:</span>
+        <span class="meta-value" id="trend-current">--</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">7-Day Change:</span>
+        <span class="meta-value" id="trend-change">--</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Trend:</span>
+        <span class="meta-value" id="trend-direction">--</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Confidence:</span>
+        <span class="meta-value" id="trend-confidence">--</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Status Footer -->
+  <div class="system-status-footer">
+    <div class="status-item">
+      <span class="status-dot" id="websocket-status">🔴</span>
+      <span>WebSocket</span>
+    </div>
+    <div class="status-item">
+      <span class="status-dot">🟢</span>
+      <span>API</span>
+    </div>
+    <div class="status-item">
+      <span id="last-update">Last update: --</span>
+    </div>
+  </div>
+</div>
+
+<!-- Load JavaScript Module -->
+<script src="/public/js/governance-panel.js"></script>
+<script>
+  // Initialize governance panel when loaded
+  if (typeof GovernancePanel !== 'undefined') {
+    const panel = new GovernancePanel();
+    panel.init();
+  }
+</script>

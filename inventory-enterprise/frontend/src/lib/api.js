@@ -6,12 +6,39 @@
  * @version 1.0.0
  */
 
-import { getAuthHeader, logout, isTokenExpired } from './auth.js';
+import { getAuthHeader, logout, isTokenExpired, refreshIfNeeded, getToken } from './auth.js';
 
 // API base URL from environment or default to localhost
 const API_BASE_URL = typeof import.meta !== 'undefined'
   ? import.meta.env.VITE_API_URL || 'http://localhost:8083'
   : (window.__API_BASE_URL || 'http://localhost:8083');
+
+/**
+ * Get auth header with automatic token refresh
+ * @returns {Promise<Object>} Authorization header or empty object
+ */
+async function getAuthHeaderWithRefresh() {
+  const token = getToken();
+
+  // If no token, return empty header
+  if (!token) {
+    return {};
+  }
+
+  // If token expired, try to refresh
+  if (isTokenExpired()) {
+    try {
+      const newToken = await refreshIfNeeded(API_BASE_URL);
+      return { Authorization: `Bearer ${newToken}` };
+    } catch (error) {
+      console.warn('⚠️  Token refresh failed:', error.message);
+      return {};
+    }
+  }
+
+  // Token is valid, return it
+  return { Authorization: `Bearer ${token}` };
+}
 
 /**
  * Centralized fetch wrapper with auth and error handling
@@ -20,18 +47,11 @@ const API_BASE_URL = typeof import.meta !== 'undefined'
  * @returns {Promise<Response>} Fetch response
  */
 export async function api(path, init = {}) {
-  // Check for expired token before making request
-  if (isTokenExpired()) {
-    console.warn('⚠️  Token expired, logging out');
-    logout();
-    throw new Error('Authentication expired');
-  }
-
   // Merge headers
   const headers = new Headers(init.headers || {});
 
-  // Add auth header
-  const authHeader = getAuthHeader();
+  // Add auth header with automatic refresh
+  const authHeader = await getAuthHeaderWithRefresh();
   Object.entries(authHeader).forEach(([key, value]) => {
     headers.set(key, String(value));
   });

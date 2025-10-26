@@ -1,0 +1,59 @@
+{
+  "version": "4.1",
+  "generatedAt": "2025-10-23T08:47:22.151Z",
+  "overall": {
+    "score": 94,
+    "grade": "A",
+    "passed": true
+  },
+  "frameworks": {
+    "soc2": {
+      "name": "SOC2",
+      "score": 89,
+      "checks": {
+        "security": 100,
+        "availability": 100,
+        "integrity": 70,
+        "confidentiality": 80,
+        "privacy": 95
+      },
+      "passed": false
+    },
+    "iso27001": {
+      "name": "ISO27001",
+      "score": 93,
+      "checks": {
+        "accessControl": 98,
+        "cryptography": 100,
+        "operationalSecurity": 95,
+        "incidentManagement": 100,
+        "businessContinuity": 70
+      },
+      "passed": true
+    },
+    "owasp": {
+      "name": "OWASP",
+      "score": 99,
+      "checks": {
+        "injectionPrevention": 100,
+        "authenticationSecurity": 100,
+        "sensitiveDataExposure": 100,
+        "xmlExternalEntities": 100,
+        "brokenAccessControl": 98,
+        "securityMisconfiguration": 95,
+        "xss": 100,
+        "insecureDeserialization": 100,
+        "knownVulnerabilities": 100,
+        "insufficientLogging": 100
+      },
+      "passed": true
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "framework": "SOC2",
+      "message": "Improve security controls to meet SOC2 Trust Service Criteria"
+    }
+  ]
+}

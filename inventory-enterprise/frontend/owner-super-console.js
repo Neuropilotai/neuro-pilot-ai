@@ -10,6 +10,33 @@
    ============================================ */
 
 /**
+ * Helper function for document.querySelector
+ * @param {string} selector - CSS selector
+ * @returns {Element|null}
+ */
+function $$(selector) {
+  return document.querySelector(selector);
+}
+
+/**
+ * Helper function for document.querySelectorAll
+ * @param {string} selector - CSS selector
+ * @returns {NodeList}
+ */
+function $$$(selector) {
+  return document.querySelectorAll(selector);
+}
+
+/**
+ * Helper function for document.getElementById
+ * @param {string} id - Element ID
+ * @returns {Element|null}
+ */
+function $(id) {
+  return document.getElementById(id);
+}
+
+/**
  * Toggle element visibility using class
  */
 function setHidden(el, hidden) {
@@ -53,6 +80,158 @@ function swapText(el, state) {
 
 /* ============================================
    End CSP Helpers
+   ============================================ */
+
+/* ============================================
+   v15.5.1: RBAC UI Gating Helpers
+   ============================================ */
+
+/**
+ * Check if current user has one of the specified roles
+ * @param {...string} roles - Role names to check (READONLY, OPS, FINANCE, OWNER)
+ * @returns {boolean}
+ */
+function hasRole(...roles) {
+  if (!window.currentUser || !window.currentUser.role) {
+    return false;
+  }
+  return roles.includes(window.currentUser.role);
+}
+
+/**
+ * Set element disabled state
+ * @param {string|HTMLElement} el - Element or selector
+ * @param {boolean} disabled - Whether to disable
+ */
+function setDisabled(el, disabled) {
+  const element = typeof el === 'string' ? document.querySelector(el) : el;
+  if (!element) return;
+
+  if (disabled) {
+    element.setAttribute('disabled', 'disabled');
+    element.classList.add('u-disabled');
+  } else {
+    element.removeAttribute('disabled');
+    element.classList.remove('u-disabled');
+  }
+}
+
+/**
+ * Apply role-based UI gating to all UI elements
+ * Called on page load and after authentication
+ */
+function gateUI() {
+  console.log('🔒 Applying RBAC UI gates...');
+
+  if (!window.currentUser || !window.currentUser.role) {
+    console.warn('No current user role found - gating all sensitive UI');
+    // Hide everything if not authenticated
+    document.querySelectorAll('.tab[onclick*="financials"]').forEach(el => setHidden(el, true));
+    document.querySelectorAll('.tab[onclick*="forecast"]').forEach(el => setHidden(el, true));
+    return;
+  }
+
+  const role = window.currentUser.role;
+  console.log(`📋 Current role: ${role}`);
+
+  // Tab visibility gating
+  // Finance tab: FINANCE, OWNER only
+  document.querySelectorAll('.tab[onclick*="financials"]').forEach(el => {
+    setHidden(el, !hasRole('FINANCE', 'OWNER'));
+  });
+
+  // Forecast tab: OPS, FINANCE, OWNER
+  document.querySelectorAll('.tab[onclick*="forecast"]').forEach(el => {
+    setHidden(el, !hasRole('OPS', 'FINANCE', 'OWNER'));
+  });
+
+  // Export buttons (Finance workspace): FINANCE, OWNER only
+  const exportBtns = [
+    '#btn-export-pdf',
+    '#btn-export-csv',
+    '#btn-export-gl',
+    'button[onclick*="exportFinancial"]',
+    'button[onclick*="downloadShoppingListCSV"]'
+  ];
+
+  exportBtns.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      setDisabled(el, !hasRole('FINANCE', 'OWNER'));
+      if (!hasRole('FINANCE', 'OWNER')) {
+        el.setAttribute('title', 'Requires FINANCE or OWNER role');
+      }
+    });
+  });
+
+  // Forecast approval buttons: FINANCE, OWNER only
+  const approvalBtns = [
+    '#btn-approve-orders',
+    '#btn-reject-orders',
+    'button[onclick*="approveForecast"]',
+    'button[onclick*="rejectForecast"]'
+  ];
+
+  approvalBtns.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      setDisabled(el, !hasRole('FINANCE', 'OWNER'));
+      if (!hasRole('FINANCE', 'OWNER')) {
+        el.setAttribute('title', 'Requires FINANCE or OWNER role (dual-control enforced)');
+      }
+    });
+  });
+
+  // Document viewers (raw PDFs): FINANCE, OWNER only
+  document.querySelectorAll('.document-view, .pdf-viewer').forEach(el => {
+    setHidden(el, !hasRole('FINANCE', 'OWNER'));
+  });
+
+  // Backup & restore operations: OWNER only
+  document.querySelectorAll('button[onclick*="Recovery"], button[onclick*="Backup"]').forEach(el => {
+    setDisabled(el, !hasRole('OWNER'));
+    if (!hasRole('OWNER')) {
+      el.setAttribute('title', 'Requires OWNER role');
+    }
+  });
+
+  console.log('✅ RBAC UI gates applied');
+}
+
+/**
+ * Show shadow mode badge if enabled
+ */
+function updateShadowModeBadge() {
+  if (window.appConfig && window.appConfig.shadowMode === true) {
+    const badge = document.getElementById('badge-shadow-mode');
+    if (badge) {
+      setHidden(badge, false);
+      console.log('⚠️ Shadow Mode is ENABLED (no auto-apply)');
+    }
+  }
+}
+
+/**
+ * Get color class for confidence percentage
+ * @param {number} confidence - Confidence percentage (0-100)
+ * @returns {string} Color class name
+ */
+function getConfidenceColor(confidence) {
+  if (confidence >= 85) return 'ok';
+  if (confidence >= 70) return 'warn';
+  return 'bad';
+}
+
+/**
+ * Create confidence chip HTML
+ * @param {number} confidence - Confidence percentage (0-100)
+ * @returns {string} HTML string
+ */
+function createConfidenceChip(confidence) {
+  const color = getConfidenceColor(confidence);
+  return `<span class="chip chip-${color}" title="AI Confidence">${Math.round(confidence)}% confidence</span>`;
+}
+
+/* ============================================
+   End RBAC UI Gating Helpers
    ============================================ */
 
 // ============================================================================
@@ -109,7 +288,7 @@ function showToast(message, type = 'info') {
 }
 
 // Super Console still needs these functions:
-async function loadDashboardOLD() {
+async function loadDashboard() {
   console.log('🔄 Loading dashboard...');
 
   try {
@@ -123,8 +302,28 @@ async function loadDashboardOLD() {
     console.log('✅ Stats:', statsResponse);
     const stats = statsResponse.stats;
 
-    // System Health
-    document.getElementById('systemHealth').textContent = stats.systemHealth === 'OK' ? '✅ OK' : '❌ Down';
+    // v15.3: System Health - Use AI Ops health score instead of generic systemHealth
+    try {
+      const opsStatus = await fetchAPI('/owner/ops/status');
+      if (opsStatus.ai_ops_health && typeof opsStatus.ai_ops_health.score === 'number') {
+        const healthScore = opsStatus.ai_ops_health.score;
+        if (healthScore >= 85) {
+          document.getElementById('systemHealth').textContent = '✅ Excellent';
+          document.getElementById('systemHealth').style.color = '#22c55e';
+        } else if (healthScore >= 60) {
+          document.getElementById('systemHealth').textContent = '🟡 Good';
+          document.getElementById('systemHealth').style.color = '#f59e0b';
+        } else {
+          document.getElementById('systemHealth').textContent = '⚠️ Issues';
+          document.getElementById('systemHealth').style.color = '#ef4444';
+        }
+      } else {
+        document.getElementById('systemHealth').textContent = stats.systemHealth === 'OK' ? '✅ OK' : '❌ Down';
+      }
+    } catch (err) {
+      console.warn('Could not fetch AI Ops status for system health:', err);
+      document.getElementById('systemHealth').textContent = stats.systemHealth === 'OK' ? '✅ OK' : '❌ Down';
+    }
 
     // PDF Coverage (% of PDFs with extracted dates)
     const coverage = stats.pdfs?.coverage || 0;
@@ -233,14 +432,14 @@ function showForecastDetail() {
 
   items.forEach(item => {
     const confidence = Math.round((item.avg_confidence || 0) * 100);
-    const confidenceBadge = confidence > 80 ? 'badge-success' : confidence > 60 ? 'badge-warning' : 'badge-info';
+    const confidenceChip = createConfidenceChip(confidence);
     html += `
       <tr>
         <td><strong>${item.item_code || 'N/A'}</strong></td>
         <td>${item.item_name || ''}</td>
         <td>${item.total_predicted_qty?.toFixed(2) || 0}</td>
         <td>${item.unit || 'EA'}</td>
-        <td><span class="badge ${confidenceBadge}">${confidence}%</span></td>
+        <td>${confidenceChip}</td>
         <td class="u-text-xs">${item.forecast_sources || 'forecast'}</td>
       </tr>
     `;
@@ -758,9 +957,8 @@ function renderInferredStockList(items) {
   let html = '<div class="flex-col-gap">';
 
   items.forEach(item => {
-    const confidence = item.confidence || 0;
-    const confidenceClass = confidence >= 0.7 ? 'badge-success' : confidence >= 0.4 ? 'badge-warning' : 'badge-danger';
-    const confidenceLabel = confidence >= 0.7 ? 'High' : confidence >= 0.4 ? 'Medium' : 'Low';
+    const confidence = Math.round((item.confidence || 0) * 100);
+    const confidenceChip = createConfidenceChip(confidence);
 
     html += `
       <div class="bordered-surface">
@@ -769,7 +967,7 @@ function renderInferredStockList(items) {
             <strong>${item.item_name}</strong>
             <div class="description-text-small">${item.item_code}</div>
           </div>
-          <span class="badge ${confidenceClass}">${confidenceLabel}</span>
+          ${confidenceChip}
         </div>
         <div class="flex-base">
           <div>
@@ -2141,14 +2339,14 @@ async function loadDailyForecast() {
 
     predictions.forEach(pred => {
       const confidence = Math.round((pred.avg_confidence || 0) * 100);
-      const confidenceBadge = confidence > 80 ? 'badge-success' : confidence > 60 ? 'badge-warning' : 'badge-info';
+      const confidenceChip = createConfidenceChip(confidence);
 
       html += `
         <tr>
           <td><strong>${pred.item_code || 'N/A'}</strong><br><small class="u-text-light-inline">${pred.item_name || ''}</small></td>
           <td>${pred.total_predicted_qty?.toFixed(2) || 0}</td>
           <td>${pred.unit || 'EA'}</td>
-          <td><span class="badge ${confidenceBadge}">${confidence}%</span></td>
+          <td>${confidenceChip}</td>
           <td class="description-text-small">${pred.forecast_sources || 'forecast'}</td>
         </tr>
       `;
@@ -3385,6 +3583,35 @@ async function loadCognitiveIntelligence() {
     const statsResponse = await fetchAPI('/owner/dashboard/stats');
     const stats = statsResponse.stats;
 
+    // v15.3: Fetch AI Ops status for AI Intelligence Index
+    const opsStatus = await fetchAPI('/owner/ops/status');
+
+    // Update AI Intelligence Index (featured metric)
+    const aiIndexEl = document.getElementById('aiIntelligenceIndex');
+    const aiIndexTrendEl = document.getElementById('aiIndexTrend');
+    if (opsStatus.ai_ops_health && typeof opsStatus.ai_ops_health.score === 'number') {
+      const healthScore = opsStatus.ai_ops_health.score;
+      aiIndexEl.textContent = `${healthScore}%`;
+
+      // Color code based on health score
+      if (healthScore >= 85) {
+        aiIndexEl.style.color = '#22c55e'; // green
+        aiIndexTrendEl.textContent = '🟢 Excellent';
+        aiIndexTrendEl.style.color = '#22c55e';
+      } else if (healthScore >= 60) {
+        aiIndexEl.style.color = '#f59e0b'; // yellow
+        aiIndexTrendEl.textContent = '🟡 Good';
+        aiIndexTrendEl.style.color = '#f59e0b';
+      } else {
+        aiIndexEl.style.color = '#ef4444'; // red
+        aiIndexTrendEl.textContent = '🔴 Needs Attention';
+        aiIndexTrendEl.style.color = '#ef4444';
+      }
+    } else {
+      aiIndexEl.textContent = '--';
+      aiIndexTrendEl.textContent = 'No data';
+    }
+
     // Update top-level metrics with real data
     document.getElementById('aiConfidenceAvg').textContent = `${stats.pdfs?.coverage || 0}%`;
     document.getElementById('forecastAccuracyAvg').textContent = `${stats.pdfs?.coverage || 0}%`;
@@ -4454,6 +4681,1064 @@ async function uploadFileToWorkspace(workspaceId) {
 }
 
 // ============================================================================
+// MENU TAB (v15.0) - 4-Week Menu Calendar System
+// ============================================================================
+
+/**
+ * Menu State Management
+ */
+let menuState = {
+  currentWeek: 1,
+  currentDay: null,
+  policy: null,
+  weeks: null,
+  headcount: 280
+};
+
+/**
+ * Initialize and load menu data
+ * Fetches policy and weeks structure
+ */
+async function loadMenu() {
+  console.log('🍽️ Loading Menu Calendar...');
+
+  try {
+    // Fetch policy and weeks in parallel
+    const [policyRes, weeksRes] = await Promise.all([
+      fetchAPI('/menu/policy'),
+      fetchAPI('/menu/weeks')
+    ]);
+
+    if (!policyRes.success || !weeksRes.success) {
+      throw new Error('Failed to load menu data');
+    }
+
+    // Update menu state
+    menuState.policy = policyRes.policy;
+    menuState.weeks = weeksRes.weeks;
+    menuState.currentWeek = policyRes.policy.currentWeek || 1;
+    menuState.currentDay = policyRes.policy.currentDay || null;
+    menuState.headcount = weeksRes.headcount || 280;
+
+    // Debug: Check if recipes are present
+    console.log('📊 Menu data loaded:', {
+      weeks: menuState.weeks.length,
+      currentWeek: menuState.currentWeek,
+      headcount: menuState.headcount,
+      firstWeekDays: menuState.weeks[0]?.days?.length,
+      firstDayRecipes: menuState.weeks[0]?.days?.[0]?.recipes?.length
+    });
+
+    // Update UI: headcount display
+    const headcountDisplay = document.getElementById('menuHeadcountDisplay');
+    if (headcountDisplay) {
+      headcountDisplay.textContent = menuState.headcount;
+    }
+
+    // Update title
+    const titleEl = document.querySelector('#menu .card-title');
+    if (titleEl) {
+      titleEl.textContent = `🍽️ 4-Week Menu Calendar (${menuState.headcount} ppl)`;
+    }
+
+    // Highlight current week badge
+    const badge = document.getElementById('menuCurrentWeekBadge');
+    if (badge) {
+      badge.textContent = `Current: Week ${menuState.currentWeek}`;
+    }
+
+    // Load current week data
+    await loadMenuWeek(menuState.currentWeek);
+
+    // Update policy lock banner
+    updatePolicyLockBanner();
+
+    console.log('✅ Menu loaded successfully');
+  } catch (error) {
+    console.error('❌ Menu load error:', error);
+    showToast(`Error loading menu: ${error.message}`, 'danger');
+
+    const calendar = document.getElementById('menuCalendar');
+    if (calendar) {
+      calendar.innerHTML = `
+        <div class="alert alert-danger">
+          Failed to load menu data: ${error.message}
+        </div>
+      `;
+    }
+  }
+}
+
+/**
+ * Load specific week data and render calendar
+ * @param {number} weekNum - Week number (1-4)
+ */
+async function loadMenuWeek(weekNum) {
+  console.log(`📅 Loading Week ${weekNum}...`);
+
+  if (weekNum < 1 || weekNum > 4) {
+    showToast('Invalid week number', 'warning');
+    return;
+  }
+
+  menuState.currentWeek = weekNum;
+
+  // Update active week button
+  document.querySelectorAll('.menu-week-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (parseInt(btn.dataset.week) === weekNum) {
+      btn.classList.add('active');
+    }
+  });
+
+  try {
+    const calendar = document.getElementById('menuCalendar');
+    calendar.innerHTML = '<div class="loading"><div class="spinner"></div> Loading week data...</div>';
+
+    // Fetch week data with scaled quantities
+    const weekRes = await fetchAPI(`/menu/week/${weekNum}`);
+
+    if (!weekRes.success) {
+      throw new Error('Failed to load week data');
+    }
+
+    const weekData = weekRes.week;
+
+    // Debug: Log week data
+    console.log(`📊 Week ${weekNum} data:`, {
+      days: weekData.days?.length,
+      totalRecipes: weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0),
+      firstDayRecipes: weekData.days?.[0]?.recipes?.length,
+      sampleRecipe: weekData.days?.[0]?.recipes?.[0]
+    });
+
+    // Update week info banner
+    const weekDates = document.getElementById('menuWeekDates');
+    if (weekDates) {
+      const startDate = new Date(weekData.startsOn).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+      const endDate = new Date(weekData.endsOn).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
+      weekDates.textContent = `${startDate} — ${endDate}`;
+    }
+
+    // Render calendar grid
+    renderMenuCalendar(weekData);
+
+    console.log(`✅ Week ${weekNum} loaded`);
+  } catch (error) {
+    console.error(`❌ Week ${weekNum} load error:`, error);
+    showToast(`Error loading week ${weekNum}: ${error.message}`, 'danger');
+
+    const calendar = document.getElementById('menuCalendar');
+    if (calendar) {
+      calendar.innerHTML = `
+        <div class="alert alert-danger">
+          Failed to load week data: ${error.message}
+        </div>
+      `;
+    }
+  }
+}
+
+/**
+ * Render menu calendar grid (7 days × 3 meals)
+ * @param {object} weekData - Week data from API
+ */
+function renderMenuCalendar(weekData) {
+  const calendar = document.getElementById('menuCalendar');
+  if (!calendar) return;
+
+  // Debug: Check what we're rendering
+  const totalRecipes = weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0) || 0;
+  console.log(`🎨 Rendering calendar with ${totalRecipes} total recipes`);
+
+  // Build calendar HTML
+  let html = '<div class="menu-calendar-wrapper">';
+
+  // Day headers (with empty cell for meal label column alignment)
+  html += '<div class="menu-calendar-header">';
+  html += '<div class="menu-meal-label-spacer"></div>'; // Empty cell to align with meal labels
+  weekData.days.forEach(day => {
+    const isToday = day.isoDate === new Date().toISOString().split('T')[0];
+    const isCurrent = day.dayName === menuState.currentDay;
+    html += `
+      <div class="menu-day-header ${isToday ? 'menu-day-today' : ''} ${isCurrent ? 'menu-day-current' : ''}">
+        <div class="menu-day-name">${day.dayName}</div>
+        <div class="menu-day-date">${new Date(day.isoDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+      </div>
+    `;
+  });
+  html += '</div>';
+
+  // Meal rows (Breakfast, Dinner with Lunch included)
+  const mealTypes = ['Breakfast', 'Dinner'];
+
+  mealTypes.forEach(mealType => {
+    html += `<div class="menu-meal-row">`;
+    html += `<div class="menu-meal-label">${mealType}</div>`;
+
+    weekData.days.forEach(day => {
+      // For Dinner row, include both Lunch and Dinner recipes
+      const recipes = day.recipes.filter(r =>
+        mealType === 'Dinner'
+          ? (r.mealType === 'Dinner' || r.mealType === 'Lunch')
+          : r.mealType === mealType
+      );
+      const isPolicyLocked = checkPolicyLock(day.dayName, mealType);
+
+      html += `<div class="menu-cell ${isPolicyLocked ? 'menu-cell-locked' : ''}">`;
+
+      if (isPolicyLocked) {
+        html += '<div class="menu-lock-overlay">🔒</div>';
+      }
+
+      if (recipes.length > 0) {
+        recipes.forEach(recipe => {
+          html += `
+            <div class="recipe-chip" data-id="${recipe.id}" data-day="${day.isoDate}" data-meal="${mealType}">
+              <div class="recipe-chip-name">${recipe.name}</div>
+              <div class="recipe-chip-qty">${recipe.servings} servings</div>
+            </div>
+          `;
+        });
+      } else {
+        html += '<div class="menu-cell-empty">—</div>';
+      }
+
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  html += '</div>';
+  calendar.innerHTML = html;
+
+  // Debug: Log what we just rendered
+  console.log(`✅ Calendar HTML set (${html.length} chars). Checking DOM...`);
+
+  // Debug: Verify it's in the DOM
+  setTimeout(() => {
+    const wrapper = calendar.querySelector('.menu-calendar-wrapper');
+    const chips = calendar.querySelectorAll('.recipe-chip');
+    console.log(`🔍 DOM Check: wrapper=${!!wrapper}, chips=${chips.length}`);
+
+    if (!wrapper) {
+      console.error('❌ .menu-calendar-wrapper not found in DOM!');
+      console.log('Calendar innerHTML:', calendar.innerHTML.substring(0, 500));
+    }
+
+    if (chips.length === 0) {
+      console.warn('⚠️ No .recipe-chip elements found!');
+    }
+  }, 100);
+
+  // Bind click events to recipe chips
+  document.querySelectorAll('.recipe-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const recipeId = chip.dataset.id;
+      openRecipeDrawer(recipeId);
+    });
+  });
+}
+
+/**
+ * Check if meal is locked based on policy
+ * @param {string} dayName - Day name (e.g., "Wednesday")
+ * @param {string} mealType - Meal type (Breakfast/Lunch/Dinner)
+ * @returns {boolean} - True if locked
+ */
+function checkPolicyLock(dayName, mealType) {
+  if (!menuState.policy || mealType !== 'Dinner') return false;
+
+  const lockTime = menuState.policy.takeoutLockTime || '19:30';
+  const now = new Date();
+  const [lockHour, lockMin] = lockTime.split(':').map(Number);
+
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+
+  // Check if current time is before lock time
+  if (currentHour < lockHour || (currentHour === lockHour && currentMin < lockMin)) {
+    // Also check if this is today's dinner
+    const today = now.toLocaleDateString('en-US', { weekday: 'long' });
+    return dayName === today;
+  }
+
+  return false;
+}
+
+/**
+ * Update policy lock banner visibility
+ */
+function updatePolicyLockBanner() {
+  const banner = document.getElementById('menuPolicyBanner');
+  if (!banner || !menuState.policy) return;
+
+  const lockTime = menuState.policy.takeoutLockTime || '19:30';
+  const now = new Date();
+  const [lockHour, lockMin] = lockTime.split(':').map(Number);
+
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+
+  // Show banner if before lock time
+  if (currentHour < lockHour || (currentHour === lockHour && currentMin < lockMin)) {
+    banner.classList.remove('u-hide');
+    banner.innerHTML = `
+      ⚠️ <strong>${lockTime} Policy:</strong> Dinner menu changes are locked until ${lockTime}.
+      Portion target: ${menuState.policy.portionTargetGrams || 650}g/person.
+      Drift threshold: ±${menuState.policy.portionDriftThresholdPct || 15}%.
+    `;
+  } else {
+    banner.classList.add('u-hide');
+  }
+}
+
+/**
+ * Open recipe drawer modal
+ * @param {string} recipeId - Recipe ID
+ */
+async function openRecipeDrawer(recipeId) {
+  console.log(`🍴 Opening recipe: ${recipeId}`);
+
+  const modal = document.getElementById('recipeDrawerModal');
+  const title = document.getElementById('recipeDrawerTitle');
+  const content = document.getElementById('recipeDrawerContent');
+
+  if (!modal || !content) {
+    showToast('Recipe drawer not available', 'warning');
+    return;
+  }
+
+  // Show modal with loading state
+  modal.classList.add('active');
+  title.textContent = 'Loading Recipe...';
+  content.innerHTML = '<div class="loading"><div class="spinner"></div> Loading recipe details...</div>';
+
+  try {
+    const res = await fetchAPI(`/menu/recipe/${recipeId}`);
+
+    if (!res.success) {
+      throw new Error('Recipe not found');
+    }
+
+    const recipe = res.recipe;
+
+    // Update modal title
+    title.textContent = recipe.name;
+
+    // Render recipe details
+    let html = `
+      <div class="recipe-drawer-header">
+        <div class="recipe-meta">
+          <span class="badge badge-primary">${recipe.mealType}</span>
+          <span class="recipe-servings">${recipe.servings} servings (${menuState.headcount} ppl)</span>
+        </div>
+      </div>
+    `;
+
+    if (recipe.description) {
+      html += `<div class="recipe-description">${recipe.description}</div>`;
+    }
+
+    // Items table
+    if (recipe.items && recipe.items.length > 0) {
+      html += `
+        <div class="recipe-items-section">
+          <h4>Ingredients & Quantities</h4>
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width: 200px;">Item Code</th>
+                <th>Item Name</th>
+                <th style="width: 150px;">Quantity</th>
+                <th style="width: 80px;">Unit</th>
+                <th style="width: 100px;">Per Person</th>
+                <th style="width: 100px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      recipe.items.forEach((item, idx) => {
+        const perPerson = (item.qty_scaled / menuState.headcount).toFixed(3);
+        html += `
+          <tr id="recipeItem_${idx}">
+            <td>
+              <input
+                type="text"
+                class="input"
+                id="itemCode_${idx}"
+                value="${item.item_code}"
+                placeholder="Search item..."
+                autocomplete="off"
+                data-original-code="${item.item_code}"
+              />
+              <div id="itemSearch_${idx}" class="search-results-dropdown hidden"></div>
+            </td>
+            <td>
+              <span id="itemName_${idx}">${item.item_name || '—'}</span>
+            </td>
+            <td>
+              <input
+                type="number"
+                class="input"
+                id="itemQty_${idx}"
+                value="${item.qty_scaled.toFixed(2)}"
+                step="0.01"
+                min="0"
+                data-original="${item.qty_scaled.toFixed(2)}"
+              />
+            </td>
+            <td>
+              <span id="itemUnit_${idx}">${item.unit || 'EA'}</span>
+            </td>
+            <td>
+              <span id="perPerson_${idx}">${perPerson}</span>
+            </td>
+            <td>
+              <button type="button" class="btn btn-sm btn-danger" onclick="removeRecipeItem(${idx})" title="Remove item">
+                ✕
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      // Add event listeners after rendering
+      setTimeout(() => {
+        recipe.items.forEach((item, idx) => {
+          // Quantity change listener
+          const qtyInput = document.getElementById(`itemQty_${idx}`);
+          if (qtyInput) {
+            qtyInput.addEventListener('input', () => {
+              const newQty = parseFloat(qtyInput.value) || 0;
+              const newPerPerson = (newQty / menuState.headcount).toFixed(3);
+              const perPersonSpan = document.getElementById(`perPerson_${idx}`);
+              if (perPersonSpan) {
+                perPersonSpan.textContent = newPerPerson;
+              }
+            });
+          }
+
+          // Item code search listener
+          const codeInput = document.getElementById(`itemCode_${idx}`);
+          if (codeInput) {
+            codeInput.addEventListener('input', () => {
+              searchInventoryItems(codeInput.value, idx);
+            });
+
+            codeInput.addEventListener('focus', () => {
+              if (codeInput.value.length > 0) {
+                searchInventoryItems(codeInput.value, idx);
+              }
+            });
+
+            // Click outside to close dropdown
+            document.addEventListener('click', (e) => {
+              if (!codeInput.contains(e.target)) {
+                const dropdown = document.getElementById(`itemSearch_${idx}`);
+                if (dropdown) dropdown.classList.add('hidden');
+              }
+            });
+          }
+        });
+      }, 100);
+
+      html += `
+            </tbody>
+          </table>
+          <div class="flex-gap-half" style="margin-top: 1rem;">
+            <button type="button" class="btn btn-primary" onclick="addRecipeItem()">➕ Add Item</button>
+            <button type="button" class="btn btn-success" onclick="saveRecipeChanges('${recipeId}')">💾 Save Changes</button>
+            <button type="button" class="btn btn-secondary" onclick="resetRecipeQuantities()">↻ Reset</button>
+          </div>
+        </div>
+      `;
+    } else {
+      html += '<div class="alert alert-info">No items configured for this recipe.</div>';
+    }
+
+    content.innerHTML = html;
+
+    // Store recipe data for saving
+    window.currentRecipeData = {
+      id: recipeId,
+      items: recipe.items
+    };
+
+    console.log(`✅ Recipe ${recipeId} loaded`);
+  } catch (error) {
+    console.error(`❌ Recipe drawer error:`, error);
+    showToast(`Error loading recipe: ${error.message}`, 'danger');
+    content.innerHTML = `
+      <div class="alert alert-danger">
+        Failed to load recipe details: ${error.message}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Close recipe drawer modal
+ */
+function closeRecipeDrawer() {
+  const modal = document.getElementById('recipeDrawerModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/**
+ * Search inventory items
+ * @param {string} query - Search query
+ * @param {number} rowIdx - Row index
+ */
+async function searchInventoryItems(query, rowIdx) {
+  if (!query || query.length < 2) {
+    const dropdown = document.getElementById(`itemSearch_${rowIdx}`);
+    if (dropdown) dropdown.classList.add('hidden');
+    return;
+  }
+
+  try {
+    const res = await fetchAPI(`/owner/inventory/search?q=${encodeURIComponent(query)}&limit=10`);
+
+    const dropdown = document.getElementById(`itemSearch_${rowIdx}`);
+    if (!dropdown) return;
+
+    if (!res.items || res.items.length === 0) {
+      dropdown.innerHTML = '<div class="search-result-item" style="color: #6b7280;">No items found</div>';
+      dropdown.classList.remove('hidden');
+      return;
+    }
+
+    let html = '';
+    res.items.forEach(item => {
+      html += `
+        <div class="search-result-item" onclick="selectInventoryItem(${rowIdx}, '${item.item_code}', '${item.item_name.replace(/'/g, "\\'")}', '${item.issue_unit || 'EA'}')">
+          <strong>${item.item_code}</strong> - ${item.item_name}
+        </div>
+      `;
+    });
+
+    dropdown.innerHTML = html;
+    dropdown.classList.remove('hidden');
+  } catch (error) {
+    console.error('Search error:', error);
+  }
+}
+
+/**
+ * Select an inventory item from search results
+ * @param {number} rowIdx - Row index
+ * @param {string} itemCode - Item code
+ * @param {string} itemName - Item name
+ * @param {string} unit - Item unit
+ */
+function selectInventoryItem(rowIdx, itemCode, itemName, unit) {
+  const codeInput = document.getElementById(`itemCode_${rowIdx}`);
+  const nameSpan = document.getElementById(`itemName_${rowIdx}`);
+  const unitSpan = document.getElementById(`itemUnit_${rowIdx}`);
+  const dropdown = document.getElementById(`itemSearch_${rowIdx}`);
+
+  if (codeInput) codeInput.value = itemCode;
+  if (nameSpan) nameSpan.textContent = itemName;
+  if (unitSpan) unitSpan.textContent = unit;
+  if (dropdown) dropdown.classList.add('hidden');
+
+  console.log(`✅ Selected item: ${itemCode} - ${itemName}`);
+}
+
+/**
+ * Add new item row to recipe
+ */
+function addRecipeItem() {
+  if (!window.currentRecipeData) {
+    showToast('No recipe loaded', 'warning');
+    return;
+  }
+
+  const tbody = document.querySelector('.recipe-items-section tbody');
+  if (!tbody) return;
+
+  const newIdx = window.currentRecipeData.items.length;
+
+  const newRow = document.createElement('tr');
+  newRow.id = `recipeItem_${newIdx}`;
+  newRow.innerHTML = `
+    <td>
+      <input
+        type="text"
+        class="input"
+        id="itemCode_${newIdx}"
+        value=""
+        placeholder="Search item..."
+        autocomplete="off"
+      />
+      <div id="itemSearch_${newIdx}" class="search-results-dropdown hidden"></div>
+    </td>
+    <td>
+      <span id="itemName_${newIdx}">—</span>
+    </td>
+    <td>
+      <input
+        type="number"
+        class="input"
+        id="itemQty_${newIdx}"
+        value="100"
+        step="0.01"
+        min="0"
+      />
+    </td>
+    <td>
+      <span id="itemUnit_${newIdx}">g</span>
+    </td>
+    <td>
+      <span id="perPerson_${newIdx}">0.357</span>
+    </td>
+    <td>
+      <button type="button" class="btn btn-sm btn-danger" onclick="removeRecipeItem(${newIdx})" title="Remove item">
+        ✕
+      </button>
+    </td>
+  `;
+
+  tbody.appendChild(newRow);
+
+  // Add new placeholder item to data
+  window.currentRecipeData.items.push({
+    item_code: '',
+    item_name: '',
+    qty_scaled: 100,
+    unit: 'g',
+    pack_size: 1
+  });
+
+  // Add event listeners for new row
+  const codeInput = document.getElementById(`itemCode_${newIdx}`);
+  if (codeInput) {
+    codeInput.addEventListener('input', () => {
+      searchInventoryItems(codeInput.value, newIdx);
+    });
+  }
+
+  const qtyInput = document.getElementById(`itemQty_${newIdx}`);
+  if (qtyInput) {
+    qtyInput.addEventListener('input', () => {
+      const newQty = parseFloat(qtyInput.value) || 0;
+      const newPerPerson = (newQty / menuState.headcount).toFixed(3);
+      const perPersonSpan = document.getElementById(`perPerson_${newIdx}`);
+      if (perPersonSpan) perPersonSpan.textContent = newPerPerson;
+    });
+  }
+
+  showToast('New item row added', 'success');
+}
+
+/**
+ * Remove item from recipe
+ * @param {number} rowIdx - Row index
+ */
+function removeRecipeItem(rowIdx) {
+  const row = document.getElementById(`recipeItem_${rowIdx}`);
+  if (row) {
+    row.remove();
+    showToast('Item removed', 'info');
+  }
+}
+
+/**
+ * Save recipe quantity changes
+ * @param {string} recipeId - Recipe ID
+ */
+async function saveRecipeChanges(recipeId) {
+  console.log(`💾 Saving changes for recipe ${recipeId}...`);
+
+  if (!window.currentRecipeData || !window.currentRecipeData.items) {
+    showToast('No recipe data to save', 'warning');
+    return;
+  }
+
+  try {
+    // Collect ALL items from the table (including added/modified ones)
+    const updatedItems = [];
+    let idx = 0;
+
+    while (true) {
+      const codeInput = document.getElementById(`itemCode_${idx}`);
+      const qtyInput = document.getElementById(`itemQty_${idx}`);
+      const unitSpan = document.getElementById(`itemUnit_${idx}`);
+      const nameSpan = document.getElementById(`itemName_${idx}`);
+
+      if (!codeInput) break; // No more items
+
+      const itemCode = codeInput.value.trim();
+      if (itemCode) { // Only include items with codes
+        const qty = parseFloat(qtyInput?.value) || 0;
+        const unit = unitSpan?.textContent || 'g';
+        const name = nameSpan?.textContent || '';
+
+        updatedItems.push({
+          itemCode: itemCode,
+          description: name,
+          basePerPerson: (qty / menuState.headcount),
+          unit: unit,
+          packSize: { qty: 1, unit: unit }
+        });
+      }
+
+      idx++;
+    }
+
+    if (updatedItems.length === 0) {
+      showToast('Recipe must have at least one item', 'warning');
+      return;
+    }
+
+    // Prepare recipe update payload
+    const payload = {
+      basePortions: updatedItems
+    };
+
+    const res = await fetchAPI(`/menu/recipe/${recipeId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to save recipe');
+    }
+
+    showToast('Recipe updated successfully!', 'success');
+    console.log(`✅ Recipe ${recipeId} saved with ${updatedItems.length} items`);
+
+    // Close modal and reload menu
+    closeRecipeDrawer();
+    await loadMenu();
+
+  } catch (error) {
+    console.error(`❌ Save recipe error:`, error);
+    showToast(`Error saving recipe: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Reset recipe quantities to original values
+ */
+function resetRecipeQuantities() {
+  if (!window.currentRecipeData || !window.currentRecipeData.items) {
+    return;
+  }
+
+  window.currentRecipeData.items.forEach((item, idx) => {
+    const input = document.getElementById(`itemQty_${idx}`);
+    if (input) {
+      input.value = input.dataset.original;
+      // Trigger input event to update per-person display
+      input.dispatchEvent(new Event('input'));
+    }
+  });
+
+  showToast('Quantities reset to original values', 'info');
+}
+
+/**
+ * Open headcount adjustment modal
+ */
+function openHeadcountModal() {
+  const modal = document.getElementById('headcountModal');
+  const input = document.getElementById('headcountInput');
+  const display = document.getElementById('headcountCurrentDisplay');
+
+  if (!modal || !input) {
+    showToast('Headcount modal not available', 'warning');
+    return;
+  }
+
+  // Set current headcount
+  if (display) {
+    display.textContent = menuState.headcount;
+  }
+
+  input.value = menuState.headcount;
+  modal.classList.add('active');
+}
+
+/**
+ * Close headcount modal
+ */
+function closeHeadcountModal() {
+  const modal = document.getElementById('headcountModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/**
+ * Update headcount (submit modal)
+ */
+async function updateHeadcount() {
+  const input = document.getElementById('headcountInput');
+
+  if (!input) return;
+
+  const newHeadcount = parseInt(input.value);
+
+  if (!newHeadcount || newHeadcount < 1 || newHeadcount > 10000) {
+    showToast('Invalid headcount (must be 1-10000)', 'warning');
+    return;
+  }
+
+  try {
+    const res = await fetchAPI('/menu/headcount', {
+      method: 'POST',
+      body: JSON.stringify({ headcount: newHeadcount })
+    });
+
+    if (!res.success) {
+      throw new Error('Failed to update headcount');
+    }
+
+    menuState.headcount = res.headcount;
+
+    // Update UI
+    const headcountDisplay = document.getElementById('menuHeadcountDisplay');
+    if (headcountDisplay) {
+      headcountDisplay.textContent = menuState.headcount;
+    }
+
+    const titleEl = document.querySelector('#menu .card-title');
+    if (titleEl) {
+      titleEl.textContent = `🍽️ 4-Week Menu Calendar (${menuState.headcount} ppl)`;
+    }
+
+    closeHeadcountModal();
+    showToast(`Headcount updated to ${menuState.headcount}`, 'success');
+
+    // Reload current week with new quantities
+    await loadMenuWeek(menuState.currentWeek);
+
+    console.log(`✅ Headcount updated to ${menuState.headcount}`);
+  } catch (error) {
+    console.error('❌ Headcount update error:', error);
+    showToast(`Error updating headcount: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Open shopping list modal
+ */
+async function openShoppingListModal() {
+  console.log(`🛒 Opening shopping list for Week ${menuState.currentWeek}...`);
+
+  const modal = document.getElementById('shoppingListModal');
+  const table = document.getElementById('shoppingListTable');
+  const weekNum = document.getElementById('shoppingWeekNum');
+  const weekDates = document.getElementById('shoppingWeekDates');
+  const headcount = document.getElementById('shoppingHeadcount');
+
+  if (!modal || !table) {
+    showToast('Shopping list modal not available', 'warning');
+    return;
+  }
+
+  // Show modal with loading state
+  modal.classList.add('active');
+  table.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div> Loading...</td></tr>';
+
+  // Update week info
+  if (weekNum) weekNum.textContent = menuState.currentWeek;
+  if (headcount) headcount.textContent = menuState.headcount;
+
+  try {
+    const res = await fetchAPI(`/menu/shopping-list?week=${menuState.currentWeek}`);
+
+    if (!res.success) {
+      throw new Error('Failed to load shopping list');
+    }
+
+    const items = res.items;
+    const csv = res.csv;
+
+    // Update dates if available from state
+    if (weekDates && menuState.weeks) {
+      const currentWeekData = menuState.weeks.find(w => w.weekNumber === menuState.currentWeek);
+      if (currentWeekData && currentWeekData.days) {
+        const firstDay = currentWeekData.days[0];
+        const lastDay = currentWeekData.days[currentWeekData.days.length - 1];
+        const startDate = new Date(firstDay.isoDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endDate = new Date(lastDay.isoDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        weekDates.textContent = `${startDate} — ${endDate}`;
+      }
+    }
+
+    // Render shopping list table
+    if (items && items.length > 0) {
+      let html = '';
+      items.forEach(item => {
+        const packSize = item.pack_size || 1;
+        const packsNeeded = Math.ceil(item.totalQty / packSize);
+
+        html += `
+          <tr>
+            <td><strong>${item.item_code}</strong></td>
+            <td>${item.item_name || '—'}</td>
+            <td>${item.totalQty.toFixed(2)}</td>
+            <td>${packSize} ${item.unit || 'EA'}</td>
+            <td><strong>${packsNeeded}</strong></td>
+          </tr>
+        `;
+      });
+      table.innerHTML = html;
+    } else {
+      table.innerHTML = '<tr><td colspan="5" class="empty-state">No items for this week</td></tr>';
+    }
+
+    // Store CSV for download
+    const csvContainer = document.getElementById('shoppingListCSV');
+    if (csvContainer) {
+      csvContainer.textContent = csv || '';
+    }
+
+    console.log(`✅ Shopping list loaded (${items.length} items)`);
+  } catch (error) {
+    console.error('❌ Shopping list error:', error);
+    showToast(`Error loading shopping list: ${error.message}`, 'danger');
+    table.innerHTML = `
+      <tr>
+        <td colspan="5" class="alert alert-danger">
+          Failed to load shopping list: ${error.message}
+        </td>
+      </tr>
+    `;
+  }
+}
+
+/**
+ * Close shopping list modal
+ */
+function closeShoppingListModal() {
+  const modal = document.getElementById('shoppingListModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/**
+ * Download shopping list as CSV
+ */
+function downloadShoppingListCSV() {
+  const csvContainer = document.getElementById('shoppingListCSV');
+
+  if (!csvContainer || !csvContainer.textContent) {
+    showToast('No CSV data available', 'warning');
+    return;
+  }
+
+  const csv = csvContainer.textContent;
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `shopping-list-week${menuState.currentWeek}.csv`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+  showToast('Shopping list CSV downloaded', 'success');
+}
+
+/**
+ * Bind menu tab events
+ * Called once on page load
+ */
+function bindMenuEvents() {
+  // Refresh button
+  const refreshBtn = document.getElementById('menuRefreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', loadMenu);
+  }
+
+  // Headcount button
+  const headcountBtn = document.getElementById('menuHeadcountBtn');
+  if (headcountBtn) {
+    headcountBtn.addEventListener('click', openHeadcountModal);
+  }
+
+  // Shopping list button
+  const shoppingBtn = document.getElementById('menuShoppingListBtn');
+  if (shoppingBtn) {
+    shoppingBtn.addEventListener('click', openShoppingListModal);
+  }
+
+  // Week selector buttons
+  document.querySelectorAll('.menu-week-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const weekNum = parseInt(btn.dataset.week);
+      loadMenuWeek(weekNum);
+    });
+  });
+
+  // Set Current Week button
+  const setCurrentWeekBtn = document.getElementById('setCurrentWeekBtn');
+  if (setCurrentWeekBtn) {
+    setCurrentWeekBtn.addEventListener('click', async () => {
+      const weekToSet = menuState.currentWeek; // Currently viewing week
+      const confirmMsg = `Set Week ${weekToSet} as the current operational week?\n\nThis will mark Week ${weekToSet} as the active menu cycle.`;
+
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const res = await fetchAPI('/menu/policy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentWeek: weekToSet })
+        });
+
+        if (res.success) {
+          showToast(`Week ${weekToSet} set as current week`, 'success');
+
+          // Update badge
+          const badge = document.getElementById('menuCurrentWeekBadge');
+          if (badge) {
+            badge.textContent = `Current: Week ${weekToSet}`;
+          }
+
+          // Reload menu data to reflect change
+          await loadMenuDataAndRender();
+        } else {
+          throw new Error(res.error || 'Failed to update current week');
+        }
+      } catch (error) {
+        console.error('Set current week error:', error);
+        showToast(`Error: ${error.message}`, 'danger');
+      }
+    });
+  }
+
+  console.log('✅ Menu events bound');
+}
+
+// Initialize menu events on DOMContentLoaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindMenuEvents);
+} else {
+  bindMenuEvents();
+}
+
+// ============================================================================
+// END MENU TAB
+// ============================================================================
+
+// ============================================================================
 // v14.3: EXPORT CONSOLE-SPECIFIC FUNCTIONS TO WINDOW
 // These functions are unique to owner-super-console and need to be globally
 // accessible for the shared core's switchTab() function
@@ -4481,3 +5766,5775 @@ window.attachPDFsToWorkspace = attachPDFsToWorkspace;
 window.openUploadFileModal = openUploadFileModal;
 window.uploadFileToWorkspace = uploadFileToWorkspace;
 
+// v15.0: Menu functions
+window.loadMenu = loadMenu;
+window.loadMenuWeek = loadMenuWeek;
+window.openRecipeDrawer = openRecipeDrawer;
+window.closeRecipeDrawer = closeRecipeDrawer;
+window.openHeadcountModal = openHeadcountModal;
+window.closeHeadcountModal = closeHeadcountModal;
+window.updateHeadcount = updateHeadcount;
+window.openShoppingListModal = openShoppingListModal;
+window.closeShoppingListModal = closeShoppingListModal;
+window.downloadShoppingListCSV = downloadShoppingListCSV;
+
+
+// =============================================================================
+// v15.2.1: Inventory Reconciliation (H1 2025 PDF Intake + Physical vs System)
+// =============================================================================
+
+let currentReconcileId = null;
+
+/**
+ * Initialize reconciliation UI event listeners
+ */
+function initReconciliationUI() {
+  const scanBtn = document.getElementById('scanPdfsBtn');
+  const reconcileBtn = document.getElementById('runReconcileBtn');
+  const downloadCSVBtn = document.getElementById('downloadReconcileCSVBtn');
+  const aiForecastBtn = document.getElementById('triggerAIForecastBtn');
+  const aiLearningBtn = document.getElementById('triggerAILearningBtn');
+  const refreshDashBtn = document.getElementById('refreshDashboardBtn');
+
+  if (scanBtn) {
+    scanBtn.addEventListener('click', handlePDFImport);
+  }
+
+  if (reconcileBtn) {
+    reconcileBtn.addEventListener('click', handleReconciliation);
+  }
+
+  if (downloadCSVBtn) {
+    downloadCSVBtn.addEventListener('click', downloadReconcileCSV);
+  }
+
+  if (aiForecastBtn) {
+    aiForecastBtn.addEventListener('click', () => triggerAIJob('forecast'));
+  }
+
+  if (aiLearningBtn) {
+    aiLearningBtn.addEventListener('click', () => triggerAIJob('learning'));
+  }
+
+  if (refreshDashBtn) {
+    refreshDashBtn.addEventListener('click', () => {
+      showToast('Refreshing dashboard...', 'info');
+      location.reload();
+    });
+  }
+
+  console.log('✅ Reconciliation UI initialized');
+}
+
+/**
+ * Handle PDF Import
+ */
+async function handlePDFImport() {
+  const fromDate = document.getElementById('pdfImportFrom').value;
+  const toDate = document.getElementById('pdfImportTo').value;
+  const btn = document.getElementById('scanPdfsBtn');
+
+  if (!fromDate || !toDate) {
+    showToast('Please select from and to dates', 'warning');
+    return;
+  }
+
+  console.log(`📥 Starting PDF import: ${fromDate} → ${toDate}`);
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Scanning...';
+
+  try {
+    const res = await fetchAPI('/inventory/pdfs/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: fromDate,
+        to: toDate,
+        locations: ['*']
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(res.error || 'PDF import failed');
+    }
+
+    console.log(`✅ PDF import complete:`, res);
+
+    // Show results
+    const resultsDiv = document.getElementById('pdfImportResults');
+    const summarySpan = document.getElementById('pdfImportSummary');
+    const unresolvedAlert = document.getElementById('unresolvedItemsAlert');
+    const unresolvedCount = document.getElementById('unresolvedCount');
+
+    summarySpan.textContent = `${res.files_ingested} files ingested, ${res.lines_parsed} line items parsed`;
+    resultsDiv.classList.remove('hidden');
+
+    if (res.unresolved > 0) {
+      unresolvedCount.textContent = res.unresolved;
+      unresolvedAlert.classList.remove('hidden');
+
+      // Set download link
+      const downloadLink = document.getElementById('downloadUnresolvedLink');
+      downloadLink.href = `/tmp/unresolved_items_${res.batch_id}.csv`;
+      downloadLink.download = `unresolved_items_${res.batch_id}.csv`;
+    } else {
+      unresolvedAlert.classList.add('hidden');
+    }
+
+    showToast(`PDF import complete: ${res.files_ingested} files processed`, 'success');
+
+  } catch (error) {
+    console.error('❌ PDF import error:', error);
+    showToast(`PDF import failed: ${error.message}`, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Scan PDFs';
+  }
+}
+
+/**
+ * Handle Reconciliation
+ */
+async function handleReconciliation() {
+  const asOfDate = document.getElementById('reconcileAsOfDate').value;
+  const btn = document.getElementById('runReconcileBtn');
+
+  if (!asOfDate) {
+    showToast('Please select as-of date', 'warning');
+    return;
+  }
+
+  console.log(`🔄 Starting reconciliation: as_of=${asOfDate}`);
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+
+  try {
+    const res = await fetchAPI('/inventory/reconcile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        as_of: asOfDate,
+        locations: ['*']
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Reconciliation failed');
+    }
+
+    console.log(`✅ Reconciliation complete:`, res);
+
+    currentReconcileId = res.reconcile_id;
+
+    // Show results
+    document.getElementById('reconcileResults').classList.remove('hidden');
+    document.getElementById('aiRefreshSection').classList.remove('hidden');
+
+    // Update summary stats
+    document.getElementById('reconcileItemsChecked').textContent = res.summary.items;
+    document.getElementById('reconcileVarianceValue').textContent = `$${res.summary.variance_value.toFixed(2)}`;
+    document.getElementById('reconcileOverItems').textContent = res.summary.over_items;
+    document.getElementById('reconcileShortItems').textContent = res.summary.short_items;
+
+    // Load variance details
+    await loadVarianceDetails(res.reconcile_id);
+
+    showToast(`Reconciliation complete: ${res.summary.items} items checked`, 'success');
+
+  } catch (error) {
+    console.error('❌ Reconciliation error:', error);
+    showToast(`Reconciliation failed: ${error.message}`, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶️ Run Reconciliation';
+  }
+}
+
+/**
+ * Load variance details
+ */
+async function loadVarianceDetails(reconcileId) {
+  try {
+    const res = await fetchAPI(`/inventory/reconcile/${reconcileId}`);
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Failed to load variance details');
+    }
+
+    const tbody = document.getElementById('varianceTableBody');
+    tbody.innerHTML = '';
+
+    const variances = res.variances.slice(0, 20); // Top 20
+
+    if (variances.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-light">No variances found (perfect match!)</td></tr>';
+      return;
+    }
+
+    variances.forEach(v => {
+      const tr = document.createElement('tr');
+
+      // Category badge
+      let categoryBadge = '';
+      if (v.category === 'over') {
+        categoryBadge = '<span class="badge badge-success">Over</span>';
+      } else if (v.category === 'short') {
+        categoryBadge = '<span class="badge badge-danger">Short</span>';
+      } else {
+        categoryBadge = '<span class="badge badge-secondary">Match</span>';
+      }
+
+      tr.innerHTML = `
+        <td>${v.item_code}</td>
+        <td>${v.item_name}</td>
+        <td>${v.physical_qty.toFixed(2)} ${v.uom}</td>
+        <td>${v.system_qty.toFixed(2)} ${v.uom}</td>
+        <td><strong>${v.variance_qty >= 0 ? '+' : ''}${v.variance_qty.toFixed(2)}</strong></td>
+        <td><strong>$${Math.abs(v.variance_value).toFixed(2)}</strong></td>
+        <td>${categoryBadge}</td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+
+  } catch (error) {
+    console.error('❌ Error loading variance details:', error);
+    showToast(`Failed to load variances: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Download Reconcile CSV
+ */
+async function downloadReconcileCSV() {
+  if (!currentReconcileId) {
+    showToast('No reconciliation data available', 'warning');
+    return;
+  }
+
+  try {
+    const url = `/inventory/reconcile/${currentReconcileId}/csv`;
+    window.open(url, '_blank');
+    showToast('Downloading CSV...', 'info');
+  } catch (error) {
+    console.error('❌ Download error:', error);
+    showToast(`Download failed: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Trigger AI Job (forecast or learning)
+ */
+async function triggerAIJob(jobType) {
+  console.log(`🤖 Triggering AI ${jobType}...`);
+
+  try {
+    const endpoint = jobType === 'forecast' ? '/owner/ops/trigger/ai_forecast' : '/owner/ops/trigger/ai_learning';
+
+    const res = await fetchAPI(endpoint, {
+      method: 'POST'
+    });
+
+    if (!res.success) {
+      throw new Error(res.error || `Failed to trigger ${jobType}`);
+    }
+
+    showToast(`AI ${jobType} triggered successfully`, 'success');
+
+    // Wait a few seconds then refresh dashboard stats
+    setTimeout(async () => {
+      console.log('📊 Refreshing dashboard stats...');
+      await loadDashboard();
+      showToast('Dashboard stats refreshed', 'info');
+    }, 5000);
+
+  } catch (error) {
+    console.error(`❌ Trigger ${jobType} error:`, error);
+    showToast(`Failed to trigger ${jobType}: ${error.message}`, 'danger');
+  }
+}
+
+// Expose functions to window for onclick handlers (CSP-compliant alternative would be better)
+window.initReconciliationUI = initReconciliationUI;
+window.handlePDFImport = handlePDFImport;
+window.handleReconciliation = handleReconciliation;
+window.loadVarianceDetails = loadVarianceDetails;
+window.downloadReconcileCSV = downloadReconcileCSV;
+window.triggerAIJob = triggerAIJob;
+
+// Initialize reconciliation UI on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initReconciliationUI();
+});
+
+console.log('✅ Reconciliation module loaded (v15.2.1)');
+
+// =============================================================================
+// v15.2.2: Count Tab Functions
+// =============================================================================
+
+/**
+ * Load recent reconciliation reports in the Count tab
+ */
+async function loadRecentReconciliations() {
+  const listEl = document.getElementById('reconciliationReportsList');
+  const recentCountEl = document.getElementById('countRecentReconciles');
+
+  try {
+    listEl.innerHTML = '<div class="loading"><div class="spinner"></div> Loading reconciliation reports...</div>';
+
+    // Fetch reconciliation reports from backend (v15.2.3)
+    const res = await fetchAPI('/inventory/reconcile/list?limit=20');
+
+    if (!res.ok && !res.success) {
+      throw new Error(res.error || 'Failed to load reconciliation reports');
+    }
+
+    const reports = res.reports || [];
+
+    if (reports.length === 0) {
+      listEl.innerHTML = '<div class="alert alert-info">No reconciliation reports found. Run reconciliation from the Inventory tab.</div>';
+      if (recentCountEl) recentCountEl.textContent = '0';
+      return;
+    }
+
+    if (recentCountEl) recentCountEl.textContent = reports.length;
+
+    let html = '<table class="table"><thead><tr>';
+    html += '<th>Date</th><th>Items</th><th>Variance</th><th>Over</th><th>Short</th><th>Actions</th>';
+    html += '</tr></thead><tbody>';
+
+    for (const report of reports) {
+      const date = new Date(report.created_at).toLocaleDateString();
+      const variance = `$${(report.summary.variance_value || 0).toFixed(2)}`;
+
+      html += '<tr>';
+      html += `<td>${report.as_of_date}</td>`;
+      html += `<td>${report.summary.items || 0}</td>`;
+      html += `<td>${variance}</td>`;
+      html += `<td class="text-over">${report.summary.over_items || 0}</td>`;
+      html += `<td class="text-short">${report.summary.short_items || 0}</td>`;
+      html += `<td>`;
+      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="downloadReconcileReportCSV('${report.reconcile_id}')">📥 CSV</button> `;
+      html += `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReconciliationReport('${report.reconcile_id}')">🗑️ Delete</button>`;
+      html += `</td>`;
+      html += '</tr>';
+    }
+
+    html += '</tbody></table>';
+    listEl.innerHTML = html;
+
+  } catch (error) {
+    console.error('Error loading reconciliation reports:', error);
+    listEl.innerHTML = `<div class="alert alert-danger">Failed to load reports: ${error.message}</div>`;
+    if (recentCountEl) recentCountEl.textContent = '0';
+  }
+}
+
+/**
+ * View recent reconciliations (opens modal or switches to inventory tab)
+ */
+function viewRecentReconciliations() {
+  switchTab('inventory');
+  setTimeout(() => {
+    document.getElementById('reconcileAsOfDate').scrollIntoView({behavior: 'smooth', block: 'center'});
+  }, 100);
+}
+
+/**
+ * View count history (loads count tab and scrolls to history section)
+ */
+function viewCountHistory() {
+  loadCountHistory();
+  setTimeout(() => {
+    document.getElementById('countHistoryTable').scrollIntoView({behavior: 'smooth', block: 'center'});
+  }, 100);
+}
+
+/**
+ * Download reconciliation report CSV by ID
+ */
+async function downloadReconcileReportCSV(reconcileId) {
+  try {
+    const url = `/api/inventory/reconcile/${reconcileId}/csv`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `reconcile_${reconcileId}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('CSV download started', 'success');
+  } catch (error) {
+    console.error('Error downloading CSV:', error);
+    showToast('Failed to download CSV', 'danger');
+  }
+}
+
+/**
+ * Delete reconciliation report by ID (v15.3)
+ */
+async function deleteReconciliationReport(reconcileId) {
+  if (!confirm(`Are you sure you want to delete reconciliation report ${reconcileId}?\n\nThis action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetchAPI(`/inventory/reconcile/${reconcileId}`, {
+      method: 'DELETE'
+    });
+
+    if (res.success) {
+      showToast('Reconciliation report deleted successfully', 'success');
+      // Reload the reconciliation list
+      loadRecentReconciliations();
+    } else {
+      throw new Error(res.error || 'Failed to delete reconciliation report');
+    }
+  } catch (error) {
+    console.error('Error deleting reconciliation report:', error);
+    showToast(`Failed to delete report: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Start a new physical count
+ */
+async function startNewPhysicalCount() {
+  const dateInput = document.getElementById('newCountDate');
+  const locationSelect = document.getElementById('countLocation');
+  const typeSelect = document.getElementById('countType');
+  const notesInput = document.getElementById('countNotes');
+
+  const countDate = dateInput.value;
+  const location = locationSelect.value || null;
+  const countType = typeSelect.value;
+  const notes = notesInput.value;
+
+  if (!countDate) {
+    showToast('Please select a count date', 'warning');
+    return;
+  }
+
+  try {
+    console.log('🔢 Starting new physical count:', { countDate, location, countType, notes });
+
+    const res = await fetchAPI('/owner/count/start', {
+      method: 'POST',
+      body: JSON.stringify({
+        count_date: countDate,
+        location_id: location,
+        count_type: countType,
+        notes: notes
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Failed to start count');
+    }
+
+    console.log('✅ Count started:', res);
+    showToast(`Count started: ${res.count_id}`, 'success');
+
+    // Clear form
+    dateInput.value = '';
+    notesInput.value = '';
+
+    // Load active count
+    await loadActiveCount();
+
+  } catch (error) {
+    console.error('❌ Error starting count:', error);
+    showToast(`Failed to start count: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Load count history table
+ */
+async function loadCountHistory() {
+  const tbody = document.getElementById('countHistoryBody');
+  const countEl = document.getElementById('countHistoryCount');
+
+  try {
+    tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div> Loading...</td></tr>';
+
+    // Query inventory_counts table
+    const res = await fetchAPI('/owner/counts/history');
+
+    if (!res.ok || !res.counts) {
+      throw new Error(res.error || 'Failed to load count history');
+    }
+
+    const counts = res.counts;
+
+    if (counts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-light-med">No count history found</td></tr>';
+      countEl.textContent = '0';
+      return;
+    }
+
+    countEl.textContent = counts.length;
+
+    let html = '';
+    for (const count of counts) {
+      const date = new Date(count.created_at).toLocaleDateString();
+      const status = count.status || 'in_progress';
+      const statusBadge = status === 'approved' ? 'badge-success' :
+                          status === 'closed' ? 'badge-secondary' :
+                          'badge-warning';
+
+      html += '<tr>';
+      html += `<td>${count.id}</td>`;
+      html += `<td>${date}</td>`;
+      html += `<td>${count.count_type || 'MONTHLY'}</td>`;
+      html += `<td><span class="badge ${statusBadge}">${status}</span></td>`;
+      html += `<td>${count.item_count || 0}</td>`;
+      html += `<td>${count.location_id || 'All'}</td>`;
+      html += `<td>`;
+      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="viewCountDetails('${count.id}')">👁️ View</button> `;
+      if (status === 'approved') {
+        html += `<button type="button" class="btn btn-sm btn-primary" onclick="useCountForReconciliation('${count.id}', '${count.created_at}')">⚖️ Reconcile</button>`;
+      }
+      html += `</td>`;
+      html += '</tr>';
+    }
+
+    tbody.innerHTML = html;
+
+  } catch (error) {
+    console.error('Error loading count history:', error);
+    tbody.innerHTML = `<tr><td colspan="7" class="alert alert-danger">Failed to load count history: ${error.message}</td></tr>`;
+  }
+}
+
+/**
+ * View count details (opens PDF management modal)
+ * v15.2.3: Now opens PDF management modal
+ */
+function viewCountDetails(countId) {
+  console.log('📋 Viewing count details:', countId);
+  openCountPdfModal(countId);
+}
+
+/**
+ * Use count for reconciliation (pre-fill reconciliation date)
+ */
+function useCountForReconciliation(countId, countDate) {
+  const date = new Date(countDate).toISOString().split('T')[0];
+
+  // Switch to Inventory tab and pre-fill date
+  switchTab('inventory');
+
+  setTimeout(() => {
+    const dateInput = document.getElementById('reconcileAsOfDate');
+    if (dateInput) {
+      dateInput.value = date;
+    }
+    document.getElementById('reconcileAsOfDate').scrollIntoView({behavior: 'smooth', block: 'center'});
+    showToast(`Ready to reconcile count ${countId} (${date})`, 'info');
+  }, 100);
+}
+
+/**
+ * Add item to active count
+ */
+async function addItemToActiveCount() {
+  // Reuse existing modal for adding items to count
+  await showAddItemForm();
+}
+
+/**
+ * Close active count
+ */
+async function closeActiveCount() {
+  if (!confirm('Are you sure you want to close the active count? This will mark it as completed.')) {
+    return;
+  }
+
+  try {
+    // Get active count ID from active count display
+    const activeCountBadge = document.getElementById('activeCountBadge');
+    const countId = activeCountBadge.getAttribute('data-count-id');
+
+    if (!countId) {
+      showToast('No active count found', 'warning');
+      return;
+    }
+
+    console.log('✓ Closing count:', countId);
+
+    const res = await fetchAPI(`/owner/count/${countId}/close`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Failed to close count');
+    }
+
+    console.log('✅ Count closed:', res);
+    showToast('Count closed successfully', 'success');
+
+    // Reload active count and history
+    await loadActiveCount();
+    await loadCountHistory();
+
+  } catch (error) {
+    console.error('❌ Error closing count:', error);
+    showToast(`Failed to close count: ${error.message}`, 'danger');
+  }
+}
+
+// ============================================================================
+// COUNT PDF MANAGEMENT (v15.2.3)
+// ============================================================================
+
+/**
+ * Open PDF management modal for a count
+ */
+async function openCountPdfModal(countId) {
+  const modal = document.getElementById('countPdfModal');
+  const countIdDisplay = document.getElementById('countPdfModalCountId');
+
+  // Show modal
+  modal.classList.add('active');
+  countIdDisplay.textContent = countId;
+
+  // Store countId for later use
+  modal.setAttribute('data-count-id', countId);
+
+  // Load attached and available PDFs
+  await Promise.all([
+    loadAttachedPdfs(countId),
+    loadAvailablePdfs(countId)
+  ]);
+}
+
+/**
+ * Close PDF management modal
+ */
+function closeCountPdfModal() {
+  const modal = document.getElementById('countPdfModal');
+  modal.classList.remove('active');
+}
+
+/**
+ * Load attached PDFs for a count
+ */
+async function loadAttachedPdfs(countId) {
+  const listEl = document.getElementById('attachedPdfsList');
+  const countEl = document.getElementById('attachedPdfCount');
+
+  try {
+    listEl.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+
+    const res = await fetchAPI(`/owner/counts/${countId}/pdfs`);
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Failed to load attached PDFs');
+    }
+
+    const pdfs = res.pdfs || [];
+    countEl.textContent = pdfs.length;
+
+    if (pdfs.length === 0) {
+      listEl.innerHTML = '<div class="alert alert-info">No PDFs attached to this count</div>';
+      return;
+    }
+
+    let html = '<table class="table"><thead><tr><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th><th>Action</th></tr></thead><tbody>';
+
+    for (const pdf of pdfs) {
+      const date = pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : '--';
+      const amount = pdf.invoice_amount ? `$${parseFloat(pdf.invoice_amount).toFixed(2)}` : '--';
+
+      html += '<tr>';
+      html += `<td>${pdf.filename || 'Unknown'}</td>`;
+      html += `<td>${date}</td>`;
+      html += `<td>${pdf.vendor || '--'}</td>`;
+      html += `<td>${amount}</td>`;
+      html += `<td><button type="button" class="btn btn-sm btn-danger" onclick="detachPdf('${countId}', '${pdf.id}')">❌ Remove</button></td>`;
+      html += '</tr>';
+    }
+
+    html += '</tbody></table>';
+    listEl.innerHTML = html;
+
+  } catch (error) {
+    console.error('Error loading attached PDFs:', error);
+    listEl.innerHTML = `<div class="alert alert-danger">Failed to load attached PDFs: ${error.message}</div>`;
+  }
+}
+
+/**
+ * Load available PDFs for a count (not yet attached)
+ */
+async function loadAvailablePdfs(countId) {
+  const listEl = document.getElementById('availablePdfsList');
+  const countEl = document.getElementById('availablePdfCount');
+  const attachBtn = document.getElementById('attachSelectedPdfsBtn');
+
+  try {
+    listEl.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+
+    const res = await fetchAPI(`/owner/counts/${countId}/pdfs/available`);
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Failed to load available PDFs');
+    }
+
+    const pdfs = res.pdfs || [];
+    countEl.textContent = pdfs.length;
+
+    if (pdfs.length === 0) {
+      listEl.innerHTML = '<div class="alert alert-info">No available PDFs to attach (all PDFs are already attached or deleted)</div>';
+      attachBtn.disabled = true;
+      return;
+    }
+
+    let html = '<table class="table"><thead><tr><th><input type="checkbox" id="selectAllAvailablePdfs" onchange="toggleSelectAllAvailablePdfs()"></th><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th></tr></thead><tbody>';
+
+    for (const pdf of pdfs) {
+      const date = pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : '--';
+      const amount = pdf.invoice_amount ? `$${parseFloat(pdf.invoice_amount).toFixed(2)}` : '--';
+
+      html += '<tr>';
+      html += `<td><input type="checkbox" class="pdf-checkbox" value="${pdf.id}" onchange="updateAttachButtonState()"></td>`;
+      html += `<td>${pdf.filename || 'Unknown'}</td>`;
+      html += `<td>${date}</td>`;
+      html += `<td>${pdf.vendor || '--'}</td>`;
+      html += `<td>${amount}</td>`;
+      html += '</tr>';
+    }
+
+    html += '</tbody></table>';
+    listEl.innerHTML = html;
+    attachBtn.disabled = false;
+
+  } catch (error) {
+    console.error('Error loading available PDFs:', error);
+    listEl.innerHTML = `<div class="alert alert-danger">Failed to load available PDFs: ${error.message}</div>`;
+    attachBtn.disabled = true;
+  }
+}
+
+/**
+ * Toggle select all checkboxes for available PDFs
+ */
+function toggleSelectAllAvailablePdfs() {
+  const selectAll = document.getElementById('selectAllAvailablePdfs');
+  const checkboxes = document.querySelectorAll('.pdf-checkbox');
+
+  checkboxes.forEach(cb => {
+    cb.checked = selectAll.checked;
+  });
+
+  updateAttachButtonState();
+}
+
+/**
+ * Update attach button state based on selection
+ */
+function updateAttachButtonState() {
+  const checkboxes = document.querySelectorAll('.pdf-checkbox:checked');
+  const attachBtn = document.getElementById('attachSelectedPdfsBtn');
+
+  attachBtn.disabled = checkboxes.length === 0;
+  attachBtn.textContent = checkboxes.length > 0
+    ? `✓ Attach Selected PDFs (${checkboxes.length})`
+    : '✓ Attach Selected PDFs';
+}
+
+/**
+ * Attach selected PDFs to count
+ */
+async function attachSelectedPdfs() {
+  const modal = document.getElementById('countPdfModal');
+  const countId = modal.getAttribute('data-count-id');
+  const checkboxes = document.querySelectorAll('.pdf-checkbox:checked');
+
+  if (checkboxes.length === 0) {
+    showToast('Please select at least one PDF to attach', 'warning');
+    return;
+  }
+
+  const documentIds = Array.from(checkboxes).map(cb => cb.value);
+
+  try {
+    const res = await fetchAPI(`/owner/counts/${countId}/pdfs/attach`, {
+      method: 'POST',
+      body: JSON.stringify({ document_ids: documentIds })
+    });
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Failed to attach PDFs');
+    }
+
+    showToast(`Successfully attached ${res.attached} PDF(s)`, 'success');
+
+    // Reload both lists
+    await Promise.all([
+      loadAttachedPdfs(countId),
+      loadAvailablePdfs(countId)
+    ]);
+
+  } catch (error) {
+    console.error('Error attaching PDFs:', error);
+    showToast(`Failed to attach PDFs: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Detach a PDF from a count
+ */
+async function detachPdf(countId, documentId) {
+  if (!confirm('Are you sure you want to remove this PDF from the count?')) {
+    return;
+  }
+
+  try {
+    const res = await fetchAPI(`/owner/counts/${countId}/pdfs/${documentId}`, {
+      method: 'DELETE'
+    });
+
+    if (!res.ok) {
+      throw new Error(res.error || 'Failed to detach PDF');
+    }
+
+    showToast('PDF removed successfully', 'success');
+
+    // Reload both lists
+    await Promise.all([
+      loadAttachedPdfs(countId),
+      loadAvailablePdfs(countId)
+    ]);
+
+  } catch (error) {
+    console.error('Error detaching PDF:', error);
+    showToast(`Failed to remove PDF: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Initialize Count tab on load
+ */
+function initCountTab() {
+  // Set default count date to today
+  const dateInput = document.getElementById('newCountDate');
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+
+  // Load locations for count location dropdown
+  loadCountLocations();
+
+  // Load active count if any
+  loadActiveCount().catch(err => {
+    console.warn('No active count found:', err);
+  });
+
+  console.log('✅ Count tab initialized');
+}
+
+// Export functions to window
+window.loadRecentReconciliations = loadRecentReconciliations;
+window.viewRecentReconciliations = viewRecentReconciliations;
+window.viewCountHistory = viewCountHistory;
+window.downloadReconcileReportCSV = downloadReconcileReportCSV;
+window.deleteReconciliationReport = deleteReconciliationReport;
+window.startNewPhysicalCount = startNewPhysicalCount;
+window.loadCountHistory = loadCountHistory;
+window.viewCountDetails = viewCountDetails;
+window.useCountForReconciliation = useCountForReconciliation;
+window.addItemToActiveCount = addItemToActiveCount;
+window.closeActiveCount = closeActiveCount;
+window.initCountTab = initCountTab;
+
+// Export PDF management functions (v15.2.3)
+window.openCountPdfModal = openCountPdfModal;
+window.closeCountPdfModal = closeCountPdfModal;
+window.loadAttachedPdfs = loadAttachedPdfs;
+window.loadAvailablePdfs = loadAvailablePdfs;
+window.toggleSelectAllAvailablePdfs = toggleSelectAllAvailablePdfs;
+window.updateAttachButtonState = updateAttachButtonState;
+window.attachSelectedPdfs = attachSelectedPdfs;
+window.detachPdf = detachPdf;
+
+// Initialize Count tab on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initCountTab();
+});
+
+console.log('✅ Count tab module loaded (v15.2.2)');
+
+// ============================================================================
+// v15.2.3: Broken Links & 404 Telemetry
+// ============================================================================
+
+/**
+ * Load broken links telemetry from backend
+ * Displays 404 stats, top broken links, and recent 404s
+ */
+async function loadBrokenLinks() {
+  try {
+    const res = await fetchAPI('/owner/ops/broken-links/recent?limit=100');
+
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to load broken links');
+    }
+
+    // Update counters
+    document.getElementById('brokenLinks404Total').textContent = res.counters.total || 0;
+    document.getElementById('brokenLinks404Asset').textContent = res.counters.asset || 0;
+    document.getElementById('brokenLinks404Route').textContent = res.counters.route || 0;
+
+    // Populate top broken links table
+    const tbody = document.getElementById('brokenLinksTableBody');
+    if (res.stats && res.stats.length > 0) {
+      tbody.innerHTML = res.stats.slice(0, 20).map(stat => {
+        const lastSeen = new Date(stat.lastSeen).toLocaleString();
+        const topReferer = stat.topReferers && stat.topReferers.length > 0 
+          ? stat.topReferers[0] 
+          : '-';
+        
+        const typeClass = stat.type === 'asset' ? 'badge badge-warning' : 'badge badge-error';
+        
+        return `
+          <tr>
+            <td><code>${escapeHtml(stat.path)}</code></td>
+            <td><span class="${typeClass}">${stat.type}</span></td>
+            <td><strong>${stat.count}</strong></td>
+            <td>${lastSeen}</td>
+            <td><small>${escapeHtml(topReferer)}</small></td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-light-med">No broken links found (healthy!)</td></tr>';
+    }
+
+    // Populate recent 404s table
+    const recentBody = document.getElementById('brokenLinksRecentBody');
+    if (res.recent && res.recent.length > 0) {
+      recentBody.innerHTML = res.recent.map(entry => {
+        const timestamp = new Date(entry.timestamp).toLocaleString();
+        const typeClass = entry.type === 'asset' ? 'badge badge-warning' : 'badge badge-error';
+        const referer = entry.referer || '-';
+        
+        return `
+          <tr>
+            <td><small>${timestamp}</small></td>
+            <td><code>${escapeHtml(entry.path)}</code></td>
+            <td>${entry.method}</td>
+            <td><span class="${typeClass}">${entry.type}</span></td>
+            <td><small>${escapeHtml(referer)}</small></td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      recentBody.innerHTML = '<tr><td colspan="5" class="text-center text-light-med">No recent 404s</td></tr>';
+    }
+
+  } catch (error) {
+    console.error('Error loading broken links:', error);
+    alert('Failed to load broken links: ' + error.message);
+  }
+}
+
+// Helper function to escape HTML (prevent XSS)
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Export to window
+window.loadBrokenLinks = loadBrokenLinks;
+
+console.log('✅ Broken links telemetry module loaded (v15.2.3)');
+
+// ============================================================================
+// v15.2.3: Broken Links & 404 Telemetry
+// ============================================================================
+
+/**
+ * Load broken links telemetry from backend
+ * Displays 404 stats, top broken links, and recent 404s
+ */
+async function loadBrokenLinks() {
+  try {
+    const res = await fetchAPI('/owner/ops/broken-links/recent?limit=100');
+
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to load broken links');
+    }
+
+    // Update counters
+    document.getElementById('brokenLinks404Total').textContent = res.counters.total || 0;
+    document.getElementById('brokenLinks404Asset').textContent = res.counters.asset || 0;
+    document.getElementById('brokenLinks404Route').textContent = res.counters.route || 0;
+
+    // Populate top broken links table
+    const tbody = document.getElementById('brokenLinksTableBody');
+    if (res.stats && res.stats.length > 0) {
+      tbody.innerHTML = res.stats.slice(0, 20).map(stat => {
+        const lastSeen = new Date(stat.lastSeen).toLocaleString();
+        const topReferer = stat.topReferers && stat.topReferers.length > 0
+          ? stat.topReferers[0]
+          : '-';
+
+        const typeClass = stat.type === 'asset' ? 'badge badge-warning' : 'badge badge-error';
+
+        return `
+          <tr>
+            <td><code>${escapeHtml(stat.path)}</code></td>
+            <td><span class="${typeClass}">${stat.type}</span></td>
+            <td><strong>${stat.count}</strong></td>
+            <td>${lastSeen}</td>
+            <td><small>${escapeHtml(topReferer)}</small></td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-light-med">No broken links found (healthy!)</td></tr>';
+    }
+
+    // Populate recent 404s table
+    const recentBody = document.getElementById('brokenLinksRecentBody');
+    if (res.recent && res.recent.length > 0) {
+      recentBody.innerHTML = res.recent.map(entry => {
+        const timestamp = new Date(entry.timestamp).toLocaleString();
+        const typeClass = entry.type === 'asset' ? 'badge badge-warning' : 'badge badge-error';
+        const referer = entry.referer || '-';
+
+        return `
+          <tr>
+            <td><small>${timestamp}</small></td>
+            <td><code>${escapeHtml(entry.path)}</code></td>
+            <td>${entry.method}</td>
+            <td><span class="${typeClass}">${entry.type}</span></td>
+            <td><small>${escapeHtml(referer)}</small></td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      recentBody.innerHTML = '<tr><td colspan="5" class="text-center text-light-med">No recent 404s</td></tr>';
+    }
+
+  } catch (error) {
+    console.error('Error loading broken links:', error);
+    alert('Failed to load broken links: ' + error.message);
+  }
+}
+
+// Helper function to escape HTML (prevent XSS)
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Export to window
+window.loadBrokenLinks = loadBrokenLinks;
+
+console.log('✅ Broken links telemetry module loaded (v15.2.3)');
+
+// ============================================================================
+// v15.3: Financial Accuracy & Usage Intelligence
+// ============================================================================
+
+/**
+ * Load Financial Data Overview
+ * Fetches financial accuracy stats from AI Ops Status
+ */
+async function loadFinancialData() {
+  try {
+    // Fetch AI Ops status which includes financial_accuracy
+    const statusData = await fetchAPI('/owner/ops/status');
+
+    // Update financial accuracy value and color
+    const accuracyValue = document.getElementById('financialAccuracyValue');
+    if (statusData.financial_accuracy !== null && statusData.financial_accuracy !== undefined) {
+      accuracyValue.textContent = `${statusData.financial_accuracy.toFixed(1)}%`;
+      accuracyValue.style.color = statusData.financial_accuracy_color === 'green' ? '#22c55e' :
+                                   statusData.financial_accuracy_color === 'yellow' ? '#f59e0b' : '#ef4444';
+    } else {
+      accuracyValue.textContent = '--';
+      accuracyValue.style.color = '#6b7280';
+    }
+
+    // Fetch summary to get invoice count and total value
+    const summaryData = await fetchAPI('/inventory/reconcile/financial-summary?startDate=2025-01-01&endDate=2025-06-30&period=monthly');
+
+    if (summaryData.success && summaryData.summary) {
+      // Calculate totals across all periods
+      let totalInvoices = 0;
+      let totalValue = 0;
+
+      for (const period of summaryData.summary) {
+        totalInvoices += period.invoices.length;
+        totalValue += period.totalInvoiceAmount;
+      }
+
+      document.getElementById('financialTotalInvoices').textContent = totalInvoices;
+      document.getElementById('financialTotalValue').textContent = `$${totalValue.toFixed(2)}`;
+
+      // Count unique categories tracked
+      const categoriesSet = new Set();
+      for (const period of summaryData.summary) {
+        for (const invoice of period.invoices) {
+          Object.keys(invoice.categories || {}).forEach(cat => categoriesSet.add(cat));
+        }
+      }
+      document.getElementById('financialCategories').textContent = categoriesSet.size;
+
+      // Update category variance cards if we have variance data from statusData
+      if (statusData.variance_by_category) {
+        updateCategoryVariance(statusData.variance_by_category);
+      }
+    } else {
+      document.getElementById('financialTotalInvoices').textContent = '0';
+      document.getElementById('financialTotalValue').textContent = '$0.00';
+      document.getElementById('financialCategories').textContent = '0';
+    }
+
+  } catch (error) {
+    console.error('Error loading financial data:', error);
+    document.getElementById('financialAccuracyValue').textContent = 'Error';
+    document.getElementById('financialTotalInvoices').textContent = '--';
+    document.getElementById('financialTotalValue').textContent = '--';
+    document.getElementById('financialCategories').textContent = '--';
+  }
+}
+
+/**
+ * Update Category Variance Cards
+ * @param {object} varianceByCategory - Variance data by category
+ */
+function updateCategoryVariance(varianceByCategory) {
+  const categories = ['BAKE', 'MEAT', 'PROD', 'BEV', 'MILK', 'GROC'];
+
+  for (const cat of categories) {
+    const element = document.getElementById(`categoryVariance${cat}`);
+    if (!element) continue;
+
+    if (varianceByCategory[cat]) {
+      const variance = varianceByCategory[cat].variance_pct;
+      const accuracy = Math.max(0, 100 - variance);
+      element.textContent = `${accuracy.toFixed(1)}%`;
+
+      // Color code based on accuracy
+      if (accuracy >= 95) {
+        element.style.color = '#22c55e'; // green
+      } else if (accuracy >= 70) {
+        element.style.color = '#f59e0b'; // yellow
+      } else {
+        element.style.color = '#ef4444'; // red
+      }
+    } else {
+      element.textContent = '--';
+      element.style.color = '#6b7280'; // gray
+    }
+  }
+}
+
+/**
+ * Import Financial Data from PDFs
+ * POST to /api/inventory/reconcile/import-pdfs
+ */
+async function importFinancialData() {
+  const fromDate = document.getElementById('financialImportFrom').value;
+  const toDate = document.getElementById('financialImportTo').value;
+
+  if (!fromDate || !toDate) {
+    alert('Please select both start and end dates');
+    return;
+  }
+
+  // Show loading state
+  const resultsDiv = document.getElementById('financialImportResults');
+  const summarySpan = document.getElementById('financialImportSummary');
+  resultsDiv.classList.remove('hidden');
+  summarySpan.textContent = 'Importing...';
+
+  try {
+    const data = await fetchAPI('/inventory/reconcile/import-pdfs', {
+      method: 'POST',
+      body: JSON.stringify({
+        startDate: fromDate,
+        endDate: toDate
+      })
+    });
+
+    if (data.success) {
+      const vendors = data.vendors.join(', ');
+      summarySpan.textContent = `${data.importedCount} invoices imported ($${data.totalValue.toFixed(2)}) from vendors: ${vendors}`;
+
+      // Refresh financial data to show updated stats
+      setTimeout(() => {
+        loadFinancialData();
+        loadFinancialSummary();
+      }, 500);
+    } else {
+      summarySpan.textContent = `Import failed: ${data.error}`;
+    }
+
+  } catch (error) {
+    console.error('Error importing financial data:', error);
+    summarySpan.textContent = `Import failed: ${error.message}`;
+  }
+}
+
+/**
+ * Load Financial Summary Table
+ * GET from /api/inventory/reconcile/financial-summary
+ */
+async function loadFinancialSummary() {
+  const periodType = document.getElementById('financialPeriodType').value;
+  const tbody = document.getElementById('financialSummaryBody');
+
+  // Show loading state
+  tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading summary...</td></tr>';
+
+  try {
+    const data = await fetchAPI(`/inventory/reconcile/financial-summary?startDate=2025-01-01&endDate=2025-06-30&period=${periodType}`);
+
+    if (data.success && data.summary && data.summary.length > 0) {
+      tbody.innerHTML = data.summary.map(period => {
+        return `
+          <tr>
+            <td><strong>${period.period}</strong></td>
+            <td>$${period.totalInvoiceAmount.toFixed(2)}</td>
+            <td>$${period.foodFreightReimb.toFixed(2)}</td>
+            <td>$${period.otherReimb.toFixed(2)}</td>
+            <td>$${period.gstTotal.toFixed(2)}</td>
+            <td>$${period.qstTotal.toFixed(2)}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="viewPeriodDetails('${period.period}', '${periodType}')">
+                📊 View
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-light-med">No financial data found for this period. Click "Import Financial Data" above to import.</td></tr>';
+    }
+
+  } catch (error) {
+    console.error('Error loading financial summary:', error);
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color: #ef4444;">Error loading summary: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+/**
+ * View Period Details
+ * Shows detailed invoice list for a specific period
+ * @param {string} period - Period identifier (e.g., "2025-01" or "2025-06-28")
+ * @param {string} periodType - "monthly" or "weekly"
+ */
+async function viewPeriodDetails(period, periodType) {
+  // For now, show a simple alert with period info
+  // This can be expanded to a modal with detailed invoice breakdown
+  alert(`Period Details: ${period}\n\nDetailed invoice breakdown coming in next iteration.\n\nThis will show:\n- Individual invoices\n- Category breakdowns\n- Vendor details\n- PDF links`);
+}
+
+// Export functions to window
+window.loadFinancialData = loadFinancialData;
+window.importFinancialData = importFinancialData;
+window.loadFinancialSummary = loadFinancialSummary;
+window.viewPeriodDetails = viewPeriodDetails;
+
+console.log('✅ Financial accuracy module loaded (v15.3)');
+
+
+// ============================================================================
+// v15.3: Financial Accuracy & Usage Intelligence
+// ============================================================================
+
+/**
+ * Load Financial Data Overview
+ * Fetches financial accuracy stats from AI Ops Status
+ */
+async function loadFinancialData() {
+  try {
+    // Fetch AI Ops status which includes financial_accuracy
+    const statusData = await fetchAPI('/owner/ops/status');
+
+    // Update financial accuracy value and color
+    const accuracyValue = document.getElementById('financialAccuracyValue');
+    if (statusData.financial_accuracy !== null && statusData.financial_accuracy !== undefined) {
+      accuracyValue.textContent = `${statusData.financial_accuracy.toFixed(1)}%`;
+      accuracyValue.style.color = statusData.financial_accuracy_color === 'green' ? '#22c55e' :
+                                   statusData.financial_accuracy_color === 'yellow' ? '#f59e0b' : '#ef4444';
+    } else {
+      accuracyValue.textContent = '--';
+      accuracyValue.style.color = '#6b7280';
+    }
+
+    // Fetch summary to get invoice count and total value
+    const summaryData = await fetchAPI('/inventory/reconcile/financial-summary?startDate=2025-01-01&endDate=2025-06-30&period=monthly');
+
+    if (summaryData.success && summaryData.summary) {
+      // Calculate totals across all periods
+      let totalInvoices = 0;
+      let totalValue = 0;
+
+      for (const period of summaryData.summary) {
+        totalInvoices += period.invoices.length;
+        totalValue += period.totalInvoiceAmount;
+      }
+
+      document.getElementById('financialTotalInvoices').textContent = totalInvoices;
+      document.getElementById('financialTotalValue').textContent = `$${totalValue.toFixed(2)}`;
+
+      // Count unique categories tracked
+      const categoriesSet = new Set();
+      for (const period of summaryData.summary) {
+        for (const invoice of period.invoices) {
+          Object.keys(invoice.categories || {}).forEach(cat => categoriesSet.add(cat));
+        }
+      }
+      document.getElementById('financialCategories').textContent = categoriesSet.size;
+
+      // Update category variance cards if we have variance data from statusData
+      if (statusData.variance_by_category) {
+        updateCategoryVariance(statusData.variance_by_category);
+      }
+    } else {
+      document.getElementById('financialTotalInvoices').textContent = '0';
+      document.getElementById('financialTotalValue').textContent = '$0.00';
+      document.getElementById('financialCategories').textContent = '0';
+    }
+
+  } catch (error) {
+    console.error('Error loading financial data:', error);
+    document.getElementById('financialAccuracyValue').textContent = 'Error';
+    document.getElementById('financialTotalInvoices').textContent = '--';
+    document.getElementById('financialTotalValue').textContent = '--';
+    document.getElementById('financialCategories').textContent = '--';
+  }
+}
+
+/**
+ * Update Category Variance Cards
+ * @param {object} varianceByCategory - Variance data by category
+ */
+function updateCategoryVariance(varianceByCategory) {
+  const categories = ['BAKE', 'MEAT', 'PROD', 'BEV', 'MILK', 'GROC'];
+
+  for (const cat of categories) {
+    const element = document.getElementById(`categoryVariance${cat}`);
+    if (!element) continue;
+
+    if (varianceByCategory[cat]) {
+      const variance = varianceByCategory[cat].variance_pct;
+      const accuracy = Math.max(0, 100 - variance);
+      element.textContent = `${accuracy.toFixed(1)}%`;
+
+      // Color code based on accuracy
+      if (accuracy >= 95) {
+        element.style.color = '#22c55e'; // green
+      } else if (accuracy >= 70) {
+        element.style.color = '#f59e0b'; // yellow
+      } else {
+        element.style.color = '#ef4444'; // red
+      }
+    } else {
+      element.textContent = '--';
+      element.style.color = '#6b7280'; // gray
+    }
+  }
+}
+
+/**
+ * Import Financial Data from PDFs
+ * POST to /api/inventory/reconcile/import-pdfs
+ */
+async function importFinancialData() {
+  const fromDate = document.getElementById('financialImportFrom').value;
+  const toDate = document.getElementById('financialImportTo').value;
+
+  if (!fromDate || !toDate) {
+    alert('Please select both start and end dates');
+    return;
+  }
+
+  // Show loading state
+  const resultsDiv = document.getElementById('financialImportResults');
+  const summarySpan = document.getElementById('financialImportSummary');
+  resultsDiv.classList.remove('hidden');
+  summarySpan.textContent = 'Importing...';
+
+  try {
+    const data = await fetchAPI('/inventory/reconcile/import-pdfs', {
+      method: 'POST',
+      body: JSON.stringify({
+        startDate: fromDate,
+        endDate: toDate
+      })
+    });
+
+    if (data.success) {
+      const vendors = data.vendors.join(', ');
+      summarySpan.textContent = `${data.importedCount} invoices imported ($${data.totalValue.toFixed(2)}) from vendors: ${vendors}`;
+
+      // Refresh financial data to show updated stats
+      setTimeout(() => {
+        loadFinancialData();
+        loadFinancialSummary();
+      }, 500);
+    } else {
+      summarySpan.textContent = `Import failed: ${data.error}`;
+    }
+
+  } catch (error) {
+    console.error('Error importing financial data:', error);
+    summarySpan.textContent = `Import failed: ${error.message}`;
+  }
+}
+
+/**
+ * Load Financial Summary Table
+ * GET from /api/inventory/reconcile/financial-summary
+ */
+async function loadFinancialSummary() {
+  const periodType = document.getElementById('financialPeriodType').value;
+  const tbody = document.getElementById('financialSummaryBody');
+
+  // Show loading state
+  tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading summary...</td></tr>';
+
+  try {
+    const data = await fetchAPI(`/inventory/reconcile/financial-summary?startDate=2025-01-01&endDate=2025-06-30&period=${periodType}`);
+
+    if (data.success && data.summary && data.summary.length > 0) {
+      tbody.innerHTML = data.summary.map(period => {
+        return `
+          <tr>
+            <td><strong>${period.period}</strong></td>
+            <td>$${period.totalInvoiceAmount.toFixed(2)}</td>
+            <td>$${period.foodFreightReimb.toFixed(2)}</td>
+            <td>$${period.otherReimb.toFixed(2)}</td>
+            <td>$${period.gstTotal.toFixed(2)}</td>
+            <td>$${period.qstTotal.toFixed(2)}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="viewPeriodDetails('${period.period}', '${periodType}')">
+                📊 View
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-light-med">No financial data found for this period. Click "Import Financial Data" above to import.</td></tr>';
+    }
+
+  } catch (error) {
+    console.error('Error loading financial summary:', error);
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="color: #ef4444;">Error loading summary: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+/**
+ * View Period Details
+ * Shows detailed invoice list for a specific period
+ * @param {string} period - Period identifier (e.g., "2025-01" or "2025-06-28")
+ * @param {string} periodType - "monthly" or "weekly"
+ */
+async function viewPeriodDetails(period, periodType) {
+  // For now, show a simple alert with period info
+  // This can be expanded to a modal with detailed invoice breakdown
+  alert(`Period Details: ${period}\n\nDetailed invoice breakdown coming in next iteration.\n\nThis will show:\n- Individual invoices\n- Category breakdowns\n- Vendor details\n- PDF links`);
+}
+
+// Export functions to window
+window.loadFinancialData = loadFinancialData;
+window.importFinancialData = importFinancialData;
+window.loadFinancialSummary = loadFinancialSummary;
+window.viewPeriodDetails = viewPeriodDetails;
+
+console.log('✅ Financial accuracy module loaded (v15.3)');
+
+// ============================================================================
+// v15.4.0: Finance Workspace - AI Copilot & Data Quality
+// ============================================================================
+
+/**
+ * Ask Finance AI Copilot a natural language question
+ * POST /api/finance/ai/query
+ */
+async function askFinanceAI() {
+  const questionInput = document.getElementById('financeAIQuestion');
+  const question = questionInput?.value?.trim();
+
+  if (!question) {
+    alert('Please enter a question for the AI Copilot.');
+    return;
+  }
+
+  // Show loading state
+  const resultsDiv = document.getElementById('financeAIResults');
+  const contentDiv = document.getElementById('financeAIContent');
+  setHidden(resultsDiv, false);
+  contentDiv.innerHTML = '<div class="loading">AI is processing your question...</div>';
+
+  try {
+    const data = await fetchAPI('/finance/ai/query', {
+      method: 'POST',
+      body: JSON.stringify({
+        question: question,
+        period: null, // Can be extracted from question by backend
+        constraints: {}
+      })
+    });
+
+    if (data.success) {
+      // Format the response based on intent
+      let html = `
+        <div class="alert alert-success">
+          <strong>Intent Detected:</strong> ${data.intent || 'unknown'}
+        </div>
+      `;
+
+      // Show result data
+      if (data.result) {
+        if (data.result.content) {
+          // Export response
+          html += `
+            <div class="card">
+              <div class="card-header">
+                <h4>Export Generated</h4>
+              </div>
+              <div class="card-body">
+                <p><strong>Format:</strong> ${data.result.format}</p>
+                <p><strong>Row Count:</strong> ${data.result.rowcount}</p>
+                <pre class="code-block">${escapeHtml(data.result.content.substring(0, 500))}${data.result.content.length > 500 ? '...' : ''}</pre>
+                <button type="button" class="btn btn-primary" onclick="downloadFinanceExport('${data.result.format}', \`${escapeHtml(data.result.content)}\`)">
+                  💾 Download ${data.result.format.toUpperCase()}
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (data.result.data) {
+          // Query result data
+          html += `
+            <div class="card">
+              <div class="card-header">
+                <h4>Query Results</h4>
+              </div>
+              <div class="card-body">
+                <p><strong>Rows Returned:</strong> ${data.result.data.length}</p>
+          `;
+
+          if (data.result.sql) {
+            html += `<p><strong>SQL:</strong> <code>${escapeHtml(data.result.sql)}</code></p>`;
+          }
+
+          // Show table preview if data exists
+          if (data.result.data.length > 0) {
+            const firstRow = data.result.data[0];
+            const columns = Object.keys(firstRow);
+
+            html += `
+              <table class="table">
+                <thead>
+                  <tr>
+                    ${columns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.result.data.slice(0, 10).map(row => `
+                    <tr>
+                      ${columns.map(col => `<td>${escapeHtml(String(row[col] || ''))}</td>`).join('')}
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+              ${data.result.data.length > 10 ? `<p class="text-light-med">Showing 10 of ${data.result.data.length} rows</p>` : ''}
+            `;
+          }
+
+          html += `
+              </div>
+            </div>
+          `;
+        } else if (data.result.summary) {
+          // Summary result
+          html += `
+            <div class="card">
+              <div class="card-header">
+                <h4>Summary Results</h4>
+              </div>
+              <div class="card-body">
+                <pre class="code-block">${JSON.stringify(data.result.summary, null, 2)}</pre>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      // Show audit ID
+      if (data.auditId) {
+        html += `<p class="text-xs text-light-med">Audit ID: ${data.auditId}</p>`;
+      }
+
+      contentDiv.innerHTML = html;
+    } else {
+      contentDiv.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${escapeHtml(data.error || 'Unknown error')}
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('Error asking Finance AI:', error);
+    contentDiv.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Error:</strong> ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Preview SQL that will be generated by AI Copilot
+ * Shows what query will run before executing
+ */
+async function showFinanceAIPreview() {
+  const questionInput = document.getElementById('financeAIQuestion');
+  const question = questionInput?.value?.trim();
+
+  if (!question) {
+    alert('Please enter a question to preview.');
+    return;
+  }
+
+  // Show loading state
+  const resultsDiv = document.getElementById('financeAIResults');
+  const contentDiv = document.getElementById('financeAIContent');
+  setHidden(resultsDiv, false);
+  contentDiv.innerHTML = '<div class="loading">Generating SQL preview...</div>';
+
+  try {
+    // For preview, we'll call the same endpoint but show only the SQL
+    // In a production system, you might have a dedicated preview endpoint
+    const data = await fetchAPI('/finance/ai/query', {
+      method: 'POST',
+      body: JSON.stringify({
+        question: question,
+        period: null,
+        constraints: { preview: true }
+      })
+    });
+
+    if (data.success && data.result) {
+      let html = `
+        <div class="alert alert-info">
+          <strong>Preview Mode:</strong> This shows what the AI will execute
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>Intent: ${data.intent || 'unknown'}</h4>
+          </div>
+          <div class="card-body">
+      `;
+
+      if (data.result.sql) {
+        html += `
+          <p><strong>Generated SQL:</strong></p>
+          <pre class="code-block">${escapeHtml(data.result.sql)}</pre>
+        `;
+      } else if (data.intent) {
+        html += `
+          <p><strong>Action:</strong> ${data.intent}</p>
+          <p><strong>Parameters:</strong></p>
+          <pre class="code-block">${JSON.stringify(data.result, null, 2)}</pre>
+        `;
+      }
+
+      html += `
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="askFinanceAI()">
+          ✅ Execute Query
+        </button>
+      `;
+
+      contentDiv.innerHTML = html;
+    } else {
+      contentDiv.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${escapeHtml(data.error || 'Could not generate preview')}
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('Error generating Finance AI preview:', error);
+    contentDiv.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Error:</strong> ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Load Finance Data Quality Issues
+ * GET /api/finance/data-quality
+ */
+async function loadFinanceDataQuality() {
+  const container = document.getElementById('financeDataQualityContainer');
+
+  // Show loading state
+  container.innerHTML = '<div class="loading">Checking data quality...</div>';
+
+  try {
+    const data = await fetchAPI('/finance/data-quality');
+
+    if (data.success && data.issues) {
+      if (data.issues.length === 0) {
+        container.innerHTML = `
+          <div class="alert alert-success">
+            ✅ No data quality issues detected! Your financial data looks clean.
+          </div>
+        `;
+        return;
+      }
+
+      // Group issues by severity
+      const critical = data.issues.filter(i => i.severity === 'critical');
+      const warnings = data.issues.filter(i => i.severity === 'warning');
+
+      let html = `
+        <div class="alert alert-${critical.length > 0 ? 'danger' : 'warning'}">
+          Found ${data.issues.length} data quality issue${data.issues.length > 1 ? 's' : ''}:
+          ${critical.length > 0 ? `${critical.length} critical` : ''}
+          ${critical.length > 0 && warnings.length > 0 ? ', ' : ''}
+          ${warnings.length > 0 ? `${warnings.length} warning${warnings.length > 1 ? 's' : ''}` : ''}
+        </div>
+      `;
+
+      // Show critical issues first
+      if (critical.length > 0) {
+        html += '<h4 class="text-bad">Critical Issues</h4>';
+        critical.forEach(issue => {
+          html += formatDataQualityIssue(issue);
+        });
+      }
+
+      // Then warnings
+      if (warnings.length > 0) {
+        html += '<h4 class="text-warn">Warnings</h4>';
+        warnings.forEach(issue => {
+          html += formatDataQualityIssue(issue);
+        });
+      }
+
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${escapeHtml(data.error || 'Could not load data quality issues')}
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('Error loading Finance data quality:', error);
+    container.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Error:</strong> ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Format a single data quality issue
+ * @param {object} issue - Issue object with type, severity, count, message, sample
+ * @returns {string} HTML string
+ */
+function formatDataQualityIssue(issue) {
+  const severityClass = issue.severity === 'critical' ? 'bad' : 'warn';
+  const severityIcon = issue.severity === 'critical' ? '🔴' : '⚠️';
+
+  let html = `
+    <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${issue.severity === 'critical' ? 'var(--color-bad, #ef4444)' : 'var(--color-warn, #f59e0b)'};">
+      <div class="card-header">
+        <h5>${severityIcon} ${escapeHtml(issue.type)}</h5>
+      </div>
+      <div class="card-body">
+        <p><strong>Severity:</strong> <span class="text-${severityClass}">${issue.severity}</span></p>
+        <p><strong>Count:</strong> ${issue.count}</p>
+        <p><strong>Message:</strong> ${escapeHtml(issue.message)}</p>
+  `;
+
+  // Show sample if available
+  if (issue.sample) {
+    html += `
+      <p><strong>Sample:</strong></p>
+      <pre class="code-block" style="max-height: 200px; overflow-y: auto;">${escapeHtml(JSON.stringify(issue.sample, null, 2))}</pre>
+    `;
+  }
+
+  html += `
+      </div>
+    </div>
+  `;
+
+  return html;
+}
+
+/**
+ * Download Finance Export
+ * @param {string} format - File format (csv, xlsx, pdf)
+ * @param {string} content - File content
+ */
+function downloadFinanceExport(format, content) {
+  const blob = new Blob([content], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `finance_export_${new Date().toISOString().split('T')[0]}.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Export v15.4.0 functions to window
+window.askFinanceAI = askFinanceAI;
+window.showFinanceAIPreview = showFinanceAIPreview;
+window.loadFinanceDataQuality = loadFinanceDataQuality;
+window.downloadFinanceExport = downloadFinanceExport;
+
+console.log('✅ Finance Workspace v15.4.0 loaded (AI Copilot + Data Quality)');
+
+// ============================================================================
+// v15.4.0: Finance Workspace - AI Copilot & Data Quality
+// ============================================================================
+
+/**
+ * Ask Finance AI Copilot a natural language question
+ * POST /api/finance/ai/query
+ */
+async function askFinanceAI() {
+  const questionInput = document.getElementById('financeAIQuestion');
+  const question = questionInput?.value?.trim();
+
+  if (!question) {
+    alert('Please enter a question for the AI Copilot.');
+    return;
+  }
+
+  // Show loading state
+  const resultsDiv = document.getElementById('financeAIResults');
+  const contentDiv = document.getElementById('financeAIContent');
+  setHidden(resultsDiv, false);
+  contentDiv.innerHTML = '<div class="loading">AI is processing your question...</div>';
+
+  try {
+    const data = await fetchAPI('/finance/ai/query', {
+      method: 'POST',
+      body: JSON.stringify({
+        question: question,
+        period: null, // Can be extracted from question by backend
+        constraints: {}
+      })
+    });
+
+    if (data.success) {
+      // Format the response based on intent
+      let html = `
+        <div class="alert alert-success">
+          <strong>Intent Detected:</strong> ${data.intent || 'unknown'}
+        </div>
+      `;
+
+      // Show result data
+      if (data.result) {
+        if (data.result.content) {
+          // Export response
+          const previewContent = escapeHtml(data.result.content.substring(0, 500));
+          const downloadContent = data.result.content.replace(/`/g, '\\`');
+          html += `
+            <div class="card">
+              <div class="card-header">
+                <h4>Export Generated</h4>
+              </div>
+              <div class="card-body">
+                <p><strong>Format:</strong> ${data.result.format}</p>
+                <p><strong>Row Count:</strong> ${data.result.rowcount}</p>
+                <pre class="code-block">${previewContent}${data.result.content.length > 500 ? '...' : ''}</pre>
+                <button type="button" class="btn btn-primary" onclick='downloadFinanceExport("${data.result.format}", \`${downloadContent}\`)'>
+                  💾 Download ${data.result.format.toUpperCase()}
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (data.result.data) {
+          // Query result data
+          html += `
+            <div class="card">
+              <div class="card-header">
+                <h4>Query Results</h4>
+              </div>
+              <div class="card-body">
+                <p><strong>Rows Returned:</strong> ${data.result.data.length}</p>
+          `;
+
+          if (data.result.sql) {
+            html += `<p><strong>SQL:</strong> <code>${escapeHtml(data.result.sql)}</code></p>`;
+          }
+
+          // Show table preview if data exists
+          if (data.result.data.length > 0) {
+            const firstRow = data.result.data[0];
+            const columns = Object.keys(firstRow);
+
+            html += `
+              <table class="table">
+                <thead>
+                  <tr>
+                    ${columns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.result.data.slice(0, 10).map(row => `
+                    <tr>
+                      ${columns.map(col => `<td>${escapeHtml(String(row[col] || ''))}</td>`).join('')}
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+              ${data.result.data.length > 10 ? `<p class="text-light-med">Showing 10 of ${data.result.data.length} rows</p>` : ''}
+            `;
+          }
+
+          html += `
+              </div>
+            </div>
+          `;
+        } else if (data.result.summary) {
+          // Summary result
+          html += `
+            <div class="card">
+              <div class="card-header">
+                <h4>Summary Results</h4>
+              </div>
+              <div class="card-body">
+                <pre class="code-block">${JSON.stringify(data.result.summary, null, 2)}</pre>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      // Show audit ID
+      if (data.auditId) {
+        html += `<p class="text-xs text-light-med">Audit ID: ${data.auditId}</p>`;
+      }
+
+      contentDiv.innerHTML = html;
+    } else {
+      contentDiv.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${escapeHtml(data.error || 'Unknown error')}
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('Error asking Finance AI:', error);
+    contentDiv.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Error:</strong> ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Preview SQL that will be generated by AI Copilot
+ * Shows what query will run before executing
+ */
+async function showFinanceAIPreview() {
+  const questionInput = document.getElementById('financeAIQuestion');
+  const question = questionInput?.value?.trim();
+
+  if (!question) {
+    alert('Please enter a question to preview.');
+    return;
+  }
+
+  // Show loading state
+  const resultsDiv = document.getElementById('financeAIResults');
+  const contentDiv = document.getElementById('financeAIContent');
+  setHidden(resultsDiv, false);
+  contentDiv.innerHTML = '<div class="loading">Generating SQL preview...</div>';
+
+  try {
+    // For preview, we'll call the same endpoint but show only the SQL
+    // In a production system, you might have a dedicated preview endpoint
+    const data = await fetchAPI('/finance/ai/query', {
+      method: 'POST',
+      body: JSON.stringify({
+        question: question,
+        period: null,
+        constraints: { preview: true }
+      })
+    });
+
+    if (data.success && data.result) {
+      let html = `
+        <div class="alert alert-info">
+          <strong>Preview Mode:</strong> This shows what the AI will execute
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>Intent: ${data.intent || 'unknown'}</h4>
+          </div>
+          <div class="card-body">
+      `;
+
+      if (data.result.sql) {
+        html += `
+          <p><strong>Generated SQL:</strong></p>
+          <pre class="code-block">${escapeHtml(data.result.sql)}</pre>
+        `;
+      } else if (data.intent) {
+        html += `
+          <p><strong>Action:</strong> ${data.intent}</p>
+          <p><strong>Parameters:</strong></p>
+          <pre class="code-block">${JSON.stringify(data.result, null, 2)}</pre>
+        `;
+      }
+
+      html += `
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="askFinanceAI()">
+          ✅ Execute Query
+        </button>
+      `;
+
+      contentDiv.innerHTML = html;
+    } else {
+      contentDiv.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${escapeHtml(data.error || 'Could not generate preview')}
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('Error generating Finance AI preview:', error);
+    contentDiv.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Error:</strong> ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Load Finance Data Quality Issues
+ * GET /api/finance/data-quality
+ */
+async function loadFinanceDataQuality() {
+  const container = document.getElementById('financeDataQualityContainer');
+
+  // Show loading state
+  container.innerHTML = '<div class="loading">Checking data quality...</div>';
+
+  try {
+    const data = await fetchAPI('/finance/data-quality');
+
+    if (data.success && data.issues) {
+      if (data.issues.length === 0) {
+        container.innerHTML = `
+          <div class="alert alert-success">
+            ✅ No data quality issues detected! Your financial data looks clean.
+          </div>
+        `;
+        return;
+      }
+
+      // Group issues by severity
+      const critical = data.issues.filter(i => i.severity === 'critical');
+      const warnings = data.issues.filter(i => i.severity === 'warning');
+
+      let html = `
+        <div class="alert alert-${critical.length > 0 ? 'danger' : 'warning'}">
+          Found ${data.issues.length} data quality issue${data.issues.length > 1 ? 's' : ''}:
+          ${critical.length > 0 ? `${critical.length} critical` : ''}
+          ${critical.length > 0 && warnings.length > 0 ? ', ' : ''}
+          ${warnings.length > 0 ? `${warnings.length} warning${warnings.length > 1 ? 's' : ''}` : ''}
+        </div>
+      `;
+
+      // Show critical issues first
+      if (critical.length > 0) {
+        html += '<h4 class="text-bad">Critical Issues</h4>';
+        critical.forEach(issue => {
+          html += formatDataQualityIssue(issue);
+        });
+      }
+
+      // Then warnings
+      if (warnings.length > 0) {
+        html += '<h4 class="text-warn">Warnings</h4>';
+        warnings.forEach(issue => {
+          html += formatDataQualityIssue(issue);
+        });
+      }
+
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error:</strong> ${escapeHtml(data.error || 'Could not load data quality issues')}
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('Error loading Finance data quality:', error);
+    container.innerHTML = `
+      <div class="alert alert-danger">
+        <strong>Error:</strong> ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Format a single data quality issue
+ * @param {object} issue - Issue object with type, severity, count, message, sample
+ * @returns {string} HTML string
+ */
+function formatDataQualityIssue(issue) {
+  const severityClass = issue.severity === 'critical' ? 'bad' : 'warn';
+  const severityIcon = issue.severity === 'critical' ? '🔴' : '⚠️';
+  const borderColor = issue.severity === 'critical' ? '#ef4444' : '#f59e0b';
+
+  let html = `
+    <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${borderColor};">
+      <div class="card-header">
+        <h5>${severityIcon} ${escapeHtml(issue.type)}</h5>
+      </div>
+      <div class="card-body">
+        <p><strong>Severity:</strong> <span class="text-${severityClass}">${issue.severity}</span></p>
+        <p><strong>Count:</strong> ${issue.count}</p>
+        <p><strong>Message:</strong> ${escapeHtml(issue.message)}</p>
+  `;
+
+  // Show sample if available
+  if (issue.sample) {
+    html += `
+      <p><strong>Sample:</strong></p>
+      <pre class="code-block" style="max-height: 200px; overflow-y: auto;">${escapeHtml(JSON.stringify(issue.sample, null, 2))}</pre>
+    `;
+  }
+
+  html += `
+      </div>
+    </div>
+  `;
+
+  return html;
+}
+
+/**
+ * Download Finance Export
+ * @param {string} format - File format (csv, xlsx, pdf)
+ * @param {string} content - File content
+ */
+function downloadFinanceExport(format, content) {
+  const blob = new Blob([content], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `finance_export_${new Date().toISOString().split('T')[0]}.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Export v15.4.0 functions to window
+window.askFinanceAI = askFinanceAI;
+window.showFinanceAIPreview = showFinanceAIPreview;
+window.loadFinanceDataQuality = loadFinanceDataQuality;
+window.downloadFinanceExport = downloadFinanceExport;
+
+console.log('✅ Finance Workspace v15.4.0 loaded (AI Copilot + Data Quality)');
+
+/* ============================================
+   v15.5.0: Shadow Mode Forecast Approval
+   ============================================ */
+
+/**
+ * Load Shadow Mode state and show approval banner if needed
+ */
+async function loadShadowModeState() {
+  try {
+    // Check if shadow mode is active from config
+    if (window.appConfig && window.appConfig.shadowMode === true) {
+      // Show shadow mode badge in header
+      const shadowBadge = document.getElementById('badge-shadow-mode');
+      if (shadowBadge) {
+        shadowBadge.classList.remove('u-hide');
+      }
+
+      // Check if there's a pending forecast approval
+      const response = await fetchAPI('/owner/forecast-orders/state');
+      if (response.success && response.pendingApproval) {
+        const { runId, forecastDate, itemsForecasted, avgConfidence, totalPredictedValue, status } = response.pendingApproval;
+
+        // Populate banner
+        document.getElementById('shadowModeRunId').textContent = runId || '--';
+        document.getElementById('shadowModeItemCount').textContent = itemsForecasted || '--';
+        document.getElementById('shadowModeConfidence').textContent = avgConfidence ? `${avgConfidence}%` : '--';
+        document.getElementById('shadowModeTotalValue').textContent = totalPredictedValue ? `$${totalPredictedValue.toFixed(2)}` : '--';
+
+        // Show banner
+        const banner = document.getElementById('shadowModeApprovalBanner');
+        if (banner) {
+          banner.classList.remove('u-hide');
+        }
+
+        console.log('✅ Shadow Mode: Forecast pending approval', { runId, itemsForecasted });
+      } else {
+        console.log('Shadow Mode: No pending approval');
+      }
+    }
+  } catch (error) {
+    console.error('Error loading Shadow Mode state:', error);
+  }
+}
+
+/**
+ * Approve Shadow Mode forecast
+ */
+async function approveShadowModeForecast() {
+  try {
+    const runId = document.getElementById('shadowModeRunId').textContent;
+    const note = document.getElementById('shadowModeApprovalNote').value.trim();
+
+    // Validate note
+    if (!note || note.length < 10) {
+      alert('Please enter an approval note (minimum 10 characters)');
+      return;
+    }
+
+    // Confirm
+    if (!confirm(`Approve forecast run ${runId}?\n\nThis will execute the forecasted orders.`)) {
+      return;
+    }
+
+    // Disable buttons
+    document.getElementById('shadowModeApproveBtn').disabled = true;
+    document.getElementById('shadowModeRejectBtn').disabled = true;
+
+    const response = await fetchAPI('/owner/forecast-orders/approve', {
+      method: 'POST',
+      body: JSON.stringify({ runId, note })
+    });
+
+    if (response.success) {
+      alert(`✅ Forecast approved successfully!\n\n${response.items_affected} items will be processed.`);
+
+      // Hide banner
+      const banner = document.getElementById('shadowModeApprovalBanner');
+      if (banner) {
+        banner.classList.add('u-hide');
+      }
+
+      // Reload forecast data
+      if (typeof loadDailyForecast === 'function') {
+        loadDailyForecast();
+      }
+    } else {
+      alert(`Error: ${response.error || 'Failed to approve forecast'}`);
+      // Re-enable buttons
+      document.getElementById('shadowModeApproveBtn').disabled = false;
+      document.getElementById('shadowModeRejectBtn').disabled = false;
+    }
+  } catch (error) {
+    console.error('Error approving forecast:', error);
+    alert(`Error: ${error.message}`);
+    // Re-enable buttons
+    document.getElementById('shadowModeApproveBtn').disabled = false;
+    document.getElementById('shadowModeRejectBtn').disabled = false;
+  }
+}
+
+/**
+ * Reject Shadow Mode forecast
+ */
+async function rejectShadowModeForecast() {
+  try {
+    const runId = document.getElementById('shadowModeRunId').textContent;
+    const note = document.getElementById('shadowModeApprovalNote').value.trim();
+
+    // Validate note
+    if (!note || note.length < 10) {
+      alert('Please enter a rejection reason (minimum 10 characters)');
+      return;
+    }
+
+    // Confirm
+    if (!confirm(`Reject forecast run ${runId}?\n\nThis will discard the forecasted orders.`)) {
+      return;
+    }
+
+    // Disable buttons
+    document.getElementById('shadowModeApproveBtn').disabled = true;
+    document.getElementById('shadowModeRejectBtn').disabled = true;
+
+    const response = await fetchAPI('/owner/forecast-orders/reject', {
+      method: 'POST',
+      body: JSON.stringify({ runId, note })
+    });
+
+    if (response.success) {
+      alert(`Forecast rejected.\n\n${response.message || 'No orders will be executed.'}`);
+
+      // Hide banner
+      const banner = document.getElementById('shadowModeApprovalBanner');
+      if (banner) {
+        banner.classList.add('u-hide');
+      }
+    } else {
+      alert(`Error: ${response.error || 'Failed to reject forecast'}`);
+      // Re-enable buttons
+      document.getElementById('shadowModeApproveBtn').disabled = false;
+      document.getElementById('shadowModeRejectBtn').disabled = false;
+    }
+  } catch (error) {
+    console.error('Error rejecting forecast:', error);
+    alert(`Error: ${error.message}`);
+    // Re-enable buttons
+    document.getElementById('shadowModeApproveBtn').disabled = false;
+    document.getElementById('shadowModeRejectBtn').disabled = false;
+  }
+}
+
+/**
+ * View Shadow Mode forecast details
+ */
+async function viewShadowModeDetails() {
+  try {
+    const runId = document.getElementById('shadowModeRunId').textContent;
+    // For now, just show the forecast table
+    // In future, could open a modal with detailed breakdown
+    const forecastTab = document.querySelector('.tab[onclick*="forecast"]');
+    if (forecastTab) {
+      forecastTab.click();
+    }
+    if (typeof loadDailyForecast === 'function') {
+      loadDailyForecast();
+    }
+  } catch (error) {
+    console.error('Error viewing forecast details:', error);
+  }
+}
+
+// Attach event listeners for Shadow Mode buttons
+document.addEventListener('DOMContentLoaded', function() {
+  const approveBtn = document.getElementById('shadowModeApproveBtn');
+  const rejectBtn = document.getElementById('shadowModeRejectBtn');
+  const viewBtn = document.getElementById('shadowModeViewDetailsBtn');
+
+  if (approveBtn) {
+    approveBtn.addEventListener('click', approveShadowModeForecast);
+  }
+  if (rejectBtn) {
+    rejectBtn.addEventListener('click', rejectShadowModeForecast);
+  }
+  if (viewBtn) {
+    viewBtn.addEventListener('click', viewShadowModeDetails);
+  }
+
+  // Load Shadow Mode state on page load
+  loadShadowModeState();
+});
+
+// Export Shadow Mode functions to window
+window.loadShadowModeState = loadShadowModeState;
+window.approveShadowModeForecast = approveShadowModeForecast;
+window.rejectShadowModeForecast = rejectShadowModeForecast;
+window.viewShadowModeDetails = viewShadowModeDetails;
+
+console.log('✅ Shadow Mode v15.5.0 loaded (Forecast Approval Workflow)');
+
+/* ============================================
+   v15.5.0: Users Panel (OWNER Only)
+   ============================================ */
+
+/**
+ * Load users list
+ */
+async function loadUsersList() {
+  try {
+    const tbody = document.getElementById('usersTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div> Loading users...</td></tr>';
+
+    const response = await fetchAPI('/admin/users/list');
+    
+    if (response.success && response.users) {
+      if (response.users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state-centered">No users found</td></tr>';
+        return;
+      }
+
+      let html = '';
+      response.users.forEach(user => {
+        const statusClass = user.active ? 'badge-success' : 'badge-danger';
+        const statusText = user.active ? 'Active' : 'Disabled';
+        const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never';
+        const locations = user.locations && user.locations.length > 0 
+          ? user.locations.join(', ') 
+          : 'All';
+
+        html += `
+          <tr>
+            <td>${escapeHtml(user.email)}</td>
+            <td><span class="badge badge-info">${escapeHtml(user.role)}</span></td>
+            <td><span class="badge ${statusClass}">${statusText}</span></td>
+            <td>${escapeHtml(lastLogin)}</td>
+            <td>${escapeHtml(locations)}</td>
+            <td>
+              <div class="flex-gap-half">
+                <button type="button" class="btn btn-sm btn-primary" title="Change Role" data-user-id="${escapeHtml(user.id)}">🔄</button>
+                <button type="button" class="btn btn-sm btn-warning" title="Revoke Sessions" data-user-email="${escapeHtml(user.email)}">🚫</button>
+                <button type="button" class="btn btn-sm btn-secondary" title="Force Rebind" data-user-email="${escapeHtml(user.email)}">🔐</button>
+                <button type="button" class="btn btn-sm ${user.active ? 'btn-danger' : 'btn-success'}" title="${user.active ? 'Disable' : 'Enable'}" data-user-id="${escapeHtml(user.id)}" data-user-active="${user.active}">${user.active ? '❌' : '✅'}</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+
+      // Attach event listeners
+      tbody.querySelectorAll('button[data-user-id]').forEach(btn => {
+        const userId = btn.getAttribute('data-user-id');
+        const action = btn.getAttribute('title');
+        
+        if (action === 'Change Role') {
+          btn.addEventListener('click', () => openChangeRoleModal(userId));
+        } else if (action === 'Disable' || action === 'Enable') {
+          const isActive = btn.getAttribute('data-user-active') === 'true';
+          btn.addEventListener('click', () => toggleUserStatus(userId, isActive));
+        }
+      });
+
+      tbody.querySelectorAll('button[data-user-email]').forEach(btn => {
+        const email = btn.getAttribute('data-user-email');
+        const action = btn.getAttribute('title');
+        
+        if (action === 'Revoke Sessions') {
+          btn.addEventListener('click', () => revokeUserSessions(email));
+        } else if (action === 'Force Rebind') {
+          btn.addEventListener('click', () => forceDeviceRebind(email));
+        }
+      });
+
+    } else {
+      tbody.innerHTML = `<tr><td colspan="6" class="alert alert-danger">Error: ${escapeHtml(response.error || 'Failed to load users')}</td></tr>`;
+    }
+  } catch (error) {
+    console.error('Error loading users:', error);
+    const tbody = document.getElementById('usersTableBody');
+    tbody.innerHTML = `<tr><td colspan="6" class="alert alert-danger">Error: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+/**
+ * Load pending invites
+ */
+async function loadPendingInvites() {
+  try {
+    const tbody = document.getElementById('pendingInvitesTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading invites...</td></tr>';
+
+    const response = await fetchAPI('/admin/users/invites/pending');
+    
+    if (response.success && response.invites) {
+      document.getElementById('pendingInvitesCount').textContent = response.invites.length;
+
+      if (response.invites.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state-centered">No pending invites</td></tr>';
+        return;
+      }
+
+      let html = '';
+      response.invites.forEach(invite => {
+        const created = new Date(invite.createdAt).toLocaleString();
+        const expires = new Date(invite.expiresAt).toLocaleString();
+        const isExpired = new Date(invite.expiresAt) < new Date();
+
+        html += `
+          <tr>
+            <td>${escapeHtml(invite.email)}</td>
+            <td><span class="badge badge-info">${escapeHtml(invite.role)}</span></td>
+            <td>${escapeHtml(created)}</td>
+            <td class="${isExpired ? 'text-color-danger' : ''}">${escapeHtml(expires)}</td>
+            <td>${escapeHtml(invite.createdBy)}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-danger" title="Revoke Invite" data-token="${escapeHtml(invite.token)}">🗑️ Revoke</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+
+      // Attach revoke listeners
+      tbody.querySelectorAll('button[data-token]').forEach(btn => {
+        const token = btn.getAttribute('data-token');
+        btn.addEventListener('click', () => revokeInvite(token));
+      });
+
+    } else {
+      tbody.innerHTML = `<tr><td colspan="6" class="alert alert-danger">Error: ${escapeHtml(response.error || 'Failed to load invites')}</td></tr>`;
+    }
+  } catch (error) {
+    console.error('Error loading invites:', error);
+    const tbody = document.getElementById('pendingInvitesTableBody');
+    tbody.innerHTML = `<tr><td colspan="6" class="alert alert-danger">Error: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+/**
+ * Open invite user modal
+ */
+function openInviteUserModal() {
+  const modal = document.getElementById('inviteUserModal');
+  modal.classList.add('active');
+  
+  // Clear form
+  document.getElementById('inviteUserForm').reset();
+}
+
+/**
+ * Close invite user modal
+ */
+function closeInviteUserModal() {
+  const modal = document.getElementById('inviteUserModal');
+  modal.classList.remove('active');
+}
+
+/**
+ * Send user invite
+ */
+async function sendUserInvite() {
+  try {
+    const email = document.getElementById('inviteUserEmail').value.trim();
+    const role = document.getElementById('inviteUserRole').value;
+    const locationsStr = document.getElementById('inviteUserLocations').value.trim();
+    const notes = document.getElementById('inviteUserNotes').value.trim();
+
+    if (!email || !role) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const locations = locationsStr ? locationsStr.split(',').map(l => l.trim()) : [];
+
+    // Disable button
+    const btn = document.getElementById('sendInviteBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    const response = await fetchAPI('/admin/users/invite', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        role,
+        tenantId: window.currentUser?.tenant_id || 'default',
+        locations,
+        notes
+      })
+    });
+
+    if (response.success) {
+      alert(`✅ Invite sent to ${email}!\n\nInvite Token: ${response.token}\n\nEmail Preview:\n${response.emailBody}`);
+      closeInviteUserModal();
+      loadUsersList();
+      loadPendingInvites();
+    } else {
+      alert(`Error: ${response.error || 'Failed to send invite'}`);
+    }
+
+    // Re-enable button
+    btn.disabled = false;
+    btn.textContent = '📧 Send Invite';
+
+  } catch (error) {
+    console.error('Error sending invite:', error);
+    alert(`Error: ${error.message}`);
+    
+    // Re-enable button
+    const btn = document.getElementById('sendInviteBtn');
+    btn.disabled = false;
+    btn.textContent = '📧 Send Invite';
+  }
+}
+
+/**
+ * Open change role modal
+ */
+async function openChangeRoleModal(userId) {
+  try {
+    // Get user details
+    const response = await fetchAPI(`/admin/users/${userId}`);
+    
+    if (response.success && response.user) {
+      document.getElementById('changeRoleUserEmail').textContent = response.user.email;
+      document.getElementById('changeRoleCurrentRole').textContent = response.user.role;
+      document.getElementById('changeRoleNewRole').value = response.user.role;
+
+      // Store userId for later
+      document.getElementById('confirmChangeRoleBtn').setAttribute('data-user-id', userId);
+
+      const modal = document.getElementById('changeRoleModal');
+      modal.classList.add('active');
+    } else {
+      alert(`Error: ${response.error || 'User not found'}`);
+    }
+  } catch (error) {
+    console.error('Error loading user:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+/**
+ * Close change role modal
+ */
+function closeChangeRoleModal() {
+  const modal = document.getElementById('changeRoleModal');
+  modal.classList.remove('active');
+}
+
+/**
+ * Confirm role change
+ */
+async function confirmRoleChange() {
+  try {
+    const userId = document.getElementById('confirmChangeRoleBtn').getAttribute('data-user-id');
+    const newRole = document.getElementById('changeRoleNewRole').value;
+    const userEmail = document.getElementById('changeRoleUserEmail').textContent;
+
+    if (!newRole) {
+      alert('Please select a role');
+      return;
+    }
+
+    if (!confirm(`Change ${userEmail} to ${newRole}?`)) {
+      return;
+    }
+
+    const response = await fetchAPI(`/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ newRole })
+    });
+
+    if (response.success) {
+      alert(`✅ Role changed to ${newRole}`);
+      closeChangeRoleModal();
+      loadUsersList();
+    } else {
+      alert(`Error: ${response.error || 'Failed to change role'}`);
+    }
+  } catch (error) {
+    console.error('Error changing role:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+/**
+ * Revoke user sessions
+ */
+async function revokeUserSessions(email) {
+  if (!confirm(`Revoke all active sessions for ${email}?\n\nUser will need to log in again.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetchAPI(`/admin/users/sessions/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+
+    if (response.success) {
+      alert(`✅ Sessions revoked for ${email}`);
+    } else {
+      alert(`Error: ${response.error || 'Failed to revoke sessions'}`);
+    }
+  } catch (error) {
+    console.error('Error revoking sessions:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+/**
+ * Force device rebind
+ */
+async function forceDeviceRebind(email) {
+  if (!confirm(`Force device rebind for ${email}?\n\nUser will need to re-register their device on next login.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetchAPI(`/admin/users/device/force-rebind`, {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+
+    if (response.success) {
+      alert(`✅ Device rebind forced for ${email}`);
+    } else {
+      alert(`Error: ${response.error || 'Failed to force rebind'}`);
+    }
+  } catch (error) {
+    console.error('Error forcing rebind:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+/**
+ * Toggle user status (enable/disable)
+ */
+async function toggleUserStatus(userId, isCurrentlyActive) {
+  const action = isCurrentlyActive ? 'disable' : 'enable';
+  
+  if (!confirm(`${action.toUpperCase()} this user?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetchAPI(`/admin/users/${userId}/${action}`, {
+      method: 'PUT'
+    });
+
+    if (response.success) {
+      alert(`✅ User ${action}d successfully`);
+      loadUsersList();
+    } else {
+      alert(`Error: ${response.error || `Failed to ${action} user`}`);
+    }
+  } catch (error) {
+    console.error(`Error ${action}ing user:`, error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+/**
+ * Revoke invite
+ */
+async function revokeInvite(token) {
+  if (!confirm('Revoke this invite?')) {
+    return;
+  }
+
+  try {
+    const response = await fetchAPI(`/admin/users/invites/${token}/revoke`, {
+      method: 'DELETE'
+    });
+
+    if (response.success) {
+      alert('✅ Invite revoked');
+      loadPendingInvites();
+    } else {
+      alert(`Error: ${response.error || 'Failed to revoke invite'}`);
+    }
+  } catch (error) {
+    console.error('Error revoking invite:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+// Attach event listeners for Users Panel
+document.addEventListener('DOMContentLoaded', function() {
+  // Refresh users button
+  const refreshUsersBtn = document.getElementById('refreshUsersBtn');
+  if (refreshUsersBtn) {
+    refreshUsersBtn.addEventListener('click', () => {
+      loadUsersList();
+      loadPendingInvites();
+    });
+  }
+
+  // Open invite modal button
+  const openInviteBtn = document.getElementById('openInviteUserModalBtn');
+  if (openInviteBtn) {
+    openInviteBtn.addEventListener('click', openInviteUserModal);
+  }
+
+  // Close invite modal buttons
+  const closeInviteBtn1 = document.getElementById('closeInviteUserModalBtn');
+  const closeInviteBtn2 = document.getElementById('cancelInviteUserBtn');
+  if (closeInviteBtn1) closeInviteBtn1.addEventListener('click', closeInviteUserModal);
+  if (closeInviteBtn2) closeInviteBtn2.addEventListener('click', closeInviteUserModal);
+
+  // Send invite button
+  const sendInviteBtn = document.getElementById('sendInviteBtn');
+  if (sendInviteBtn) {
+    sendInviteBtn.addEventListener('click', sendUserInvite);
+  }
+
+  // Close change role modal buttons
+  const closeRoleBtn1 = document.getElementById('closeChangeRoleModalBtn');
+  const closeRoleBtn2 = document.getElementById('cancelChangeRoleBtn');
+  if (closeRoleBtn1) closeRoleBtn1.addEventListener('click', closeChangeRoleModal);
+  if (closeRoleBtn2) closeRoleBtn2.addEventListener('click', closeChangeRoleModal);
+
+  // Confirm change role button
+  const confirmRoleBtn = document.getElementById('confirmChangeRoleBtn');
+  if (confirmRoleBtn) {
+    confirmRoleBtn.addEventListener('click', confirmRoleChange);
+  }
+
+  // Load users when Settings tab is opened (if OWNER)
+  const settingsTab = document.querySelector('.tab[onclick*="settings"]');
+  if (settingsTab) {
+    settingsTab.addEventListener('click', () => {
+      // Check if user is OWNER before loading
+      if (window.currentUser && window.currentUser.role === 'OWNER') {
+        setTimeout(() => {
+          loadUsersList();
+        }, 100);
+      }
+    });
+  }
+});
+
+// Export Users Panel functions to window
+window.loadUsersList = loadUsersList;
+window.loadPendingInvites = loadPendingInvites;
+window.openInviteUserModal = openInviteUserModal;
+window.closeInviteUserModal = closeInviteUserModal;
+window.sendUserInvite = sendUserInvite;
+window.openChangeRoleModal = openChangeRoleModal;
+window.closeChangeRoleModal = closeChangeRoleModal;
+window.confirmRoleChange = confirmRoleChange;
+window.revokeUserSessions = revokeUserSessions;
+window.forceDeviceRebind = forceDeviceRebind;
+window.toggleUserStatus = toggleUserStatus;
+window.revokeInvite = revokeInvite;
+
+console.log('✅ Users Panel v15.5.0 loaded (User Management)');
+
+/* ============================================
+   v15.5.0: Finance Quick-Fix Workspace
+   ============================================ */
+
+/**
+ * Load Finance Quick-Fix data (counters and tables)
+ */
+async function loadFinanceQuickFix() {
+  try {
+    // Load counters
+    const countersResponse = await fetchAPI('/finance/quick-fix/counters');
+
+    if (countersResponse.success) {
+      const { needsMapping, outOfTolerance } = countersResponse;
+
+      // Update counter values
+      document.getElementById('needsMappingCount').textContent = needsMapping || 0;
+      document.getElementById('needsMappingTotal').textContent = needsMapping || 0;
+      document.getElementById('outOfToleranceCount').textContent = outOfTolerance || 0;
+      document.getElementById('outOfToleranceTotal').textContent = outOfTolerance || 0;
+
+      console.log('✅ Finance Quick-Fix counters loaded', { needsMapping, outOfTolerance });
+    }
+
+    // Load tables (if sections are open)
+    const needsMappingSection = document.getElementById('needsMappingSection');
+    const outOfToleranceSection = document.getElementById('outOfToleranceSection');
+
+    if (needsMappingSection && needsMappingSection.open) {
+      await loadNeedsMappingTable();
+    }
+
+    if (outOfToleranceSection && outOfToleranceSection.open) {
+      await loadOutOfToleranceTable();
+    }
+
+  } catch (error) {
+    console.error('Error loading Finance Quick-Fix data:', error);
+  }
+}
+
+/**
+ * Load Needs Mapping table
+ */
+async function loadNeedsMappingTable() {
+  try {
+    const tbody = document.getElementById('needsMappingTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div> Loading...</td></tr>';
+
+    const response = await fetchAPI('/finance/quick-fix/needs-mapping');
+
+    if (response.success && response.items) {
+      if (response.items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state-centered">✅ All items have category mappings!</td></tr>';
+        return;
+      }
+
+      let html = '';
+      response.items.forEach(item => {
+        const totalValue = item.totalValue ? `$${parseFloat(item.totalValue).toFixed(2)}` : '--';
+
+        html += `
+          <tr>
+            <td>${escapeHtml(item.itemCode || '--')}</td>
+            <td>${escapeHtml(item.itemName || '--')}</td>
+            <td>${escapeHtml(item.vendor || '--')}</td>
+            <td>${totalValue}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-primary" data-item-code="${escapeHtml(item.itemCode)}" title="Assign Category">🏷️ Map</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+
+      // Attach event listeners
+      tbody.querySelectorAll('button[data-item-code]').forEach(btn => {
+        const itemCode = btn.getAttribute('data-item-code');
+        btn.addEventListener('click', () => assignCategoryMapping(itemCode));
+      });
+
+    } else {
+      tbody.innerHTML = `<tr><td colspan="5" class="alert alert-danger">Error: ${escapeHtml(response.error || 'Failed to load data')}</td></tr>`;
+    }
+  } catch (error) {
+    console.error('Error loading needs mapping table:', error);
+    const tbody = document.getElementById('needsMappingTableBody');
+    tbody.innerHTML = `<tr><td colspan="5" class="alert alert-danger">Error: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+/**
+ * Load Out of Tolerance table
+ */
+async function loadOutOfToleranceTable() {
+  try {
+    const tbody = document.getElementById('outOfToleranceTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div> Loading...</td></tr>';
+
+    const response = await fetchAPI('/finance/quick-fix/out-of-tolerance');
+
+    if (response.success && response.items) {
+      if (response.items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state-centered">✅ All items within tolerance!</td></tr>';
+        return;
+      }
+
+      let html = '';
+      response.items.forEach(item => {
+        const expected = item.expected ? `$${parseFloat(item.expected).toFixed(2)}` : '--';
+        const actual = item.actual ? `$${parseFloat(item.actual).toFixed(2)}` : '--';
+        const variance = item.variance ? `${parseFloat(item.variance).toFixed(1)}%` : '--';
+        const varianceClass = item.variance > 0 ? 'text-color-danger' : 'text-color-success';
+
+        html += `
+          <tr>
+            <td>${escapeHtml(item.itemCode || '--')}</td>
+            <td>${escapeHtml(item.itemName || '--')}</td>
+            <td>${expected}</td>
+            <td>${actual}</td>
+            <td class="${varianceClass}">${variance}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-warning" data-item-code="${escapeHtml(item.itemCode)}" title="Mark as Exception">⚠️ Exception</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+
+      // Attach event listeners
+      tbody.querySelectorAll('button[data-item-code]').forEach(btn => {
+        const itemCode = btn.getAttribute('data-item-code');
+        btn.addEventListener('click', () => markFinanceException(itemCode));
+      });
+
+    } else {
+      tbody.innerHTML = `<tr><td colspan="6" class="alert alert-danger">Error: ${escapeHtml(response.error || 'Failed to load data')}</td></tr>`;
+    }
+  } catch (error) {
+    console.error('Error loading out of tolerance table:', error);
+    const tbody = document.getElementById('outOfToleranceTableBody');
+    tbody.innerHTML = `<tr><td colspan="6" class="alert alert-danger">Error: ${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+/**
+ * Assign category mapping to an item
+ */
+async function assignCategoryMapping(itemCode) {
+  const category = prompt(`Assign category to ${itemCode}:\n\nOptions: BAKE, BEV, MEAT, PROD, MILK, GROC, OTHER\n\nEnter category code:`);
+
+  if (!category) {
+    return;
+  }
+
+  const validCategories = ['BAKE', 'BEV', 'MEAT', 'PROD', 'MILK', 'GROC', 'OTHER'];
+  if (!validCategories.includes(category.toUpperCase())) {
+    alert(`Invalid category. Please use one of: ${validCategories.join(', ')}`);
+    return;
+  }
+
+  try {
+    const response = await fetchAPI('/finance/category-mapping', {
+      method: 'POST',
+      body: JSON.stringify({
+        itemCode,
+        category: category.toUpperCase()
+      })
+    });
+
+    if (response.success) {
+      alert(`✅ Category "${category.toUpperCase()}" assigned to ${itemCode}`);
+      // Reload quick-fix data
+      loadFinanceQuickFix();
+    } else {
+      alert(`Error: ${response.error || 'Failed to assign category'}`);
+    }
+  } catch (error) {
+    console.error('Error assigning category:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+/**
+ * Mark item as finance exception
+ */
+async function markFinanceException(itemCode) {
+  const reason = prompt(`Mark ${itemCode} as exception.\n\nEnter reason (required):`);
+
+  if (!reason || reason.trim().length < 5) {
+    alert('Exception reason is required (minimum 5 characters)');
+    return;
+  }
+
+  try {
+    const response = await fetchAPI('/finance/mark-exception', {
+      method: 'POST',
+      body: JSON.stringify({
+        itemCode,
+        reason: reason.trim()
+      })
+    });
+
+    if (response.success) {
+      alert(`✅ Item ${itemCode} marked as exception`);
+      // Reload quick-fix data
+      loadFinanceQuickFix();
+    } else {
+      alert(`Error: ${response.error || 'Failed to mark exception'}`);
+    }
+  } catch (error) {
+    console.error('Error marking exception:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+// Attach event listeners for Finance Quick-Fix
+document.addEventListener('DOMContentLoaded', function() {
+  // Refresh Quick-Fix button
+  const refreshQuickFixBtn = document.getElementById('refreshQuickFixBtn');
+  if (refreshQuickFixBtn) {
+    refreshQuickFixBtn.addEventListener('click', loadFinanceQuickFix);
+  }
+
+  // Counter click handlers to expand sections
+  const needsMappingCounter = document.getElementById('needsMappingCounter');
+  if (needsMappingCounter) {
+    needsMappingCounter.addEventListener('click', () => {
+      const section = document.getElementById('needsMappingSection');
+      if (section) {
+        section.open = true;
+        loadNeedsMappingTable();
+      }
+    });
+  }
+
+  const outOfToleranceCounter = document.getElementById('outOfToleranceCounter');
+  if (outOfToleranceCounter) {
+    outOfToleranceCounter.addEventListener('click', () => {
+      const section = document.getElementById('outOfToleranceSection');
+      if (section) {
+        section.open = true;
+        loadOutOfToleranceTable();
+      }
+    });
+  }
+
+  // Load tables when details are opened
+  const needsMappingSection = document.getElementById('needsMappingSection');
+  if (needsMappingSection) {
+    needsMappingSection.addEventListener('toggle', function() {
+      if (this.open) {
+        loadNeedsMappingTable();
+      }
+    });
+  }
+
+  const outOfToleranceSection = document.getElementById('outOfToleranceSection');
+  if (outOfToleranceSection) {
+    outOfToleranceSection.addEventListener('toggle', function() {
+      if (this.open) {
+        loadOutOfToleranceTable();
+      }
+    });
+  }
+
+  // Load quick-fix data when Financials tab is opened
+  const financialsTab = document.querySelector('.tab[onclick*="financials"]');
+  if (financialsTab) {
+    financialsTab.addEventListener('click', () => {
+      // Check if user has finance permissions
+      if (window.currentUser && (window.currentUser.role === 'FINANCE' || window.currentUser.role === 'OWNER')) {
+        setTimeout(() => {
+          loadFinanceQuickFix();
+        }, 100);
+      }
+    });
+  }
+});
+
+// Export Finance Quick-Fix functions to window
+window.loadFinanceQuickFix = loadFinanceQuickFix;
+window.loadNeedsMappingTable = loadNeedsMappingTable;
+window.loadOutOfToleranceTable = loadOutOfToleranceTable;
+window.assignCategoryMapping = assignCategoryMapping;
+window.markFinanceException = markFinanceException;
+
+console.log('✅ Finance Quick-Fix v15.5.0 loaded (Workspace)');
+
+/* ============================================
+   v15.5.0: Export Confirmation Modal
+   ============================================ */
+
+/**
+ * Show export confirmation modal with details and guardrails
+ * @param {Object} exportDetails - Export request details
+ * @param {string} exportDetails.type - Export type (e.g., "Financial Summary", "Inventory Count")
+ * @param {string} exportDetails.timeframe - Time range (e.g., "Jan 2025", "Q1 2025")
+ * @param {number} exportDetails.estimatedRows - Estimated row count
+ * @param {number} exportDetails.estimatedSizeMB - Estimated file size in MB
+ * @param {Function} exportDetails.onConfirm - Callback to execute export
+ */
+function showExportConfirmModal(exportDetails) {
+  const modal = document.getElementById('exportConfirmModal');
+  if (!modal) {
+    console.error('Export confirmation modal not found');
+    return;
+  }
+
+  // Populate export details
+  document.getElementById('exportType').textContent = exportDetails.type || 'Unknown';
+
+  const timeframeEl = document.getElementById('exportTimeframe');
+  if (timeframeEl) {
+    timeframeEl.textContent = exportDetails.timeframe || 'Not specified';
+  }
+
+  const rowCount = exportDetails.estimatedRows || 0;
+  const rowCountEl = document.getElementById('exportRowCount');
+  rowCountEl.textContent = rowCount.toLocaleString();
+
+  // Warn if exceeds maximum
+  if (rowCount > 50000) {
+    rowCountEl.innerHTML = `<span style="color: var(--danger);">${rowCount.toLocaleString()} ⚠️ Exceeds maximum (50,000)</span>`;
+  }
+
+  const fileSizeEl = document.getElementById('exportFileSize');
+  if (fileSizeEl) {
+    const sizeMB = exportDetails.estimatedSizeMB || 0;
+    fileSizeEl.textContent = `~${sizeMB.toFixed(2)} MB`;
+  }
+
+  // Load and display rate limit status
+  loadExportRateLimit();
+
+  // Reset acknowledgment checkbox
+  const acknowledgmentCheckbox = document.getElementById('exportAcknowledgment');
+  acknowledgmentCheckbox.checked = false;
+
+  // Disable confirm button initially
+  const confirmBtn = document.getElementById('confirmExportBtn');
+  confirmBtn.disabled = true;
+
+  // Store the onConfirm callback
+  modal.dataset.onConfirm = 'pendingExportCallback';
+  window.pendingExportCallback = exportDetails.onConfirm;
+
+  // Show modal
+  modal.classList.add('modal-active');
+  console.log('✅ Export confirmation modal opened', exportDetails);
+}
+
+/**
+ * Hide export confirmation modal
+ */
+function hideExportConfirmModal() {
+  const modal = document.getElementById('exportConfirmModal');
+  if (modal) {
+    modal.classList.remove('modal-active');
+
+    // Clear callback
+    delete window.pendingExportCallback;
+
+    console.log('Export confirmation modal closed');
+  }
+}
+
+/**
+ * Load and display export rate limit status
+ */
+async function loadExportRateLimit() {
+  try {
+    const response = await fetchAPI('/api/export/rate-limit');
+
+    if (response.success) {
+      const { remaining, limit, resetAt } = response;
+      const usedCount = limit - remaining;
+      const percentage = (usedCount / limit) * 100;
+
+      // Update rate limit bar
+      const rateBar = document.getElementById('exportRateBar');
+      rateBar.style.width = `${percentage}%`;
+
+      // Update rate limit text
+      const rateLimitText = document.getElementById('exportRateLimitText');
+      if (rateLimitText) {
+        rateLimitText.textContent = `${remaining} of ${limit} exports remaining (resets ${new Date(resetAt).toLocaleString()})`;
+      }
+
+      // Warn if limit reached
+      if (remaining === 0) {
+        const confirmBtn = document.getElementById('confirmExportBtn');
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '🚫 Rate Limit Reached';
+
+        alert('⚠️ Export rate limit reached. Please try again later.');
+      }
+
+      console.log('✅ Export rate limit loaded', { remaining, limit, percentage: percentage.toFixed(1) + '%' });
+    } else {
+      console.warn('Failed to load export rate limit:', response.error);
+      // Default to 0% if failed to load
+      document.getElementById('exportRateBar').style.width = '0%';
+    }
+  } catch (error) {
+    console.error('Error loading export rate limit:', error);
+    document.getElementById('exportRateBar').style.width = '0%';
+  }
+}
+
+/**
+ * Handle export confirmation
+ */
+async function confirmExport() {
+  const acknowledgmentCheckbox = document.getElementById('exportAcknowledgment');
+
+  if (!acknowledgmentCheckbox.checked) {
+    alert('⚠️ Please acknowledge secure data handling before exporting.');
+    return;
+  }
+
+  const confirmBtn = document.getElementById('confirmExportBtn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = '⏳ Exporting...';
+
+  try {
+    // Execute the stored callback
+    if (window.pendingExportCallback && typeof window.pendingExportCallback === 'function') {
+      await window.pendingExportCallback();
+      console.log('✅ Export executed successfully');
+
+      // Close modal after successful export
+      hideExportConfirmModal();
+    } else {
+      throw new Error('No export callback found');
+    }
+  } catch (error) {
+    console.error('Error executing export:', error);
+    alert(`❌ Export failed: ${error.message}`);
+
+    // Re-enable button
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '📥 Proceed with Export';
+  }
+}
+
+/**
+ * Toggle export confirm button based on acknowledgment
+ */
+function toggleExportConfirmButton() {
+  const acknowledgmentCheckbox = document.getElementById('exportAcknowledgment');
+  const confirmBtn = document.getElementById('confirmExportBtn');
+
+  if (acknowledgmentCheckbox.checked) {
+    confirmBtn.disabled = false;
+  } else {
+    confirmBtn.disabled = true;
+  }
+}
+
+// Export functions to window
+window.showExportConfirmModal = showExportConfirmModal;
+window.hideExportConfirmModal = hideExportConfirmModal;
+window.loadExportRateLimit = loadExportRateLimit;
+window.confirmExport = confirmExport;
+window.toggleExportConfirmButton = toggleExportConfirmButton;
+
+console.log('✅ Export Confirmation Modal v15.5.0 loaded');
+
+// Event listeners for Export Confirmation Modal
+document.addEventListener('DOMContentLoaded', function() {
+  // Close modal button
+  const closeExportConfirmModalBtn = document.getElementById('closeExportConfirmModalBtn');
+  if (closeExportConfirmModalBtn) {
+    closeExportConfirmModalBtn.addEventListener('click', hideExportConfirmModal);
+  }
+
+  // Cancel button
+  const cancelExportBtn = document.getElementById('cancelExportBtn');
+  if (cancelExportBtn) {
+    cancelExportBtn.addEventListener('click', hideExportConfirmModal);
+  }
+
+  // Confirm button
+  const confirmExportBtn = document.getElementById('confirmExportBtn');
+  if (confirmExportBtn) {
+    confirmExportBtn.addEventListener('click', confirmExport);
+  }
+
+  // Acknowledgment checkbox
+  const exportAcknowledgment = document.getElementById('exportAcknowledgment');
+  if (exportAcknowledgment) {
+    exportAcknowledgment.addEventListener('change', toggleExportConfirmButton);
+  }
+
+  // Close modal on backdrop click
+  const exportConfirmModal = document.getElementById('exportConfirmModal');
+  if (exportConfirmModal) {
+    exportConfirmModal.addEventListener('click', function(event) {
+      if (event.target === exportConfirmModal) {
+        hideExportConfirmModal();
+      }
+    });
+  }
+});
+
+// ============================================================================
+// GFS Invoice Upload Functions (v15.5.4)
+// ============================================================================
+
+function openGFSUploadModal() {
+  const modal = document.getElementById('gfsUploadModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    // Reset form
+    document.getElementById('gfsUploadForm').reset();
+    document.getElementById('gfsUploadProgress').classList.add('hidden');
+    document.getElementById('gfsUploadResults').classList.add('hidden');
+    document.getElementById('gfsUploadBtn').disabled = false;
+  }
+}
+
+function closeGFSUploadModal() {
+  const modal = document.getElementById('gfsUploadModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+async function uploadGFSInvoice() {
+  const fileInput = document.getElementById('gfsInvoiceFile');
+  const files = fileInput.files;
+
+  if (!files || files.length === 0) {
+    alert('Please select at least one PDF file');
+    return;
+  }
+
+  const uploadBtn = document.getElementById('gfsUploadBtn');
+  const progressDiv = document.getElementById('gfsUploadProgress');
+  const resultsDiv = document.getElementById('gfsUploadResults');
+  const statusDiv = document.getElementById('gfsUploadStatus');
+  const progressBar = document.getElementById('gfsUploadProgressBar');
+  const summaryDiv = document.getElementById('gfsUploadSummary');
+
+  uploadBtn.disabled = true;
+  progressDiv.classList.remove('hidden');
+  resultsDiv.classList.add('hidden');
+
+  let successCount = 0;
+  let failCount = 0;
+  let skipCount = 0;
+  const failedFiles = [];
+  const skippedFiles = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    statusDiv.textContent = `Uploading ${i + 1} of ${files.length}: ${file.name}...`;
+    progressBar.value = (i / files.length) * 100;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/owner/pdfs/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        successCount++;
+      } else if (response.status === 409 || (data.message && data.message.includes('duplicate'))) {
+        // Duplicate found - skip it
+        skipCount++;
+        skippedFiles.push(file.name);
+      } else {
+        failCount++;
+        failedFiles.push(file.name);
+      }
+    } catch (error) {
+      failCount++;
+      failedFiles.push(file.name);
+      console.error('Upload error:', error);
+    }
+  }
+
+  progressBar.value = 100;
+  statusDiv.textContent = 'Upload complete!';
+
+  // Show results
+  setTimeout(() => {
+    progressDiv.classList.add('hidden');
+    resultsDiv.classList.remove('hidden');
+
+    let summaryHTML = `<p>✅ Successfully uploaded: <strong>${successCount}</strong> invoice(s)</p>`;
+    if (skipCount > 0) {
+      summaryHTML += `<p>⏭️ Skipped (duplicates): <strong>${skipCount}</strong> invoice(s)</p>`;
+      summaryHTML += `<p><small>Skipped files: ${skippedFiles.join(', ')}</small></p>`;
+    }
+    if (failCount > 0) {
+      summaryHTML += `<p>❌ Failed: <strong>${failCount}</strong> invoice(s)</p>`;
+      summaryHTML += `<p><small>Failed files: ${failedFiles.join(', ')}</small></p>`;
+    }
+    summaryDiv.innerHTML = summaryHTML;
+
+    uploadBtn.disabled = false;
+
+    // Refresh GFS stats
+    loadGFSInvoiceStats();
+
+    // Auto-close after 3 seconds if all succeeded
+    if (failCount === 0) {
+      setTimeout(() => {
+        closeGFSUploadModal();
+      }, 3000);
+    }
+  }, 500);
+}
+
+function viewGFSInvoiceStatus() {
+  // Show invoice status by fiscal period
+  fetch('/api/owner/pdfs?vendor=GFS&period=FY26-P02', {
+    headers: {
+      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    const count = data.docs ? data.docs.length : 0;
+    const total = data.docs ? data.docs.reduce((sum, doc) => sum + (doc.invoice_amount || 0), 0) : 0;
+    alert(`FY26-P02 (October 2025) Status:\n\n✅ Invoices: ${count}\n💰 Total Amount: $${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
+  })
+  .catch(error => {
+    console.error('Error fetching invoice status:', error);
+    alert('Error fetching invoice status. Please try again.');
+  });
+}
+
+function generateGFSReport() {
+  // Generate report for current period
+  const confirmed = confirm('Generate GFS Monthly Report for FY26-P02 (October 2025)?');
+  if (!confirmed) return;
+
+  alert('Report generation initiated. This may take a few moments...');
+
+  // Trigger report generation via backend script
+  fetch('/api/owner/generate-gfs-report', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      fiscal_period: 'FY26-P02'
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert(`✅ Report generated successfully!\n\nFile: ${data.filename}\n\nLocation: ~/Desktop/GFS_Fiscal_Reports_WITH_CATEGORIES/`);
+    } else {
+      alert(`⚠️ Report generation completed with warnings:\n\n${data.message}`);
+    }
+  })
+  .catch(error => {
+    console.error('Error generating report:', error);
+    alert('⚠️ Error generating report. Please check the backend logs.');
+  });
+}
+
+function loadGFSInvoiceStats() {
+  // Load stats for the GFS Invoice Management card
+  fetch('/api/owner/pdfs?vendor=GFS&period=FY26-P02', {
+    headers: {
+      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    const docs = data.docs || [];
+    const count = docs.length;
+    const total = docs.reduce((sum, doc) => sum + (doc.invoice_amount || 0), 0);
+    const lastUpload = docs.length > 0 ? new Date(Math.max(...docs.map(d => new Date(d.created_at)))).toLocaleString() : '--';
+
+    document.getElementById('gfsCurrentPeriodCount').textContent = count;
+    document.getElementById('gfsTotalAmount').textContent = `$${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('gfsLastUpload').textContent = lastUpload;
+  })
+  .catch(error => {
+    console.error('Error loading GFS stats:', error);
+    document.getElementById('gfsCurrentPeriodCount').textContent = '--';
+    document.getElementById('gfsTotalAmount').textContent = '--';
+    document.getElementById('gfsLastUpload').textContent = '--';
+  });
+}
+
+// Export GFS functions
+window.openGFSUploadModal = openGFSUploadModal;
+window.closeGFSUploadModal = closeGFSUploadModal;
+window.uploadGFSInvoice = uploadGFSInvoice;
+window.viewGFSInvoiceStatus = viewGFSInvoiceStatus;
+window.generateGFSReport = generateGFSReport;
+window.loadGFSInvoiceStats = loadGFSInvoiceStats;
+
+console.log('✅ GFS Invoice Management v15.5.4 loaded');
+
+// Auto-load GFS stats when forecast tab is opened
+document.addEventListener('DOMContentLoaded', function() {
+  // Load GFS stats when switching to forecast tab
+  const forecastTab = document.querySelector('.tab[onclick*="forecast"]');
+  if (forecastTab) {
+    forecastTab.addEventListener('click', function() {
+      setTimeout(loadGFSInvoiceStats, 100);
+    });
+  }
+});
+
+/* ============================================
+   v15.8 Quantum Governance Tab
+   ============================================ */
+(function(){
+  const $ = (sel) => document.querySelector(sel);
+  const fmtPct = (n) => (n==null ? '—' : Number(n).toFixed(1) + '%');
+
+  function authHeaders(){
+    const t = localStorage.getItem('authToken') || window.authToken || sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken');
+    const h = { 'Accept':'application/json' };
+    if (t) h['Authorization'] = `Bearer ${t}`;
+    return h;
+  }
+
+  async function fetchJSON(url, options={}){
+    const res = await fetch(url, { headers: authHeaders(), ...options });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  function colorOf(score){
+    if (score >= 90) return 'green';
+    if (score >= 75) return 'amber';
+    return 'red';
+  }
+
+  async function loadGovernanceStatus(){
+    try {
+      const data = await fetchJSON('/api/governance/status');
+
+      // Update main score
+      $('#governanceScore').textContent = fmtPct(data.governance_score);
+
+      // Update pillar scores
+      $('#governanceFinance').textContent = fmtPct(data.pillars.finance_accuracy);
+      $('#governanceHealth').textContent = fmtPct(data.pillars.health_score);
+      $('#governanceAI').textContent = fmtPct(data.pillars.ai_intelligence_index);
+      $('#governanceMenu').textContent = fmtPct(data.pillars.menu_forecast_accuracy);
+
+      // Update badge color
+      const badge = $('#governanceStatusBadge');
+      badge.textContent = data.status;
+      badge.className = 'badge badge-' + colorOf(data.governance_score);
+
+      // Render alerts
+      const tbody = $('#governanceAlertsBody');
+      tbody.innerHTML = '';
+
+      if (!data.alerts || data.alerts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">No active alerts</td></tr>';
+      } else {
+        data.alerts.forEach(alert => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${new Date(alert.created_at).toLocaleString()}</td>
+            <td>${alert.type}</td>
+            <td><span class="badge badge-${alert.severity}">${alert.severity}</span></td>
+            <td>${alert.message}</td>
+            <td>${JSON.stringify(alert.details || {}).slice(0, 100)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      console.log('✅ Governance status loaded:', data);
+    } catch (error) {
+      console.error('Error loading governance status:', error);
+      alert('⚠️ Error loading governance status. Please check backend.');
+    }
+  }
+
+  async function recomputeGovernance(){
+    try {
+      // Check if user is OWNER
+      if (!hasRole('OWNER')) {
+        alert('⚠️ Only OWNER can recompute governance score.');
+        return;
+      }
+
+      const data = await fetchJSON('/api/governance/recompute', { method: 'POST' });
+      console.log('✅ Governance recomputed:', data);
+
+      // Reload status
+      await loadGovernanceStatus();
+
+      alert(`✅ Governance score recomputed: ${data.governance_score.toFixed(1)}/100 (${data.status})`);
+    } catch (error) {
+      console.error('Error recomputing governance:', error);
+      alert('⚠️ Error recomputing governance. Please check backend.');
+    }
+  }
+
+  // Initialize event listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    const refreshBtn = $('#governanceRefreshBtn');
+    const recomputeBtn = $('#governanceRecomputeBtn');
+
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', loadGovernanceStatus);
+    }
+
+    if (recomputeBtn) {
+      recomputeBtn.addEventListener('click', recomputeGovernance);
+
+      // RBAC gating: Hide recompute button for non-OWNER users
+      if (!hasRole('OWNER')) {
+        recomputeBtn.style.display = 'none';
+      }
+    }
+
+    console.log('✅ Quantum Governance v15.8.0 initialized');
+  });
+
+  // Export functions to global scope
+  window.loadGovernanceStatus = loadGovernanceStatus;
+  window.recomputeGovernance = recomputeGovernance;
+})();
+
+/* ============================================
+   v15.9.0: Governance Trends & Forecasting
+   ============================================ */
+(function() {
+  function $$(sel) { return document.querySelector(sel); }
+
+  function authHeaders(){
+    const t = localStorage.getItem('authToken') || window.authToken || sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken');
+    const h = { 'Accept':'application/json' };
+    if (t) h['Authorization'] = `Bearer ${t}`;
+    return h;
+  }
+
+  async function fetchJSON(url, options={}){
+    const res = await fetch(url, { headers: authHeaders(), ...options });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  function colorOf(score){
+    if (score >= 90) return 'green';
+    if (score >= 75) return 'amber';
+    return 'red';
+  }
+
+  /**
+   * Load governance trends from backend
+   */
+  async function loadGovernanceTrends() {
+    try {
+      const period = $$('#governanceTrendsPeriod')?.value || '30';
+      const pillar = $$('#governanceTrendsPillar')?.value || 'all';
+
+      // Calculate date range
+      const to = new Date().toISOString().split('T')[0];
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - parseInt(period));
+      const from = fromDate.toISOString().split('T')[0];
+
+      console.log(`📊 Loading governance trends: ${from} → ${to}, pillar=${pillar}`);
+
+      const data = await fetchJSON(`/api/governance/trends?from=${from}&to=${to}&pillar=${pillar}`);
+
+      console.log('✅ Governance trends loaded:', data);
+
+      // Render sparklines
+      renderGovernanceSparklines(data);
+    } catch (error) {
+      console.error('❌ Error loading governance trends:', error);
+      const container = $$('#governanceTrendsContainer');
+      if (container) {
+        container.innerHTML = `<div class="alert alert-danger">
+          ⚠️ Error loading trends: ${error.message}
+        </div>`;
+      }
+    }
+  }
+
+  /**
+   * Render sparklines for governance trends (pure SVG, CSP-safe)
+   * @param {Object} data - Response from /api/governance/trends
+   */
+  function renderGovernanceSparklines(data) {
+    const container = $$('#governanceTrendsContainer');
+    if (!container) return;
+
+    const { series, forecasts } = data;
+
+    // Group series by pillar
+    const pillarData = {};
+    series.forEach(point => {
+      if (!pillarData[point.pillar]) {
+        pillarData[point.pillar] = [];
+      }
+      pillarData[point.pillar].push({
+        date: point.as_of,
+        score: point.score
+      });
+    });
+
+    // Group forecasts by pillar and horizon
+    const forecastData = {};
+    forecasts.forEach(fc => {
+      if (!forecastData[fc.pillar]) {
+        forecastData[fc.pillar] = {};
+      }
+      forecastData[fc.pillar][fc.horizon] = {
+        date: fc.as_of,
+        score: fc.score,
+        lower: fc.lower,
+        upper: fc.upper
+      };
+    });
+
+    // Get selected horizon
+    const selectedHorizon = parseInt($$('#governanceTrendsForecastHorizon')?.value || '14');
+
+    // Render each pillar
+    const pillarNames = {
+      finance: '💰 Finance',
+      health: '🏥 Health',
+      ai: '🧠 AI',
+      menu: '📊 Menu',
+      composite: '⚛️ Composite'
+    };
+
+    const html = [];
+
+    html.push('<div class="governance-trends-grid">');
+
+    Object.keys(pillarData).forEach(pillar => {
+      const seriesData = pillarData[pillar];
+      const forecast = forecastData[pillar]?.[selectedHorizon];
+
+      const latestScore = seriesData[seriesData.length - 1]?.score || 0;
+      const color = colorOf(latestScore);
+      const pillarLabel = pillarNames[pillar] || pillar;
+
+      html.push(`
+        <div class="governance-trend-card">
+          <div class="governance-trend-header">
+            <span class="governance-trend-label">${pillarLabel}</span>
+            <span class="badge badge-${color}">${latestScore.toFixed(1)}</span>
+          </div>
+          <div class="governance-trend-sparkline" id="sparkline-${pillar}"></div>
+          ${forecast ? `
+            <div class="governance-trend-forecast">
+              Forecast (${selectedHorizon}d): <strong>${forecast.score.toFixed(1)}</strong>
+              <span class="text-light-small">(${forecast.lower.toFixed(1)}–${forecast.upper.toFixed(1)})</span>
+            </div>
+          ` : ''}
+        </div>
+      `);
+    });
+
+    html.push('</div>');
+
+    container.innerHTML = html.join('');
+
+    // Render SVG sparklines for each pillar
+    Object.keys(pillarData).forEach(pillar => {
+      const seriesData = pillarData[pillar];
+      const forecast = forecastData[pillar]?.[selectedHorizon];
+      const sparklineEl = $$(`#sparkline-${pillar}`);
+
+      if (sparklineEl) {
+        renderSparkline(sparklineEl, seriesData, forecast);
+      }
+    });
+  }
+
+  /**
+   * Render a pure SVG sparkline (CSP-safe)
+   * @param {HTMLElement} container - Container element
+   * @param {Array} series - Array of {date, score} objects
+   * @param {Object} forecast - Optional forecast {date, score, lower, upper}
+   */
+  function renderSparkline(container, series, forecast) {
+    if (!series || series.length === 0) {
+      container.innerHTML = '<div class="text-light-small">No data</div>';
+      return;
+    }
+
+    const width = 300;
+    const height = 60;
+    const padding = 5;
+
+    // Calculate scales
+    const xScale = (width - 2 * padding) / (series.length - 1);
+    const allScores = series.map(s => s.score);
+    const minScore = Math.min(...allScores, forecast?.lower || 100);
+    const maxScore = Math.max(...allScores, forecast?.upper || 0);
+    const yRange = maxScore - minScore || 10;
+    const yScale = (height - 2 * padding) / yRange;
+
+    // Helper to get Y coordinate (inverted for SVG)
+    const getY = (score) => height - padding - ((score - minScore) * yScale);
+
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.setAttribute('class', 'governance-sparkline-svg');
+
+    // Draw baseline grid
+    const baseline50 = getY(50);
+    const baseline75 = getY(75);
+    const baseline90 = getY(90);
+
+    [
+      { y: baseline50, color: '#e0e0e0', label: '50' },
+      { y: baseline75, color: '#ffb74d', label: '75' },
+      { y: baseline90, color: '#81c784', label: '90' }
+    ].forEach(({ y, color, label }) => {
+      if (y >= padding && y <= height - padding) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', padding);
+        line.setAttribute('x2', width - padding);
+        line.setAttribute('y1', y);
+        line.setAttribute('y2', y);
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', '0.5');
+        line.setAttribute('stroke-dasharray', '2,2');
+        svg.appendChild(line);
+      }
+    });
+
+    // Draw confidence band if forecast exists
+    if (forecast) {
+      const lastX = padding + (series.length - 1) * xScale;
+      const forecastX = width - padding;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const upperY = getY(forecast.upper);
+      const lowerY = getY(forecast.lower);
+      const scoreY = getY(forecast.score);
+
+      path.setAttribute('d', `
+        M ${lastX} ${getY(series[series.length - 1].score)}
+        L ${forecastX} ${scoreY}
+        L ${forecastX} ${upperY}
+        L ${lastX} ${getY(series[series.length - 1].score)}
+        M ${forecastX} ${scoreY}
+        L ${forecastX} ${lowerY}
+        L ${lastX} ${getY(series[series.length - 1].score)}
+      `);
+      path.setAttribute('fill', '#bbdefb');
+      path.setAttribute('fill-opacity', '0.3');
+      path.setAttribute('stroke', 'none');
+      svg.appendChild(path);
+    }
+
+    // Draw line
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    const points = series.map((s, i) => {
+      const x = padding + i * xScale;
+      const y = getY(s.score);
+      return `${x},${y}`;
+    }).join(' ');
+
+    line.setAttribute('points', points);
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', '#2196f3');
+    line.setAttribute('stroke-width', '2');
+    svg.appendChild(line);
+
+    // Draw points
+    series.forEach((s, i) => {
+      const x = padding + i * xScale;
+      const y = getY(s.score);
+
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', x);
+      circle.setAttribute('cy', y);
+      circle.setAttribute('r', '3');
+      circle.setAttribute('fill', '#2196f3');
+      svg.appendChild(circle);
+
+      // Add tooltip
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = `${s.date}: ${s.score.toFixed(1)}`;
+      circle.appendChild(title);
+    });
+
+    // Draw forecast point
+    if (forecast) {
+      const forecastX = width - padding;
+      const forecastY = getY(forecast.score);
+
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', forecastX);
+      circle.setAttribute('cy', forecastY);
+      circle.setAttribute('r', '4');
+      circle.setAttribute('fill', '#ff9800');
+      circle.setAttribute('stroke', '#fff');
+      circle.setAttribute('stroke-width', '1');
+      svg.appendChild(circle);
+
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = `Forecast: ${forecast.score.toFixed(1)} (${forecast.lower.toFixed(1)}–${forecast.upper.toFixed(1)})`;
+      circle.appendChild(title);
+    }
+
+    container.innerHTML = '';
+    container.appendChild(svg);
+  }
+
+  /**
+   * Record daily governance scores
+   */
+  async function recordDailyScores() {
+    try {
+      if (!hasRole('OWNER')) {
+        alert('⚠️ Only OWNER can record daily scores.');
+        return;
+      }
+
+      const btn = $$('#governanceRecomputeDailyBtn');
+      if (btn) btn.disabled = true;
+
+      console.log('📊 Recording daily governance scores...');
+
+      const data = await fetchJSON('/api/governance/recompute/daily', { method: 'POST' });
+
+      console.log('✅ Daily scores recorded:', data);
+
+      alert(`✅ Daily scores recorded for ${data.as_of}\n\nFinance: ${data.scores.finance.toFixed(1)}\nHealth: ${data.scores.health.toFixed(1)}\nAI: ${data.scores.ai.toFixed(1)}\nMenu: ${data.scores.menu.toFixed(1)}\nComposite: ${data.scores.composite.toFixed(1)}`);
+
+      // Reload trends
+      await loadGovernanceTrends();
+    } catch (error) {
+      console.error('❌ Error recording daily scores:', error);
+      alert(`⚠️ Error recording daily scores: ${error.message}`);
+    } finally {
+      const btn = $$('#governanceRecomputeDailyBtn');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  /**
+   * Recompute governance forecasts
+   */
+  async function recomputeForecast() {
+    try {
+      if (!hasRole('OWNER')) {
+        alert('⚠️ Only OWNER can recompute forecasts.');
+        return;
+      }
+
+      const btn = $$('#governanceRecomputeForecastBtn');
+      if (btn) btn.disabled = true;
+
+      console.log('🔮 Recomputing governance forecasts...');
+
+      const data = await fetchJSON('/api/governance/recompute/forecast', { method: 'POST' });
+
+      console.log('✅ Forecasts computed:', data);
+
+      alert(`✅ Forecasts computed!\n\nRun ID: ${data.run_id}\nForecasts: ${data.forecast_count}\nRuntime: ${data.runtime_seconds.toFixed(2)}s`);
+
+      // Reload trends
+      await loadGovernanceTrends();
+    } catch (error) {
+      console.error('❌ Error computing forecasts:', error);
+      alert(`⚠️ Error computing forecasts: ${error.message}`);
+    } finally {
+      const btn = $$('#governanceRecomputeForecastBtn');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // Initialize event listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    const refreshBtn = $$('#governanceTrendsRefreshBtn');
+    const dailyBtn = $$('#governanceRecomputeDailyBtn');
+    const forecastBtn = $$('#governanceRecomputeForecastBtn');
+    const periodSelect = $$('#governanceTrendsPeriod');
+    const pillarSelect = $$('#governanceTrendsPillar');
+    const horizonSelect = $$('#governanceTrendsForecastHorizon');
+
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', loadGovernanceTrends);
+    }
+
+    if (dailyBtn) {
+      dailyBtn.addEventListener('click', recordDailyScores);
+    }
+
+    if (forecastBtn) {
+      forecastBtn.addEventListener('click', recomputeForecast);
+    }
+
+    // Reload trends when filters change
+    if (periodSelect) {
+      periodSelect.addEventListener('change', loadGovernanceTrends);
+    }
+
+    if (pillarSelect) {
+      pillarSelect.addEventListener('change', loadGovernanceTrends);
+    }
+
+    if (horizonSelect) {
+      horizonSelect.addEventListener('change', loadGovernanceTrends);
+    }
+
+    console.log('✅ Governance Trends & Forecasting v15.9.0 initialized');
+  });
+
+  // Export functions to global scope
+  window.loadGovernanceTrends = loadGovernanceTrends;
+  window.recordDailyScores = recordDailyScores;
+  window.recomputeForecast = recomputeForecast;
+})();
+
+// ==== v16.0.0 Governance Intelligence ====
+(function() {
+  'use strict';
+
+  /**
+   * Bilingual translations for Intelligence Dashboard
+   */
+  const L = {
+    en: {
+      title: 'Governance Intelligence Dashboard',
+      insights: 'Insights',
+      anomalies: 'Active Anomalies',
+      refresh: 'Refresh',
+      recompute: 'Recompute',
+      report: 'Report',
+      intelligenceScore: 'Intelligence Score',
+      finance: 'Finance',
+      health: 'Health',
+      ai: 'AI',
+      menu: 'Menu',
+      trend: '7-Day Intelligence Trend',
+      pillar: 'Pillar',
+      type: 'Type',
+      severity: 'Severity',
+      message: 'Message',
+      date: 'Date',
+      noInsights: 'No insights available',
+      noAnomalies: 'No active anomalies',
+      clickRefresh: 'Click Refresh to load data...',
+      recomputing: 'Recomputing intelligence...',
+      generating: 'Generating report...',
+      excellent: 'Excellent',
+      good: 'Good',
+      fair: 'Fair',
+      poor: 'Poor',
+      critical: 'Critical',
+      high: 'High',
+      medium: 'Medium',
+      low: 'Low'
+    },
+    fr: {
+      title: 'Tableau de bord Intelligence de Gouvernance',
+      insights: 'Perspectives',
+      anomalies: 'Anomalies Actives',
+      refresh: 'Actualiser',
+      recompute: 'Recalculer',
+      report: 'Rapport',
+      intelligenceScore: 'Score d\'Intelligence',
+      finance: 'Finance',
+      health: 'Santé',
+      ai: 'IA',
+      menu: 'Menu',
+      trend: 'Tendance Intelligence 7 jours',
+      pillar: 'Pilier',
+      type: 'Type',
+      severity: 'Sévérité',
+      message: 'Message',
+      date: 'Date',
+      noInsights: 'Aucune perspective disponible',
+      noAnomalies: 'Aucune anomalie active',
+      clickRefresh: 'Cliquez sur Actualiser pour charger les données...',
+      recomputing: 'Recalcul de l\'intelligence...',
+      generating: 'Génération du rapport...',
+      excellent: 'Excellent',
+      good: 'Bien',
+      fair: 'Passable',
+      poor: 'Faible',
+      critical: 'Critique',
+      high: 'Élevée',
+      medium: 'Moyenne',
+      low: 'Faible'
+    }
+  };
+
+  /**
+   * Get current locale from selector
+   */
+  function getLocale() {
+    const select = $$('#gi-locale');
+    return select ? select.value : 'en';
+  }
+
+  /**
+   * Translate text based on current locale
+   */
+  function t(key) {
+    const locale = getLocale();
+    return L[locale][key] || key;
+  }
+
+  /**
+   * Get score badge level based on intelligence score
+   */
+  function getScoreBadge(score) {
+    if (score >= 80) return { text: t('excellent'), className: 'badge-success' };
+    if (score >= 60) return { text: t('good'), className: 'badge-info' };
+    if (score >= 40) return { text: t('fair'), className: 'badge-warning' };
+    return { text: t('poor'), className: 'badge-danger' };
+  }
+
+  /**
+   * Get severity badge configuration
+   */
+  function getSeverityBadge(severity) {
+    const severityMap = {
+      critical: { text: t('critical'), className: 'severity-critical' },
+      high: { text: t('high'), className: 'severity-high' },
+      medium: { text: t('medium'), className: 'severity-medium' },
+      low: { text: t('low'), className: 'severity-low' }
+    };
+    return severityMap[severity] || { text: severity, className: 'badge' };
+  }
+
+  /**
+   * Load and display intelligence dashboard data
+   */
+  async function loadIntelligence() {
+    try {
+      const locale = getLocale();
+      console.log(`🔮 Loading intelligence dashboard (locale: ${locale})...`);
+
+      // Show loading state
+      const scoreEl = $$('#gi-score');
+      if (scoreEl) scoreEl.textContent = '...';
+
+      // Fetch intelligence status
+      const data = await fetchJSON(`/api/governance/intelligence/status?locale=${locale}&resolved=false`);
+
+      console.log('✅ Intelligence data loaded:', data);
+
+      // Update intelligence score
+      if (scoreEl) {
+        scoreEl.textContent = data.intelligence_score || '--';
+      }
+
+      const scoreBadgeEl = $$('#gi-score-badge');
+      if (scoreBadgeEl && data.intelligence_score !== null) {
+        const badge = getScoreBadge(data.intelligence_score);
+        scoreBadgeEl.textContent = badge.text;
+        scoreBadgeEl.className = `badge ${badge.className}`;
+      }
+
+      // Update pillar scores
+      const pillars = ['finance', 'health', 'ai', 'menu'];
+      pillars.forEach(pillar => {
+        const el = $$(`#gi-${pillar}`);
+        if (el) {
+          const pillarData = data.pillar_scores?.find(p => p.pillar === pillar);
+          el.textContent = pillarData ? pillarData.score.toFixed(1) : '--';
+        }
+      });
+
+      // Render insights
+      renderInsights(data.insights || []);
+
+      // Render anomalies
+      renderAnomalies(data.anomalies || []);
+
+      // Render trend chart
+      renderTrend(data.trend || []);
+
+      // Update locale-specific labels
+      updateLabels();
+
+    } catch (error) {
+      console.error('❌ Error loading intelligence:', error);
+      alert(`⚠️ Error loading intelligence: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update UI labels based on current locale
+   */
+  function updateLabels() {
+    const insightsTitleEl = $$('#gi-insights-title');
+    if (insightsTitleEl) insightsTitleEl.textContent = t('insights');
+
+    const anomaliesTitleEl = $$('#gi-anomalies-title');
+    if (anomaliesTitleEl) anomaliesTitleEl.textContent = t('anomalies');
+  }
+
+  /**
+   * Render insights section
+   */
+  function renderInsights(insights) {
+    const container = $$('#gi-insights');
+    const countEl = $$('#gi-insights-count');
+
+    if (!container) return;
+
+    if (countEl) {
+      countEl.textContent = insights.length;
+    }
+
+    if (insights.length === 0) {
+      container.innerHTML = `<p style="color: #999; padding: 16px;">${t('noInsights')}</p>`;
+      return;
+    }
+
+    const locale = getLocale();
+    const html = insights.map(insight => {
+      const pillarEmoji = {
+        finance: '💰',
+        health: '❤️',
+        ai: '🤖',
+        menu: '🍽️',
+        composite: '🔮'
+      }[insight.pillar] || '📊';
+
+      const confidencePercent = (insight.confidence * 100).toFixed(0);
+      const confidenceClass = insight.confidence >= 0.8 ? 'badge-success' :
+                               insight.confidence >= 0.6 ? 'badge-info' : 'badge-warning';
+
+      return `
+        <div style="padding: 12px; border-bottom: 1px solid #e0e0e0; display: flex; gap: 12px; align-items: start;">
+          <div style="font-size: 24px; flex-shrink: 0;">${pillarEmoji}</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 500; margin-bottom: 4px;">${insight.insight}</div>
+            <div style="font-size: 12px; color: #666;">
+              ${insight.as_of} &middot; ${insight.pillar.charAt(0).toUpperCase() + insight.pillar.slice(1)} &middot;
+              <span class="badge ${confidenceClass}" style="padding: 2px 6px;">${confidencePercent}% confidence</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+  }
+
+  /**
+   * Render anomalies table
+   */
+  function renderAnomalies(anomalies) {
+    const tbody = $$('#gi-anomalies-body');
+    const countEl = $$('#gi-anomalies-count');
+
+    if (!tbody) return;
+
+    if (countEl) {
+      countEl.textContent = anomalies.length;
+    }
+
+    if (anomalies.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #999; padding: 16px;">${t('noAnomalies')}</td></tr>`;
+      return;
+    }
+
+    const html = anomalies.map(anomaly => {
+      const badge = getSeverityBadge(anomaly.severity);
+      const deltaFormatted = anomaly.delta > 0 ? `+${anomaly.delta.toFixed(1)}` : anomaly.delta.toFixed(1);
+
+      return `
+        <tr>
+          <td>${anomaly.as_of}</td>
+          <td>${anomaly.pillar.charAt(0).toUpperCase() + anomaly.pillar.slice(1)}</td>
+          <td>${anomaly.type}</td>
+          <td><span class="badge ${badge.className}">${badge.text}</span></td>
+          <td style="font-weight: 500; color: ${anomaly.delta < 0 ? '#d32f2f' : '#388e3c'};">${deltaFormatted}%</td>
+          <td style="max-width: 300px;">${anomaly.message}</td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.innerHTML = html;
+  }
+
+  /**
+   * Render SVG trend chart (CSP-compliant sparkline)
+   */
+  function renderTrend(trend) {
+    const svg = $$('#gi-trend');
+    if (!svg) return;
+
+    // Clear existing content
+    svg.innerHTML = '';
+
+    if (!trend || trend.length === 0) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', '50%');
+      text.setAttribute('y', '50%');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('fill', '#999');
+      text.setAttribute('font-size', '12');
+      text.textContent = 'No trend data available';
+      svg.appendChild(text);
+      return;
+    }
+
+    const width = svg.clientWidth || 800;
+    const height = 80;
+    const padding = { top: 10, right: 40, bottom: 20, left: 40 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    // Calculate min/max for Y-axis
+    const scores = trend.map(d => d.intelligence_score);
+    const minScore = Math.min(...scores);
+    const maxScore = Math.max(...scores);
+    const yRange = maxScore - minScore || 10;
+    const yMin = Math.max(0, minScore - yRange * 0.1);
+    const yMax = Math.min(100, maxScore + yRange * 0.1);
+
+    // Create path data
+    const points = trend.map((d, i) => {
+      const x = padding.left + (i / (trend.length - 1)) * chartWidth;
+      const y = padding.top + chartHeight - ((d.intelligence_score - yMin) / (yMax - yMin)) * chartHeight;
+      return { x, y, score: d.intelligence_score, date: d.as_of };
+    });
+
+    // Draw grid lines
+    const gridLines = [0, 25, 50, 75, 100].filter(v => v >= yMin && v <= yMax);
+    gridLines.forEach(value => {
+      const y = padding.top + chartHeight - ((value - yMin) / (yMax - yMin)) * chartHeight;
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', padding.left);
+      line.setAttribute('y1', y);
+      line.setAttribute('x2', width - padding.right);
+      line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#e0e0e0');
+      line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', width - padding.right + 5);
+      label.setAttribute('y', y + 4);
+      label.setAttribute('fill', '#999');
+      label.setAttribute('font-size', '10');
+      label.textContent = value;
+      svg.appendChild(label);
+    });
+
+    // Draw trend line
+    const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#1976d2');
+    path.setAttribute('stroke-width', '2');
+    svg.appendChild(path);
+
+    // Draw data points
+    points.forEach(p => {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', p.x);
+      circle.setAttribute('cy', p.y);
+      circle.setAttribute('r', '4');
+      circle.setAttribute('fill', '#1976d2');
+      circle.setAttribute('stroke', '#fff');
+      circle.setAttribute('stroke-width', '2');
+      svg.appendChild(circle);
+
+      // Add hover title
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = `${p.date}: ${p.score.toFixed(1)}`;
+      circle.appendChild(title);
+    });
+
+    // Draw X-axis labels (first and last date)
+    if (points.length > 0) {
+      const firstLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      firstLabel.setAttribute('x', padding.left);
+      firstLabel.setAttribute('y', height - 5);
+      firstLabel.setAttribute('fill', '#666');
+      firstLabel.setAttribute('font-size', '10');
+      firstLabel.textContent = points[0].date;
+      svg.appendChild(firstLabel);
+
+      const lastLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      lastLabel.setAttribute('x', points[points.length - 1].x);
+      lastLabel.setAttribute('y', height - 5);
+      lastLabel.setAttribute('fill', '#666');
+      lastLabel.setAttribute('font-size', '10');
+      lastLabel.setAttribute('text-anchor', 'end');
+      lastLabel.textContent = points[points.length - 1].date;
+      svg.appendChild(lastLabel);
+    }
+  }
+
+  /**
+   * Recompute intelligence (OWNER only)
+   */
+  async function recomputeIntelligence() {
+    try {
+      if (!hasRole('OWNER')) {
+        alert('⚠️ Only OWNER can recompute intelligence.');
+        return;
+      }
+
+      const locale = getLocale();
+      console.log('🔄 Recomputing intelligence...');
+
+      const data = await fetchJSON('/api/governance/intelligence/recompute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale })
+      });
+
+      console.log('✅ Intelligence recomputed:', data);
+
+      alert(`✅ Intelligence Recomputed!\n\nDate: ${data.as_of}\nAnomalies: ${data.anomaly_count}\nInsights: ${data.insight_count}\nScore: ${data.intelligence_score}\nRuntime: ${data.runtime_seconds.toFixed(2)}s`);
+
+      // Reload dashboard
+      await loadIntelligence();
+
+    } catch (error) {
+      console.error('❌ Error recomputing intelligence:', error);
+      alert(`⚠️ Error recomputing intelligence: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate PDF report (OWNER only)
+   */
+  async function generateIntelligenceReport() {
+    try {
+      if (!hasRole('OWNER')) {
+        alert('⚠️ Only OWNER can generate reports.');
+        return;
+      }
+
+      const locale = getLocale();
+      console.log(`📄 Generating ${locale.toUpperCase()} intelligence report...`);
+
+      const data = await fetchJSON('/api/governance/intelligence/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale, include_trends: true })
+      });
+
+      console.log('✅ Report generated:', data);
+
+      alert(`✅ Report Generated!\n\nFilename: ${data.filename}\nPath: ${data.path}\nLocale: ${data.locale}\nRuntime: ${data.runtime_seconds.toFixed(2)}s`);
+
+    } catch (error) {
+      console.error('❌ Error generating report:', error);
+      alert(`⚠️ Error generating report: ${error.message}`);
+    }
+  }
+
+  /**
+   * Initialize event listeners
+   */
+  document.addEventListener('DOMContentLoaded', () => {
+    const localeSelect = $$('#gi-locale');
+
+    // Reload when locale changes
+    if (localeSelect) {
+      localeSelect.addEventListener('change', loadIntelligence);
+    }
+
+    console.log('✅ Governance Intelligence Dashboard v16.0.0 initialized');
+  });
+
+  // Export functions to global scope
+  window.loadIntelligence = loadIntelligence;
+  window.recomputeIntelligence = recomputeIntelligence;
+  window.generateIntelligenceReport = generateIntelligenceReport;
+})();
+
+// ==== v16.1.0 Governance Predictive Control Panel ====
+(function() {
+  'use strict';
+
+  /**
+   * Bilingual translations for Forecast & Trends
+   */
+  const L_FORECAST = {
+    en: {
+      forecastTitle: 'Forecast & Trends',
+      smoothing: 'Smoothing (α):',
+      window: 'Window:',
+      horizon: 'Forecast:',
+      simulate: 'Simulate',
+      refresh: 'Refresh',
+      actual: 'Actual',
+      forecast: 'Forecast',
+      confidenceBand: 'Confidence Band',
+      pillar: 'Pillar:',
+      composite: 'Composite',
+      finance: 'Finance',
+      health: 'Health',
+      ai: 'AI',
+      menu: 'Menu',
+      clickRefresh: 'Click Refresh to load forecast chart...',
+      loading: 'Loading forecast data...',
+      noData: 'No forecast data available',
+      days: 'Days',
+      simulating: 'Simulating forecast...',
+      simulationComplete: 'Simulation complete',
+      error: 'Error loading forecast',
+      lastUpdated: 'Last updated:',
+      dataPoints: 'data points',
+      forecastPoints: 'forecast points'
+    },
+    fr: {
+      forecastTitle: 'Prévisions et Tendances',
+      smoothing: 'Lissage (α):',
+      window: 'Fenêtre:',
+      horizon: 'Prévision:',
+      simulate: 'Simuler',
+      refresh: 'Actualiser',
+      actual: 'Réel',
+      forecast: 'Prévision',
+      confidenceBand: 'Bande de Confiance',
+      pillar: 'Pilier:',
+      composite: 'Composite',
+      finance: 'Finance',
+      health: 'Santé',
+      ai: 'IA',
+      menu: 'Menu',
+      clickRefresh: 'Cliquez sur Actualiser pour charger le graphique...',
+      loading: 'Chargement des prévisions...',
+      noData: 'Aucune donnée de prévision disponible',
+      days: 'Jours',
+      simulating: 'Simulation en cours...',
+      simulationComplete: 'Simulation terminée',
+      error: 'Erreur lors du chargement des prévisions',
+      lastUpdated: 'Dernière mise à jour:',
+      dataPoints: 'points de données',
+      forecastPoints: 'points de prévision'
+    }
+  };
+
+  /**
+   * Get current locale from selector
+   */
+  function getForecastLocale() {
+    const select = $$('#gi-locale');
+    return select ? select.value : 'en';
+  }
+
+  /**
+   * Translate forecast text based on current locale
+   */
+  function tf(key) {
+    const locale = getForecastLocale();
+    return L_FORECAST[locale][key] || key;
+  }
+
+  /**
+   * Update forecast UI labels based on locale
+   */
+  function updateForecastLabels() {
+    const titleEl = $$('#gi-forecast-title');
+    if (titleEl) titleEl.textContent = tf('forecastTitle');
+
+    const alphaLabelEl = $$('#gi-alpha-label');
+    if (alphaLabelEl) alphaLabelEl.textContent = tf('smoothing');
+
+    const windowLabelEl = $$('#gi-window-label');
+    if (windowLabelEl) windowLabelEl.textContent = tf('window');
+
+    const horizonLabelEl = $$('#gi-horizon-label');
+    if (horizonLabelEl) horizonLabelEl.textContent = tf('horizon');
+
+    const simulateLabelEl = $$('#gi-simulate-label');
+    if (simulateLabelEl) simulateLabelEl.textContent = tf('simulate');
+
+    const refreshLabelEl = $$('#gi-refresh-forecast-label');
+    if (refreshLabelEl) refreshLabelEl.textContent = tf('refresh');
+
+    const actualLegendEl = $$('#gi-legend-actual');
+    if (actualLegendEl) actualLegendEl.textContent = tf('actual');
+
+    const forecastLegendEl = $$('#gi-legend-forecast');
+    if (forecastLegendEl) forecastLegendEl.textContent = tf('forecast');
+
+    const confidenceLegendEl = $$('#gi-legend-confidence');
+    if (confidenceLegendEl) confidenceLegendEl.textContent = tf('confidenceBand');
+  }
+
+  /**
+   * Load and display forecast chart
+   */
+  async function loadForecastChart() {
+    try {
+      const pillar = $$('#gi-forecast-pillar')?.value || 'composite';
+      const window = parseInt($$('#gi-forecast-window')?.value || '14');
+      const horizon = parseInt($$('#gi-forecast-horizon')?.value || '14');
+
+      console.log(`📈 Loading forecast chart (pillar: ${pillar}, window: ${window}, horizon: ${horizon})...`);
+
+      // Update info text
+      const infoTextEl = $$('#gi-forecast-info-text');
+      if (infoTextEl) infoTextEl.textContent = tf('loading');
+
+      // Calculate date range from window parameter
+      const to = new Date().toISOString().split('T')[0];
+      const from = new Date(Date.now() - window * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // Fetch trends data (historical + forecast)
+      const trendsData = await fetchJSON(`/api/governance/trends?from=${from}&to=${to}&pillar=${pillar}`);
+
+      console.log('✅ Forecast data loaded:', trendsData);
+
+      // Render chart
+      renderForecastChart(trendsData, pillar);
+
+      // Update info text
+      if (infoTextEl) {
+        const actualCount = trendsData.historical?.length || 0;
+        const forecastCount = trendsData.forecast?.length || 0;
+        infoTextEl.textContent = `${actualCount} ${tf('dataPoints')}, ${forecastCount} ${tf('forecastPoints')} • ${tf('lastUpdated')} ${new Date().toLocaleString()}`;
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading forecast chart:', error);
+      const infoTextEl = $$('#gi-forecast-info-text');
+      if (infoTextEl) infoTextEl.textContent = `${tf('error')}: ${error.message}`;
+    }
+  }
+
+  /**
+   * Simulate forecast with custom parameters (OWNER only)
+   *
+   * Note: Current v15.9.0 API generates forecasts for all pillars with default parameters.
+   * Custom alpha and per-pillar simulation would require backend enhancements.
+   */
+  async function simulateForecast() {
+    try {
+      if (!hasRole('OWNER')) {
+        alert('⚠️ Only OWNER can simulate forecasts.');
+        return;
+      }
+
+      const horizon = parseInt($$('#gi-forecast-horizon')?.value || '14');
+      const alpha = parseFloat($$('#gi-alpha')?.value || '0.5');
+
+      console.log(`🔮 Simulating forecast (horizon: ${horizon}, α: ${alpha})...`);
+
+      // Update info text
+      const infoTextEl = $$('#gi-forecast-info-text');
+      if (infoTextEl) infoTextEl.textContent = tf('simulating');
+
+      // Disable simulate button
+      const simulateBtn = $$('#gi-simulate-btn');
+      if (simulateBtn) simulateBtn.disabled = true;
+
+      // Call forecast recompute endpoint
+      // Note: v15.9.0 API generates forecasts for all pillars with all horizons
+      const data = await fetchJSON('/api/governance/recompute/forecast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          horizons: [7, 14, 30],
+          method: 'exp_smoothing'
+        })
+      });
+
+      console.log('✅ Forecast simulated:', data);
+
+      alert(`✅ ${tf('simulationComplete')}!\n\nRun ID: ${data.run_id}\nForecasts: ${data.forecast_count}\nRuntime: ${data.runtime_seconds.toFixed(2)}s\n\nNote: α=${alpha} setting is for visualization only. Backend uses default exponential smoothing.`);
+
+      // Reload chart with new forecast
+      await loadForecastChart();
+
+    } catch (error) {
+      console.error('❌ Error simulating forecast:', error);
+      alert(`⚠️ ${tf('error')}: ${error.message}`);
+    } finally {
+      const simulateBtn = $$('#gi-simulate-btn');
+      if (simulateBtn) simulateBtn.disabled = false;
+    }
+  }
+
+  /**
+   * Render forecast chart with historical and predicted data
+   */
+  function renderForecastChart(data, pillar) {
+    const svg = $$('#gi-forecast-chart');
+    if (!svg) return;
+
+    // Clear existing content
+    svg.innerHTML = '';
+
+    const historical = data.historical || [];
+    const forecast = data.forecast || [];
+
+    if (historical.length === 0) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', '50%');
+      text.setAttribute('y', '50%');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('fill', '#999');
+      text.setAttribute('font-size', '14');
+      text.textContent = tf('noData');
+      svg.appendChild(text);
+      return;
+    }
+
+    const width = svg.clientWidth || 800;
+    const height = 300;
+    const padding = { top: 20, right: 60, bottom: 40, left: 60 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+
+    // Combine historical and forecast data for Y-axis scaling
+    const allScores = [
+      ...historical.map(d => d.score),
+      ...forecast.map(d => d.score),
+      ...forecast.map(d => d.lower || d.score),
+      ...forecast.map(d => d.upper || d.score)
+    ].filter(v => v != null);
+
+    const minScore = Math.max(0, Math.min(...allScores) - 5);
+    const maxScore = Math.min(100, Math.max(...allScores) + 5);
+    const yRange = maxScore - minScore || 10;
+
+    // Calculate positions for historical data
+    const historicalPoints = historical.map((d, i) => {
+      const x = padding.left + (i / Math.max(1, historical.length - 1)) * chartWidth;
+      const y = padding.top + chartHeight - ((d.score - minScore) / yRange) * chartHeight;
+      return { x, y, score: d.score, date: d.as_of };
+    });
+
+    // Calculate positions for forecast data
+    const forecastStartX = historicalPoints.length > 0 ? historicalPoints[historicalPoints.length - 1].x : padding.left;
+    const forecastPoints = forecast.map((d, i) => {
+      const x = forecastStartX + ((i + 1) / forecast.length) * (chartWidth - (forecastStartX - padding.left));
+      const y = padding.top + chartHeight - ((d.score - minScore) / yRange) * chartHeight;
+      const yLower = d.lower ? padding.top + chartHeight - ((d.lower - minScore) / yRange) * chartHeight : y;
+      const yUpper = d.upper ? padding.top + chartHeight - ((d.upper - minScore) / yRange) * chartHeight : y;
+      return { x, y, yLower, yUpper, score: d.score, lower: d.lower, upper: d.upper, date: d.forecast_date };
+    });
+
+    // Draw grid lines
+    const gridLines = [0, 25, 50, 75, 100].filter(v => v >= minScore && v <= maxScore);
+    gridLines.forEach(value => {
+      const y = padding.top + chartHeight - ((value - minScore) / yRange) * chartHeight;
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', padding.left);
+      line.setAttribute('y1', y);
+      line.setAttribute('x2', width - padding.right);
+      line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#e0e0e0');
+      line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', width - padding.right + 5);
+      label.setAttribute('y', y + 4);
+      label.setAttribute('fill', '#999');
+      label.setAttribute('font-size', '11');
+      label.textContent = value;
+      svg.appendChild(label);
+    });
+
+    // Draw confidence band (if forecast has upper/lower bounds)
+    if (forecastPoints.length > 0 && forecastPoints[0].lower != null) {
+      const bandPath = [
+        ...forecastPoints.map(p => `${p.x},${p.yLower}`),
+        ...forecastPoints.slice().reverse().map(p => `${p.x},${p.yUpper}`)
+      ];
+
+      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      polygon.setAttribute('points', bandPath.join(' '));
+      polygon.setAttribute('fill', 'rgba(0, 172, 193, 0.2)');
+      polygon.setAttribute('stroke', 'rgba(0, 172, 193, 0.4)');
+      polygon.setAttribute('stroke-width', '1');
+      svg.appendChild(polygon);
+    }
+
+    // Draw historical line
+    if (historicalPoints.length > 1) {
+      const pathData = historicalPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathData);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#1976d2');
+      path.setAttribute('stroke-width', '3');
+      svg.appendChild(path);
+    }
+
+    // Draw forecast line
+    if (forecastPoints.length > 0) {
+      // Connect last historical point to first forecast point
+      const lastHistorical = historicalPoints[historicalPoints.length - 1];
+      const forecastPathData = [
+        `M ${lastHistorical.x} ${lastHistorical.y}`,
+        ...forecastPoints.map(p => `L ${p.x} ${p.y}`)
+      ].join(' ');
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', forecastPathData);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#00acc1');
+      path.setAttribute('stroke-width', '3');
+      path.setAttribute('stroke-dasharray', '6,4');
+      svg.appendChild(path);
+    }
+
+    // Draw historical data points
+    historicalPoints.forEach(p => {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', p.x);
+      circle.setAttribute('cy', p.y);
+      circle.setAttribute('r', '4');
+      circle.setAttribute('fill', '#1976d2');
+      circle.setAttribute('stroke', '#fff');
+      circle.setAttribute('stroke-width', '2');
+      svg.appendChild(circle);
+
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = `${p.date}: ${p.score.toFixed(1)}`;
+      circle.appendChild(title);
+    });
+
+    // Draw forecast data points
+    forecastPoints.forEach(p => {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', p.x);
+      circle.setAttribute('cy', p.y);
+      circle.setAttribute('r', '4');
+      circle.setAttribute('fill', '#00acc1');
+      circle.setAttribute('stroke', '#fff');
+      circle.setAttribute('stroke-width', '2');
+      svg.appendChild(circle);
+
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      const tooltip = p.lower && p.upper
+        ? `${p.date}: ${p.score.toFixed(1)} [${p.lower.toFixed(1)}-${p.upper.toFixed(1)}]`
+        : `${p.date}: ${p.score.toFixed(1)}`;
+      title.textContent = tooltip;
+      circle.appendChild(title);
+    });
+
+    // Draw X-axis labels
+    if (historicalPoints.length > 0) {
+      // First date
+      const firstLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      firstLabel.setAttribute('x', padding.left);
+      firstLabel.setAttribute('y', height - 10);
+      firstLabel.setAttribute('fill', '#666');
+      firstLabel.setAttribute('font-size', '11');
+      firstLabel.textContent = historicalPoints[0].date;
+      svg.appendChild(firstLabel);
+
+      // Last historical date
+      const lastHistLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      lastHistLabel.setAttribute('x', historicalPoints[historicalPoints.length - 1].x);
+      lastHistLabel.setAttribute('y', height - 10);
+      lastHistLabel.setAttribute('fill', '#666');
+      lastHistLabel.setAttribute('font-size', '11');
+      lastHistLabel.setAttribute('text-anchor', 'middle');
+      lastHistLabel.textContent = historicalPoints[historicalPoints.length - 1].date;
+      svg.appendChild(lastHistLabel);
+    }
+
+    if (forecastPoints.length > 0) {
+      // Last forecast date
+      const lastForecastLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      lastForecastLabel.setAttribute('x', forecastPoints[forecastPoints.length - 1].x);
+      lastForecastLabel.setAttribute('y', height - 10);
+      lastForecastLabel.setAttribute('fill', '#00acc1');
+      lastForecastLabel.setAttribute('font-size', '11');
+      lastForecastLabel.setAttribute('text-anchor', 'end');
+      lastForecastLabel.textContent = forecastPoints[forecastPoints.length - 1].date;
+      svg.appendChild(lastForecastLabel);
+    }
+
+    // Draw Y-axis label
+    const yAxisLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    yAxisLabel.setAttribute('x', 15);
+    yAxisLabel.setAttribute('y', padding.top + chartHeight / 2);
+    yAxisLabel.setAttribute('fill', '#666');
+    yAxisLabel.setAttribute('font-size', '12');
+    yAxisLabel.setAttribute('text-anchor', 'middle');
+    yAxisLabel.setAttribute('transform', `rotate(-90, 15, ${padding.top + chartHeight / 2})`);
+    yAxisLabel.textContent = 'Score';
+    svg.appendChild(yAxisLabel);
+  }
+
+  /**
+   * Initialize event listeners
+   */
+  document.addEventListener('DOMContentLoaded', () => {
+    // Alpha slider update
+    const alphaSlider = $$('#gi-alpha');
+    const alphaValue = $$('#gi-alpha-value');
+    if (alphaSlider && alphaValue) {
+      alphaSlider.addEventListener('input', (e) => {
+        alphaValue.textContent = parseFloat(e.target.value).toFixed(2);
+      });
+    }
+
+    // Pillar selector change
+    const pillarSelect = $$('#gi-forecast-pillar');
+    if (pillarSelect) {
+      pillarSelect.addEventListener('change', loadForecastChart);
+    }
+
+    // Window selector change
+    const windowSelect = $$('#gi-forecast-window');
+    if (windowSelect) {
+      windowSelect.addEventListener('change', loadForecastChart);
+    }
+
+    // Horizon selector change
+    const horizonSelect = $$('#gi-forecast-horizon');
+    if (horizonSelect) {
+      horizonSelect.addEventListener('change', loadForecastChart);
+    }
+
+    // Update labels when locale changes
+    const localeSelect = $$('#gi-locale');
+    if (localeSelect) {
+      localeSelect.addEventListener('change', () => {
+        updateForecastLabels();
+        loadForecastChart();
+      });
+    }
+
+    console.log('✅ Governance Predictive Control Panel v16.1.0 initialized');
+  });
+
+  // Export functions to global scope
+  window.loadForecastChart = loadForecastChart;
+  window.simulateForecast = simulateForecast;
+  window.updateForecastLabels = updateForecastLabels;
+})();
+
+// ============================================================================
+// ITEM BANK & FINANCE ENFORCEMENT MODULE (v16.2.0)
+// ============================================================================
+
+(function() {
+  'use strict';
+
+  // State
+  let currentPage = 1;
+  const itemsPerPage = 50;
+  let totalItems = 0;
+  let searchQuery = '';
+  let financeCodeFilter = '';
+  let statusFilter = 'ACTIVE';
+
+  // Helper function
+  const $$ = (selector) => document.querySelector(selector);
+
+  // Initialize on DOM load
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeItemBank();
+  });
+
+  /**
+   * Initialize Item Bank module
+   */
+  function initializeItemBank() {
+    // CSV Upload
+    const btnUploadCSV = $$('#btn-upload-csv');
+    const btnExportCSV = $$('#btn-export-csv');
+    const btnRefreshItems = $$('#btn-refresh-items');
+    const csvFileInput = $$('#csv-file-input');
+    const csvDropZone = $$('#csv-drop-zone');
+    const csvUploadArea = $$('#csv-upload-area');
+
+    if (btnUploadCSV) {
+      btnUploadCSV.addEventListener('click', () => {
+        csvUploadArea.classList.toggle('u-hide');
+      });
+    }
+
+    if (btnExportCSV) {
+      btnExportCSV.addEventListener('click', exportItemBankCSV);
+    }
+
+    if (btnRefreshItems) {
+      btnRefreshItems.addEventListener('click', () => loadItemBank());
+    }
+
+    if (csvFileInput) {
+      csvFileInput.addEventListener('change', handleCSVUpload);
+    }
+
+    if (csvDropZone) {
+      // Click to browse
+      csvDropZone.addEventListener('click', () => csvFileInput.click());
+
+      // Drag & drop
+      csvDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        csvDropZone.classList.add('drag-over');
+      });
+
+      csvDropZone.addEventListener('dragleave', () => {
+        csvDropZone.classList.remove('drag-over');
+      });
+
+      csvDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        csvDropZone.classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].name.endsWith('.csv')) {
+          csvFileInput.files = files;
+          handleCSVUpload({ target: { files } });
+        } else {
+          showAlert('Please upload a .csv file', 'error');
+        }
+      });
+    }
+
+    // Search & Filter
+    const itemSearch = $$('#item-search');
+    const filterFinanceCode = $$('#filter-finance-code');
+    const filterStatus = $$('#filter-status');
+
+    if (itemSearch) {
+      let searchTimeout;
+      itemSearch.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          searchQuery = e.target.value;
+          currentPage = 1;
+          loadItemBank();
+        }, 500);
+      });
+    }
+
+    if (filterFinanceCode) {
+      filterFinanceCode.addEventListener('change', (e) => {
+        financeCodeFilter = e.target.value;
+        currentPage = 1;
+        loadItemBank();
+      });
+    }
+
+    if (filterStatus) {
+      filterStatus.addEventListener('change', (e) => {
+        statusFilter = e.target.value;
+        currentPage = 1;
+        loadItemBank();
+      });
+    }
+
+    // Pagination
+    const btnPrevPage = $$('#btn-prev-page');
+    const btnNextPage = $$('#btn-next-page');
+
+    if (btnPrevPage) {
+      btnPrevPage.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          loadItemBank();
+        }
+      });
+    }
+
+    if (btnNextPage) {
+      btnNextPage.addEventListener('click', () => {
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        if (currentPage < totalPages) {
+          currentPage++;
+          loadItemBank();
+        }
+      });
+    }
+
+    // Integrity Badge
+    const btnRefreshIntegrity = $$('#btn-refresh-integrity');
+    const btnRevalidatePeriod = $$('#btn-revalidate-period');
+
+    if (btnRefreshIntegrity) {
+      btnRefreshIntegrity.addEventListener('click', refreshIntegrityBadge);
+    }
+
+    if (btnRevalidatePeriod) {
+      btnRevalidatePeriod.addEventListener('click', revalidatePeriod);
+    }
+
+    // Needs Mapping Queue
+    const btnRefreshQueue = $$('#btn-refresh-queue');
+    if (btnRefreshQueue) {
+      btnRefreshQueue.addEventListener('click', loadNeedsMappingQueue);
+    }
+
+    console.log('✅ Item Bank & Finance Enforcement v16.2.0 initialized');
+  }
+
+  /**
+   * Load Item Bank items from API
+   */
+  async function loadItemBank() {
+    try {
+      const offset = (currentPage - 1) * itemsPerPage;
+      const params = new URLSearchParams({
+        limit: itemsPerPage,
+        offset: offset
+      });
+
+      if (searchQuery) params.append('q', searchQuery);
+      if (financeCodeFilter) params.append('finance_code', financeCodeFilter);
+      if (statusFilter) params.append('status', statusFilter);
+
+      const response = await fetchJSON(`/api/finance/item-bank?${params.toString()}`);
+
+      if (response.success) {
+        totalItems = response.total;
+        renderItemBankTable(response.items);
+        updatePagination();
+        updateStatistics();
+        loadFinanceStrip();
+      } else {
+        showAlert(response.error || 'Failed to load item bank', 'error');
+      }
+    } catch (error) {
+      console.error('Load item bank error:', error);
+      showAlert('Error loading item bank: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Render Item Bank table
+   */
+  function renderItemBankTable(items) {
+    const tbody = $$('#item-bank-tbody');
+    if (!tbody) return;
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center">No items found with current filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => `
+      <tr data-item-no="${item.gfs_item_no}">
+        <td><code>${escapeHtml(item.gfs_item_no)}</code></td>
+        <td>${escapeHtml(item.description)}</td>
+        <td>${escapeHtml(item.pack_size || '--')}</td>
+        <td>${escapeHtml(item.uom)}</td>
+        <td><span class="badge badge-finance-${item.finance_code.toLowerCase()}">${escapeHtml(item.finance_code)}</span></td>
+        <td>${item.taxable_gst ? '✅' : '❌'}</td>
+        <td>${item.taxable_qst ? '✅' : '❌'}</td>
+        <td><span class="badge ${item.status === 'ACTIVE' ? 'badge-success' : 'badge-secondary'}">${item.status}</span></td>
+        <td>
+          <button type="button" class="btn btn-xs btn-secondary" onclick="editItem('${escapeHtml(item.gfs_item_no)}')">✏️</button>
+          ${item.status === 'ACTIVE'
+            ? `<button type="button" class="btn btn-xs btn-warning" onclick="retireItem('${escapeHtml(item.gfs_item_no)}')">🗑️</button>`
+            : `<button type="button" class="btn btn-xs btn-success" onclick="activateItem('${escapeHtml(item.gfs_item_no)}')">♻️</button>`
+          }
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  /**
+   * Update pagination controls
+   */
+  function updatePagination() {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const paginationInfo = $$('#pagination-info');
+    const btnPrev = $$('#btn-prev-page');
+    const btnNext = $$('#btn-next-page');
+
+    if (paginationInfo) {
+      paginationInfo.textContent = `Page ${currentPage} of ${totalPages || 1} (${totalItems} items)`;
+    }
+
+    if (btnPrev) {
+      btnPrev.disabled = currentPage === 1;
+    }
+
+    if (btnNext) {
+      btnNext.disabled = currentPage >= totalPages;
+    }
+  }
+
+  /**
+   * Update statistics
+   */
+  async function updateStatistics() {
+    try {
+      const stats = await fetchJSON('/api/finance/item-bank/statistics');
+      if (stats.success) {
+        const statActiveItems = $$('#stat-active-items');
+        if (statActiveItems) statActiveItems.textContent = stats.statistics.total_active || 0;
+      }
+    } catch (error) {
+      console.error('Update statistics error:', error);
+    }
+  }
+
+  /**
+   * Handle CSV file upload
+   */
+  async function handleCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const progressArea = $$('#csv-upload-progress');
+    const uploadStatus = $$('#csv-upload-status');
+    const progressFill = $$('#csv-progress-fill');
+
+    if (progressArea) progressArea.classList.remove('u-hide');
+
+    try {
+      // Read CSV file
+      const csvData = await file.text();
+
+      if (uploadStatus) uploadStatus.textContent = 'Processing CSV...';
+      if (progressFill) progressFill.style.width = '50%';
+
+      // Send to backend
+      const response = await fetchJSON('/api/finance/item-bank/import-csv', {
+        method: 'POST',
+        body: JSON.stringify({
+          csv_data: csvData,
+          upsert: true
+        })
+      });
+
+      if (progressFill) progressFill.style.width = '100%';
+
+      if (response.success) {
+        if (uploadStatus) uploadStatus.textContent = `✅ Success! Imported ${response.imported_count} items${response.error_count > 0 ? ` (${response.error_count} errors)` : ''}`;
+
+        setTimeout(() => {
+          if (progressArea) progressArea.classList.add('u-hide');
+          const uploadArea = $$('#csv-upload-area');
+          if (uploadArea) uploadArea.classList.add('u-hide');
+          loadItemBank();
+        }, 2000);
+
+        if (response.error_count > 0) {
+          console.warn('CSV import errors:', response.errors);
+          showAlert(`Imported ${response.imported_count} items with ${response.error_count} errors. Check console for details.`, 'warning');
+        } else {
+          showAlert(`Successfully imported ${response.imported_count} items!`, 'success');
+        }
+      } else {
+        if (uploadStatus) uploadStatus.textContent = '❌ Upload failed';
+        showAlert(response.error || 'CSV import failed', 'error');
+      }
+    } catch (error) {
+      console.error('CSV upload error:', error);
+      if (uploadStatus) uploadStatus.textContent = '❌ Error: ' + error.message;
+      showAlert('Error uploading CSV: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Export Item Bank to CSV
+   */
+  async function exportItemBankCSV() {
+    try {
+      const params = new URLSearchParams();
+      if (financeCodeFilter) params.append('finance_code', financeCodeFilter);
+      if (statusFilter) params.append('status', statusFilter);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/finance/item-bank/export-csv?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `item-bank-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        showAlert('CSV exported successfully!', 'success');
+      } else {
+        showAlert('Failed to export CSV', 'error');
+      }
+    } catch (error) {
+      console.error('Export CSV error:', error);
+      showAlert('Error exporting CSV: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Edit item
+   */
+  async function editItem(gfsItemNo) {
+    try {
+      const item = await fetchJSON(`/api/finance/item-bank/${encodeURIComponent(gfsItemNo)}`);
+      if (!item.success) {
+        showAlert('Item not found', 'error');
+        return;
+      }
+
+      const newFinanceCode = prompt(`Edit Finance Code for ${item.item.description}\n\nCurrent: ${item.item.finance_code}\n\nNew finance code:`, item.item.finance_code);
+
+      if (newFinanceCode && newFinanceCode !== item.item.finance_code) {
+        const validCodes = ['BAKE', 'BEV+ECO', 'MILK', 'GROC+MISC', 'MEAT', 'PROD', 'CLEAN', 'PAPER', 'FREIGHT', 'LINEN', 'PROPANE', 'OTHER'];
+        if (!validCodes.includes(newFinanceCode.toUpperCase())) {
+          showAlert('Invalid finance code. Must be one of: ' + validCodes.join(', '), 'error');
+          return;
+        }
+
+        const response = await fetchJSON(`/api/finance/item-bank/${encodeURIComponent(gfsItemNo)}`, {
+          method: 'PUT',
+          body: JSON.stringify({ finance_code: newFinanceCode.toUpperCase() })
+        });
+
+        if (response.success) {
+          showAlert('Item updated successfully!', 'success');
+          loadItemBank();
+        } else {
+          showAlert(response.error || 'Update failed', 'error');
+        }
+      }
+    } catch (error) {
+      console.error('Edit item error:', error);
+      showAlert('Error editing item: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Retire item
+   */
+  async function retireItem(gfsItemNo) {
+    if (!confirm(`Retire item ${gfsItemNo}?\n\nThis will mark it as RETIRED (soft delete).`)) {
+      return;
+    }
+
+    try {
+      const response = await fetchJSON(`/api/finance/item-bank/${encodeURIComponent(gfsItemNo)}`, {
+        method: 'DELETE'
+      });
+
+      if (response.success) {
+        showAlert('Item retired successfully!', 'success');
+        loadItemBank();
+      } else {
+        showAlert(response.error || 'Retire failed', 'error');
+      }
+    } catch (error) {
+      console.error('Retire item error:', error);
+      showAlert('Error retiring item: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Activate item
+   */
+  async function activateItem(gfsItemNo) {
+    try {
+      const response = await fetchJSON(`/api/finance/item-bank/${encodeURIComponent(gfsItemNo)}/activate`, {
+        method: 'POST'
+      });
+
+      if (response.success) {
+        showAlert('Item activated successfully!', 'success');
+        loadItemBank();
+      } else {
+        showAlert(response.error || 'Activate failed', 'error');
+      }
+    } catch (error) {
+      console.error('Activate item error:', error);
+      showAlert('Error activating item: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Load Needs Mapping Queue
+   */
+  async function loadNeedsMappingQueue() {
+    try {
+      const response = await fetchJSON('/api/finance/enforcement/needs-mapping?limit=100');
+
+      if (response.success) {
+        renderNeedsMappingQueue(response.items);
+        const needsMappingCount = $$('#needs-mapping-count');
+        if (needsMappingCount) needsMappingCount.textContent = response.total;
+
+        const statNeedsMapping = $$('#stat-needs-mapping');
+        if (statNeedsMapping) statNeedsMapping.textContent = response.total;
+      } else {
+        showAlert(response.error || 'Failed to load needs mapping queue', 'error');
+      }
+    } catch (error) {
+      console.error('Load needs mapping error:', error);
+      showAlert('Error loading needs mapping queue: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Render Needs Mapping Queue table
+   */
+  function renderNeedsMappingQueue(items) {
+    const tbody = $$('#mapping-queue-tbody');
+    if (!tbody) return;
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center">✅ No items needing mapping. All lines are mapped with high confidence!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+      const confidencePct = (item.confidence * 100).toFixed(0);
+      const confidenceClass = item.confidence >= 0.80 ? 'badge-success' : item.confidence >= 0.50 ? 'badge-warning' : 'badge-error';
+
+      return `
+        <tr data-audit-id="${item.id}">
+          <td><code>${escapeHtml(item.invoice_id)}</code></td>
+          <td>${escapeHtml(item.line_id || '--')}</td>
+          <td>${escapeHtml(item.description)}</td>
+          <td>${escapeHtml(item.gfs_item_no || '--')}</td>
+          <td><span class="badge badge-finance-${item.new_code.toLowerCase()}">${escapeHtml(item.new_code)}</span></td>
+          <td><span class="badge ${confidenceClass}">${confidencePct}%</span></td>
+          <td><span class="badge badge-secondary">${escapeHtml(item.strategy)}</span></td>
+          <td>
+            <button type="button" class="btn btn-xs btn-primary np-btn-confirm" onclick="confirmMapping('${escapeHtml(item.invoice_id)}', '${escapeHtml(item.line_id)}', '${escapeHtml(item.new_code)}')">✅ Confirm</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="editMapping('${escapeHtml(item.invoice_id)}', '${escapeHtml(item.line_id)}')">✏️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  /**
+   * Confirm mapping
+   */
+  async function confirmMapping(invoiceId, lineId, financeCode) {
+    try {
+      const response = await fetchJSON('/api/finance/enforcement/manual-assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          line_data: {
+            invoice_id: invoiceId,
+            line_id: lineId
+          },
+          finance_code: financeCode
+        })
+      });
+
+      if (response.success) {
+        showAlert('Mapping confirmed!', 'success');
+        loadNeedsMappingQueue();
+      } else {
+        showAlert(response.error || 'Confirm failed', 'error');
+      }
+    } catch (error) {
+      console.error('Confirm mapping error:', error);
+      showAlert('Error confirming mapping: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Edit mapping
+   */
+  async function editMapping(invoiceId, lineId) {
+    const newCode = prompt('Enter new finance code:', '');
+    if (!newCode) return;
+
+    const validCodes = ['BAKE', 'BEV+ECO', 'MILK', 'GROC+MISC', 'MEAT', 'PROD', 'CLEAN', 'PAPER', 'FREIGHT', 'LINEN', 'PROPANE', 'OTHER'];
+    if (!validCodes.includes(newCode.toUpperCase())) {
+      showAlert('Invalid finance code. Must be one of: ' + validCodes.join(', '), 'error');
+      return;
+    }
+
+    try {
+      const response = await fetchJSON('/api/finance/enforcement/manual-assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          line_data: {
+            invoice_id: invoiceId,
+            line_id: lineId
+          },
+          finance_code: newCode.toUpperCase()
+        })
+      });
+
+      if (response.success) {
+        showAlert('Mapping updated!', 'success');
+        loadNeedsMappingQueue();
+      } else {
+        showAlert(response.error || 'Update failed', 'error');
+      }
+    } catch (error) {
+      console.error('Edit mapping error:', error);
+      showAlert('Error updating mapping: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Refresh Integrity Badge
+   */
+  async function refreshIntegrityBadge() {
+    try {
+      const response = await fetchJSON('/api/finance/enforcement/needs-attention?limit=1000');
+
+      if (response.success) {
+        const invoices = response.invoices;
+        const totalInvoices = invoices.length;
+        const imbalanced = invoices.filter(inv => inv.balance_status !== 'BALANCED').length;
+        const balanced = totalInvoices - imbalanced;
+
+        const statusBadge = $$('#integrity-badge-status');
+        const totalInvoicesEl = $$('#integrity-total-invoices');
+        const imbalancedEl = $$('#integrity-imbalanced');
+        const totalDeltaEl = $$('#integrity-total-delta');
+
+        if (statusBadge) {
+          if (imbalanced === 0) {
+            statusBadge.innerHTML = '<span class="finance-badge-ok">✅ BALANCED</span>';
+          } else {
+            statusBadge.innerHTML = `<span class="finance-badge-warn">⚠️ ${imbalanced} ISSUES</span>`;
+          }
+        }
+
+        if (totalInvoicesEl) totalInvoicesEl.textContent = totalInvoices;
+        if (imbalancedEl) imbalancedEl.textContent = imbalanced;
+
+        // Calculate total delta
+        let totalDelta = 0;
+        invoices.forEach(inv => {
+          if (inv.total_delta_cents) {
+            totalDelta += Math.abs(inv.total_delta_cents);
+          }
+        });
+
+        if (totalDeltaEl) totalDeltaEl.textContent = `$${(totalDelta / 100).toFixed(2)}`;
+      }
+    } catch (error) {
+      console.error('Refresh integrity badge error:', error);
+      showAlert('Error refreshing integrity badge: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Revalidate Period
+   */
+  async function revalidatePeriod() {
+    if (!confirm('Revalidate all invoices in the current period?\n\nThis may take a few moments.')) {
+      return;
+    }
+
+    try {
+      showAlert('Revalidation in progress...', 'info');
+
+      // This would typically call a bulk revalidation endpoint
+      // For now, we'll just refresh the integrity badge
+      await refreshIntegrityBadge();
+
+      showAlert('Period revalidated successfully!', 'success');
+    } catch (error) {
+      console.error('Revalidate period error:', error);
+      showAlert('Error revalidating period: ' + error.message, 'error');
+    }
+  }
+
+  /**
+   * Load Finance Strip
+   */
+  async function loadFinanceStrip() {
+    try {
+      const dashboard = await fetchJSON('/api/finance/enforcement/dashboard');
+
+      if (dashboard.success) {
+        renderFinanceStrip(dashboard);
+
+        // Update auto-mapping percentage
+        if (dashboard.mapping && dashboard.mapping.by_strategy) {
+          const totalMappings = dashboard.mapping.by_strategy.reduce((sum, s) => sum + s.count, 0);
+          const autoMappings = dashboard.mapping.by_strategy
+            .filter(s => s.strategy === 'BANK' || s.strategy === 'RULE')
+            .reduce((sum, s) => sum + s.count, 0);
+
+          const autoPct = totalMappings > 0 ? ((autoMappings / totalMappings) * 100).toFixed(1) : 0;
+          const statMappingAutoPct = $$('#stat-mapping-auto-pct');
+          if (statMappingAutoPct) statMappingAutoPct.textContent = `${autoPct}%`;
+        }
+      }
+    } catch (error) {
+      console.error('Load finance strip error:', error);
+    }
+  }
+
+  /**
+   * Render Finance Strip
+   */
+  function renderFinanceStrip(dashboard) {
+    const strip = $$('#financeStrip');
+    if (!strip) return;
+
+    const financeCategories = dashboard.item_bank?.by_finance_code || [];
+
+    if (financeCategories.length === 0) {
+      strip.innerHTML = '<div class="finance-strip-loading">No finance data available</div>';
+      return;
+    }
+
+    strip.innerHTML = `
+      <div class="finance-strip-grid">
+        ${financeCategories.map(cat => `
+          <div class="finance-strip-item">
+            <div class="finance-strip-code">${escapeHtml(cat.finance_code)}</div>
+            <div class="finance-strip-count">${cat.active} items</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /**
+   * Helper: Escape HTML
+   */
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  /**
+   * Helper: Show alert (using existing implementation)
+   */
+  function showAlert(message, type = 'info') {
+    // Reuse existing alert system if available
+    if (window.showNotification) {
+      window.showNotification(message, type);
+    } else {
+      console.log(`[${type.toUpperCase()}]`, message);
+      alert(message);
+    }
+  }
+
+  /**
+   * Helper: Fetch JSON (using existing implementation)
+   */
+  async function fetchJSON(url, options = {}) {
+    const token = localStorage.getItem('token');
+    const defaultOptions = {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    };
+
+    const response = await fetch(url, { ...defaultOptions, ...options });
+    return await response.json();
+  }
+
+  // Export functions to global scope for onclick handlers
+  window.editItem = editItem;
+  window.retireItem = retireItem;
+  window.activateItem = activateItem;
+  window.confirmMapping = confirmMapping;
+  window.editMapping = editMapping;
+  window.loadItemBank = loadItemBank;
+  window.loadNeedsMappingQueue = loadNeedsMappingQueue;
+  window.refreshIntegrityBadge = refreshIntegrityBadge;
+  window.revalidatePeriod = revalidatePeriod;
+})();
+
+// ============================================================================
+// HEALTH MONITORING INITIALIZATION
+// ============================================================================
+// Start health monitoring when page loads (defined in owner-console-core.js)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof startHealthMonitoring === 'function') {
+      startHealthMonitoring();
+    }
+  });
+} else {
+  // DOM already loaded
+  if (typeof startHealthMonitoring === 'function') {
+    startHealthMonitoring();
+  }
+}

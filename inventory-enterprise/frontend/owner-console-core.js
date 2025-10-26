@@ -11,7 +11,18 @@
 // CONFIGURATION
 // ============================================================================
 
-const API_BASE = 'http://127.0.0.1:8083/api';
+// Origin Helper - ensures consistent URL handling across all requests
+const H = (() => {
+  const origin = window.location.origin;
+  console.log('🌐 Origin detected:', origin);
+  return {
+    route: (p) => p.startsWith('http') ? p : origin + p,
+    asset: (p) => p.startsWith('http') ? p : origin + p,
+    origin: origin
+  };
+})();
+
+const API_BASE = H.route('/api');
 let token = localStorage.getItem('authToken');
 let currentUser = null;
 let tokenExpiresAt = null;
@@ -61,12 +72,38 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
     currentUser = payload;
+    window.currentUser = payload; // v15.5.1: Make available globally for RBAC
     tokenExpiresAt = payload.exp * 1000;
     document.getElementById('currentUser').textContent = payload.email || 'Owner';
   } catch (e) {
     console.error('Invalid token:', e);
     logout();
     return;
+  }
+
+  // v15.5.0: Initialize RBAC client
+  if (typeof window.RBACClient !== 'undefined') {
+    try {
+      await window.RBACClient.init();
+      window.RBACClient.gateUI();
+      console.log('✅ RBAC initialized and UI gated');
+    } catch (rbacErr) {
+      console.warn('RBAC initialization failed:', rbacErr.message);
+    }
+  }
+
+  // v15.5.0: Load app config (shadow mode, etc.)
+  try {
+    const configResponse = await fetchAPI('/owner/config');
+    window.appConfig = configResponse.config || {};
+  } catch (configErr) {
+    console.warn('Could not load app config:', configErr.message);
+    window.appConfig = { shadowMode: false };
+  }
+
+  // v15.5.0: Update shadow mode badge (if function exists)
+  if (typeof window.updateShadowModeBadge === 'function') {
+    window.updateShadowModeBadge();
   }
 
   // Start token TTL countdown
@@ -122,12 +159,29 @@ function logout() {
 // API HELPERS
 // ============================================================================
 
+/**
+ * Build auth headers - gracefully handles missing token
+ */
+function authHeaders() {
+  const t = localStorage.getItem('authToken') || window.authToken;
+  const h = { 'Accept': 'application/json' };
+  if (t) {
+    h['Authorization'] = `Bearer ${t}`;
+  } else {
+    console.warn('⚠️ No auth token found - API calls may fail');
+  }
+  return h;
+}
+
+/**
+ * Friendly fetch wrapper with graceful error handling
+ */
 async function fetchAPI(endpoint, options = {}) {
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
   const config = {
     ...options,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      ...authHeaders(),
       'Content-Type': 'application/json',
       ...options.headers
     }
@@ -151,15 +205,27 @@ async function fetchAPI(endpoint, options = {}) {
 
     if (response.status === 401 || response.status === 403) {
       const errorData = await response.json().catch(() => ({ error: 'Unauthorized' }));
-      console.error('Auth error:', errorData);
-      alert('Owner re-auth required: ' + (errorData.error || errorData.code || 'Access denied'));
-      logout();
-      throw new Error('Unauthorized: ' + (errorData.error || errorData.code));
+      console.warn('⚠️ Auth issue. Try logging in again.', errorData);
+
+      // Show friendly message but don't auto-logout (let user decide)
+      if (!document.getElementById('auth-warning')) {
+        const warning = document.createElement('div');
+        warning.id = 'auth-warning';
+        warning.className = 'auth-warning-banner';
+        warning.innerHTML = `
+          <strong>⚠️ Authentication Required</strong><br>
+          <small>Some features may be limited. <a href="${H.route('/quick_login.html')}">Login here</a></small>
+          <button onclick="this.parentElement.remove()">×</button>
+        `;
+        document.body.appendChild(warning);
+      }
+
+      throw new Error('Unauthorized: ' + (errorData.error || errorData.code || 'Access denied'));
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('API error response:', errorData);
+      console.warn('⚠️ API failed:', url, errorData);
       throw new Error(errorData.error || errorData.message || response.statusText);
     }
 
@@ -168,12 +234,78 @@ async function fetchAPI(endpoint, options = {}) {
     return data;
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.error(`⏱️ Timeout after 10s: ${url}`);
-      throw new Error(`Request timeout (10s): ${endpoint}`);
+      console.warn(`⏱️ Timeout after 10s: ${url}`);
+      return null; // Return null instead of throwing - let UI show "—"
     }
-    console.error(`❌ API Error (${endpoint}):`, error);
-    throw error;
+    console.warn(`⚠️ API Error (${endpoint}):`, error.message);
+    return null; // Graceful degradation - UI will show "—" instead of crashing
   }
+}
+
+// ============================================================================
+// HEALTH & STATUS MONITORING
+// ============================================================================
+
+/**
+ * Check server health and update badge
+ */
+async function checkHealth() {
+  const healthBadge = document.getElementById('healthBadge');
+  const healthIcon = document.getElementById('healthIcon');
+  const healthText = document.getElementById('healthText');
+  const authStatus = document.getElementById('authStatus');
+
+  if (!healthBadge) return;
+
+  // Set loading state
+  healthIcon.textContent = '⏳';
+  healthText.textContent = 'Checking...';
+  healthBadge.className = 'badge';
+
+  try {
+    const response = await fetch(H.route('/health'), {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      healthIcon.textContent = '🟢';
+      healthText.textContent = 'Healthy';
+      healthBadge.className = 'badge badge-live';
+      healthBadge.title = `Server v${data.version || 'unknown'} - Click to refresh`;
+    } else {
+      healthIcon.textContent = '🟡';
+      healthText.textContent = 'Degraded';
+      healthBadge.className = 'badge badge-warn';
+      healthBadge.title = `HTTP ${response.status} - Click to refresh`;
+    }
+  } catch (error) {
+    healthIcon.textContent = '🔴';
+    healthText.textContent = 'Offline';
+    healthBadge.className = 'badge badge-danger';
+    healthBadge.title = 'Server unreachable - Click to retry';
+  }
+
+  // Check auth status
+  if (authStatus) {
+    const token = localStorage.getItem('authToken') || window.authToken;
+    if (!token) {
+      authStatus.innerHTML = '<a href="' + H.route('/quick_login.html') + '" class="auth-status-login">⚠️ Login</a>';
+    } else {
+      authStatus.innerHTML = '<span class="auth-status-authenticated">✓ Authenticated</span>';
+    }
+  }
+}
+
+/**
+ * Start periodic health checks
+ */
+function startHealthMonitoring() {
+  // Initial check
+  checkHealth();
+
+  // Check every 30 seconds
+  setInterval(checkHealth, 30000);
 }
 
 // ============================================================================
@@ -253,6 +385,8 @@ function switchTab(tabName) {
       break;
     case 'count':
       if (typeof loadActiveCount === 'function') loadActiveCount();
+      if (typeof loadRecentReconciliations === 'function') loadRecentReconciliations();
+      if (typeof loadCountHistory === 'function') loadCountHistory();
       break;
     case 'playground':
       if (typeof loadPlayground === 'function') loadPlayground();
