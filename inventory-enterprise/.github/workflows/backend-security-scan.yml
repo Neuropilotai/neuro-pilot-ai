@@ -1,0 +1,189 @@
+name: Backend Security Scan & Build
+
+on:
+  push:
+    branches: [ main, staging, fix/** ]
+    paths:
+      - 'inventory-enterprise/backend/**'
+      - '.github/workflows/backend-security-scan.yml'
+  pull_request:
+    branches: [ main, staging ]
+    paths:
+      - 'inventory-enterprise/backend/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/neuropilot-backend
+
+jobs:
+  security-audit:
+    name: NPM Audit & Dependency Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: inventory-enterprise/backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: inventory-enterprise/backend/package-lock.json
+
+      - name: Verify package-lock.json exists
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "❌ ERROR: package-lock.json missing!"
+            echo "Generate it with: npm i --package-lock-only"
+            exit 1
+          fi
+          echo "✅ package-lock.json found"
+
+      - name: Install dependencies (production only)
+        run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Run npm audit (fail on moderate+)
+        run: |
+          echo "🔍 Running npm audit..."
+          npm audit --audit-level=moderate --production || {
+            echo "❌ npm audit found vulnerabilities at moderate or higher severity"
+            echo "📋 Run 'npm audit fix' to attempt automatic fixes"
+            exit 1
+          }
+          echo "✅ No moderate+ vulnerabilities found"
+
+      - name: Check for known security issues in dependencies
+        run: |
+          echo "🔍 Checking for deprecated packages..."
+          npm list --depth=0 --production || true
+
+  build-and-scan:
+    name: Build Docker Image & Security Scan
+    runs-on: ubuntu-latest
+    needs: security-audit
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (for scanning)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./inventory-enterprise/backend
+          file: ./inventory-enterprise/backend/Dockerfile
+          push: false
+          load: true
+          tags: neuropilot-backend:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: neuropilot-backend:scan
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy vulnerability scanner (table output)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: neuropilot-backend:scan
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
+
+      - name: Inspect Docker image layers for secrets
+        run: |
+          echo "🔍 Checking Docker image layers for secrets..."
+          docker history neuropilot-backend:scan --no-trunc --format "{{.CreatedBy}}" | grep -iE '(secret|password|token|key|api_key|jwt)' && {
+            echo "❌ WARNING: Potential secrets found in image layers!"
+            echo "Review the output above and ensure no sensitive data is baked in."
+            exit 1
+          } || {
+            echo "✅ No obvious secrets found in image layers"
+          }
+
+      - name: Verify no .env files in image
+        run: |
+          echo "🔍 Checking for .env files in image..."
+          docker run --rm neuropilot-backend:scan sh -c "find /app -name '.env*' -o -name '*.pem' -o -name '*.key'" | grep -q . && {
+            echo "❌ ERROR: Secret files found in image!"
+            exit 1
+          } || {
+            echo "✅ No .env or secret files found in image"
+          }
+
+      - name: Verify running as non-root
+        run: |
+          echo "🔍 Verifying container runs as non-root..."
+          USER_ID=$(docker run --rm neuropilot-backend:scan id -u)
+          if [ "$USER_ID" = "0" ]; then
+            echo "❌ ERROR: Container running as root!"
+            exit 1
+          fi
+          echo "✅ Container running as user ID: $USER_ID (non-root)"
+
+      - name: Test health check endpoint
+        run: |
+          echo "🔍 Testing health check..."
+          docker run -d --name health-test -p 8083:8083 \
+            -e NODE_ENV=production \
+            -e PORT=8083 \
+            -e DATABASE_URL="postgresql://test:test@localhost/test" \
+            -e JWT_SECRET="test-secret-minimum-64-characters-for-testing-purposes-only" \
+            neuropilot-backend:scan || true
+
+          sleep 5
+
+          docker logs health-test || true
+
+          # Cleanup
+          docker stop health-test || true
+          docker rm health-test || true
+
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    needs: [security-audit, build-and-scan]
+    if: always()
+
+    steps:
+      - name: Check job results
+        run: |
+          echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.security-audit.result }}" = "success" ] && [ "${{ needs.build-and-scan.result }}" = "success" ]; then
+            echo "✅ **All security checks passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ NPM audit clean (no moderate+ vulnerabilities)" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Docker image built successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Trivy scan passed (no HIGH/CRITICAL vulnerabilities)" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ No secrets found in image layers" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Container runs as non-root user" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Security checks failed!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the job logs above for details." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

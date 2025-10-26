@@ -1,49 +1,69 @@
-# Multi-stage build for optimized production image
-# Stage 1: Build dependencies
-FROM node:20-alpine AS builder
+# File: Dockerfile (secure, multi-stage)
+# NOTE: Replace pinned digests periodically as part of maintenance.
 
+########################
+# 0. Build stage
+########################
+FROM node:20-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS builder
+
+ENV NODE_ENV=production
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Install system packages needed for build (minimal)
+RUN apk --no-cache add --virtual .build-deps \
+      python3 make g++ \
+  && addgroup -g 1001 -S appuser \
+  && adduser -S -u 1001 -G appuser appuser
 
-# Install dependencies (including dev dependencies for build)
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Copy only manifests for cached dependency install
+COPY package.json package-lock.json* ./
 
-# Stage 2: Production image
-FROM node:20-alpine
+# Use npm ci for reproducible builds (requires package-lock.json)
+RUN if [ -f package-lock.json ]; then \
+      npm ci --omit=dev --no-audit --no-fund; \
+    else \
+      echo "WARNING: package-lock.json missing — falling back to npm install" && \
+      npm install --omit=dev --no-audit --no-fund; \
+    fi \
+    && npm cache clean --force
 
-# Install security updates
-RUN apk --no-cache upgrade && \
-    apk add --no-cache tini && \
-    addgroup -g 1001 -S appuser && \
-    adduser -S -u 1001 -G appuser appuser
+# Copy source and build (if your project needs a build step)
+COPY . .
 
+# If you have a build step (e.g. bundling web assets), run it here:
+# RUN npm run build
+
+########################
+# 1. Final runtime stage
+########################
+FROM node:20-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS runtime
+
+ENV NODE_ENV=production
 WORKDIR /app
 
-# Copy dependencies from builder
-COPY --from=builder /app/node_modules ./node_modules
+# Add tini for proper PID 1 handling
+RUN apk --no-cache add tini && \
+    addgroup -g 1001 -S appuser && adduser -S -u 1001 -G appuser appuser
 
-# Copy application code
-COPY --chown=appuser:appuser . .
+# Copy only runtime artifacts from builder
+COPY --from=builder --chown=appuser:appuser /app /app
 
-# Create necessary directories with proper permissions
-RUN mkdir -p data logs backups locales && \
-    chown -R appuser:appuser data logs backups locales
+# Ensure no secrets accidentally present
+RUN rm -f /app/.env /app/*.pem /app/*.key || true
 
-# Switch to non-root user
+# Use non-root user
 USER appuser
 
-# Expose port
+# Security: Run app in a directory with limited permissions (already set by COPY --chown)
+# Recommend container run with read-only filesystem and dropped capabilities (see runtime flags below)
+
+# Expose port (change to your port)
 EXPOSE 8083
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8083/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"
+  CMD node -e "require('http').get('http://localhost:8083/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"
 
-# Use tini as init system
+# Use tini and start the server
 ENTRYPOINT ["/sbin/tini", "--"]
-
-# Start application
 CMD ["node", "server.js"]
