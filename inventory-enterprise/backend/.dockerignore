@@ -94,9 +94,10 @@ build
 .next
 out
 
-# Docker
-Dockerfile*
+# Docker - Note: Keep Dockerfile for Railway, exclude others
 docker-compose*.yml
+Dockerfile.old
+Dockerfile.backup
 .dockerignore
 
 # CI/CD
