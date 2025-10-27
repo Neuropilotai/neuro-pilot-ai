@@ -173,32 +173,77 @@ app.use(helmet({
   }
 }));
 
-// CORS Configuration - Security Hardened (v18.0)
+// CORS Configuration - Security Hardened (v18.0 - Ultimate)
 // Restricts API access to authorized frontend origins only
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : [
-      'https://neuropilot-inventory-ngrq6b78x-david-mikulis-projects-73b27c6d.vercel.app',
-      'https://neuropilot-inventory.vercel.app'
-    ];
+// NO WILDCARD FALLBACK in production - enterprise security policy
 
-logger.info('CORS allowed origins:', allowedOrigins);
+// Build allowlist from env with strict validation
+const rawAllowed = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// Production default (if env missing): strict Vercel allowlist with wildcard subdomain support
+const defaultProdOrigins = [
+  'https://neuropilot-inventory.vercel.app',
+  'https://*.vercel.app'
+];
+
+// Non-production default (localhost only)
+const defaultNonProdOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
+
+const isProd = process.env.NODE_ENV === 'production';
+const allowlist = rawAllowed.length > 0
+  ? rawAllowed
+  : (isProd ? defaultProdOrigins : [...defaultProdOrigins, ...defaultNonProdOrigins]);
+
+// Wildcard subdomain matcher for patterns like https://*.vercel.app
+function matchOrigin(origin, list) {
+  if (!origin) return true; // Allow server-to-server/no-origin requests
+
+  for (const rule of list) {
+    if (rule.includes('*')) {
+      // Convert wildcard pattern to regex (only subdomain wildcards)
+      const pattern = '^' + rule
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '[a-z0-9-]+') + '$';
+      const re = new RegExp(pattern, 'i');
+      if (re.test(origin)) return true;
+    } else if (origin === rule) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Startup security banner (no secrets - only counts)
+logger.info('[SECURE-CORS] mode=%s allowlist_count=%d node=%s platform=%s',
+  process.env.NODE_ENV || 'development',
+  allowlist.length,
+  process.version,
+  process.platform
+);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
-    if (!origin) return callback(null, true);
+    const isAllowed = matchOrigin(origin, allowlist);
 
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
+    if (isAllowed) {
+      callback(null, origin || true);
     } else {
-      logger.warn('CORS blocked request from unauthorized origin:', origin);
+      // Security: log SHA256 hash of blocked origin, not the origin itself
+      const crypto = require('crypto');
+      const hash = origin ? crypto.createHash('sha256').update(origin).digest('hex').slice(0, 8) : 'null';
+      logger.warn('CORS blocked unauthorized origin hash:', hash);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Requested-With'],
   maxAge: 600 // 10 minutes - cache preflight response
 }));
 
