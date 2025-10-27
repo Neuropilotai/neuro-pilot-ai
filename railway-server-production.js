@@ -15,12 +15,66 @@ const PORT = process.env.PORT || 8080;
 // Security middleware
 app.use(helmet({
     contentSecurityPolicy: false, // Allow Railway's default CSP
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    referrerPolicy: { policy: "no-referrer" }
 }));
 
+// CORS Configuration - Security Hardened (v18.0-ultimate)
+// NO WILDCARD FALLBACK - enterprise security policy
+const rawAllowed = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// Production-safe defaults with wildcard subdomain support
+const defaultProdOrigins = [
+  'https://neuropilot-inventory.vercel.app',
+  'https://*.vercel.app'
+];
+
+const isProd = process.env.NODE_ENV === 'production';
+const allowlist = rawAllowed.length > 0 ? rawAllowed : defaultProdOrigins;
+
+// Wildcard subdomain matcher for patterns like https://*.vercel.app
+function matchOrigin(origin, list) {
+  if (!origin) return true; // Allow server-to-server/no-origin
+
+  for (const rule of list) {
+    if (rule.includes('*')) {
+      const pattern = '^' + rule.replace(/\./g, '\\.').replace(/\*/g, '[a-z0-9-]+') + '$';
+      const re = new RegExp(pattern, 'i');
+      if (re.test(origin)) return true;
+    } else if (origin === rule) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Startup security banner
+console.log('[SECURE-CORS] mode=%s allowlist_count=%d node=%s',
+  process.env.NODE_ENV || 'production',
+  allowlist.length,
+  process.version
+);
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || '*',
-    credentials: true
+  origin: function (origin, callback) {
+    const isAllowed = matchOrigin(origin, allowlist);
+    if (isAllowed) {
+      callback(null, origin || true);
+    } else {
+      const crypto = require('crypto');
+      const hash = origin ? crypto.createHash('sha256').update(origin).digest('hex').slice(0, 8) : 'null';
+      console.warn('CORS blocked unauthorized origin hash:', hash);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Requested-With'],
+  maxAge: 600
 }));
 
 // Rate limiting
