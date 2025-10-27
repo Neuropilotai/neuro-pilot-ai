@@ -34,14 +34,24 @@ jobs:
           cache: 'npm'
           cache-dependency-path: inventory-enterprise/backend/package-lock.json
 
-      - name: Verify package-lock.json exists
+      - name: Verify package-lock.json exists (REQUIRED)
         run: |
           if [ ! -f package-lock.json ]; then
-            echo "❌ ERROR: package-lock.json missing!"
-            echo "Generate it with: npm i --package-lock-only"
+            echo "❌ CRITICAL ERROR: package-lock.json missing!"
+            echo "This lockfile is REQUIRED for reproducible builds."
+            echo "Generate it with: cd inventory-enterprise/backend && npm install --package-lock-only"
+            echo "Then commit: git add package-lock.json && git commit -m 'chore: add package-lock.json'"
             exit 1
           fi
           echo "✅ package-lock.json found"
+
+          # Verify lockfile is not out of sync
+          if ! npm ci --omit=dev --dry-run > /dev/null 2>&1; then
+            echo "❌ ERROR: package-lock.json is out of sync with package.json!"
+            echo "Run: npm install && git add package-lock.json"
+            exit 1
+          fi
+          echo "✅ package-lock.json is in sync"
 
       - name: Install dependencies (production only)
         run: npm ci --omit=dev --no-audit --no-fund
@@ -111,6 +121,20 @@ jobs:
           format: 'table'
           severity: 'HIGH,CRITICAL'
           exit-code: '0'
+
+      - name: Generate SBOM (Software Bill of Materials)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: neuropilot-backend:scan
+          format: 'cyclonedx'
+          output: 'sbom.cdx.json'
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          retention-days: 90
 
       - name: Inspect Docker image layers for secrets
         run: |

@@ -1,69 +1,67 @@
-# File: Dockerfile (secure, multi-stage)
-# NOTE: Replace pinned digests periodically as part of maintenance.
+# syntax=docker/dockerfile:1.6
 
-########################
-# 0. Build stage
-########################
-FROM node:20-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS builder
-
-ENV NODE_ENV=production
+# --- Base: pinned digest for reproducibility ---
+FROM node:20-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS base
+ENV NODE_ENV=production \
+    NODE_OPTIONS=--enable-source-maps
+RUN apk --no-cache upgrade && apk add --no-cache tini
+# Create non-root user
+RUN addgroup -g 1001 -S appuser && adduser -S -u 1001 -G appuser appuser
 WORKDIR /app
 
-# Install system packages needed for build (minimal)
-RUN apk --no-cache add --virtual .build-deps \
-      python3 make g++ \
-  && addgroup -g 1001 -S appuser \
-  && adduser -S -u 1001 -G appuser appuser
+# --- Builder: install deps with lockfile, fall back safely if lock missing ---
+FROM base AS builder
+# Pin npm via corepack for reproducibility
+RUN corepack enable && corepack prepare npm@10.7.0 --activate
 
-# Copy only manifests for cached dependency install
-COPY package.json package-lock.json* ./
+# Copy manifest & lock (lock is optional but preferred)
+COPY package.json ./
+# Only copy lockfile if it exists in repo; if not present, the next COPY will be skipped automatically
+# (We'll handle both paths in the RUN step)
+COPY package-lock.json ./ 2>/dev/null || true
 
-# Use npm ci for reproducible builds (requires package-lock.json)
-RUN if [ -f package-lock.json ]; then \
+# Use cache for npm to speed up builds
+RUN --mount=type=cache,id=npm,target=/root/.npm \
+    if [ -f package-lock.json ]; then \
+      echo "🔒 Using package-lock.json with npm ci --omit=dev"; \
       npm ci --omit=dev --no-audit --no-fund; \
     else \
-      echo "WARNING: package-lock.json missing — falling back to npm install" && \
+      echo "⚠️ No lockfile found. Falling back to npm install --omit=dev (LESS reproducible)."; \
       npm install --omit=dev --no-audit --no-fund; \
-    fi \
-    && npm cache clean --force
+    fi && \
+    npm cache clean --force
 
-# Copy source and build (if your project needs a build step)
+# Copy app source
 COPY . .
 
-# If you have a build step (e.g. bundling web assets), run it here:
+# Optional: build step (uncomment if you have a compile step)
 # RUN npm run build
 
-########################
-# 1. Final runtime stage
-########################
-FROM node:20-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435 AS runtime
-
-ENV NODE_ENV=production
+# --- Runtime: minimal, non-root, read-only, healthcheck ---
+FROM base AS runtime
+USER appuser
 WORKDIR /app
 
-# Add tini for proper PID 1 handling
-RUN apk --no-cache add tini && \
-    addgroup -g 1001 -S appuser && adduser -S -u 1001 -G appuser appuser
+# Copy node_modules and app
+COPY --from=builder --chown=appuser:appuser /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appuser /app ./
 
-# Copy only runtime artifacts from builder
-COPY --from=builder --chown=appuser:appuser /app /app
+# Remove any accidentally copied secrets
+RUN rm -f .env* *.pem *.key *.crt 2>/dev/null || true
 
-# Ensure no secrets accidentally present
-RUN rm -f /app/.env /app/*.pem /app/*.key || true
-
-# Use non-root user
-USER appuser
-
-# Security: Run app in a directory with limited permissions (already set by COPY --chown)
-# Recommend container run with read-only filesystem and dropped capabilities (see runtime flags below)
-
-# Expose port (change to your port)
+# Expose port (adjust if needed)
 EXPOSE 8083
 
-# Health check
+# Healthcheck (adjust path if needed)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8083/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8083/api/health || exit 1
 
-# Use tini and start the server
-ENTRYPOINT ["/sbin/tini", "--"]
+# Run with tini as PID 1
+ENTRYPOINT ["/sbin/tini","--"]
+
+# Read-only rootfs at runtime (platform policy; keep comment here for ops)
+# On some platforms you can add args (Railway may handle runtime flags in service config)
+# Example runtime flags (documented in runbook):
+#   --read-only --tmpfs /tmp:rw,exec,nosuid,nodev --cap-drop ALL --cap-add NET_BIND_SERVICE
+
 CMD ["node", "server.js"]

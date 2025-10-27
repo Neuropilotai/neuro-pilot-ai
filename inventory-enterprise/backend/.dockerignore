@@ -1,7 +1,7 @@
 # Node
 node_modules
-npm-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-error.log*
 package-lock.json.bak
 
 # Environment - CRITICAL: Never include in image
@@ -22,6 +22,7 @@ secrets/*
 *.p12
 *.pfx
 *.jks
+*.enc
 id_rsa*
 id_dsa*
 *.ppk
@@ -36,7 +37,10 @@ credentials.json
 
 # Tests
 __tests__
+**/__tests__/
 coverage
+*.test.*
+*.spec.*
 *.test.js
 *.spec.js
 jest.config.js
@@ -98,7 +102,6 @@ out
 docker-compose*.yml
 Dockerfile.old
 Dockerfile.backup
-.dockerignore
 
 # CI/CD
 .github
