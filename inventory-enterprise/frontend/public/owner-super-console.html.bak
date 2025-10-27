@@ -4,140 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Owner Super Console | NeuroInnovate Inventory v3.2.0</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="stylesheet" href="/css/owner-super.css?v=15.7.1">
-  <meta name="np-api-url" content="https://resourceful-achievement-production.up.railway.app">
-  <script>
-    // NeuroPilot frontend bootstrap v2: normalize API base, harden fetch, and provide safe fallbacks
-    (function () {
-      try {
-        // 1) Resolve API base (priority: meta tag -> window.API_URL -> localStorage -> fallback)
-        var meta = document.querySelector('meta[name="np-api-url"]');
-        var candidate = (meta && meta.content ? meta.content : (window.API_URL || localStorage.getItem('NP_API_URL') || '')).trim();
-        var fallback = 'https://resourceful-achievement-production.up.railway.app';
-        var base = (/^https?:\/\//i.test(candidate) ? candidate : fallback).replace(/\/+$/, '');
-
-        // Expose globals for legacy code
-        window.NP_CONFIG = window.NP_CONFIG || {};
-        window.NP_CONFIG.API_BASE = base;
-        window.API_URL = base;
-
-        // 2) Hardened, permissive fetch shim
-        // Goals:
-        //  - Accept string URLs and Request-like objects
-        //  - Gracefully pass through unknown (non-string) inputs to native fetch (no TypeError)
-        //  - Rewrite relative API calls to the backend base:
-        //      "/api/...", "api/...", "./api/..."
-        //  - Leave fully-qualified http(s) URLs alone
-        var _fetch = window.fetch.bind(window);
-
-        function normalizeUrl(input) {
-          // Request-like object
-          if (input && typeof input === 'object' && typeof input.url === 'string') {
-            input = input.url;
-          }
-          if (typeof input !== 'string') {
-            // Be permissive: pass through to native fetch for non-string inputs
-            return input;
-          }
-
-          var url = input.trim();
-
-          // Fix common relative API patterns
-          if (url.startsWith('/api/')) {
-            return base + url;
-          }
-          if (/^\.?\/?api\//i.test(url)) {
-            // handles "api/..." and "./api/..."
-            return base + '/' + url.replace(/^\.?\/*/,'');
-          }
-
-          // Leave absolute http(s) alone
-          if (/^https?:\/\//i.test(url)) {
-            return url;
-          }
-
-          // Other relative paths (assets/pages) are left as-is
-          return url;
-        }
-
-        window.fetch = function (input, init) {
-          try {
-            var normalized = normalizeUrl(input);
-            return _fetch(normalized, init).then(function (res) {
-              // 3) Safe fallback for endpoints that older clients expect to always return an object
-              // If /api/ai/ops/status returns null/empty, synthesize a minimal object
-              try {
-                var asString = (typeof normalized === 'string') ? normalized : (normalized && normalized.url) || '';
-                if (asString.indexOf('/api/ai/ops/status') !== -1) {
-                  // Clone and peek
-                  var clone = res.clone();
-                  return clone.json().then(function (data) {
-                    if (data && data.ai_ops_health) {
-                      return res; // happy path
-                    }
-                    // Synthesize minimal default payload
-                    var fallbackPayload = {
-                      ai_ops_health: {
-                        health_score: 0,
-                        dqi: 0,
-                        forecast_latency_ms: 0,
-                        learning_divergence: 0
-                      },
-                      checks: []
-                    };
-                    return new Response(JSON.stringify(fallbackPayload), {
-                      status: 200,
-                      headers: { 'Content-Type': 'application/json' }
-                    });
-                  }).catch(function () {
-                    // JSON parse failed; provide fallback
-                    var fallbackPayload = {
-                      ai_ops_health: {
-                        health_score: 0,
-                        dqi: 0,
-                        forecast_latency_ms: 0,
-                        learning_divergence: 0
-                      },
-                      checks: []
-                    };
-                    return new Response(JSON.stringify(fallbackPayload), {
-                      status: 200,
-                      headers: { 'Content-Type': 'application/json' }
-                    });
-                  });
-                }
-              } catch (e) {
-                // If anything goes wrong in fallback logic, just return original response
-                return res;
-              }
-              return res;
-            });
-          } catch (err) {
-            // As a last resort, fall back to native fetch without normalization
-            return _fetch(input, init);
-          }
-        };
-
-        // 4) Helper for modules that expect fetchJSON(base + path)
-        window.fetchJSON = function (path, init) {
-          var url;
-          if (typeof path === 'string') {
-            url = path.startsWith('http') ? path : (base + (path.startsWith('/') ? path : '/' + path));
-          } else {
-            // be permissive
-            return _fetch(path, init);
-          }
-          return fetch(url, Object.assign({ headers: { 'Accept': 'application/json' } }, init || {}));
-        };
-
-        // 5) Debug marker
-        console.debug('[NP] API base set to:', base);
-      } catch (e) {
-        console.error('[NP] Bootstrap error:', e);
-      }
-    })();
-  </script>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/public/css/owner-super.css?v=15.7.1">
 </head>
 <body>
   <header>
@@ -1788,7 +1656,7 @@
     </div>
   </div>
 
-<div id="recoveryInputModal" class="modal">
+  <div id="recoveryInputModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="recoveryInputModalTitle">Recovery Input</h3>

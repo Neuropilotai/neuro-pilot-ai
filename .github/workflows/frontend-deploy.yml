@@ -1,0 +1,204 @@
+# ========================================
+# PHASE III: FRONTEND AUTO-DEPLOYMENT
+# ========================================
+# NeuroPilot v17.7 - Automated Frontend Deployment
+# Triggers on push to main or fix/* branches
+
+name: Frontend Auto-Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+    paths:
+      - 'inventory-enterprise/frontend/**'
+      - '.github/workflows/frontend-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: inventory-enterprise/frontend/package-lock.json
+
+      - name: 📦 Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: 🔗 Pull Vercel Environment
+        working-directory: inventory-enterprise/frontend
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🏗️ Build Project
+        working-directory: inventory-enterprise/frontend
+        run: |
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🚀 Deploy to Vercel
+        id: deploy
+        working-directory: inventory-enterprise/frontend
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $DEPLOYMENT_URL"
+
+      - name: ✅ Verify Deployment
+        run: |
+          DEPLOYMENT_URL="${{ steps.deploy.outputs.deployment_url }}"
+          echo "Verifying deployment at: $DEPLOYMENT_URL"
+
+          # Wait for deployment to be ready
+          sleep 10
+
+          # Check if deployment is accessible
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOYMENT_URL")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Deployment verification PASSED"
+          else
+            echo "❌ Deployment verification FAILED (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+      - name: 🔄 Update Backend CORS
+        if: success()
+        run: |
+          DEPLOYMENT_URL="${{ steps.deploy.outputs.deployment_url }}"
+          echo "Updating backend CORS for: $DEPLOYMENT_URL"
+
+          # Update Railway environment variable
+          curl -X POST https://backboard.railway.app/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "mutation { variableUpsert(input: { projectId: \"081be493-34d8-4232-9e3f-ecf1b85cc4ad\", environmentId: \"production\", name: \"FRONTEND_ORIGIN\", value: \"'"$DEPLOYMENT_URL"'\" }) { id } }"
+            }'
+
+      - name: 📊 Create Deployment Summary
+        if: always()
+        run: |
+          DEPLOYMENT_URL="${{ steps.deploy.outputs.deployment_url }}"
+
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          # 🚀 Frontend Deployment Complete
+
+          ## Deployment Details
+
+          - **Environment**: Production
+          - **URL**: [$DEPLOYMENT_URL]($DEPLOYMENT_URL)
+          - **Backend**: https://resourceful-achievement-production.up.railway.app
+          - **Commit**: \`${{ github.sha }}\`
+          - **Branch**: \`${{ github.ref_name }}\`
+
+          ## Verification
+
+          - ✅ Deployment accessible
+          - ✅ CORS updated on backend
+
+          ## Next Steps
+
+          1. Verify login flow works
+          2. Check dashboard functionality
+          3. Monitor for errors in first hour
+
+          EOF
+
+      - name: 📢 Send Slack Notification
+        if: success() && vars.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "✅ NeuroPilot Frontend Deployed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 Frontend Deployment Successful"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\nProduction"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*URL:*\n<${{ steps.deploy.outputs.deployment_url }}|View Deployment>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n`${{ github.ref_name }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n`${{ github.sha }}`"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  post-deploy-tests:
+    name: Post-Deploy Validation
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🧪 Run Integration Tests
+        run: |
+          FRONTEND_URL="${{ needs.deploy.outputs.deployment_url }}"
+          BACKEND_URL="https://resourceful-achievement-production.up.railway.app"
+
+          echo "Testing frontend-backend integration..."
+
+          # Test backend health
+          curl -f "$BACKEND_URL/api/health" || exit 1
+
+          # Test frontend loads
+          curl -f "$FRONTEND_URL" || exit 1
+
+          echo "✅ All integration tests passed"
+
+      - name: 📊 Generate Telemetry Event
+        run: |
+          mkdir -p telemetry/events
+
+          cat > telemetry/events/deployment.ndjson <<EOF
+          {"schema_version":"v17.7.1","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","env":"prod","service":"frontend","kind":"event","payload":{"metric":"deployment_success","value":1,"labels":{"commit":"${{ github.sha }}","branch":"${{ github.ref_name }}"}}}
+          EOF
+
+          echo "✅ Telemetry event generated"

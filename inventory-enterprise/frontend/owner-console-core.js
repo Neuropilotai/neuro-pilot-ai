@@ -11,10 +11,19 @@
 // CONFIGURATION
 // ============================================================================
 
+// v14.4.0: Get API base from NP_CONFIG set by bootstrap script
+// This is a getter function, not a constant, so it uses NP_CONFIG set at runtime
+function getAPIBase() {
+  if (window.NP_CONFIG && window.NP_CONFIG.API_BASE) {
+    return window.NP_CONFIG.API_BASE;
+  }
+  // Fallback if bootstrap didn't run
+  return window.API_URL || 'https://resourceful-achievement-production.up.railway.app';
+}
+
 // Origin Helper - ensures consistent URL handling across all requests
 const H = (() => {
   const origin = window.location.origin;
-  console.log('🌐 Origin detected:', origin);
   return {
     route: (p) => p.startsWith('http') ? p : origin + p,
     asset: (p) => p.startsWith('http') ? p : origin + p,
@@ -22,7 +31,8 @@ const H = (() => {
   };
 })();
 
-const API_BASE = H.route('/api');
+// For backwards compatibility - but prefer using getAPIBase()
+const API_BASE = null; // Will be computed dynamically
 let token = localStorage.getItem('authToken');
 let currentUser = null;
 let tokenExpiresAt = null;
@@ -64,7 +74,7 @@ function swapText(el, state) {
 
 window.addEventListener('DOMContentLoaded', async () => {
   if (!token) {
-    window.location.href = '/index.html';
+    window.location.href = '/login.html';
     return;
   }
 
@@ -152,7 +162,7 @@ function updateTokenTTL() {
 function logout() {
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
-  window.location.href = '/index.html';
+  window.location.href = '/login.html';
 }
 
 // ============================================================================
@@ -175,9 +185,12 @@ function authHeaders() {
 
 /**
  * Friendly fetch wrapper with graceful error handling
+ * v14.4.0: Uses getAPIBase() to get API_BASE from NP_CONFIG
  */
 async function fetchAPI(endpoint, options = {}) {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+  // Get API base dynamically from NP_CONFIG
+  const apiBase = getAPIBase();
+  const url = endpoint.startsWith('http') ? endpoint : `${apiBase}${endpoint}`;
   const config = {
     ...options,
     headers: {
@@ -187,7 +200,7 @@ async function fetchAPI(endpoint, options = {}) {
     }
   };
 
-  console.log(`→ Fetching: ${url}`);
+  console.log(`→ Fetching: ${url} (API Base: ${apiBase})`);
 
   try {
     // Add 10 second timeout
@@ -263,7 +276,8 @@ async function checkHealth() {
   healthBadge.className = 'badge';
 
   try {
-    const response = await fetch(H.route('/health'), {
+    const apiBase = getAPIBase();
+    const response = await fetch(apiBase + '/api/health', {
       headers: { 'Accept': 'application/json' }
     });
 
