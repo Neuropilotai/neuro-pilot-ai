@@ -172,7 +172,36 @@ app.use(helmet({
     preload: true
   }
 }));
-app.use(cors());
+
+// CORS Configuration - Security Hardened (v18.0)
+// Restricts API access to authorized frontend origins only
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : [
+      'https://neuropilot-inventory-ngrq6b78x-david-mikulis-projects-73b27c6d.vercel.app',
+      'https://neuropilot-inventory.vercel.app'
+    ];
+
+logger.info('CORS allowed origins:', allowedOrigins);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn('CORS blocked request from unauthorized origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+  maxAge: 600 // 10 minutes - cache preflight response
+}));
+
 app.use(express.json());
 app.use(i18n);
 
