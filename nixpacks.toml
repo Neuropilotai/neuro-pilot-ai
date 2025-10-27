@@ -1,14 +1,17 @@
-[providers]
-node = "20"
+# Nixpacks configuration for Railway deployment
+# Provider: Node.js 20
+providers = ["node"]
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "npm"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm ci", "cd frontend && npm ci"]
+# Install root dependencies only (railway-server-production.js)
+cmds = ["npm ci --omit=dev"]
 
-[phases.build] 
-cmds = ["cd frontend && npm run build", "cp -r frontend/build/* ./public/"]
+[phases.build]
+# Optional: Add build steps if needed
+cmds = []
 
 [start]
 cmd = "node railway-server-production.js"
