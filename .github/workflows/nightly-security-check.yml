@@ -1,0 +1,156 @@
+name: Nightly Security Verification
+
+on:
+  schedule:
+    # Runs daily at 3 AM UTC
+    - cron: "0 3 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  verify-production-security:
+    name: Verify Production CORS & Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make verification script executable
+        run: chmod +x verify-cors-security.sh
+
+      - name: Run production security verification
+        id: verify
+        run: |
+          echo "Running nightly security checks..."
+          ./verify-cors-security.sh > verification-output.txt 2>&1
+          EXIT_CODE=$?
+          cat verification-output.txt
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "status=PASS" >> $GITHUB_OUTPUT
+            echo "✅ All security guardrails passed"
+          else
+            echo "status=FAIL" >> $GITHUB_OUTPUT
+            echo "❌ Security guardrails failed!"
+            exit 1
+          fi
+
+      - name: Create security report
+        if: always()
+        run: |
+          echo "## 🔒 Nightly Security Verification Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Production URL:** https://resourceful-achievement-production.up.railway.app" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.verify.outputs.status }}" = "PASS" ]; then
+            echo "### ✅ Status: PASS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All security guardrails are functioning correctly:" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Healthcheck: 200 OK" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ CORS Allowlist: Strict enforcement" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ CORS Block Evil: No wildcard" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Non-root Runtime: Configured" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Status: FAIL" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**⚠️ SECURITY REGRESSION DETECTED**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat verification-output.txt >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Action Required:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Check Railway deployment status" >> $GITHUB_STEP_SUMMARY
+            echo "2. Review recent commits since v18.0-secure-cors" >> $GITHUB_STEP_SUMMARY
+            echo "3. Consider rollback: \`git checkout v18.0-secure-cors\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "Baseline: \`v18.0-secure-cors\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload verification log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-verification-${{ github.run_number }}
+          path: verification-output.txt
+          retention-days: 90
+
+  check-certificate-expiry:
+    name: Check TLS Certificate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check SSL certificate expiry
+        run: |
+          BACKEND="resourceful-achievement-production.up.railway.app"
+
+          echo "Checking TLS certificate for $BACKEND..."
+          EXPIRY=$(echo | openssl s_client -servername $BACKEND -connect $BACKEND:443 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+
+          echo "Certificate expires: $EXPIRY"
+
+          # Calculate days until expiry
+          EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$EXPIRY" +%s)
+          NOW_EPOCH=$(date +%s)
+          DAYS_LEFT=$(( ($EXPIRY_EPOCH - $NOW_EPOCH) / 86400 ))
+
+          echo "Days until expiry: $DAYS_LEFT"
+
+          if [ $DAYS_LEFT -lt 30 ]; then
+            echo "⚠️ Certificate expires in less than 30 days!"
+            exit 1
+          elif [ $DAYS_LEFT -lt 60 ]; then
+            echo "⚠️ Certificate expires in less than 60 days"
+          else
+            echo "✅ Certificate is valid for $DAYS_LEFT days"
+          fi
+
+      - name: TLS report
+        if: always()
+        run: |
+          echo "## 🔐 TLS Certificate Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Backend:** resourceful-achievement-production.up.railway.app" >> $GITHUB_STEP_SUMMARY
+          echo "**Check Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Certificate appears to be managed by Railway edge (automatic renewal)." >> $GITHUB_STEP_SUMMARY
+
+  runtime-integrity-check:
+    name: Runtime Integrity Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate expected checksums
+        run: |
+          echo "Generating checksums for critical files..."
+          sha256sum railway-server-production.js > checksums-expected.txt
+          sha256sum inventory-enterprise/backend/server.js >> checksums-expected.txt
+          cat checksums-expected.txt
+
+      - name: Store checksums as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums-${{ github.run_number }}
+          path: checksums-expected.txt
+          retention-days: 30
+
+      - name: Integrity report
+        run: |
+          echo "## 🔍 Runtime Integrity Baseline" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Checksums generated for critical files:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat checksums-expected.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "These checksums can be compared against production to detect tampering." >> $GITHUB_STEP_SUMMARY

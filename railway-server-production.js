@@ -9,6 +9,31 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
+// Runtime Guardrails - Self-Healing Error Handlers
+process.on('uncaughtException', (err) => {
+  console.error('[SECURE-RUNTIME] Uncaught exception detected:', err.message);
+  console.error('Stack trace:', err.stack);
+  console.error('⚠️ Triggering graceful shutdown for Railway auto-rollback');
+  process.exit(1); // Exit code 1 triggers Railway health check failure → auto-rollback
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[SECURE-RUNTIME] Unhandled promise rejection:', reason);
+  console.error('Promise:', promise);
+  console.error('⚠️ This may indicate a security or stability issue');
+  // Log but don't exit - allows temporary recovery
+});
+
+process.on('SIGTERM', () => {
+  console.log('[SECURE-RUNTIME] SIGTERM received, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[SECURE-RUNTIME] SIGINT received, shutting down gracefully...');
+  process.exit(0);
+});
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
