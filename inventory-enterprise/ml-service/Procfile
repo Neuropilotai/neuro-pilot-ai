@@ -1,0 +1,24 @@
+# NeuroNexus v19.0 ML Service - Railway Procfile
+# Python FastAPI forecasting service
+
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+# PORT binding:
+#   Railway injects $PORT automatically
+#   uvicorn must use $PORT (not hardcoded 8000)
+#
+# Health check endpoint: /status
+#   GET http://ml-service.railway.internal:$PORT/status
+#
+# Internal URL for backend:
+#   ML_URL=http://ml-service.railway.internal:8000
+#   (Railway resolves this to the correct port)
+#
+# Requirements:
+#   - requirements.txt must exist with: fastapi, uvicorn, pandas, numpy, pydantic
+#   - main.py must define FastAPI app: app = FastAPI()
+#   - main.py must have /status endpoint for health checks
+#
+# Build process:
+#   Railway runs: pip install -r requirements.txt
+#   Then starts: uvicorn main:app --host 0.0.0.0 --port $PORT

@@ -633,8 +633,8 @@ const PORT = process.env.PORT || 3001;
 // Create HTTP server for Socket.IO
 const httpServer = http.createServer(app);
 
-// Start server (SECURITY FIX: Bind to localhost only)
-httpServer.listen(PORT, '127.0.0.1', async () => {
+// Start server (Railway-compatible: Bind to 0.0.0.0 to accept external connections)
+httpServer.listen(PORT, '0.0.0.0', async () => {
   console.log('═══════════════════════════════════════════════════════════════');
   console.log('🚀 NeuroInnovate Inventory Enterprise System v16.5.0');
   console.log('═══════════════════════════════════════════════════════════════');

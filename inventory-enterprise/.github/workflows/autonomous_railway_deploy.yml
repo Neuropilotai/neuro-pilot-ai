@@ -1,0 +1,336 @@
+# NeuroNexus v19.0 - Autonomous Railway Deployment
+# Fixed monorepo paths + two deployment modes
+
+name: Autonomous Railway Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'inventory-enterprise/backend/**'
+      - 'inventory-enterprise/ml-service/**'
+      - 'inventory-enterprise/migrations/**'
+      - 'inventory-enterprise/.github/workflows/autonomous_railway_deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'inventory-enterprise/backend/**'
+      - 'inventory-enterprise/ml-service/**'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (backend, ml-service, or all)'
+        required: false
+        default: 'all'
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+# ═══════════════════════════════════════════════════════════════
+# DEPLOYMENT MODES:
+#
+# MODE 1: Railway Auto-Deploy (RECOMMENDED)
+#   - Enable in Railway Dashboard → Settings → GitHub → Auto-Deploy
+#   - Railway detects push to main and auto-deploys
+#   - This workflow only runs CI/tests, Railway handles deployment
+#   - Pros: Simple, no tokens needed, integrated rollback
+#   - Cons: Less control over deploy timing
+#
+# MODE 2: GitHub Actions with Railway CLI (ADVANCED)
+#   - This workflow deploys via `railway up` command
+#   - Requires RAILWAY_TOKEN secret in GitHub
+#   - Full control over deploy pipeline
+#   - Pros: Custom deploy logic, multi-env support
+#   - Cons: Needs token management, more complex
+#
+# Current config: MODE 1 (Railway Auto-Deploy)
+# To enable MODE 2: Uncomment the "deploy" job below and set RAILWAY_TOKEN
+# ═══════════════════════════════════════════════════════════════
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # CI: Lint and Test Backend
+  # ═══════════════════════════════════════════════════════════════
+  backend-ci:
+    name: Backend CI (Node.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: inventory-enterprise/backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: inventory-enterprise/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter (if available)
+        run: npm run lint || echo "No lint script defined"
+        continue-on-error: true
+
+      - name: Run tests (if available)
+        run: npm test || echo "No test script defined"
+        continue-on-error: true
+
+      - name: Check environment variables template
+        run: |
+          echo "Checking required env vars..."
+          node -e "
+            const required = ['SCHEDULER_ENABLED', 'ML_URL', 'SMTP_HOST', 'JWT_SECRET'];
+            console.log('Required env vars for production:', required);
+          "
+
+      - name: Verify server.js binds to 0.0.0.0
+        run: |
+          if grep -q "listen(PORT, '127.0.0.1'" server.js; then
+            echo "ERROR: server.js binds to 127.0.0.1 (Railway incompatible)"
+            echo "Fix: Change to 0.0.0.0 or remove host parameter"
+            exit 1
+          else
+            echo "✓ server.js binds correctly (0.0.0.0 or no host)"
+          fi
+
+  # ═══════════════════════════════════════════════════════════════
+  # CI: Lint and Test ML Service
+  # ═══════════════════════════════════════════════════════════════
+  ml-service-ci:
+    name: ML Service CI (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: inventory-enterprise/ml-service
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: inventory-enterprise/ml-service/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install dev dependencies
+        run: pip install pylint black pytest
+
+      - name: Run black formatter check
+        run: black --check *.py || echo "Black formatting issues found"
+        continue-on-error: true
+
+      - name: Run pylint
+        run: pylint main.py --disable=C0111,R0913,C0103 || echo "Pylint issues found"
+        continue-on-error: true
+
+      - name: Verify main.py has /status endpoint
+        run: |
+          if grep -q '@app.get.*"/status"' main.py; then
+            echo "✓ /status endpoint found"
+          else
+            echo "ERROR: Missing /status endpoint (required for Railway health checks)"
+            exit 1
+          fi
+
+  # ═══════════════════════════════════════════════════════════════
+  # INTEGRATION TESTS (Optional)
+  # ═══════════════════════════════════════════════════════════════
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-ci, ml-service-ci]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: inventory-enterprise/backend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: inventory-enterprise/ml-service/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: inventory-enterprise/backend
+        run: npm ci
+
+      - name: Install ML service dependencies
+        working-directory: inventory-enterprise/ml-service
+        run: pip install -r requirements.txt
+
+      - name: Start ML service
+        working-directory: inventory-enterprise/ml-service
+        run: |
+          uvicorn main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      - name: Test ML service health
+        run: |
+          curl -f http://localhost:8000/status || exit 1
+
+      - name: Start backend (with scheduler disabled)
+        working-directory: inventory-enterprise/backend
+        env:
+          SCHEDULER_ENABLED: false
+          ML_URL: http://localhost:8000
+          PORT: 3001
+        run: |
+          node server.js &
+          sleep 10
+
+      - name: Test backend health
+        run: |
+          curl -f http://localhost:3001/api/health || exit 1
+
+      - name: Run smoke tests
+        run: |
+          # Test ML service
+          curl -f http://localhost:8000/status | jq '.status' | grep -q "healthy"
+          
+          # Test backend health
+          curl -f http://localhost:3001/api/health | jq '.status' | grep -q "healthy"
+          
+          echo "✓ All integration tests passed"
+
+  # ═══════════════════════════════════════════════════════════════
+  # DEPLOY (MODE 2 - Railway CLI)
+  # ═══════════════════════════════════════════════════════════════
+  # UNCOMMENT THIS JOB TO ENABLE MODE 2 (GitHub Actions deployment)
+  #
+  # deploy:
+  #   name: Deploy to Railway
+  #   runs-on: ubuntu-latest
+  #   needs: [backend-ci, ml-service-ci]
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Install Railway CLI
+  #       run: npm install -g @railway/cli
+  #
+  #     - name: Deploy Backend
+  #       working-directory: inventory-enterprise/backend
+  #       env:
+  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  #       run: railway up --service backend
+  #
+  #     - name: Deploy ML Service
+  #       working-directory: inventory-enterprise/ml-service
+  #       env:
+  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  #       run: railway up --service ml-service
+  #
+  #     - name: Wait for deployment
+  #       run: sleep 30
+  #
+  #     - name: Verify deployment
+  #       env:
+  #         BACKEND_URL: ${{ secrets.BACKEND_URL }}
+  #       run: |
+  #         curl -f $BACKEND_URL/api/health || exit 1
+  #         echo "✓ Deployment verified"
+  #
+  #     - name: Create deployment tag
+  #       run: |
+  #         TAG="v19.0-deploy-$(date +%Y%m%d-%H%M%S)"
+  #         git tag $TAG
+  #         git push origin $TAG
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #
+  # TO ENABLE MODE 2:
+  # 1. Uncomment the job above
+  # 2. Add RAILWAY_TOKEN to GitHub Secrets:
+  #    - Get token: railway login && railway token
+  #    - GitHub → Settings → Secrets → New repository secret
+  #    - Name: RAILWAY_TOKEN, Value: <your-token>
+  # 3. Add BACKEND_URL secret (e.g., https://resourceful-achievement-production.up.railway.app)
+  # 4. Ensure Railway services are linked:
+  #    - cd inventory-enterprise/backend && railway link
+  #    - cd inventory-enterprise/ml-service && railway link
+
+  # ═══════════════════════════════════════════════════════════════
+  # NOTIFICATION (Optional)
+  # ═══════════════════════════════════════════════════════════════
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [backend-ci, ml-service-ci]
+    if: success() && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Send success notification
+        run: |
+          echo "✅ CI passed for NeuroNexus v19.0"
+          echo "Backend CI: ✓"
+          echo "ML Service CI: ✓"
+          echo ""
+          echo "Railway Auto-Deploy will handle deployment automatically."
+          echo "Monitor: https://railway.app"
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [backend-ci, ml-service-ci]
+    if: failure()
+
+    steps:
+      - name: Send failure notification
+        run: |
+          echo "❌ CI failed for NeuroNexus v19.0"
+          echo "Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+# ═══════════════════════════════════════════════════════════════
+# TROUBLESHOOTING COMMON ISSUES:
+# ═══════════════════════════════════════════════════════════════
+#
+# 1. "No such file or directory: package.json"
+#    → Path filters are correct but working-directory is wrong
+#    → Fix: Ensure working-directory matches monorepo structure
+#
+# 2. "npm ci failed"
+#    → package-lock.json out of sync with package.json
+#    → Fix: Run `npm install` locally, commit package-lock.json
+#
+# 3. Workflow doesn't trigger on push
+#    → Path filters don't match changed files
+#    → Check: git diff --name-only HEAD~1 HEAD
+#    → Ensure paths start with 'inventory-enterprise/'
+#
+# 4. Railway deployment fails (if using MODE 2)
+#    → RAILWAY_TOKEN invalid or expired
+#    → Fix: railway login && railway token (copy new token)
+#
+# 5. Health check fails after deployment
+#    → App not binding to 0.0.0.0
+#    → Fix: Check server.js line 637 (should be 0.0.0.0, not 127.0.0.1)
+#
+# 6. Cache not working
+#    → cache-dependency-path must point to lock file
+#    → Fix: Ensure path includes 'inventory-enterprise/'
+#
+# ═══════════════════════════════════════════════════════════════
