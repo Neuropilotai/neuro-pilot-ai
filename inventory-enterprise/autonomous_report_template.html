@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroNexus Daily Intelligence Report</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+
+    .header .subtitle {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+
+    .section {
+      padding: 25px 30px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .section:last-child {
+      border-bottom: none;
+    }
+
+    .section-title {
+      font-size: 20px;
+      color: #333;
+      margin-bottom: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .metric-card {
+      background: #f9f9f9;
+      border-radius: 6px;
+      padding: 15px;
+      text-align: center;
+      border: 1px solid #e0e0e0;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 8px 0;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-trend {
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-success {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-warning {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
+    .status-error {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .trend-up {
+      color: #2e7d32;
+    }
+
+    .trend-down {
+      color: #c62828;
+    }
+
+    .trend-neutral {
+      color: #666;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    th {
+      background: #f5f5f5;
+      font-weight: 600;
+      font-size: 13px;
+      color: #666;
+      text-transform: uppercase;
+    }
+
+    td {
+      font-size: 14px;
+    }
+
+    .priority-urgent {
+      color: #c62828;
+      font-weight: 600;
+    }
+
+    .priority-high {
+      color: #ef6c00;
+      font-weight: 600;
+    }
+
+    .priority-medium {
+      color: #fbc02d;
+    }
+
+    .priority-low {
+      color: #666;
+    }
+
+    .sparkline {
+      display: inline-block;
+      width: 60px;
+      height: 20px;
+      background: linear-gradient(to right, #e0e0e0 0%, #4caf50 100%);
+      border-radius: 3px;
+    }
+
+    .footer {
+      background: #f5f5f5;
+      padding: 20px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .footer a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .chart {
+      height: 120px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      margin-top: 15px;
+      padding: 15px;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .bar {
+      flex: 1;
+      background: linear-gradient(to top, #667eea 0%, #764ba2 100%);
+      border-radius: 3px 3px 0 0;
+      min-height: 20px;
+    }
+
+    .alert-box {
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 4px;
+    }
+
+    .alert-box.success {
+      background: #e8f5e9;
+      border-left-color: #4caf50;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section {
+        padding: 20px 15px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🤖 NeuroNexus Daily Intelligence Report</h1>
+      <div class="subtitle">{{report_date}} | v19.0 Enterprise Autonomous</div>
+    </div>
+
+    <!-- Executive Summary -->
+    <div class="section">
+      <div class="section-title">📊 Executive Summary</div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">System Uptime</div>
+          <div class="metric-value" style="color: {{uptime_color}};">{{uptime_pct}}%</div>
+          <div class="metric-trend {{uptime_trend}}">{{uptime_trend_text}}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Forecast MAPE</div>
+          <div class="metric-value" style="color: {{mape_color}};">{{mape}}%</div>
+          <div class="metric-trend {{mape_trend}}">{{mape_trend_text}}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Orders Generated</div>
+          <div class="metric-value" style="color: #667eea;">{{orders_count}}</div>
+          <div class="metric-trend trend-neutral">Last 24h</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">CVE Vulnerabilities</div>
+          <div class="metric-value" style="color: {{cve_color}};">{{cve_count}}</div>
+          <div class="metric-trend trend-neutral">Critical: {{cve_critical}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Forecast Performance -->
+    <div class="section">
+      <div class="section-title">🔮 Forecast Performance</div>
+      <div class="alert-box {{forecast_status_class}}">
+        <strong>Status:</strong> {{forecast_status_message}}
+      </div>
+
+      <div class="metric-grid" style="margin-top: 20px;">
+        <div class="metric-card">
+          <div class="metric-label">Items Forecasted</div>
+          <div class="metric-value" style="font-size: 24px;">{{forecast_count}}</div>
+          <div class="metric-trend trend-neutral">{{forecast_coverage}}% coverage</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Avg Latency</div>
+          <div class="metric-value" style="font-size: 24px;">{{forecast_latency}}s</div>
+          <div class="metric-trend trend-success">Target: < 600s</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">RMSE</div>
+          <div class="metric-value" style="font-size: 24px;">{{rmse}}</div>
+          <div class="metric-trend trend-neutral">Root Mean Sq Error</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Bias</div>
+          <div class="metric-value" style="font-size: 24px;">{{bias}}%</div>
+          <div class="metric-trend {{bias_trend}}">{{bias_trend_text}}</div>
+        </div>
+      </div>
+
+      <!-- 7-Day MAPE Trend -->
+      <div style="margin-top: 20px;">
+        <strong>7-Day MAPE Trend</strong>
+        <div class="chart">
+          {{#each mape_trend_bars}}
+          <div class="bar" style="height: {{this.height}}%;"></div>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Recommendations -->
+    <div class="section">
+      <div class="section-title">📦 Reorder Recommendations</div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">Urgent Orders</div>
+          <div class="metric-value priority-urgent">{{urgent_count}}</div>
+          <div class="metric-trend trend-neutral">< {{lead_time_days}} days stock</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">High Priority</div>
+          <div class="metric-value priority-high">{{high_count}}</div>
+          <div class="metric-trend trend-neutral">< {{lead_time_days_15}} days stock</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Automation Rate</div>
+          <div class="metric-value" style="color: {{automation_color}};">{{automation_rate}}%</div>
+          <div class="metric-trend {{automation_trend}}">Target: ≥ 80%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Approval Rate</div>
+          <div class="metric-value" style="color: #4caf50;">{{approval_rate}}%</div>
+          <div class="metric-trend trend-neutral">Last 7 days</div>
+        </div>
+      </div>
+
+      <!-- Top Urgent Items -->
+      <div style="margin-top: 20px;">
+        <strong>Top 5 Urgent Recommendations</strong>
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Item Name</th>
+              <th>Class</th>
+              <th>Stock</th>
+              <th>ROP</th>
+              <th>Qty Needed</th>
+              <th>Days Until Stockout</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each urgent_items}}
+            <tr>
+              <td>{{this.sku}}</td>
+              <td>{{this.name}}</td>
+              <td><span class="status-indicator status-error">{{this.abc_class}}</span></td>
+              <td>{{this.current_stock}}</td>
+              <td>{{this.reorder_point}}</td>
+              <td><strong>{{this.rec_qty}}</strong></td>
+              <td class="priority-urgent">{{this.days_until_stockout}}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- System Health -->
+    <div class="section">
+      <div class="section-title">💓 System Health</div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">Backend Status</div>
+          <div class="metric-value">
+            <span class="status-indicator {{backend_status_class}}">{{backend_status}}</span>
+          </div>
+          <div class="metric-trend trend-neutral">{{backend_uptime}}h uptime</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">ML Service</div>
+          <div class="metric-value">
+            <span class="status-indicator {{ml_status_class}}">{{ml_status}}</span>
+          </div>
+          <div class="metric-trend trend-neutral">{{ml_uptime}}h uptime</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">API Latency (P95)</div>
+          <div class="metric-value" style="font-size: 24px; color: {{api_latency_color}};">{{api_latency_p95}}ms</div>
+          <div class="metric-trend trend-neutral">Target: < 500ms</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Health Checks</div>
+          <div class="metric-value" style="font-size: 24px;">{{health_check_success_rate}}%</div>
+          <div class="metric-trend {{health_check_trend}}">{{health_check_passes}}/{{health_check_total}}</div>
+        </div>
+      </div>
+
+      <!-- Error Summary -->
+      {{#if has_errors}}
+      <div class="alert-box" style="margin-top: 20px;">
+        <strong>⚠️ Errors Detected (Last 24h):</strong>
+        <ul style="margin-top: 10px; padding-left: 20px;">
+          {{#each errors}}
+          <li>{{this.message}} ({{this.count}}x)</li>
+          {{/each}}
+        </ul>
+      </div>
+      {{/if}}
+    </div>
+
+    <!-- Security Status -->
+    <div class="section">
+      <div class="section-title">🔒 Security Status</div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">CVE Scan</div>
+          <div class="metric-value">
+            <span class="status-indicator {{security_scan_class}}">{{security_scan_status}}</span>
+          </div>
+          <div class="metric-trend trend-neutral">Last scan: {{last_scan_time}}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Failed Auth Attempts</div>
+          <div class="metric-value" style="font-size: 24px; color: {{auth_fail_color}};">{{failed_auth_count}}</div>
+          <div class="metric-trend trend-neutral">Last 24h</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Audit Logs</div>
+          <div class="metric-value" style="font-size: 24px; color: #4caf50;">{{audit_log_count}}</div>
+          <div class="metric-trend trend-neutral">Hash-chained ✓</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">CORS Violations</div>
+          <div class="metric-value" style="font-size: 24px;">{{cors_violations}}</div>
+          <div class="metric-trend trend-neutral">Blocked origins</div>
+        </div>
+      </div>
+
+      {{#if security_pass}}
+      <div class="alert-box success" style="margin-top: 20px;">
+        <strong>✅ All Security Checks Passed</strong>
+        <ul style="margin-top: 10px; padding-left: 20px;">
+          <li>No High/Critical vulnerabilities</li>
+          <li>All security headers active (Helmet)</li>
+          <li>CORS allowlist enforced</li>
+          <li>Rate limiting active</li>
+          <li>JWT rotation on schedule</li>
+        </ul>
+      </div>
+      {{/if}}
+    </div>
+
+    <!-- Training Cycle Status -->
+    <div class="section">
+      <div class="section-title">🧠 ML Training Cycle</div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-label">Models Updated</div>
+          <div class="metric-value" style="font-size: 24px; color: #667eea;">{{models_updated}}</div>
+          <div class="metric-trend trend-neutral">Last weekly retrain</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Training Duration</div>
+          <div class="metric-value" style="font-size: 24px;">{{train_duration}}m</div>
+          <div class="metric-trend trend-neutral">Last run</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">MAPE Improvement</div>
+          <div class="metric-value" style="font-size: 24px; color: {{mape_improvement_color}};">{{mape_improvement}}%</div>
+          <div class="metric-trend {{mape_improvement_trend}}">Post-training</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Next Retrain</div>
+          <div class="metric-value" style="font-size: 18px;">{{next_retrain_date}}</div>
+          <div class="metric-trend trend-neutral">Sunday 03:00 UTC</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <strong>Model Versions:</strong>
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Version</th>
+              <th>MAPE</th>
+              <th>Updated</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each model_versions}}
+            <tr>
+              <td>{{this.name}}</td>
+              <td>{{this.version}}</td>
+              <td>{{this.mape}}%</td>
+              <td>{{this.updated}}</td>
+              <td><span class="status-indicator {{this.status_class}}">{{this.status}}</span></td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Action Items -->
+    <div class="section">
+      <div class="section-title">⚡ Action Items</div>
+      {{#if has_action_items}}
+      <ul style="list-style: none; padding-left: 0;">
+        {{#each action_items}}
+        <li style="padding: 10px; background: #f9f9f9; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid {{this.color}};">
+          <strong>{{this.priority}}:</strong> {{this.description}}
+        </li>
+        {{/each}}
+      </ul>
+      {{else}}
+      <div class="alert-box success">
+        <strong>✅ No Action Items</strong>
+        <p style="margin-top: 10px;">All systems operating within normal parameters. Continue monitoring.</p>
+      </div>
+      {{/if}}
+
+      <a href="{{dashboard_url}}" class="btn">View Full Dashboard →</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p><strong>NeuroNexus v19.0 - Enterprise Autonomous</strong></p>
+      <p>Generated automatically at {{report_timestamp}}</p>
+      <p>Next report: {{next_report_time}}</p>
+      <p><a href="{{railway_url}}">Railway Dashboard</a> | <a href="{{github_url}}">GitHub Repository</a></p>
+      <p style="margin-top: 10px; font-size: 11px; color: #999;">
+        This is an automated report. Do not reply to this email.<br>
+        For support, contact: neuropilotai@gmail.com
+      </p>
+    </div>
+  </div>
+</body>
+</html>

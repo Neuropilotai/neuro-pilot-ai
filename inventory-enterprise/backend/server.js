@@ -58,6 +58,9 @@ const Phase3CronScheduler = require('./cron/phase3_cron');
 // Phase 4: Governance Intelligence Layer (v16.0.0)
 const Phase4CronScheduler = require('./cron/phase4_cron');
 
+// v19.0: NeuroNexus Autonomous Foundation - Scheduler
+const AutonomousScheduler = require('./scheduler');
+
 // v4.1.0 - Quantum Defense Governance
 const QuantumKeyManager = require('./security/quantum_key_manager');
 const AutonomousCompliance = require('./security/autonomous_compliance');
@@ -121,6 +124,9 @@ let phase4Cron = null;
 // v4.1.0 Quantum Governance services
 let quantumKeys = null;
 let complianceEngine = null;
+
+// v19.0 Autonomous Foundation services
+let autonomousScheduler = null;
 
 const app = express();
 // v14.4.2: Maximum security - no unsafe-inline anywhere
@@ -415,6 +421,10 @@ app.use('/api/owner/counts', authenticateToken, requireOwnerDevice, countSession
 // v15.7.0 - System Health Monitoring & Audit
 // Note: Auth handled per-route in health-v2.js (/status is public, others require OWNER/FINANCE)
 app.use('/api/health', healthRoutes);
+
+// v19.0 - NeuroNexus Autonomous Foundation (Forecast + Recommendations)
+const recommendationsRoutes = require('./routes/recommendations');
+app.use('/api/forecast/recommendations', authenticateToken, requireOwnerDevice, recommendationsRoutes);
 
 // v15.8.0 - Quantum Governance Layer (Unified Governance Scoring)
 // Note: Auth handled per-route in governance.js (/status requires OWNER/FINANCE/OPS, /report requires OWNER/FINANCE, /recompute requires OWNER)
@@ -943,6 +953,27 @@ httpServer.listen(PORT, '127.0.0.1', async () => {
     console.error('  ⚠️  Warning: Quantum Governance features may not be available\n');
   }
 
+  // Initialize v19.0 - NeuroNexus Autonomous Foundation
+  if (process.env.SCHEDULER_ENABLED !== 'false') {
+    try {
+      console.log('🤖 Initializing NeuroNexus Autonomous Foundation (v19.0)...');
+
+      AutonomousScheduler.startScheduler();
+      autonomousScheduler = AutonomousScheduler;
+
+      console.log('  ✅ Autonomous Scheduler started');
+      console.log('  📊 Daily Forecast: 02:00 UTC');
+      console.log('  🔄 Weekly Retrain: Sunday 03:00 UTC');
+      console.log('  💓 Health Check: Every 5 minutes');
+      console.log('  ✨ NeuroNexus Autonomous Foundation ACTIVE\n');
+    } catch (error) {
+      logger.error('Failed to initialize Autonomous Foundation:', error);
+      console.error('  ⚠️  Warning: Autonomous scheduling features may not be available\n');
+    }
+  } else {
+    console.log('ℹ️  Autonomous Scheduler disabled (SCHEDULER_ENABLED=false)\n');
+  }
+
   // Summary
   console.log('═══════════════════════════════════════════════════════════════');
   console.log('✅ ALL SYSTEMS OPERATIONAL');
@@ -996,6 +1027,12 @@ const gracefulShutdown = async (signal) => {
     if (phase4Cron) {
       console.log('Stopping Phase 4 Governance Intelligence cron jobs...');
       phase4Cron.stop();
+    }
+
+    // Stop v19.0 Autonomous Scheduler
+    if (autonomousScheduler) {
+      console.log('Stopping NeuroNexus Autonomous Scheduler...');
+      // Scheduler uses node-cron which stops automatically when process exits
     }
 
     // Stop real-time components
