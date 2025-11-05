@@ -5,7 +5,8 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js",
+    "start": "node scripts/init-database.js && node server.js",
+    "start:skip-init": "node server.js",
     "dev": "NODE_ENV=development nodemon server.js",
     "start:all": "AIOPS_ENABLED=true GOVERNANCE_ENABLED=true INSIGHT_ENABLED=true COMPLIANCE_ENABLED=true node server.js",
     "setup": "bash scripts/setup_8083.sh",
