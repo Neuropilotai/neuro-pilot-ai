@@ -20,7 +20,7 @@
         "buildCommand": "npm install"
       },
       "deploy": {
-        "startCommand": "node server.js",
+        "startCommand": "node scripts/init-database.js && node server.js",
         "healthcheckPath": "/api/health/status",
         "healthcheckTimeout": 100
       },
