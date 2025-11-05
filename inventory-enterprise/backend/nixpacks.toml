@@ -11,4 +11,4 @@ cmds = ["npm ci --omit=dev"]
 cmds = ["echo 'Build phase complete'"]
 
 [start]
-cmd = "echo '=== RAILWAY NIXPACKS START ===' && pwd && ls -la | head -10 && echo '=== Files listed ===' && node --version && echo '=== Starting server ===' && node server.js"
+cmd = "bash start.sh"
