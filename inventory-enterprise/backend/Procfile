@@ -1,7 +1,8 @@
 # NeuroNexus v19.0 Backend - Railway Procfile
 # This file helps Railway/Nixpacks detect the correct start command
 
-web: node server.js
+# Initialize database (run migrations) then start server
+web: node scripts/init-database.js && node server.js
 
 # CRITICAL: server.js MUST listen on 0.0.0.0, not 127.0.0.1
 #
