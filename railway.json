@@ -20,7 +20,6 @@
         "buildCommand": "npm install"
       },
       "deploy": {
-        "startCommand": "echo 'Starting from:' && pwd && ls -la && echo 'Running server...' && node server.js",
         "healthcheckPath": "/api/health/status",
         "healthcheckTimeout": 100
       },
