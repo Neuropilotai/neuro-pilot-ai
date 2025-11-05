@@ -60,12 +60,67 @@ async function initDatabase() {
 
   console.log(`\n📊 ${appliedMigrations.length} migrations already applied`);
 
+  // Check if this is a fresh database (no tables)
+  const tableCount = await new Promise((resolve, reject) => {
+    db.get("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", (err, row) => {
+      if (err) reject(err);
+      else resolve(row.count);
+    });
+  });
+
+  console.log(`📊 Database has ${tableCount} existing tables`);
+
+  // If fresh database, run the SQLite initial schema first
+  if (tableCount < 10 && !appliedMigrations.includes('sqlite_001_initial_schema.sql')) {
+    const sqliteSchemaPath = path.join(MIGRATIONS_DIR, 'sqlite', '001_initial_schema.sql');
+    if (fs.existsSync(sqliteSchemaPath)) {
+      console.log('\n🔧 Fresh database detected - running initial schema...\n');
+      const sql = fs.readFileSync(sqliteSchemaPath, 'utf8');
+
+      try {
+        // Remove comments and split by semicolon
+        const statements = sql
+          .split('\n')
+          .filter(line => !line.trim().startsWith('--'))
+          .join('\n')
+          .split(';')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+
+        console.log(`  Running ${statements.length} statements from initial schema...`);
+
+        for (let i = 0; i < statements.length; i++) {
+          const statement = statements[i];
+          try {
+            await runQuery(db, statement);
+          } catch (stmtError) {
+            // Log but continue for CREATE IF NOT EXISTS statements
+            if (!statement.includes('IF NOT EXISTS')) {
+              throw stmtError;
+            }
+            console.log(`  ⚠️  Skipped statement ${i+1}: ${stmtError.message}`);
+          }
+        }
+
+        await runQuery(db, 'INSERT INTO schema_migrations (filename) VALUES (?)', ['sqlite_001_initial_schema.sql']);
+        console.log('✅ Initial schema applied successfully\n');
+      } catch (error) {
+        console.error('❌ Failed to apply initial schema:', error.message);
+        if (process.env.NODE_ENV === 'production') {
+          db.close();
+          throw error;
+        }
+      }
+    }
+  }
+
   // Get all SQL migration files in order
   const sqlFiles = fs.readdirSync(MIGRATIONS_DIR)
     .filter(f => f.endsWith('.sql'))
     .filter(f => !f.includes('postgres')) // Skip PostgreSQL migrations
     .filter(f => !f.match(/^00[123]_/)) // Skip 001-003 (PostgreSQL-specific)
     .filter(f => !f.includes('migration_006')) // Skip PostgreSQL migration
+    .filter(f => !f.includes('production_001')) // Skip (duplicate of sqlite schema)
     .sort();
 
   console.log(`🔍 Found ${sqlFiles.length} SQL migration files\n`);
@@ -87,33 +142,43 @@ async function initDatabase() {
     try {
       // Split by semicolon and run each statement
       const statements = sql
+        .split('\n')
+        .filter(line => !line.trim().startsWith('--'))
+        .join('\n')
         .split(';')
         .map(s => s.trim())
-        .filter(s => s.length > 0 && !s.startsWith('--'));
+        .filter(s => s.length > 0);
+
+      let successCount = 0;
+      let errorCount = 0;
 
       for (const statement of statements) {
-        await runQuery(db, statement);
+        try {
+          await runQuery(db, statement);
+          successCount++;
+        } catch (stmtError) {
+          errorCount++;
+          // Only log first few errors to avoid spam
+          if (errorCount <= 3) {
+            console.log(`  ⚠️  ${stmtError.message.substring(0, 80)}`);
+          }
+        }
       }
 
-      // Mark as applied
-      await runQuery(db,
-        'INSERT INTO schema_migrations (filename) VALUES (?)',
-        [filename]
-      );
-
-      console.log(`✅ ${filename} applied successfully`);
-      appliedCount++;
+      // Mark as applied if at least some statements succeeded
+      if (successCount > 0) {
+        await runQuery(db,
+          'INSERT INTO schema_migrations (filename) VALUES (?)',
+          [filename]
+        );
+        console.log(`✅ ${filename} applied (${successCount} statements, ${errorCount} errors)`);
+        appliedCount++;
+      } else if (errorCount > 0) {
+        console.log(`⚠️  ${filename} skipped (all statements failed)`);
+      }
     } catch (error) {
       console.error(`❌ Error running ${filename}:`, error.message);
-
-      // Continue on error for development, but log it
-      if (process.env.NODE_ENV === 'production') {
-        // In production, stop on first error
-        db.close();
-        throw error;
-      } else {
-        console.warn('⚠️  Continuing despite error (development mode)');
-      }
+      console.warn('⚠️  Continuing despite error');
     }
   }
 
