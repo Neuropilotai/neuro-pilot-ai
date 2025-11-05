@@ -1,17 +1,18 @@
 # Nixpacks configuration for Railway deployment
 # Provider: Node.js 20
+# Service: Inventory Backend v16.5.0
 providers = ["node"]
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-# Install root dependencies only (railway-server-production.js)
-cmds = ["npm ci --omit=dev"]
+# Install backend dependencies
+cmds = ["cd inventory-enterprise/backend && npm ci --omit=dev"]
 
 [phases.build]
 # Optional: Add build steps if needed
 cmds = []
 
 [start]
-cmd = "node railway-server-production.js"
+cmd = "cd inventory-enterprise/backend && node server.js"
