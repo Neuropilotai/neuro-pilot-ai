@@ -5,9 +5,9 @@
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node scripts/railway-diagnostic.js && node scripts/init-database.js && node server.js",
+    "start": "echo '=== RAILWAY START ===' && echo 'CWD:' && pwd && echo 'NODE:' && node --version && echo 'FILES:' && ls -la | head -20 && echo '=== STARTING SERVER ===' && node server.js",
+    "start:with-init": "node scripts/init-database.js && node server.js",
     "start:skip-init": "node server.js",
-    "start:no-diagnostic": "node scripts/init-database.js && node server.js",
     "dev": "NODE_ENV=development nodemon server.js",
     "start:all": "AIOPS_ENABLED=true GOVERNANCE_ENABLED=true INSIGHT_ENABLED=true COMPLIANCE_ENABLED=true node server.js",
     "setup": "bash scripts/setup_8083.sh",
