@@ -1,22 +1,59 @@
 {
+  "$schema": "https://railway.app/railway.schema.json",
+  "version": "2",
+  "comment": "NeuroInnovate Enterprise v19.0 Railway Configuration - Monorepo with Backend + ML Service",
+
   "build": {
-    "builder": "nixpacks"
+    "builder": "NIXPACKS"
   },
+
   "deploy": {
-    "startCommand": "node railway-server-production.js",
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10,
-    "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 30
+    "restartPolicyMaxRetries": 10
   },
+
+  "services": [
+    {
+      "name": "backend",
+      "root": "inventory-enterprise/backend",
+      "build": {
+        "buildCommand": "npm install"
+      },
+      "deploy": {
+        "startCommand": "node server.js",
+        "healthcheckPath": "/api/health/status",
+        "healthcheckTimeout": 100
+      },
+      "watchPatterns": [
+        "inventory-enterprise/backend/**"
+      ]
+    },
+    {
+      "name": "ml-service",
+      "root": "inventory-enterprise/ml-service",
+      "build": {
+        "buildCommand": "pip install -r requirements.txt"
+      },
+      "deploy": {
+        "startCommand": "uvicorn main:app --host 0.0.0.0 --port $PORT",
+        "healthcheckPath": "/status",
+        "healthcheckTimeout": 60
+      },
+      "watchPatterns": [
+        "inventory-enterprise/ml-service/**"
+      ]
+    }
+  ],
+
   "environments": {
     "production": {
       "variables": {
         "NODE_ENV": "production",
-        "AI_AGENTS_ENABLED": "true",
-        "RAILWAY_DEPLOYMENT": "true",
-        "RESUME_ENABLED": "true",
-        "TRADING_ENABLED": "false"
+        "SCHEDULER_ENABLED": "true",
+        "AIOPS_ENABLED": "true",
+        "GOVERNANCE_ENABLED": "true",
+        "INSIGHT_ENABLED": "true",
+        "COMPLIANCE_ENABLED": "true"
       }
     }
   }
