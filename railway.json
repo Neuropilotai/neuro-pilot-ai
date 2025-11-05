@@ -1,6 +1,7 @@
 {
   "build": {
-    "builder": "nixpacks"
+    "builder": "nixpacks",
+    "buildCommand": "npm ci"
   },
   "deploy": {
     "startCommand": "node railway-server-production.js",
