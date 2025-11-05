@@ -11,8 +11,13 @@ const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
-// Database path - Railway will persist this via volume
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'enterprise_inventory.db');
+// Database path - Railway support
+const DB_PATH = process.env.DATABASE_PATH ||
+  (process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'enterprise_inventory.db')
+    : process.env.RAILWAY_ENVIRONMENT
+      ? '/tmp/enterprise_inventory.db'  // Railway: use /tmp (ephemeral but functional)
+      : path.join(__dirname, '..', 'data', 'enterprise_inventory.db'));
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
 
 console.log('═══════════════════════════════════════════════════════');
