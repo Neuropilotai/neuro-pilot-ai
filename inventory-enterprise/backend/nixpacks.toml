@@ -1,0 +1,14 @@
+# Nixpacks Configuration for Railway
+# Forces Railway to use our exact commands
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --omit=dev"]
+
+[phases.build]
+cmds = ["echo 'Build phase complete'"]
+
+[start]
+cmd = "echo '=== RAILWAY NIXPACKS START ===' && pwd && ls -la | head -10 && echo '=== Files listed ===' && node --version && echo '=== Starting server ===' && node server.js"
