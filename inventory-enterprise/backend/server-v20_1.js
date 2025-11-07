@@ -640,6 +640,7 @@ app.post('/jobs/maintenance', authGuard(['admin']), async (req, res) => {
 
 // ==========================================
 // COMPATIBILITY ROUTES (v16.0.0 console support)
+// Added: RBAC, owner config, locations, dashboard stats, ops status
 // ==========================================
 
 // RBAC bootstrap - provides role configuration
@@ -737,6 +738,19 @@ app.get('/api/owner/ops/status', (req, res) => {
       redis: isRedisConnected() ? 'connected' : 'disconnected',
       memory: process.memoryUsage(),
     },
+  });
+});
+
+// Inventory locations - alternate route for locations
+app.get('/api/inventory/locations', optionalAuth, async (req, res) => {
+  db.all('SELECT DISTINCT location FROM inventory WHERE location IS NOT NULL', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ success: false, error: 'Database query failed' });
+    }
+    res.json({
+      success: true,
+      data: rows.map(r => r.location),
+    });
   });
 });
 
