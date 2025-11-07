@@ -688,7 +688,7 @@ app.get('/api/owner/console/locations', optionalAuth, async (req, res) => {
   });
 });
 
-// Dashboard stats - maps to inventory summary
+// Dashboard stats - maps to inventory summary (v16.0.0 console format)
 app.get('/api/owner/dashboard/stats', async (req, res) => {
   const cacheKey = 'inventory:summary:v1';
   const cached = await getCache(cacheKey);
@@ -715,9 +715,29 @@ app.get('/api/owner/dashboard/stats', async (req, res) => {
         return res.status(500).json({ success: false, error: 'Database query failed' });
       }
 
+      const data = rows[0] || { totalItems: 0, totalQuantity: 0, locations: 0, totalSkus: 0 };
+
+      // v16.0.0 console expects 'stats' property with pdfs, inventory, fifo
       const response = {
         success: true,
-        data: rows[0] || { totalItems: 0, totalQuantity: 0, locations: 0, totalSkus: 0 },
+        stats: {
+          pdfs: {
+            coverage: 0,
+            withDates: 0,
+            total: 0,
+            message: 'PDF invoice extraction not available in v20.1',
+          },
+          inventory: {
+            totalItems: data.totalItems || 0,
+            totalQuantity: data.totalQuantity || 0,
+            locations: data.locations || 0,
+          },
+          fifo: {
+            totalCases: 0,
+            productsTracked: 0,
+            message: 'FIFO tracking not available in v20.1',
+          },
+        },
       };
 
       await setCache(cacheKey, response, config.cache.ttlSummary);
