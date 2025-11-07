@@ -779,6 +779,37 @@ app.get('/api/menu/weeks', optionalAuth, (req, res) => {
   });
 });
 
+// Owner dashboard - general dashboard data stub
+app.get('/api/owner/dashboard', optionalAuth, (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      timeline: [],
+      pdfs: [],
+      upgrades: [],
+      message: 'AI features not available in v20.1 inventory backend',
+    },
+  });
+});
+
+// Dashboard reorder - AI reorder suggestions stub
+app.get('/api/owner/dashboard/reorder', optionalAuth, (req, res) => {
+  res.json({
+    success: true,
+    data: [],
+    message: 'AI reorder recommendations not available in v20.1',
+  });
+});
+
+// Dashboard anomalies - anomaly detection stub
+app.get('/api/owner/dashboard/anomalies', optionalAuth, (req, res) => {
+  res.json({
+    success: true,
+    data: [],
+    message: 'Anomaly detection not available in v20.1',
+  });
+});
+
 // ==========================================
 // CRON SCHEDULER
 // ==========================================
