@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neuro.Pilot.AI — Owner Console v20.1</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📦</text></svg>">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    /* Dark mode scrollbar */
+    .dark ::-webkit-scrollbar-track { background: #1f2937; }
+    .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+    .dark ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+    /* Loading skeleton */
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+    .skeleton {
+      animation: shimmer 2s infinite linear;
+      background: linear-gradient(to right, #f0f0f0 4%, #e0e0e0 25%, #f0f0f0 36%);
+      background-size: 1000px 100%;
+    }
+    .dark .skeleton {
+      background: linear-gradient(to right, #374151 4%, #4b5563 25%, #374151 36%);
+    }
+  </style>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 transition-colors">
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Neuro.Pilot.AI</h1>
+          <p class="text-gray-600 dark:text-gray-400" data-i18n="login.subtitle">Owner Console v20.1</p>
+        </div>
+
+        <form id="loginForm" class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="login.email">Email</label>
+            <input type="email" id="loginEmail" value="admin@local" required
+              class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="login.password">Password</label>
+            <input type="password" id="loginPassword" value="admin123" required
+              class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          </div>
+
+          <button type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            <span data-i18n="login.signin">Sign In</span>
+          </button>
+        </form>
+
+        <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400">
+          <p class="font-semibold mb-2" data-i18n="login.testAccounts">Test Accounts:</p>
+          <p>Admin: admin@local / admin123</p>
+          <p>Staff: staff@local / staff123</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="mainApp" class="hidden h-full flex flex-col">
+    <!-- Top Bar -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <button id="sidebarToggle" class="lg:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <h1 class="text-xl font-bold text-gray-900 dark:text-white">Neuro.Pilot.AI</h1>
+        <span class="hidden sm:inline-block px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">v20.1</span>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <div id="healthStatus" class="flex items-center space-x-2">
+          <div class="w-2 h-2 rounded-full bg-gray-400"></div>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Checking...</span>
+        </div>
+        <span id="userEmail" class="text-sm text-gray-600 dark:text-gray-400"></span>
+        <button id="logoutBtn" class="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" data-i18n="nav.logout">Logout</button>
+      </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+      <!-- Sidebar -->
+      <aside id="sidebar" class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto hidden lg:block">
+        <nav class="p-4 space-y-2">
+          <a href="#dashboard" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span data-i18n="nav.dashboard">Dashboard</span>
+          </a>
+
+          <a href="#items" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            <span data-i18n="nav.items">Items</span>
+          </a>
+
+          <a href="#inventory" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span data-i18n="nav.inventory">Inventory</span>
+          </a>
+
+          <a href="#import" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <span data-i18n="nav.import">Import CSV</span>
+          </a>
+
+          <a href="#metrics" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span data-i18n="nav.metrics">Metrics</span>
+          </a>
+
+          <a href="#settings" class="nav-link flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span data-i18n="nav.settings">Settings</span>
+          </a>
+
+          <a href="#jobs" id="jobsLink" class="nav-link hidden flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            <span data-i18n="nav.jobs">Jobs (Admin)</span>
+          </a>
+        </nav>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="flex-1 overflow-y-auto p-6">
+        <!-- Dashboard Section -->
+        <div id="dashboardSection" class="section hidden">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6" data-i18n="dashboard.title">Dashboard</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm text-gray-600 dark:text-gray-400" data-i18n="dashboard.totalItems">Total Items</p>
+                <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+              </div>
+              <p id="totalItems" class="text-3xl font-bold text-gray-900 dark:text-white">-</p>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm text-gray-600 dark:text-gray-400" data-i18n="dashboard.totalQuantity">Total Quantity</p>
+                <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+              </div>
+              <p id="totalQuantity" class="text-3xl font-bold text-gray-900 dark:text-white">-</p>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm text-gray-600 dark:text-gray-400" data-i18n="dashboard.locations">Locations</p>
+                <svg class="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </div>
+              <p id="totalLocations" class="text-3xl font-bold text-gray-900 dark:text-white">-</p>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm text-gray-600 dark:text-gray-400" data-i18n="dashboard.dbStatus">Database</p>
+                <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+              </div>
+              <p id="dbStatus" class="text-lg font-semibold text-gray-900 dark:text-white">-</p>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="dashboard.recentActivity">Recent Activity</h3>
+            <div id="activityLog" class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <p data-i18n="dashboard.noActivity">No recent activity</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Items Section -->
+        <div id="itemsSection" class="section hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white" data-i18n="items.title">Items</h2>
+            <button id="addItemBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span data-i18n="items.addItem">Add Item</span>
+            </button>
+          </div>
+
+          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow mb-4">
+            <input type="text" id="itemSearch" placeholder="Search items..."
+              class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer" data-sort="sku">SKU</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer" data-sort="name" data-i18n="items.name">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer" data-sort="category" data-i18n="items.category">Category</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-i18n="items.uom">UoM</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-i18n="items.parLevel">Par Level</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-i18n="items.status">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="itemsTable" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  <!-- Items will be populated here -->
+                </tbody>
+              </table>
+            </div>
+            <div id="itemsPagination" class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <button id="prevPage" class="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">Previous</button>
+              <span id="pageInfo" class="text-sm text-gray-600 dark:text-gray-400">Page 1</span>
+              <button id="nextPage" class="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">Next</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inventory Section -->
+        <div id="inventorySection" class="section hidden">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6" data-i18n="inventory.title">Inventory</h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="inventory.byLocation">By Location</h3>
+              <div id="locationSummary" class="space-y-3">
+                <!-- Will be populated -->
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="inventory.summary">Summary</h3>
+              <div id="inventorySummary" class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <!-- Will be populated -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Import Section -->
+        <div id="importSection" class="section hidden">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6" data-i18n="import.title">Import CSV</h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Items Import -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="import.itemsImport">Items Import</h3>
+              <div id="itemsDropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <p class="text-gray-600 dark:text-gray-400 mb-2" data-i18n="import.dragDrop">Drag & drop CSV file here</p>
+                <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">or click to browse</p>
+                <input type="file" id="itemsFileInput" accept=".csv" class="hidden">
+                <button id="itemsSampleBtn" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400" data-i18n="import.downloadSample">Download Sample</button>
+              </div>
+              <div id="itemsPreview" class="mt-4 hidden">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2" data-i18n="import.preview">Preview:</p>
+                <div class="bg-gray-50 dark:bg-gray-700 rounded p-3 text-xs overflow-x-auto">
+                  <pre id="itemsPreviewText"></pre>
+                </div>
+                <button id="importItemsBtn" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg" data-i18n="import.importBtn">Import</button>
+              </div>
+            </div>
+
+            <!-- Inventory Import -->
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="import.inventoryImport">Inventory Import</h3>
+              <div id="inventoryDropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <p class="text-gray-600 dark:text-gray-400 mb-2" data-i18n="import.dragDrop">Drag & drop CSV file here</p>
+                <p class="text-sm text-gray-500 dark:text-gray-500 mb-4">or click to browse</p>
+                <input type="file" id="inventoryFileInput" accept=".csv" class="hidden">
+                <button id="inventorySampleBtn" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400" data-i18n="import.downloadSample">Download Sample</button>
+              </div>
+              <div id="inventoryPreview" class="mt-4 hidden">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2" data-i18n="import.preview">Preview:</p>
+                <div class="bg-gray-50 dark:bg-gray-700 rounded p-3 text-xs overflow-x-auto">
+                  <pre id="inventoryPreviewText"></pre>
+                </div>
+                <button id="importInventoryBtn" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg" data-i18n="import.importBtn">Import</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics Section -->
+        <div id="metricsSection" class="section hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white" data-i18n="metrics.title">Metrics</h2>
+            <label class="flex items-center space-x-2">
+              <input type="checkbox" id="metricsAutoRefresh" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+              <span class="text-sm text-gray-600 dark:text-gray-400" data-i18n="metrics.autoRefresh">Auto-refresh (10s)</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="metrics.requestDuration">Request Duration (P95)</h3>
+              <canvas id="durationChart"></canvas>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="metrics.httpRequests">HTTP Requests</h3>
+              <canvas id="requestsChart"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="metrics.systemResources">System Resources</h3>
+            <div id="resourceMetrics" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Will be populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="settingsSection" class="section hidden">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6" data-i18n="settings.title">Settings</h2>
+
+          <div class="space-y-6">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="settings.apiConfig">API Configuration</h3>
+              <label class="block text-sm text-gray-600 dark:text-gray-400 mb-2" data-i18n="settings.apiUrl">API Base URL</label>
+              <input type="url" id="apiUrlInput"
+                class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4">
+              <button id="saveApiUrl" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg" data-i18n="settings.save">Save</button>
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="settings.appearance">Appearance</h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm text-gray-600 dark:text-gray-400 mb-2" data-i18n="settings.theme">Theme</label>
+                  <select id="themeSelect" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="light" data-i18n="settings.light">Light</option>
+                    <option value="dark" data-i18n="settings.dark">Dark</option>
+                    <option value="system" data-i18n="settings.system">System</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm text-gray-600 dark:text-gray-400 mb-2" data-i18n="settings.language">Language</label>
+                  <select id="languageSelect" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Jobs Section (Admin Only) -->
+        <div id="jobsSection" class="section hidden">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6" data-i18n="jobs.title">Jobs (Admin)</h2>
+
+          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4" data-i18n="jobs.maintenance">Maintenance Job</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4" data-i18n="jobs.maintenanceDesc">Run database cleanup and cache warming tasks</p>
+            <button id="runMaintenanceBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span data-i18n="jobs.runNow">Run Now</span>
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Add Item Modal -->
+  <div id="addItemModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between items-center">
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white" data-i18n="items.addItem">Add Item</h3>
+          <button id="closeAddModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <form id="addItemForm" class="p-6 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SKU *</label>
+            <input type="text" id="newItemSku" required class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="items.name">Name *</label>
+            <input type="text" id="newItemName" required class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="items.category">Category</label>
+            <input type="text" id="newItemCategory" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="items.uom">UoM</label>
+            <input type="text" id="newItemUom" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="items.parLevel">Par Level</label>
+            <input type="number" id="newItemPar" min="0" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="items.minReorder">Min Reorder</label>
+            <input type="number" id="newItemMin" min="0" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" data-i18n="items.maxReorder">Max Reorder</label>
+            <input type="number" id="newItemMax" min="0" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+          </div>
+
+          <div class="flex items-center">
+            <input type="checkbox" id="newItemActive" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            <label class="ml-2 text-sm text-gray-700 dark:text-gray-300" data-i18n="items.active">Active</label>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-4">
+          <button type="button" id="cancelAddModal" class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" data-i18n="common.cancel">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg" data-i18n="common.save">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+  <script>
+    // =========================================
+    // CONFIGURATION
+    // =========================================
+    const DEFAULT_API_URL = 'https://inventory-backend-7-agent-build.up.railway.app';
+    const CONFIG = {
+      apiUrl: localStorage.getItem('NP_API_URL') || DEFAULT_API_URL,
+      token: localStorage.getItem('NP_TOKEN'),
+      user: JSON.parse(localStorage.getItem('NP_USER') || 'null'),
+      lang: localStorage.getItem('NP_LANG') || 'en',
+      theme: localStorage.getItem('NP_THEME') || 'system',
+    };
+
+    // =========================================
+    // i18n DICTIONARY
+    // =========================================
+    const i18n = {
+      en: {
+        'login.subtitle': 'Owner Console v20.1',
+        'login.email': 'Email',
+        'login.password': 'Password',
+        'login.signin': 'Sign In',
+        'login.testAccounts': 'Test Accounts:',
+        'nav.dashboard': 'Dashboard',
+        'nav.items': 'Items',
+        'nav.inventory': 'Inventory',
+        'nav.import': 'Import CSV',
+        'nav.metrics': 'Metrics',
+        'nav.settings': 'Settings',
+        'nav.jobs': 'Jobs (Admin)',
+        'nav.logout': 'Logout',
+        'dashboard.title': 'Dashboard',
+        'dashboard.totalItems': 'Total Items',
+        'dashboard.totalQuantity': 'Total Quantity',
+        'dashboard.locations': 'Locations',
+        'dashboard.dbStatus': 'Database',
+        'dashboard.recentActivity': 'Recent Activity',
+        'dashboard.noActivity': 'No recent activity',
+        'items.title': 'Items',
+        'items.addItem': 'Add Item',
+        'items.name': 'Name',
+        'items.category': 'Category',
+        'items.uom': 'UoM',
+        'items.parLevel': 'Par Level',
+        'items.status': 'Status',
+        'items.minReorder': 'Min Reorder',
+        'items.maxReorder': 'Max Reorder',
+        'items.active': 'Active',
+        'inventory.title': 'Inventory',
+        'inventory.byLocation': 'By Location',
+        'inventory.summary': 'Summary',
+        'import.title': 'Import CSV',
+        'import.itemsImport': 'Items Import',
+        'import.inventoryImport': 'Inventory Import',
+        'import.dragDrop': 'Drag & drop CSV file here',
+        'import.downloadSample': 'Download Sample',
+        'import.preview': 'Preview:',
+        'import.importBtn': 'Import',
+        'metrics.title': 'Metrics',
+        'metrics.autoRefresh': 'Auto-refresh (10s)',
+        'metrics.requestDuration': 'Request Duration (P95)',
+        'metrics.httpRequests': 'HTTP Requests',
+        'metrics.systemResources': 'System Resources',
+        'settings.title': 'Settings',
+        'settings.apiConfig': 'API Configuration',
+        'settings.apiUrl': 'API Base URL',
+        'settings.save': 'Save',
+        'settings.appearance': 'Appearance',
+        'settings.theme': 'Theme',
+        'settings.light': 'Light',
+        'settings.dark': 'Dark',
+        'settings.system': 'System',
+        'settings.language': 'Language',
+        'jobs.title': 'Jobs (Admin)',
+        'jobs.maintenance': 'Maintenance Job',
+        'jobs.maintenanceDesc': 'Run database cleanup and cache warming tasks',
+        'jobs.runNow': 'Run Now',
+        'common.cancel': 'Cancel',
+        'common.save': 'Save',
+      },
+      fr: {
+        'login.subtitle': 'Console Propriétaire v20.1',
+        'login.email': 'Email',
+        'login.password': 'Mot de passe',
+        'login.signin': 'Se connecter',
+        'login.testAccounts': 'Comptes de test:',
+        'nav.dashboard': 'Tableau de bord',
+        'nav.items': 'Articles',
+        'nav.inventory': 'Inventaire',
+        'nav.import': 'Importer CSV',
+        'nav.metrics': 'Métriques',
+        'nav.settings': 'Paramètres',
+        'nav.jobs': 'Tâches (Admin)',
+        'nav.logout': 'Déconnexion',
+        'dashboard.title': 'Tableau de bord',
+        'dashboard.totalItems': 'Articles totaux',
+        'dashboard.totalQuantity': 'Quantité totale',
+        'dashboard.locations': 'Emplacements',
+        'dashboard.dbStatus': 'Base de données',
+        'dashboard.recentActivity': 'Activité récente',
+        'dashboard.noActivity': 'Aucune activité récente',
+        'items.title': 'Articles',
+        'items.addItem': 'Ajouter un article',
+        'items.name': 'Nom',
+        'items.category': 'Catégorie',
+        'items.uom': 'UdM',
+        'items.parLevel': 'Niveau PAR',
+        'items.status': 'Statut',
+        'items.minReorder': 'Commande min',
+        'items.maxReorder': 'Commande max',
+        'items.active': 'Actif',
+        'inventory.title': 'Inventaire',
+        'inventory.byLocation': 'Par emplacement',
+        'inventory.summary': 'Résumé',
+        'import.title': 'Importer CSV',
+        'import.itemsImport': 'Import Articles',
+        'import.inventoryImport': 'Import Inventaire',
+        'import.dragDrop': 'Glissez-déposez le fichier CSV ici',
+        'import.downloadSample': 'Télécharger exemple',
+        'import.preview': 'Aperçu:',
+        'import.importBtn': 'Importer',
+        'metrics.title': 'Métriques',
+        'metrics.autoRefresh': 'Actualisation auto (10s)',
+        'metrics.requestDuration': 'Durée des requêtes (P95)',
+        'metrics.httpRequests': 'Requêtes HTTP',
+        'metrics.systemResources': 'Ressources système',
+        'settings.title': 'Paramètres',
+        'settings.apiConfig': 'Configuration API',
+        'settings.apiUrl': 'URL de base API',
+        'settings.save': 'Enregistrer',
+        'settings.appearance': 'Apparence',
+        'settings.theme': 'Thème',
+        'settings.light': 'Clair',
+        'settings.dark': 'Sombre',
+        'settings.system': 'Système',
+        'settings.language': 'Langue',
+        'jobs.title': 'Tâches (Admin)',
+        'jobs.maintenance': 'Tâche de maintenance',
+        'jobs.maintenanceDesc': 'Exécuter le nettoyage de la base et le réchauffage du cache',
+        'jobs.runNow': 'Exécuter maintenant',
+        'common.cancel': 'Annuler',
+        'common.save': 'Enregistrer',
+      }
+    };
+
+    function t(key) {
+      return i18n[CONFIG.lang]?.[key] || i18n.en[key] || key;
+    }
+
+    function updateLanguage() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (el.tagName === 'INPUT' && el.type === 'submit') {
+          el.value = t(key);
+        } else {
+          el.textContent = t(key);
+        }
+      });
+    }
+
+    // =========================================
+    // THEME MANAGEMENT
+    // =========================================
+    function applyTheme() {
+      const theme = CONFIG.theme;
+      if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+
+    // =========================================
+    // TOAST NOTIFICATIONS
+    // =========================================
+    function showToast(message, type = 'info') {
+      const toastContainer = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        warning: 'bg-yellow-500',
+        info: 'bg-blue-500'
+      };
+
+      toast.className = `${colors[type] || colors.info} text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-0 opacity-100`;
+      toast.textContent = message;
+
+      toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // =========================================
+    // API HELPER
+    // =========================================
+    async function apiCall(endpoint, options = {}) {
+      const url = `${CONFIG.apiUrl}${endpoint}`;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+
+      if (CONFIG.token && !options.skipAuth) {
+        headers['Authorization'] = `Bearer ${CONFIG.token}`;
+      }
+
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers,
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          logout();
+          showToast('Session expired. Please login again.', 'error');
+          throw new Error('Unauthorized');
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Request failed');
+          }
+          return data;
+        } else {
+          const text = await response.text();
+          if (!response.ok) {
+            throw new Error('Request failed');
+          }
+          return text;
+        }
+      } catch (error) {
+        console.error('API call failed:', error);
+        throw error;
+      }
+    }
+
+    // =========================================
+    // AUTHENTICATION
+    // =========================================
+    async function login(email, password) {
+      try {
+        const response = await apiCall('/api/auth/login', {
+          method: 'POST',
+          skipAuth: true,
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (response.success) {
+          CONFIG.token = response.data.token;
+          CONFIG.user = response.data.user;
+          localStorage.setItem('NP_TOKEN', CONFIG.token);
+          localStorage.setItem('NP_USER', JSON.stringify(CONFIG.user));
+
+          showMainApp();
+          showToast('Login successful!', 'success');
+        }
+      } catch (error) {
+        showToast('Login failed: ' + error.message, 'error');
+      }
+    }
+
+    function logout() {
+      CONFIG.token = null;
+      CONFIG.user = null;
+      localStorage.removeItem('NP_TOKEN');
+      localStorage.removeItem('NP_USER');
+      showLoginScreen();
+    }
+
+    function showLoginScreen() {
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('mainApp').classList.add('hidden');
+    }
+
+    function showMainApp() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+      document.getElementById('userEmail').textContent = CONFIG.user?.email || '';
+
+      // Show/hide admin-only elements
+      if (CONFIG.user?.role === 'admin') {
+        document.getElementById('jobsLink').classList.remove('hidden');
+      } else {
+        document.getElementById('jobsLink').classList.add('hidden');
+      }
+
+      // Load dashboard by default
+      navigateTo('dashboard');
+      checkHealth();
+      startHealthMonitoring();
+    }
+
+    // =========================================
+    // NAVIGATION
+    // =========================================
+    let currentSection = 'dashboard';
+
+    function navigateTo(section) {
+      currentSection = section;
+
+      // Hide all sections
+      document.querySelectorAll('.section').forEach(el => el.classList.add('hidden'));
+
+      // Show selected section
+      const sectionEl = document.getElementById(`${section}Section`);
+      if (sectionEl) {
+        sectionEl.classList.remove('hidden');
+      }
+
+      // Update nav links
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('bg-blue-50', 'dark:bg-blue-900', 'text-blue-600', 'dark:text-blue-400');
+      });
+
+      const activeLink = document.querySelector(`a[href="#${section}"]`);
+      if (activeLink) {
+        activeLink.classList.add('bg-blue-50', 'dark:bg-blue-900', 'text-blue-600', 'dark:text-blue-400');
+      }
+
+      // Load section data
+      loadSectionData(section);
+    }
+
+    async function loadSectionData(section) {
+      switch(section) {
+        case 'dashboard':
+          await loadDashboard();
+          break;
+        case 'items':
+          await loadItems();
+          break;
+        case 'inventory':
+          await loadInventory();
+          break;
+        case 'metrics':
+          await loadMetrics();
+          break;
+      }
+    }
+
+    // =========================================
+    // DASHBOARD
+    // =========================================
+    async function loadDashboard() {
+      try {
+        const [summary, health] = await Promise.all([
+          apiCall('/api/inventory/summary'),
+          apiCall('/api/health/status')
+        ]);
+
+        const stats = summary.data || summary;
+        document.getElementById('totalItems').textContent = stats.totalItems || 0;
+        document.getElementById('totalQuantity').textContent = stats.totalQuantity || 0;
+        document.getElementById('totalLocations').textContent = stats.locations || 0;
+        document.getElementById('dbStatus').textContent = health.data?.database?.connected ? 'Connected' : 'Disconnected';
+      } catch (error) {
+        showToast('Failed to load dashboard data', 'error');
+      }
+    }
+
+    async function checkHealth() {
+      try {
+        const health = await apiCall('/api/health/status');
+        const healthEl = document.getElementById('healthStatus');
+
+        if (health.data?.database?.connected) {
+          healthEl.innerHTML = `
+            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+            <span class="text-sm text-green-600 dark:text-green-400">Online</span>
+          `;
+        } else {
+          healthEl.innerHTML = `
+            <div class="w-2 h-2 rounded-full bg-red-500"></div>
+            <span class="text-sm text-red-600 dark:text-red-400">Offline</span>
+          `;
+        }
+      } catch (error) {
+        const healthEl = document.getElementById('healthStatus');
+        healthEl.innerHTML = `
+          <div class="w-2 h-2 rounded-full bg-gray-500"></div>
+          <span class="text-sm text-gray-600 dark:text-gray-400">Unknown</span>
+        `;
+      }
+    }
+
+    function startHealthMonitoring() {
+      setInterval(checkHealth, 30000); // Every 30 seconds
+    }
+
+    // =========================================
+    // ITEMS
+    // =========================================
+    let allItems = [];
+    let filteredItems = [];
+    let currentPage = 1;
+    const itemsPerPage = 25;
+    let sortColumn = 'sku';
+    let sortDirection = 'asc';
+
+    async function loadItems() {
+      try {
+        const response = await apiCall('/api/items');
+        allItems = response.data || response.items || [];
+        filteredItems = [...allItems];
+        renderItems();
+      } catch (error) {
+        showToast('Failed to load items', 'error');
+      }
+    }
+
+    function renderItems() {
+      const tbody = document.getElementById('itemsTable');
+      const start = (currentPage - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageItems = filteredItems.slice(start, end);
+
+      if (pageItems.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+              No items found
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = pageItems.map(item => `
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${item.sku}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${item.name || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${item.category || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${item.uom || ''}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">${item.par_level || 0}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 py-1 text-xs rounded-full ${item.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}">
+                ${item.active ? 'Active' : 'Inactive'}
+              </span>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // Update pagination
+      const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+      document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages || 1}`;
+      document.getElementById('prevPage').disabled = currentPage === 1;
+      document.getElementById('nextPage').disabled = currentPage >= totalPages;
+    }
+
+    function searchItems(query) {
+      const search = query.toLowerCase();
+      filteredItems = allItems.filter(item =>
+        item.sku.toLowerCase().includes(search) ||
+        (item.name && item.name.toLowerCase().includes(search)) ||
+        (item.category && item.category.toLowerCase().includes(search))
+      );
+      currentPage = 1;
+      renderItems();
+    }
+
+    async function addItem(itemData) {
+      try {
+        await apiCall('/api/items', {
+          method: 'POST',
+          body: JSON.stringify(itemData),
+        });
+
+        showToast('Item added successfully!', 'success');
+        await loadItems();
+        closeAddItemModal();
+      } catch (error) {
+        showToast('Failed to add item: ' + error.message, 'error');
+      }
+    }
+
+    function openAddItemModal() {
+      document.getElementById('addItemModal').classList.remove('hidden');
+    }
+
+    function closeAddItemModal() {
+      document.getElementById('addItemModal').classList.add('hidden');
+      document.getElementById('addItemForm').reset();
+    }
+
+    // =========================================
+    // INVENTORY
+    // =========================================
+    async function loadInventory() {
+      try {
+        const response = await apiCall('/api/inventory/summary');
+        const summary = response.data || response;
+
+        // By location summary
+        const locationDiv = document.getElementById('locationSummary');
+        const locations = await apiCall('/api/inventory/locations');
+        const locationList = locations.data || [];
+
+        if (locationList.length === 0) {
+          locationDiv.innerHTML = '<p class="text-sm text-gray-600 dark:text-gray-400">No locations found</p>';
+        } else {
+          locationDiv.innerHTML = locationList.map(loc => `
+            <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <span class="text-sm text-gray-700 dark:text-gray-300">${loc}</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-white">-</span>
+            </div>
+          `).join('');
+        }
+
+        // Overall summary
+        const summaryDiv = document.getElementById('inventorySummary');
+        summaryDiv.innerHTML = `
+          <p><strong>Total Items:</strong> ${summary.totalItems || 0}</p>
+          <p><strong>Total Quantity:</strong> ${summary.totalQuantity || 0}</p>
+          <p><strong>Locations:</strong> ${summary.locations || 0}</p>
+        `;
+      } catch (error) {
+        showToast('Failed to load inventory', 'error');
+      }
+    }
+
+    // =========================================
+    // CSV IMPORT
+    // =========================================
+    let itemsCsvData = null;
+    let inventoryCsvData = null;
+
+    function setupDropZone(dropZoneId, fileInputId, previewId, previewTextId, dataKey) {
+      const dropZone = document.getElementById(dropZoneId);
+      const fileInput = document.getElementById(fileInputId);
+      const preview = document.getElementById(previewId);
+      const previewText = document.getElementById(previewTextId);
+
+      dropZone.onclick = () => fileInput.click();
+
+      dropZone.ondragover = (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500');
+      };
+
+      dropZone.ondragleave = () => {
+        dropZone.classList.remove('border-blue-500');
+      };
+
+      dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500');
+        if (e.dataTransfer.files.length) {
+          handleFile(e.dataTransfer.files[0], preview, previewText, dataKey);
+        }
+      };
+
+      fileInput.onchange = (e) => {
+        if (e.target.files.length) {
+          handleFile(e.target.files[0], preview, previewText, dataKey);
+        }
+      };
+    }
+
+    function handleFile(file, preview, previewText, dataKey) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target.result;
+        if (dataKey === 'items') {
+          itemsCsvData = content;
+        } else {
+          inventoryCsvData = content;
+        }
+
+        const lines = content.split('\n').slice(0, 5).join('\n');
+        previewText.textContent = lines + '\n...';
+        preview.classList.remove('hidden');
+      };
+      reader.readAsText(file);
+    }
+
+    function generateSampleCSV(type) {
+      let content = '';
+      if (type === 'items') {
+        content = 'sku,name,category,uom,par_level,min_reorder,max_reorder,active\n';
+        content += 'ITEM001,Sample Item 1,Category A,ea,10,5,20,true\n';
+        content += 'ITEM002,Sample Item 2,Category B,kg,20,10,40,true\n';
+      } else {
+        content = 'sku,location,quantity,lot_number,expiry_date\n';
+        content += 'ITEM001,Warehouse A,50,LOT001,2024-12-31\n';
+        content += 'ITEM002,Warehouse B,30,LOT002,2024-11-30\n';
+      }
+
+      const blob = new Blob([content], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${type}_sample.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function importCSV(type, csvData) {
+      try {
+        const endpoint = type === 'items' ? '/api/items/import' : '/api/inventory/import';
+        const response = await fetch(`${CONFIG.apiUrl}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/csv',
+            'Authorization': `Bearer ${CONFIG.token}`,
+          },
+          body: csvData,
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          showToast(`Import successful: ${result.data.inserted} ${type} imported`, 'success');
+
+          // Reset preview
+          if (type === 'items') {
+            document.getElementById('itemsPreview').classList.add('hidden');
+            itemsCsvData = null;
+            await loadItems();
+          } else {
+            document.getElementById('inventoryPreview').classList.add('hidden');
+            inventoryCsvData = null;
+            await loadInventory();
+          }
+        } else {
+          throw new Error(result.error || 'Import failed');
+        }
+      } catch (error) {
+        showToast('Import failed: ' + error.message, 'error');
+      }
+    }
+
+    // =========================================
+    // METRICS
+    // =========================================
+    let metricsRefreshInterval = null;
+    let durationChart = null;
+    let requestsChart = null;
+
+    async function loadMetrics() {
+      try {
+        const metricsText = await apiCall('/metrics');
+        const metrics = parsePrometheusMetrics(metricsText);
+
+        renderMetricsCharts(metrics);
+        renderResourceMetrics(metrics);
+      } catch (error) {
+        showToast('Failed to load metrics', 'error');
+      }
+    }
+
+    function parsePrometheusMetrics(text) {
+      const metrics = {
+        requests: { total: 0 },
+        duration: { p95: 0 },
+        memory: 0,
+      };
+
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('#')) continue;
+
+        if (line.includes('http_requests_total')) {
+          const match = line.match(/(\d+)$/);
+          if (match) metrics.requests.total += parseInt(match[1]);
+        }
+
+        if (line.includes('process_resident_memory_bytes')) {
+          const match = line.match(/(\d+)$/);
+          if (match) metrics.memory = parseInt(match[1]);
+        }
+      }
+
+      return metrics;
+    }
+
+    function renderMetricsCharts(metrics) {
+      // Duration Chart
+      const durationCtx = document.getElementById('durationChart').getContext('2d');
+      if (durationChart) {
+        durationChart.destroy();
+      }
+      durationChart = new Chart(durationCtx, {
+        type: 'line',
+        data: {
+          labels: ['Now'],
+          datasets: [{
+            label: 'P95 Duration (ms)',
+            data: [metrics.duration.p95],
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        }
+      });
+
+      // Requests Chart
+      const requestsCtx = document.getElementById('requestsChart').getContext('2d');
+      if (requestsChart) {
+        requestsChart.destroy();
+      }
+      requestsChart = new Chart(requestsCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Total'],
+          datasets: [{
+            label: 'Requests',
+            data: [metrics.requests.total],
+            backgroundColor: 'rgba(34, 197, 94, 0.5)',
+            borderColor: 'rgb(34, 197, 94)',
+            borderWidth: 1,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+        }
+      });
+    }
+
+    function renderResourceMetrics(metrics) {
+      const resourceDiv = document.getElementById('resourceMetrics');
+      resourceDiv.innerHTML = `
+        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Memory Usage</p>
+          <p class="text-2xl font-bold text-gray-900 dark:text-white">${(metrics.memory / 1024 / 1024).toFixed(0)} MB</p>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Requests</p>
+          <p class="text-2xl font-bold text-gray-900 dark:text-white">${metrics.requests.total}</p>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">P95 Latency</p>
+          <p class="text-2xl font-bold text-gray-900 dark:text-white">${metrics.duration.p95} ms</p>
+        </div>
+      `;
+    }
+
+    // =========================================
+    // JOBS (Admin)
+    // =========================================
+    async function runMaintenanceJob() {
+      if (!confirm('Run maintenance job now?')) return;
+
+      try {
+        const result = await apiCall('/jobs/maintenance', {
+          method: 'POST',
+        });
+
+        if (result.success) {
+          showToast('Maintenance job completed successfully', 'success');
+        }
+      } catch (error) {
+        showToast('Maintenance job failed: ' + error.message, 'error');
+      }
+    }
+
+    // =========================================
+    // SETTINGS
+    // =========================================
+    function loadSettings() {
+      document.getElementById('apiUrlInput').value = CONFIG.apiUrl;
+      document.getElementById('themeSelect').value = CONFIG.theme;
+      document.getElementById('languageSelect').value = CONFIG.lang;
+    }
+
+    function saveApiUrl() {
+      const newUrl = document.getElementById('apiUrlInput').value.trim();
+      if (newUrl) {
+        CONFIG.apiUrl = newUrl;
+        localStorage.setItem('NP_API_URL', newUrl);
+        showToast('API URL updated', 'success');
+      }
+    }
+
+    // =========================================
+    // EVENT LISTENERS
+    // =========================================
+    document.addEventListener('DOMContentLoaded', () => {
+      // Apply theme and language
+      applyTheme();
+      updateLanguage();
+
+      // Check if user is already logged in
+      if (CONFIG.token && CONFIG.user) {
+        showMainApp();
+      } else {
+        showLoginScreen();
+      }
+
+      // Login form
+      document.getElementById('loginForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        await login(email, password);
+      };
+
+      // Logout
+      document.getElementById('logoutBtn').onclick = logout;
+
+      // Navigation
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.onclick = (e) => {
+          e.preventDefault();
+          const section = link.getAttribute('href').substring(1);
+          navigateTo(section);
+        };
+      });
+
+      // Items
+      document.getElementById('itemSearch').oninput = (e) => {
+        searchItems(e.target.value);
+      };
+
+      document.getElementById('prevPage').onclick = () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderItems();
+        }
+      };
+
+      document.getElementById('nextPage').onclick = () => {
+        const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderItems();
+        }
+      };
+
+      document.getElementById('addItemBtn').onclick = openAddItemModal;
+      document.getElementById('closeAddModal').onclick = closeAddItemModal;
+      document.getElementById('cancelAddModal').onclick = closeAddItemModal;
+
+      document.getElementById('addItemForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const itemData = {
+          sku: document.getElementById('newItemSku').value,
+          name: document.getElementById('newItemName').value,
+          category: document.getElementById('newItemCategory').value || null,
+          uom: document.getElementById('newItemUom').value || null,
+          par_level: parseInt(document.getElementById('newItemPar').value) || null,
+          min_reorder: parseInt(document.getElementById('newItemMin').value) || null,
+          max_reorder: parseInt(document.getElementById('newItemMax').value) || null,
+          active: document.getElementById('newItemActive').checked,
+        };
+        await addItem(itemData);
+      };
+
+      // CSV Import
+      setupDropZone('itemsDropZone', 'itemsFileInput', 'itemsPreview', 'itemsPreviewText', 'items');
+      setupDropZone('inventoryDropZone', 'inventoryFileInput', 'inventoryPreview', 'inventoryPreviewText', 'inventory');
+
+      document.getElementById('itemsSampleBtn').onclick = () => generateSampleCSV('items');
+      document.getElementById('inventorySampleBtn').onclick = () => generateSampleCSV('inventory');
+
+      document.getElementById('importItemsBtn').onclick = () => {
+        if (itemsCsvData) importCSV('items', itemsCsvData);
+      };
+
+      document.getElementById('importInventoryBtn').onclick = () => {
+        if (inventoryCsvData) importCSV('inventory', inventoryCsvData);
+      };
+
+      // Metrics
+      document.getElementById('metricsAutoRefresh').onchange = (e) => {
+        if (e.target.checked) {
+          metricsRefreshInterval = setInterval(loadMetrics, 10000);
+        } else {
+          if (metricsRefreshInterval) {
+            clearInterval(metricsRefreshInterval);
+            metricsRefreshInterval = null;
+          }
+        }
+      };
+
+      // Settings
+      document.getElementById('saveApiUrl').onclick = saveApiUrl;
+
+      document.getElementById('themeSelect').onchange = (e) => {
+        CONFIG.theme = e.target.value;
+        localStorage.setItem('NP_THEME', CONFIG.theme);
+        applyTheme();
+      };
+
+      document.getElementById('languageSelect').onchange = (e) => {
+        CONFIG.lang = e.target.value;
+        localStorage.setItem('NP_LANG', CONFIG.lang);
+        updateLanguage();
+      };
+
+      // Jobs
+      document.getElementById('runMaintenanceBtn').onclick = runMaintenanceJob;
+
+      // Sidebar toggle for mobile
+      document.getElementById('sidebarToggle').onclick = () => {
+        document.getElementById('sidebar').classList.toggle('hidden');
+      };
+
+      // Load settings
+      loadSettings();
+    });
+  </script>
+
+  <!--
+
+  =========================================
+  QUICK VERIFICATION STEPS
+  =========================================
+
+  1. Open this file locally (double-click or file://)
+  2. Login with admin@local / admin123
+  3. Confirm Dashboard shows counts (likely 0 if DB is empty)
+  4. Click Items → Add Item → Fill form → Save
+  5. Verify item appears in table
+  6. Navigate to Import → Items → Download Sample → Import it
+  7. See new rows appear in Items table
+  8. Click Jobs (Admin) → Run Maintenance Job → Confirm success toast
+  9. Go to Settings → Change language to FR → Verify labels update
+  10. Change API URL → Save → Refresh data (Dashboard will reload)
+  11. Navigate to Metrics → Toggle auto-refresh → See charts
+  12. Test dark mode toggle in Settings
+
+  =========================================
+  OPTIONAL ENHANCEMENTS (Not Implemented)
+  =========================================
+
+  - Role-based route guards with deep-linking (#dashboard?section=items)
+  - Saved table views & filters (persist column visibility, sort state)
+  - Export CSV from tables (download filtered/sorted data)
+  - WebSocket live updates for metrics/inventory changes
+  - Fine-grained rate limiting visualizer (show remaining requests)
+  - Inline editing in tables (click to edit SKU/Name)
+  - Bulk operations (select multiple items, delete, export)
+  - Chart zoom/pan controls
+  - Custom dashboard widgets (drag-and-drop layout)
+  - Audit log viewer (track all changes)
+  - Advanced search with filters (category, date range, etc.)
+  - Mobile app shell (PWA manifest, service worker)
+  - Keyboard shortcuts (Cmd+K for search, etc.)
+  - Data export scheduler (automated daily CSV exports)
+  - Multi-tenant support (organization switching)
+
+  -->
+</body>
+</html>
