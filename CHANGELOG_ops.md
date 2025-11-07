@@ -1,3 +1,287 @@
+# Ops Changelog — Inventory Backend
+
+**Latest Version:** v20.1
+**Last Updated:** 2025-11-06
+**Environment:** Staging
+
+---
+
+## 🚀 **v20.1 - Production-Grade Infrastructure** (2025-11-06)
+
+**Version:** 20.1.0
+**Environment:** Staging (inventory-backend-7-agent-build.up.railway.app)
+**Deployed:** 2025-11-06
+**Status:** Ready for Validation
+
+---
+
+### **✨ New Features**
+
+#### **1. Redis Caching Layer**
+- **Implementation:** Optional Redis with graceful degradation
+- **Cache Keys:** `items:all:*`, `inventory:summary:v1`
+- **TTL Configuration:** 300s default (configurable via env)
+- **Invalidation:** Automatic on POST/PUT/DELETE operations
+- **Expected Hit Rate:** >90% after warm-up
+
+**Configuration:**
+```env
+REDIS_URL=redis://default:PASSWORD@redis.railway.internal:6379
+CACHE_TTL_ITEMS=300
+CACHE_TTL_SUMMARY=300
+```
+
+#### **2. Prometheus Metrics**
+- **Endpoint:** `/metrics` (text/plain format)
+- **Metrics Collected:**
+  - `http_request_duration_seconds` - Request latency histogram
+  - `http_requests_total` - Request counter by route/status
+  - `http_requests_in_progress` - Current active requests
+  - `cache_hits_total` / `cache_misses_total` - Cache performance
+  - `database_query_duration_seconds` - DB query timing
+  - Node.js process metrics (CPU, memory, event loop)
+
+**Dashboard Integration:** Compatible with Grafana, Datadog, New Relic
+
+#### **3. JWT Authentication + RBAC**
+- **Algorithm:** HS256 with configurable secret
+- **Expiration:** 12h default (configurable)
+- **Roles:** admin, staff, viewer (hierarchical permissions)
+- **Endpoints:**
+  - `POST /api/auth/login` - Login with email/password
+  - All CRUD routes support `Authorization: Bearer <token>`
+
+**Static Test Users (Staging):**
+```
+admin@local:admin123   (full access)
+staff@local:staff123   (CRUD + imports)
+viewer@local:viewer123 (read-only)
+```
+
+**Permission Matrix:**
+| Route | Viewer | Staff | Admin |
+|-------|--------|-------|-------|
+| GET endpoints | ✅ | ✅ | ✅ |
+| POST /api/items | ❌ | ✅ | ✅ |
+| POST /jobs/maintenance | ❌ | ❌ | ✅ |
+
+#### **4. Daily Cron Job**
+- **Schedule:** `5 2 * * *` (02:05 UTC / 21:05 Toronto EST)
+- **Tasks:**
+  1. Warm cache (inventory summary + active items)
+  2. Database health check
+  3. Cache statistics collection
+- **Execution:** Automatic via node-cron
+- **Manual Trigger:** `POST /jobs/maintenance` (admin-only)
+
+#### **5. Rate Limiting**
+- **Window:** 5 minutes (configurable)
+- **Max Requests:** 100 per IP (configurable)
+- **Response:** 429 Too Many Requests with JSON error
+- **Scope:** Applied to `/api/*` routes only
+
+**Configuration:**
+```env
+RATE_LIMIT_WINDOW_MIN=5
+RATE_LIMIT_MAX=100
+```
+
+#### **6. Structured Logging**
+- **Logger:** Pino with HTTP request middleware
+- **Format:** JSON (production) / Pretty (development)
+- **Level:** Configurable via `LOG_LEVEL` (debug/info/warn/error)
+- **Correlation:** Request IDs for tracing
+
+---
+
+### **📊 Performance Targets**
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| API Latency (avg) | <50ms | P50 with cache |
+| API Latency (p95) | <100ms | P95 with cache |
+| API Latency (p99) | <500ms | P99 without cache |
+| Cache Hit Rate | >90% | After 24h warm-up |
+| Request Throughput | 100 req/min | With rate limiting |
+| Memory Usage | <80% | Steady state |
+| Database Query | <50ms | SELECT queries |
+
+---
+
+### **🔧 Configuration Changes**
+
+**New Environment Variables:**
+```env
+# Core
+APP_VERSION=20.1.0
+
+# Auth (REQUIRED)
+JWT_SECRET=<generate_with_openssl_rand_base64_32>
+JWT_EXPIRES_IN=12h
+
+# Redis (Optional)
+REDIS_URL=redis://...
+CACHE_TTL_ITEMS=300
+CACHE_TTL_SUMMARY=300
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MIN=5
+RATE_LIMIT_MAX=100
+
+# CORS
+CORS_ALLOWLIST=https://inventory-backend-7-agent-build.up.railway.app
+
+# Cron
+CRON_DAILY=5 2 * * *
+```
+
+**Updated Configuration:**
+```json
+// railway.json
+{
+  "deploy": {
+    "startCommand": "node server-v20_1.js"
+  }
+}
+```
+
+---
+
+### **📦 Dependencies Added**
+
+```json
+{
+  "ioredis": "^5.3.2",
+  "prom-client": "^15.1.0",
+  "jsonwebtoken": "^9.0.2",
+  "node-cron": "^3.0.3",
+  "pino": "^8.17.0",
+  "pino-http": "^9.0.0",
+  "express-rate-limit": "^7.1.5",
+  "dayjs": "^1.11.10"
+}
+```
+
+---
+
+### **🛡️ Security Enhancements**
+
+1. **JWT Token Security:**
+   - Configurable secret (no hardcoded values)
+   - Token expiration enforced
+   - Role-based access control
+
+2. **Rate Limiting:**
+   - Per-IP tracking
+   - Prevents brute-force attacks
+   - Configurable thresholds
+
+3. **CORS Protection:**
+   - Whitelist-based origin validation
+   - Credentials support
+
+4. **Input Validation:**
+   - CSV import validation (existing)
+   - Required field checks
+   - SQL injection protection (parameterized queries)
+
+---
+
+### **🔄 Backward Compatibility**
+
+✅ **All v20.0 routes preserved:**
+- `GET /api/items`
+- `GET /api/items/:sku`
+- `POST /api/items`
+- `POST /api/items/import`
+- `GET /api/inventory`
+- `GET /api/inventory/summary`
+- `POST /api/inventory/import`
+
+✅ **Graceful degradation:**
+- Redis optional (app works without it)
+- Auth optional (routes work with or without Bearer token in some cases)
+
+⚠️ **Breaking changes:** NONE (additive only)
+
+---
+
+### **🚨 Rollback Plan**
+
+**Three Options Available:**
+
+1. **Railway Dashboard** (30 seconds)
+   - Redeploy previous v20.0 deployment
+   - Zero downtime
+
+2. **Update railway.json** (2 minutes)
+   - Change `startCommand` to `node railway-server-v20.js`
+   - Commit and push
+
+3. **Git Revert** (1 minute)
+   - Revert v20.1 merge commit
+   - Push to trigger redeploy
+
+**See:** [V20_1_ROLLBACK.md](inventory-enterprise/docs/V20_1_ROLLBACK.md)
+
+---
+
+### **📝 Testing Checklist**
+
+Pre-deployment validation:
+
+- [x] Health endpoint responds with v20.1
+- [x] Database connectivity confirmed
+- [x] Redis connection optional (works without)
+- [x] JWT login successful for all 3 roles
+- [x] RBAC enforced (403 for insufficient permissions)
+- [x] Cache hit/miss behavior verified
+- [x] Prometheus metrics endpoint returns data
+- [x] Rate limiting triggers 429 after threshold
+- [x] All v20.0 CRUD operations still work
+- [x] CSV import endpoints functional
+- [x] Cron job can be triggered manually
+
+---
+
+### **📚 Documentation**
+
+New files created:
+
+- `inventory-enterprise/backend/server-v20_1.js` - Main server
+- `inventory-enterprise/backend/config/env.js` - Centralized config
+- `inventory-enterprise/backend/middleware/auth-v20_1.js` - JWT + RBAC
+- `inventory-enterprise/backend/middleware/cache-v20_1.js` - Redis caching
+- `inventory-enterprise/backend/metrics-v20_1.js` - Prometheus metrics
+- `inventory-enterprise/backend/jobs/daily-v20_1.js` - Cron job
+- `inventory-enterprise/docs/V20_1_DEPLOYMENT.md` - Deployment guide
+- `inventory-enterprise/docs/V20_1_ROLLBACK.md` - Rollback procedures
+- `.github/workflows/backend-v20_1.yml` - CI/CD pipeline
+- `inventory-enterprise/backend/.env.v20_1.example` - Env template
+
+---
+
+### **🎯 Next Steps (v20.2)**
+
+Planned enhancements:
+
+1. **PostgreSQL Migration** - Move from SQLite to PostgreSQL (Railway plugin)
+2. **Advanced Auth** - OAuth2, refresh tokens, password reset
+3. **Audit Logging** - Track all CRUD operations with timestamps
+4. **Rate Limit Tiers** - Different limits for authenticated vs anonymous
+5. **Cache Prefetching** - Intelligent cache warming based on usage patterns
+6. **Grafana Dashboard** - Pre-built dashboards for metrics visualization
+
+---
+
+**Prepared By:** LYRA-7 DevOps Architect
+**Environment:** Staging Only
+**Production Deployment:** Pending 48h validation
+
+---
+
+---
+
 # Ops Changelog — v19.2 → Stable
 
 **Version:** v19.2-stable
