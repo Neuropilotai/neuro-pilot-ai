@@ -136,7 +136,7 @@ app.use(metricsMiddleware);
 // Cache middleware (attaches req.cache helpers)
 app.use(cacheMiddleware);
 
-// Rate limiting
+// Rate limiting (skip for authenticated users)
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMin * 60 * 1000,
   max: config.rateLimit.max,
@@ -146,6 +146,20 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for authenticated users
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        jwt.verify(token, config.jwt.secret);
+        return true; // Skip rate limiting
+      } catch (e) {
+        return false; // Invalid token, apply rate limiting
+      }
+    }
+    return false; // No token, apply rate limiting
+  },
 });
 app.use('/api/', limiter);
 
