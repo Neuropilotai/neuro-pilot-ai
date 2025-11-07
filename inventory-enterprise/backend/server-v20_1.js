@@ -639,6 +639,108 @@ app.post('/jobs/maintenance', authGuard(['admin']), async (req, res) => {
 });
 
 // ==========================================
+// COMPATIBILITY ROUTES (v16.0.0 console support)
+// ==========================================
+
+// RBAC bootstrap - provides role configuration
+app.get('/api/rbac/bootstrap', optionalAuth, (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      roles: ['admin', 'staff', 'viewer'],
+      permissions: {
+        admin: ['read', 'write', 'delete', 'manage'],
+        staff: ['read', 'write'],
+        viewer: ['read'],
+      },
+    },
+  });
+});
+
+// Owner config - provides console configuration
+app.get('/api/owner/config', optionalAuth, (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      version: config.appVersion,
+      features: {
+        auth: true,
+        caching: isRedisConnected(),
+        metrics: true,
+        rate_limiting: true,
+        cron_jobs: true,
+      },
+    },
+  });
+});
+
+// Console locations - returns available locations
+app.get('/api/owner/console/locations', optionalAuth, async (req, res) => {
+  db.all('SELECT DISTINCT location FROM inventory WHERE location IS NOT NULL', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ success: false, error: 'Database query failed' });
+    }
+    res.json({
+      success: true,
+      data: rows.map(r => r.location),
+    });
+  });
+});
+
+// Dashboard stats - maps to inventory summary
+app.get('/api/owner/dashboard/stats', async (req, res) => {
+  const cacheKey = 'inventory:summary:v1';
+  const cached = await getCache(cacheKey);
+
+  if (cached) {
+    recordCacheHit('dashboard');
+    res.set('X-Cache', 'HIT');
+    return res.json(cached);
+  }
+
+  recordCacheMiss('dashboard');
+  res.set('X-Cache', 'MISS');
+
+  db.all(
+    `SELECT
+      (SELECT COUNT(DISTINCT sku) FROM inventory) as totalItems,
+      (SELECT SUM(quantity) FROM inventory) as totalQuantity,
+      (SELECT COUNT(DISTINCT location) FROM inventory) as locations,
+      (SELECT COUNT(*) FROM items) as totalSkus
+    `,
+    [],
+    async (err, rows) => {
+      if (err) {
+        return res.status(500).json({ success: false, error: 'Database query failed' });
+      }
+
+      const response = {
+        success: true,
+        data: rows[0] || { totalItems: 0, totalQuantity: 0, locations: 0, totalSkus: 0 },
+      };
+
+      await setCache(cacheKey, response, config.cache.ttlSummary);
+      res.json(response);
+    }
+  );
+});
+
+// Ops status - provides operational health
+app.get('/api/owner/ops/status', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      status: 'operational',
+      version: config.appVersion,
+      uptime: process.uptime(),
+      database: 'connected',
+      redis: isRedisConnected() ? 'connected' : 'disconnected',
+      memory: process.memoryUsage(),
+    },
+  });
+});
+
+// ==========================================
 // CRON SCHEDULER
 // ==========================================
 if (cron.validate(config.cron.daily)) {

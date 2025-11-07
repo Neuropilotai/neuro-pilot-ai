@@ -74,7 +74,7 @@ function swapText(el, state) {
 
 window.addEventListener('DOMContentLoaded', async () => {
   if (!token) {
-    window.location.href = '/login.html';
+    window.location.href = 'login.html';
     return;
   }
 
@@ -162,7 +162,7 @@ function updateTokenTTL() {
 function logout() {
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
-  window.location.href = '/login.html';
+  window.location.href = 'login.html';
 }
 
 // ============================================================================
