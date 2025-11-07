@@ -760,6 +760,8 @@ app.get('/api/menu/policy', optionalAuth, (req, res) => {
     success: true,
     data: {
       enabled: false,
+      currentWeek: null,
+      weeks: [],
       message: 'Menu management not available in v20.1 inventory backend',
     },
   });
@@ -769,8 +771,11 @@ app.get('/api/menu/policy', optionalAuth, (req, res) => {
 app.get('/api/menu/weeks', optionalAuth, (req, res) => {
   res.json({
     success: true,
-    data: [],
-    message: 'Menu management not available in v20.1 inventory backend',
+    data: {
+      currentWeek: null,
+      weeks: [],
+      message: 'Menu management not available in v20.1 inventory backend',
+    },
   });
 });
 
