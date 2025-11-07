@@ -754,6 +754,26 @@ app.get('/api/inventory/locations', optionalAuth, async (req, res) => {
   });
 });
 
+// Menu policy - stub route (menu feature not implemented in v20.1)
+app.get('/api/menu/policy', optionalAuth, (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      enabled: false,
+      message: 'Menu management not available in v20.1 inventory backend',
+    },
+  });
+});
+
+// Menu weeks - stub route (menu feature not implemented in v20.1)
+app.get('/api/menu/weeks', optionalAuth, (req, res) => {
+  res.json({
+    success: true,
+    data: [],
+    message: 'Menu management not available in v20.1 inventory backend',
+  });
+});
+
 // ==========================================
 // CRON SCHEDULER
 // ==========================================
