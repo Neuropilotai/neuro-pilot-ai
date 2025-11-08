@@ -319,6 +319,7 @@ app.use((req, res, next) => {
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/public', express.static(path.join(__dirname, '../frontend/public')));
 app.use('/dashboard', express.static(path.join(__dirname, '../frontend/dashboard')));
 
 // Serve GFS Monthly Reports (Owner-only access, served statically)
