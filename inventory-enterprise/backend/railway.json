@@ -2,10 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "cd inventory-enterprise/backend && npm install --production=false"
+    "buildCommand": "npm install --production=false && cp -r ../frontend . || echo 'Frontend copy failed, will use symlink' && ln -sf ../frontend frontend || echo 'Frontend symlink failed'"
   },
   "deploy": {
-    "startCommand": "cd inventory-enterprise/backend && node server-v20_1.js",
+    "startCommand": "node server-v20_1.js",
     "healthcheckPath": "/api/health/status",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",

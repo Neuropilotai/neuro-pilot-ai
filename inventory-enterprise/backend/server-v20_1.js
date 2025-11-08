@@ -16,6 +16,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 const csvParser = require('csv-parser');
 const { Readable } = require('stream');
 const rateLimit = require('express-rate-limit');
@@ -128,8 +129,12 @@ app.use(express.json());
 app.use(express.text({ type: 'text/csv' }));
 
 // Serve static frontend files
-app.use(express.static(path.join(__dirname, '../frontend')));
-app.use('/public', express.static(path.join(__dirname, '../frontend/public')));
+// Support both ../frontend (local dev) and ./frontend (Railway with symlink)
+const frontendPath = require('fs').existsSync(path.join(__dirname, 'frontend'))
+  ? path.join(__dirname, 'frontend')
+  : path.join(__dirname, '../frontend');
+app.use(express.static(frontendPath));
+app.use('/public', express.static(path.join(frontendPath, 'public')));
 
 // HTTP request logging
 app.use(pinoHttp({ logger }));
