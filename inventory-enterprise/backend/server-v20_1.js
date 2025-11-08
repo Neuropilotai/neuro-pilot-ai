@@ -129,12 +129,20 @@ app.use(express.json());
 app.use(express.text({ type: 'text/csv' }));
 
 // Serve static frontend files
-// Support both ../frontend (local dev) and ./frontend (Railway with symlink)
-const frontendPath = require('fs').existsSync(path.join(__dirname, 'frontend'))
-  ? path.join(__dirname, 'frontend')
-  : path.join(__dirname, '../frontend');
-app.use(express.static(frontendPath));
-app.use('/public', express.static(path.join(frontendPath, 'public')));
+// Priority order: ./public (Railway copied files), ../frontend (local dev), ./frontend (symlink fallback)
+if (fs.existsSync(path.join(__dirname, 'public'))) {
+  // Railway deployment: files copied to backend/public during build
+  logger.info('Serving static files from ./public (Railway mode)');
+  app.use('/public', express.static(path.join(__dirname, 'public')));
+  app.use(express.static(path.join(__dirname, 'public')));
+} else if (fs.existsSync(path.join(__dirname, '../frontend'))) {
+  // Local development: use ../frontend
+  logger.info('Serving static files from ../frontend (local dev mode)');
+  app.use(express.static(path.join(__dirname, '../frontend')));
+  app.use('/public', express.static(path.join(__dirname, '../frontend/public')));
+} else {
+  logger.warn('No frontend directory found - static files will not be served');
+}
 
 // HTTP request logging
 app.use(pinoHttp({ logger }));
