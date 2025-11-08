@@ -679,10 +679,28 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
         port: parseInt(process.env.REDIS_PORT) || 6379,
         password: process.env.REDIS_PASSWORD,
         retryStrategy(times) {
-          if (times > 3) return null; // Stop retrying after 3 attempts
+          if (times > 3) {
+            console.log('  ⚠️  Redis max retries exceeded, disabling Redis');
+            return null; // Stop retrying after 3 attempts
+          }
           return Math.min(times * 100, 2000);
         },
-        maxRetriesPerRequest: 3
+        maxRetriesPerRequest: 3,
+        enableOfflineQueue: false,
+        lazyConnect: false,
+        showFriendlyErrorStack: false
+      });
+
+      // Suppress noisy error/close events during retry attempts
+      redisClient.on('error', (err) => {
+        // Only log significant errors, not retry attempts
+        if (err.code !== 'ECONNREFUSED' && err.code !== 'ENOTFOUND') {
+          logger.error('Redis error:', err.message);
+        }
+      });
+
+      redisClient.on('close', () => {
+        // Suppress noisy close events
       });
 
       await redisClient.ping();
