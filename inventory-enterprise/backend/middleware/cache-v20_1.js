@@ -22,13 +22,17 @@ function initRedis(logger) {
     const client = new Redis(config.redis.url, {
       maxRetriesPerRequest: 3,
       retryStrategy(times) {
+        // Stop retrying after 3 attempts
+        if (times > 3) {
+          logger.info('Redis max retries exceeded - disabling cache');
+          return null;
+        }
         const delay = Math.min(times * 100, 2000);
         return delay;
       },
-      reconnectOnError(err) {
-        logger.warn(`Redis connection error: ${err.message}`);
-        return true;
-      },
+      enableOfflineQueue: false,
+      lazyConnect: false,
+      showFriendlyErrorStack: false
     });
 
     client.on('connect', () => {
@@ -38,12 +42,15 @@ function initRedis(logger) {
 
     client.on('error', (err) => {
       isRedisConnected = false;
-      logger.error(`Redis error: ${err.message}`);
+      // Suppress noisy connection errors
+      if (err.code !== 'ECONNREFUSED' && err.code !== 'ENOTFOUND') {
+        logger.error(`Redis error: ${err.message}`);
+      }
     });
 
     client.on('close', () => {
       isRedisConnected = false;
-      logger.warn('Redis connection closed');
+      // Suppress noisy close events during retry attempts
     });
 
     redisClient = client;
