@@ -2,7 +2,7 @@
  * Phase 3 Cron Jobs - Autonomous Learning Layer
  * Scheduled tasks for AI tuning, health prediction, security scanning, governance
  * v13.0.1: Added self-healing watchdog for job recovery
- * v13.0.2: Reduced watchdog frequency to every 15 minutes and added mutex locks for database contention
+ * v13.0.2: Reduced watchdog frequency to every 15 minutes, added mutex locks for database contention
  *
  * @version 13.0.2
  * @author NeuroInnovate AI Team

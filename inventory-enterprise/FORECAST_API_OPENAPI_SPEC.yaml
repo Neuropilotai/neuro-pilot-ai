@@ -1,0 +1,902 @@
+openapi: 3.0.3
+info:
+  title: NeuroPilot Forecast API
+  description: |
+    Demand forecasting and reorder recommendation API for NeuroPilot Inventory Enterprise.
+
+    ## Authentication
+    All endpoints require JWT Bearer token authentication.
+
+    ## Rate Limits
+    - Standard endpoints: 100 requests/15 minutes
+    - Forecast generation: 20 requests/hour
+    - Retrain endpoint: 5 requests/day (admin only)
+
+    ## Versioning
+    API version is included in the base path: `/api/forecast/v1`
+
+  version: 1.0.0
+  contact:
+    name: NeuroPilot API Support
+    email: api@neuropilot.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.neuropilot.com/v1
+    description: Production server
+  - url: https://api-staging.neuropilot.com/v1
+    description: Staging server
+  - url: http://localhost:8000/v1
+    description: Local development server
+
+tags:
+  - name: forecast
+    description: Demand forecast operations
+  - name: recommendations
+    description: Reorder recommendation operations
+  - name: admin
+    description: Administrative operations (admin only)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/forecast/v1/generate:
+    post:
+      tags:
+        - forecast
+      summary: Generate demand forecast
+      description: |
+        Generate demand forecasts for one or more SKUs using trained ML models.
+
+        **Rate Limit:** 20 requests/hour
+
+        **Required Permission:** `forecast:generate`
+      operationId: generateForecast
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForecastRequest'
+            examples:
+              singleSKU:
+                summary: Single SKU forecast
+                value:
+                  skus: ["SKU-001"]
+                  horizon_weeks: 4
+                  include_reorder_recommendation: true
+              multipleSKUs:
+                summary: Multiple SKUs forecast
+                value:
+                  skus: ["SKU-001", "SKU-002", "SKU-003"]
+                  horizon_weeks: 12
+                  include_reorder_recommendation: false
+                  as_of_date: "2025-10-28"
+      responses:
+        '200':
+          description: Forecast generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForecastResponse'
+              examples:
+                successWithReorder:
+                  summary: Successful forecast with reorder recommendation
+                  value:
+                    request_id: "req_abc123"
+                    generated_at: "2025-10-28T14:32:10Z"
+                    forecasts:
+                      - sku: "SKU-001"
+                        sku_name: "Premium Olive Oil 1L"
+                        category: "Oils & Vinegars"
+                        forecast_date: "2025-10-28"
+                        horizon_weeks: 4
+                        forecast:
+                          point_forecast: 45.5
+                          prediction_interval_80:
+                            lower: 38.2
+                            upper: 52.8
+                          prediction_interval_95:
+                            lower: 33.1
+                            upper: 57.9
+                          confidence_score: 0.87
+                          by_week:
+                            - week: 1
+                              forecast: 11.2
+                            - week: 2
+                              forecast: 11.8
+                            - week: 3
+                              forecast: 11.0
+                            - week: 4
+                              forecast: 11.5
+                        model:
+                          name: "ensemble"
+                          version: "v20251028"
+                          components: ["seasonal_naive", "ets", "prophet"]
+                          weights: [0.2, 0.4, 0.4]
+                        reorder_recommendation:
+                          abc_class: "A"
+                          should_reorder: true
+                          recommended_order_quantity: 48.0
+                          recommended_order_date: "2025-11-01"
+                          priority: "medium"
+                          details:
+                            current_stock: 15.0
+                            current_on_order: 0.0
+                            safety_stock: 8.5
+                            reorder_point: 23.2
+                            lead_time_days: 7
+                            service_level_target: 0.99
+                            days_until_stockout: 12.3
+                    errors: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/forecast/v1/recommendations:
+    get:
+      tags:
+        - recommendations
+      summary: Get reorder recommendations
+      description: |
+        Retrieve pending reorder recommendations with optional filtering.
+
+        **Rate Limit:** 100 requests/15 minutes
+
+        **Required Permission:** `forecast:read`
+      operationId: getRecommendations
+      parameters:
+        - name: priority
+          in: query
+          description: Filter by priority level
+          schema:
+            type: string
+            enum: [urgent, high, medium, low]
+        - name: abc_class
+          in: query
+          description: Filter by ABC inventory class
+          schema:
+            type: string
+            enum: [A, B, C]
+        - name: status
+          in: query
+          description: Filter by recommendation status
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+            default: pending
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Recommendations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/forecast/v1/recommendations/{id}/approve:
+    post:
+      tags:
+        - recommendations
+      summary: Approve reorder recommendation
+      description: |
+        Approve a reorder recommendation and optionally create an order.
+
+        **Rate Limit:** 100 requests/15 minutes
+
+        **Required Permission:** `forecast:approve_recommendation` (manager+ role)
+      operationId: approveRecommendation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Recommendation ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveRecommendationRequest'
+      responses:
+        '200':
+          description: Recommendation approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApproveRecommendationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/forecast/v1/history/{sku}:
+    get:
+      tags:
+        - forecast
+      summary: Get forecast history for SKU
+      description: |
+        Retrieve historical forecasts and actuals for a specific SKU.
+        Useful for charting forecast accuracy over time.
+
+        **Rate Limit:** 100 requests/15 minutes
+
+        **Required Permission:** `forecast:read`
+      operationId: getForecastHistory
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: SKU identifier
+          schema:
+            type: string
+            pattern: '^[A-Z0-9\-]{3,50}$'
+        - name: start_date
+          in: query
+          required: true
+          description: Start date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          description: End date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Forecast history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForecastHistoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/forecast/v1/retrain:
+    post:
+      tags:
+        - admin
+      summary: Trigger model retraining
+      description: |
+        Manually trigger model retraining job (normally runs weekly).
+
+        **Rate Limit:** 5 requests/day
+
+        **Required Permission:** `forecast:retrain` (admin only)
+      operationId: triggerRetrain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrainRequest'
+      responses:
+        '202':
+          description: Training job queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrainResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from `/api/auth/login` endpoint.
+
+        Example: `Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+
+  schemas:
+    ForecastRequest:
+      type: object
+      required:
+        - skus
+      properties:
+        skus:
+          type: array
+          items:
+            type: string
+            pattern: '^[A-Z0-9\-]{3,50}$'
+          minItems: 1
+          maxItems: 100
+          description: List of SKU identifiers to forecast
+          example: ["SKU-001", "SKU-002"]
+        horizon_weeks:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 4
+          description: Number of weeks to forecast ahead
+          example: 4
+        include_reorder_recommendation:
+          type: boolean
+          default: true
+          description: Whether to include reorder recommendations
+          example: true
+        as_of_date:
+          type: string
+          format: date
+          description: Date to forecast from (defaults to today)
+          example: "2025-10-28"
+
+    ForecastResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+          description: Unique request identifier for tracking
+          example: "req_abc123"
+        generated_at:
+          type: string
+          format: date-time
+          description: Timestamp when forecast was generated
+          example: "2025-10-28T14:32:10Z"
+        forecasts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SKUForecast'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ForecastError'
+
+    SKUForecast:
+      type: object
+      properties:
+        sku:
+          type: string
+          example: "SKU-001"
+        sku_name:
+          type: string
+          example: "Premium Olive Oil 1L"
+        category:
+          type: string
+          example: "Oils & Vinegars"
+        forecast_date:
+          type: string
+          format: date
+          example: "2025-10-28"
+        horizon_weeks:
+          type: integer
+          example: 4
+        forecast:
+          $ref: '#/components/schemas/ForecastData'
+        model:
+          $ref: '#/components/schemas/ModelMetadata'
+        reorder_recommendation:
+          $ref: '#/components/schemas/ReorderRecommendation'
+
+    ForecastData:
+      type: object
+      properties:
+        point_forecast:
+          type: number
+          format: double
+          description: Point forecast (expected demand over horizon)
+          example: 45.5
+        prediction_interval_80:
+          $ref: '#/components/schemas/PredictionInterval'
+        prediction_interval_95:
+          $ref: '#/components/schemas/PredictionInterval'
+        confidence_score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: Model confidence (0-1)
+          example: 0.87
+        by_week:
+          type: array
+          items:
+            type: object
+            properties:
+              week:
+                type: integer
+                example: 1
+              forecast:
+                type: number
+                format: double
+                example: 11.2
+
+    PredictionInterval:
+      type: object
+      properties:
+        lower:
+          type: number
+          format: double
+          description: Lower bound of prediction interval
+          example: 38.2
+        upper:
+          type: number
+          format: double
+          description: Upper bound of prediction interval
+          example: 52.8
+
+    ModelMetadata:
+      type: object
+      properties:
+        name:
+          type: string
+          enum: [seasonal_naive, ets, prophet, lightgbm, ensemble]
+          example: "ensemble"
+        version:
+          type: string
+          example: "v20251028"
+        components:
+          type: array
+          items:
+            type: string
+          example: ["seasonal_naive", "ets", "prophet"]
+        weights:
+          type: array
+          items:
+            type: number
+            format: double
+          example: [0.2, 0.4, 0.4]
+
+    ReorderRecommendation:
+      type: object
+      properties:
+        abc_class:
+          type: string
+          enum: [A, B, C]
+          example: "A"
+        should_reorder:
+          type: boolean
+          example: true
+        recommended_order_quantity:
+          type: number
+          format: double
+          example: 48.0
+        recommended_order_date:
+          type: string
+          format: date
+          example: "2025-11-01"
+        priority:
+          type: string
+          enum: [urgent, high, medium, low]
+          example: "medium"
+        details:
+          $ref: '#/components/schemas/ReorderDetails'
+
+    ReorderDetails:
+      type: object
+      properties:
+        current_stock:
+          type: number
+          format: double
+          example: 15.0
+        current_on_order:
+          type: number
+          format: double
+          example: 0.0
+        safety_stock:
+          type: number
+          format: double
+          example: 8.5
+        reorder_point:
+          type: number
+          format: double
+          example: 23.2
+        lead_time_days:
+          type: integer
+          example: 7
+        service_level_target:
+          type: number
+          format: double
+          example: 0.99
+        days_until_stockout:
+          type: number
+          format: double
+          example: 12.3
+
+    ForecastError:
+      type: object
+      properties:
+        sku:
+          type: string
+          example: "SKU-002"
+        error:
+          type: string
+          example: "Insufficient history: only 8 weeks available, need 12+"
+        fallback:
+          type: string
+          example: "manual_review_required"
+
+    RecommendationsResponse:
+      type: object
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    RecommendationSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 123
+        sku:
+          type: string
+          example: "SKU-001"
+        sku_name:
+          type: string
+          example: "Premium Olive Oil 1L"
+        recommendation_date:
+          type: string
+          format: date
+          example: "2025-10-28"
+        abc_class:
+          type: string
+          enum: [A, B, C]
+          example: "A"
+        priority:
+          type: string
+          enum: [urgent, high, medium, low]
+          example: "medium"
+        should_reorder:
+          type: boolean
+          example: true
+        recommended_order_quantity:
+          type: number
+          format: double
+          example: 48.0
+        recommended_order_date:
+          type: string
+          format: date
+          example: "2025-11-01"
+        current_stock:
+          type: number
+          format: double
+          example: 15.0
+        days_until_stockout:
+          type: number
+          format: double
+          example: 12.3
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          example: "pending"
+        forecasted_demand_4w:
+          type: number
+          format: double
+          example: 45.5
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 50
+        total_items:
+          type: integer
+          example: 127
+        total_pages:
+          type: integer
+          example: 3
+
+    ApproveRecommendationRequest:
+      type: object
+      required:
+        - approved_quantity
+      properties:
+        approved_quantity:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1000000
+          description: Approved order quantity (can differ from recommendation)
+          example: 48.0
+        create_order:
+          type: boolean
+          default: true
+          description: Whether to create an order immediately
+          example: true
+        notes:
+          type: string
+          maxLength: 1000
+          description: Optional approval notes
+          example: "Approved for immediate order"
+
+    ApproveRecommendationResponse:
+      type: object
+      properties:
+        recommendation_id:
+          type: integer
+          format: int64
+          example: 123
+        status:
+          type: string
+          enum: [approved]
+          example: "approved"
+        approved_at:
+          type: string
+          format: date-time
+          example: "2025-10-28T15:00:00Z"
+        approved_by:
+          type: integer
+          format: int64
+          description: User ID who approved
+          example: 42
+        order_created:
+          type: boolean
+          example: true
+        order_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 789
+
+    ForecastHistoryResponse:
+      type: object
+      properties:
+        sku:
+          type: string
+          example: "SKU-001"
+        start_date:
+          type: string
+          format: date
+          example: "2025-09-01"
+        end_date:
+          type: string
+          format: date
+          example: "2025-10-28"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoricalDataPoint'
+        summary:
+          $ref: '#/components/schemas/ForecastAccuracySummary'
+
+    HistoricalDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2025-09-01"
+        actual_usage:
+          type: number
+          format: double
+          example: 10.5
+        forecast:
+          type: number
+          format: double
+          example: 11.2
+        forecast_lower_80:
+          type: number
+          format: double
+          example: 9.1
+        forecast_upper_80:
+          type: number
+          format: double
+          example: 13.3
+        error_pct:
+          type: number
+          format: double
+          description: Percentage error (forecast vs actual)
+          example: 6.7
+
+    ForecastAccuracySummary:
+      type: object
+      properties:
+        mape:
+          type: number
+          format: double
+          description: Mean Absolute Percentage Error
+          example: 18.5
+        rmse:
+          type: number
+          format: double
+          description: Root Mean Squared Error
+          example: 2.3
+        bias:
+          type: number
+          format: double
+          description: Average forecast bias (negative = under-forecasting)
+          example: -0.5
+        forecast_accuracy:
+          type: number
+          format: double
+          description: Overall forecast accuracy (100 - MAPE)
+          example: 81.5
+
+    RetrainRequest:
+      type: object
+      properties:
+        skus:
+          type: array
+          items:
+            type: string
+          description: Specific SKUs to retrain (empty = all SKUs)
+          example: ["SKU-001"]
+        force:
+          type: boolean
+          default: false
+          description: Force retrain even if recent model exists
+          example: false
+
+    RetrainResponse:
+      type: object
+      properties:
+        training_job_id:
+          type: string
+          example: "job_abc123"
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+          example: "queued"
+        estimated_duration_minutes:
+          type: integer
+          example: 45
+        skus_queued:
+          type: integer
+          description: Number of SKUs queued for training
+          example: 156
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "Validation Error"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request parameters"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+          description: Detailed validation errors (if applicable)
+        requestId:
+          type: string
+          description: Request ID for support/debugging
+          example: "req_xyz789"
+
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Validation Error"
+            message: "Invalid request parameters"
+            details:
+              - field: "skus"
+                message: "Must be an array of 1-100 SKUs"
+            requestId: "req_xyz789"
+
+    Unauthorized:
+      description: Unauthorized - Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Unauthorized"
+            message: "Authentication required"
+            requestId: "req_xyz789"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Forbidden"
+            message: "Insufficient permissions"
+            requestId: "req_xyz789"
+
+    NotFound:
+      description: Not Found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Not Found"
+            message: "Recommendation not found"
+            requestId: "req_xyz789"
+
+    TooManyRequests:
+      description: Too Many Requests - Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Too Many Requests"
+            message: "Rate limit exceeded. Please try again later."
+            retryAfter: 900
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal Server Error"
+            message: "An unexpected error occurred"
+            requestId: "req_xyz789"

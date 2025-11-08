@@ -1,0 +1,20 @@
+# Nixpacks Configuration for Railway
+# Root Directory should be: inventory-enterprise
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["cd backend && npm ci --omit=dev"]
+
+[phases.build]
+cmds = [
+  "cd backend && npm install --production=false",
+  "mkdir -p backend/public",
+  "cp -r frontend/public/* backend/public/",
+  "echo '✅ Copied frontend files to backend/public'",
+  "ls -la backend/public | head -10"
+]
+
+[start]
+cmd = "cd backend && node server-v20_1.js"

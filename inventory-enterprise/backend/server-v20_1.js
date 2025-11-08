@@ -1,5 +1,5 @@
 /**
- * Railway Server v20.1 - Production Grade
+ * Railway Server v21.0 - Enterprise Grade
  *
  * Features:
  * - Redis caching layer with graceful degradation
@@ -9,6 +9,7 @@
  * - Rate limiting
  * - Structured logging (pino)
  * - All v20.0 CRUD + CSV import functionality
+ * - V21.0 Enterprise: Vendors, Recipes, Menu, Waste, Population, PDFs
  */
 
 const express = require('express');
@@ -862,6 +863,21 @@ app.get('/api/owner/dashboard/anomalies', optionalAuth, (req, res) => {
 });
 
 // ==========================================
+// V21.0 ENTERPRISE ROUTES
+// ==========================================
+const vendorsRouter = require('./routes/vendors');
+const recipesRouter = require('./routes/recipes');
+const wasteRouter = require('./routes/waste');
+const populationRouter = require('./routes/population');
+const pdfsRouter = require('./routes/pdfs');
+
+app.use('/api/vendors', authGuard(['staff']), vendorsRouter);
+app.use('/api/recipes', authGuard(['staff']), recipesRouter);
+app.use('/api/waste', authGuard(['staff']), wasteRouter);
+app.use('/api/population', authGuard(['staff']), populationRouter);
+app.use('/api/pdfs', authGuard(['staff']), pdfsRouter);
+
+// ==========================================
 // CRON SCHEDULER
 // ==========================================
 if (cron.validate(config.cron.daily)) {
@@ -886,7 +902,7 @@ if (cron.validate(config.cron.daily)) {
 // ==========================================
 app.get('/', (req, res) => {
   res.json({
-    name: 'NeuroInnovate Inventory Backend - v20.1',
+    name: 'NeuroInnovate Inventory Backend - v21.0 Enterprise',
     version: config.appVersion,
     status: 'operational',
     database: 'connected',
@@ -910,6 +926,16 @@ app.get('/', (req, res) => {
       'GET /api/inventory/summary',
       'POST /api/inventory/import (auth: staff)',
       'POST /jobs/maintenance (auth: admin)',
+      '--- V21.0 Enterprise Features ---',
+      'GET /api/vendors (auth: staff)',
+      'POST /api/vendors/prices/import (auth: staff)',
+      'GET /api/recipes (auth: staff)',
+      'POST /api/recipes (auth: staff)',
+      'GET /api/waste (auth: staff)',
+      'POST /api/waste (auth: staff)',
+      'GET /api/population (auth: staff)',
+      'POST /api/population (auth: staff)',
+      'POST /api/pdfs/generate (auth: staff)',
     ],
   });
 });
