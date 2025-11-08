@@ -127,6 +127,10 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.text({ type: 'text/csv' }));
 
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/public', express.static(path.join(__dirname, '../frontend/public')));
+
 // HTTP request logging
 app.use(pinoHttp({ logger }));
 
