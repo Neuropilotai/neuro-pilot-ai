@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroInnovate Admin Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .dark { color-scheme: dark; }
+    .toast-enter { animation: slideInRight 0.3s ease-out; }
+    .toast-exit { animation: slideOutRight 0.3s ease-in; }
+    @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    .pulse-slow { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Header with Tenancy Switcher -->
+    <header class="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center space-x-4">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">NeuroInnovate</h1>
+            <span class="text-sm text-gray-500 dark:text-gray-400">Admin Console</span>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <!-- Org Selector -->
+            <div class="flex items-center space-x-2">
+              <label for="org-select" class="text-sm font-medium text-gray-700 dark:text-gray-300">Org:</label>
+              <select id="org-select" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Select organization">
+                <option value="">Loading...</option>
+              </select>
+            </div>
+
+            <!-- Site Selector -->
+            <div class="flex items-center space-x-2">
+              <label for="site-select" class="text-sm font-medium text-gray-700 dark:text-gray-300">Site:</label>
+              <select id="site-select" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Select site">
+                <option value="">Loading...</option>
+              </select>
+            </div>
+
+            <!-- Dark Mode Toggle -->
+            <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Toggle dark mode">
+              <svg id="theme-icon-light" class="w-5 h-5 text-gray-600 dark:text-gray-400 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+              </svg>
+              <svg id="theme-icon-dark" class="w-5 h-5 text-gray-600 dark:text-gray-400 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+              </svg>
+            </button>
+
+            <!-- Job Timeline Toggle -->
+            <button id="timeline-toggle" class="relative p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Toggle job timeline">
+              <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span id="timeline-badge" class="hidden absolute top-0 right-0 w-3 h-3 bg-blue-500 rounded-full"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Navigation Tabs -->
+      <nav class="flex space-x-1 mb-6 border-b border-gray-200 dark:border-gray-700" role="tablist">
+        <button data-panel="dashboard" class="panel-tab px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none focus:ring-2 focus:ring-blue-500" role="tab" aria-selected="true">Dashboard</button>
+        <button data-panel="import" class="panel-tab px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none focus:ring-2 focus:ring-blue-500" role="tab" aria-selected="false">Usage Import</button>
+        <button data-panel="forecast" class="panel-tab px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none focus:ring-2 focus:ring-blue-500" role="tab" aria-selected="false">Forecast</button>
+        <button data-panel="reorders" class="panel-tab px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none focus:ring-2 focus:ring-blue-500" role="tab" aria-selected="false">Reorders</button>
+        <button data-panel="audit" class="panel-tab px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none focus:ring-2 focus:ring-blue-500" role="tab" aria-selected="false">Audit & Ops</button>
+        <button data-panel="settings" class="panel-tab px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none focus:ring-2 focus:ring-blue-500" role="tab" aria-selected="false">Settings</button>
+      </nav>
+
+      <!-- Dashboard Panel -->
+      <div id="panel-dashboard" class="panel" role="tabpanel">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <!-- Health Card -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">System Health</h3>
+              <span id="health-status" class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">Checking...</span>
+            </div>
+            <p id="health-uptime" class="text-2xl font-bold text-gray-900 dark:text-white">--</p>
+          </div>
+
+          <!-- Items Card -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Items</h3>
+              <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+              </svg>
+            </div>
+            <p id="items-count" class="text-2xl font-bold text-gray-900 dark:text-white">--</p>
+            <p id="items-quota" class="text-xs text-gray-500 dark:text-gray-400 mt-1">of -- limit</p>
+          </div>
+
+          <!-- Usage Rows Card -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Usage Today</h3>
+              <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <p id="usage-count" class="text-2xl font-bold text-gray-900 dark:text-white">--</p>
+            <p id="usage-quota" class="text-xs text-gray-500 dark:text-gray-400 mt-1">of -- limit</p>
+          </div>
+        </div>
+
+        <!-- Usage Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700 mb-6">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Usage Trends (Last 7 Days)</h3>
+          <canvas id="usage-chart" height="80"></canvas>
+        </div>
+
+        <!-- Recent Reorders -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Recent Reorder Suggestions</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">SKU</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Current Stock</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Suggested Qty</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Days Cover</th>
+                </tr>
+              </thead>
+              <tbody id="reorders-table" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tr>
+                  <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import Panel -->
+      <div id="panel-import" class="panel hidden" role="tabpanel">
+        <!-- Stepper -->
+        <div class="mb-8">
+          <div class="flex items-center justify-between">
+            <div class="flex-1 flex items-center" id="step-upload">
+              <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white font-semibold">1</div>
+              <div class="flex-1 h-1 bg-blue-500 mx-2"></div>
+            </div>
+            <div class="flex-1 flex items-center" id="step-map">
+              <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold">2</div>
+              <div class="flex-1 h-1 bg-gray-300 dark:bg-gray-700 mx-2"></div>
+            </div>
+            <div class="flex-1 flex items-center" id="step-validate">
+              <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold">3</div>
+              <div class="flex-1 h-1 bg-gray-300 dark:bg-gray-700 mx-2"></div>
+            </div>
+            <div class="flex-1 flex items-center" id="step-import">
+              <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold">4</div>
+              <div class="flex-1 h-1 bg-gray-300 dark:bg-gray-700 mx-2"></div>
+            </div>
+            <div class="flex items-center" id="step-done">
+              <div class="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold">✓</div>
+            </div>
+          </div>
+          <div class="flex justify-between mt-2 text-sm text-gray-600 dark:text-gray-400">
+            <span>Upload</span>
+            <span>Map</span>
+            <span>Validate</span>
+            <span>Import</span>
+            <span>Done</span>
+          </div>
+        </div>
+
+        <!-- Step 1: Upload -->
+        <div id="import-step-1" class="import-step">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Upload Usage CSV</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Select a CSV file containing usage history data. Expected columns: sku, date, qty_used</p>
+            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-12 text-center">
+              <input type="file" id="csv-upload" accept=".csv" class="hidden" aria-label="Upload CSV file">
+              <label for="csv-upload" class="cursor-pointer">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Click to select or drag and drop</p>
+                <p class="text-xs text-gray-500 dark:text-gray-500">CSV files only</p>
+              </label>
+            </div>
+            <div id="upload-preview" class="hidden mt-6">
+              <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">File Preview</h4>
+              <div class="bg-gray-50 dark:bg-gray-900 rounded p-4 text-sm">
+                <p><strong>Filename:</strong> <span id="preview-filename"></span></p>
+                <p><strong>Size:</strong> <span id="preview-size"></span></p>
+                <p><strong>Rows:</strong> <span id="preview-rows"></span></p>
+                <p><strong>Detected Columns:</strong> <span id="preview-columns"></span></p>
+              </div>
+              <button id="btn-next-map" class="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">Next: Map Headers</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Map Headers -->
+        <div id="import-step-2" class="import-step hidden">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Map CSV Headers</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Map your CSV columns to the expected fields. Auto-matching has been applied based on common synonyms.</p>
+
+            <div id="header-mapper" class="space-y-4">
+              <!-- Dynamic mapping rows will be inserted here -->
+            </div>
+
+            <div class="mt-6 flex space-x-3">
+              <button id="btn-back-upload" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">Back</button>
+              <button id="btn-next-validate" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">Next: Validate</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Validate -->
+        <div id="import-step-3" class="import-step hidden">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Validate Data</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Running validation checks against the API...</p>
+
+            <div id="validation-results" class="space-y-4">
+              <div class="flex items-center space-x-3">
+                <div class="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                <span class="text-sm text-gray-600 dark:text-gray-400">Validating...</span>
+              </div>
+            </div>
+
+            <div id="validation-complete" class="hidden mt-6 space-y-4">
+              <div id="validation-summary" class="bg-gray-50 dark:bg-gray-900 rounded p-4"></div>
+
+              <div class="flex space-x-3">
+                <button id="btn-back-map" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">Back</button>
+                <button id="btn-next-import" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>Proceed to Import</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Import -->
+        <div id="import-step-4" class="import-step hidden">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Import Data</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Uploading usage data to the server...</p>
+
+            <div id="import-progress" class="space-y-4">
+              <div class="flex items-center space-x-3">
+                <div class="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                <span class="text-sm text-gray-600 dark:text-gray-400">Importing...</span>
+              </div>
+            </div>
+
+            <div id="import-complete" class="hidden mt-6">
+              <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-4 mb-4">
+                <p class="text-sm text-green-800 dark:text-green-200" id="import-success-msg"></p>
+              </div>
+              <button id="btn-finish-import" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">Finish</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forecast Panel -->
+      <div id="panel-forecast" class="panel hidden" role="tabpanel">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 border border-gray-200 dark:border-gray-700">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="text-lg font-medium text-gray-900 dark:text-white">Run Forecast</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Generate demand forecasts for the current site</p>
+            </div>
+            <button id="btn-run-forecast" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+              Run Forecast
+            </button>
+          </div>
+
+          <!-- Real-time Progress -->
+          <div id="forecast-progress" class="hidden mb-6">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+              <div class="flex items-center space-x-3 mb-2">
+                <div class="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                <span class="text-sm font-medium text-blue-800 dark:text-blue-200">Forecast in progress...</span>
+              </div>
+              <div class="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2">
+                <div id="forecast-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Collapsible Logs -->
+          <div id="forecast-logs-container" class="hidden mb-6">
+            <button id="toggle-forecast-logs" class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none">
+              <svg id="logs-chevron" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+              <span>View Logs</span>
+            </button>
+            <div id="forecast-logs" class="hidden mt-2 bg-gray-900 text-gray-100 rounded p-4 text-xs font-mono max-h-64 overflow-y-auto">
+              <!-- Logs will be appended here -->
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div id="forecast-results" class="hidden">
+            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Latest Forecasts</h4>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                  <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">SKU</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Location</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Period</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Predicted Demand</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Model</th>
+                  </tr>
+                </thead>
+                <tbody id="forecast-table" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reorders Panel -->
+      <div id="panel-reorders" class="panel hidden" role="tabpanel">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-medium text-gray-900 dark:text-white">Reorder Recommendations</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Items requiring reorder based on current inventory and forecasted demand</p>
+            </div>
+            <button id="btn-refresh-reorders" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              Refresh
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">SKU</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Location</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Current Stock</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Weekly Demand</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Suggested Qty</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Days Cover</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reason</th>
+                </tr>
+              </thead>
+              <tbody id="reorders-full-table" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tr>
+                  <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit Panel -->
+      <div id="panel-audit" class="panel hidden" role="tabpanel">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Audit Explorer</h3>
+
+            <!-- Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label for="audit-action" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Action</label>
+                <select id="audit-action" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">All Actions</option>
+                  <option value="import_usage">Import Usage</option>
+                  <option value="run_forecast">Run Forecast</option>
+                  <option value="create_item">Create Item</option>
+                  <option value="update_item">Update Item</option>
+                  <option value="delete_item">Delete Item</option>
+                </select>
+              </div>
+              <div>
+                <label for="audit-resource" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Resource</label>
+                <select id="audit-resource" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">All Resources</option>
+                  <option value="usage">Usage</option>
+                  <option value="forecast">Forecast</option>
+                  <option value="item">Item</option>
+                  <option value="reorder">Reorder</option>
+                </select>
+              </div>
+              <div>
+                <label for="audit-limit" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Limit</label>
+                <select id="audit-limit" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                  <option value="500">500</option>
+                </select>
+              </div>
+              <div class="flex items-end">
+                <button id="btn-apply-audit-filters" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">Apply Filters</button>
+              </div>
+            </div>
+
+            <div class="mt-4 flex space-x-2">
+              <button id="btn-export-audit-csv" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">Export CSV</button>
+              <button id="btn-export-audit-pdf" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">Export PDF</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Timestamp</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Resource</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Details</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">IP</th>
+                </tr>
+              </thead>
+              <tbody id="audit-table" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tr>
+                  <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Quotas Section -->
+        <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Quota Status</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Usage Rows Today</h4>
+              <div class="flex items-end justify-between mb-1">
+                <span id="quota-usage-current" class="text-2xl font-bold text-gray-900 dark:text-white">--</span>
+                <span id="quota-usage-limit" class="text-sm text-gray-500 dark:text-gray-400">/ --</span>
+              </div>
+              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div id="quota-usage-bar" class="bg-blue-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+              </div>
+              <p id="quota-usage-reset" class="text-xs text-gray-500 dark:text-gray-400 mt-1">Resets: --</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Total Items</h4>
+              <div class="flex items-end justify-between mb-1">
+                <span id="quota-items-current" class="text-2xl font-bold text-gray-900 dark:text-white">--</span>
+                <span id="quota-items-limit" class="text-sm text-gray-500 dark:text-gray-400">/ --</span>
+              </div>
+              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div id="quota-items-bar" class="bg-green-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+              </div>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Forecasts Per Hour</h4>
+              <div class="flex items-end justify-between mb-1">
+                <span class="text-2xl font-bold text-gray-900 dark:text-white">--</span>
+                <span id="quota-forecasts-limit" class="text-sm text-gray-500 dark:text-gray-400">/ --</span>
+              </div>
+              <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-purple-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Panel -->
+      <div id="panel-settings" class="panel hidden" role="tabpanel">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 border border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-6">Settings</h3>
+
+          <div class="space-y-6">
+            <div>
+              <label for="settings-api-url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">API URL</label>
+              <input type="text" id="settings-api-url" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://api.example.com">
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Default: window.location.origin</p>
+            </div>
+
+            <div>
+              <label for="settings-token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">JWT Token</label>
+              <textarea id="settings-token" rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+            </div>
+
+            <div>
+              <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Keyboard Shortcuts</h4>
+              <div class="bg-gray-50 dark:bg-gray-900 rounded p-4 space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Go to Upload</span>
+                  <kbd class="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-xs">g + u</kbd>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Go to Forecast</span>
+                  <kbd class="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-xs">g + f</kbd>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Go to Audit</span>
+                  <kbd class="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-xs">g + a</kbd>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600 dark:text-gray-400">Go to Settings</span>
+                  <kbd class="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-xs">g + s</kbd>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button id="btn-save-settings" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">Save Settings</button>
+              <button id="btn-clear-storage" class="ml-3 px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">Clear All Data</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Job Timeline Drawer -->
+    <div id="timeline-drawer" class="fixed top-0 right-0 h-full w-96 bg-white dark:bg-gray-800 shadow-2xl transform translate-x-full transition-transform duration-300 z-40 border-l border-gray-200 dark:border-gray-700">
+      <div class="flex flex-col h-full">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Job Timeline</h3>
+          <button id="close-timeline" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Close timeline">
+            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div id="timeline-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400 text-center">No recent jobs</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50" aria-live="polite" aria-atomic="true">
+      <!-- Toasts will be inserted here -->
+    </div>
+  </div>
+
+  <script>
+    // ========================================
+    // App State & Config
+    // ========================================
+    const STATE = {
+      apiUrl: localStorage.getItem('NP_API_URL') || window.location.origin,
+      token: localStorage.getItem('NP_TOKEN') || '',
+      orgId: localStorage.getItem('NP_ORG_ID') || '',
+      siteId: localStorage.getItem('NP_SITE_ID') || '',
+      theme: localStorage.getItem('NP_THEME') || 'light',
+      tenancy: { current: {}, orgs: [], sites: [] },
+      csvData: null,
+      csvFile: null,
+      headerMapping: {},
+      validationResult: null,
+      usageChart: null
+    };
+
+    const HEADER_SYNONYMS = {
+      sku: ["sku","product","product code","code","item","item code"],
+      date: ["date","usage date","day","jour","fecha"],
+      qty_used: ["qty_used","qty","quantity","qte","consumed","used"],
+      location: ["location","warehouse","room","area","emplacement"],
+      lot: ["lot","batch","lot number"],
+      expires_at: ["expires_at","expiry","expiration","best before","bbd"]
+    };
+
+    const REQUIRED_FIELDS = ['sku', 'date', 'qty_used'];
+    const OPTIONAL_FIELDS = ['location', 'lot', 'expires_at'];
+
+    // ========================================
+    // Utilities
+    // ========================================
+    function apiHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (STATE.token) headers['Authorization'] = `Bearer ${STATE.token}`;
+      if (STATE.orgId) headers['X-Org-Id'] = STATE.orgId;
+      if (STATE.siteId) headers['X-Site-Id'] = STATE.siteId;
+      return headers;
+    }
+
+    async function apiFetch(path, options = {}) {
+      const url = `${STATE.apiUrl}${path}`;
+      const config = {
+        ...options,
+        headers: { ...apiHeaders(), ...options.headers }
+      };
+      const res = await fetch(url, config);
+
+      if (res.status === 429) {
+        const data = await res.json();
+        throw new Error(data.error || 'Rate limit exceeded. Please wait and try again.');
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+
+      return res.json();
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast-enter px-6 py-4 rounded-lg shadow-lg text-white text-sm max-w-sm ${
+        type === 'success' ? 'bg-green-500' :
+        type === 'error' ? 'bg-red-500' :
+        type === 'warning' ? 'bg-yellow-500' :
+        'bg-blue-500'
+      }`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('toast-enter');
+        toast.classList.add('toast-exit');
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+
+    function addTimelineJob(title, stages) {
+      const content = document.getElementById('timeline-content');
+      const badge = document.getElementById('timeline-badge');
+
+      if (content.querySelector('p')) content.innerHTML = '';
+
+      const job = document.createElement('div');
+      job.className = 'bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700';
+      job.innerHTML = `
+        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">${title}</h4>
+        <div class="space-y-2">
+          ${stages.map((stage, i) => `
+            <div class="flex items-center space-x-2 text-xs">
+              <div class="w-4 h-4 rounded-full ${stage.status === 'done' ? 'bg-green-500' : stage.status === 'active' ? 'bg-blue-500 pulse-slow' : 'bg-gray-300 dark:bg-gray-700'}"></div>
+              <span class="text-gray-700 dark:text-gray-300">${stage.label}</span>
+            </div>
+          `).join('')}
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${new Date().toLocaleTimeString()}</p>
+      `;
+      content.insertBefore(job, content.firstChild);
+      badge.classList.remove('hidden');
+    }
+
+    function updateTimelineJob(title, stageIndex, status) {
+      const jobs = document.querySelectorAll('#timeline-content > div');
+      for (let job of jobs) {
+        if (job.querySelector('h4').textContent === title) {
+          const dots = job.querySelectorAll('.w-4');
+          if (dots[stageIndex]) {
+            dots[stageIndex].className = `w-4 h-4 rounded-full ${
+              status === 'done' ? 'bg-green-500' :
+              status === 'active' ? 'bg-blue-500 pulse-slow' :
+              'bg-gray-300 dark:bg-gray-700'
+            }`;
+          }
+        }
+      }
+    }
+
+    function autoMatchHeaders(detectedColumns) {
+      const mapping = {};
+      for (let field of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
+        const synonyms = HEADER_SYNONYMS[field] || [field];
+        for (let col of detectedColumns) {
+          if (synonyms.includes(col.toLowerCase())) {
+            mapping[field] = col;
+            break;
+          }
+        }
+      }
+      return mapping;
+    }
+
+    function saveHeaderMapping(orgId, siteId, mapping) {
+      const key = `NP_HEADER_MAP::${orgId}::${siteId}`;
+      localStorage.setItem(key, JSON.stringify(mapping));
+    }
+
+    function loadHeaderMapping(orgId, siteId) {
+      const key = `NP_HEADER_MAP::${orgId}::${siteId}`;
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : {};
+    }
+
+    function remapCsvData(data, mapping) {
+      return data.map(row => {
+        const newRow = {};
+        for (let [field, csvCol] of Object.entries(mapping)) {
+          if (csvCol) newRow[field] = row[csvCol];
+        }
+        return newRow;
+      });
+    }
+
+    function exportAuditCsv(data) {
+      const csv = Papa.unparse(data);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportAuditPdf(data) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text('Audit Log Export', 10, 10);
+      doc.setFontSize(10);
+
+      let y = 20;
+      data.slice(0, 50).forEach((entry, i) => {
+        if (y > 280) {
+          doc.addPage();
+          y = 10;
+        }
+        doc.text(`${new Date(entry.created_at).toLocaleString()} - ${entry.action} - ${entry.resource}`, 10, y);
+        y += 6;
+      });
+
+      doc.save(`audit-export-${new Date().toISOString().split('T')[0]}.pdf`);
+    }
+
+    // ========================================
+    // Theme Management
+    // ========================================
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      STATE.theme = theme;
+      localStorage.setItem('NP_THEME', theme);
+    }
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      applyTheme(STATE.theme === 'dark' ? 'light' : 'dark');
+    });
+
+    // ========================================
+    // Panel Navigation
+    // ========================================
+    function showPanel(panelId) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+      document.querySelectorAll('.panel-tab').forEach(t => {
+        t.classList.remove('bg-blue-600', 'text-white');
+        t.classList.add('text-gray-600', 'dark:text-gray-400', 'hover:text-gray-900', 'dark:hover:text-white');
+        t.setAttribute('aria-selected', 'false');
+      });
+
+      const panel = document.getElementById(`panel-${panelId}`);
+      const tab = document.querySelector(`[data-panel="${panelId}"]`);
+
+      if (panel) panel.classList.remove('hidden');
+      if (tab) {
+        tab.classList.add('bg-blue-600', 'text-white');
+        tab.classList.remove('text-gray-600', 'dark:text-gray-400');
+        tab.setAttribute('aria-selected', 'true');
+      }
+
+      // Load panel data
+      if (panelId === 'dashboard') loadDashboard();
+      if (panelId === 'reorders') loadReorders();
+      if (panelId === 'audit') loadAuditLog();
+    }
+
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+      tab.addEventListener('click', () => showPanel(tab.dataset.panel));
+    });
+
+    // ========================================
+    // Tenancy Management
+    // ========================================
+    async function loadTenancy() {
+      try {
+        const data = await apiFetch('/api/me/tenancy');
+        STATE.tenancy = data;
+
+        const orgSelect = document.getElementById('org-select');
+        const siteSelect = document.getElementById('site-select');
+
+        orgSelect.innerHTML = data.orgs.map(org =>
+          `<option value="${org.id}" ${org.id === data.current.org_id ? 'selected' : ''}>${org.name}</option>`
+        ).join('');
+
+        siteSelect.innerHTML = data.sites.filter(s => s.org_id === data.current.org_id).map(site =>
+          `<option value="${site.id}" ${site.id === data.current.site_id ? 'selected' : ''}>${site.name}</option>`
+        ).join('');
+
+        STATE.orgId = data.current.org_id;
+        STATE.siteId = data.current.site_id;
+        localStorage.setItem('NP_ORG_ID', STATE.orgId);
+        localStorage.setItem('NP_SITE_ID', STATE.siteId);
+      } catch (err) {
+        showToast('Failed to load tenancy: ' + err.message, 'error');
+      }
+    }
+
+    document.getElementById('org-select').addEventListener('change', (e) => {
+      STATE.orgId = e.target.value;
+      localStorage.setItem('NP_ORG_ID', STATE.orgId);
+
+      const siteSelect = document.getElementById('site-select');
+      const sitesForOrg = STATE.tenancy.sites.filter(s => s.org_id === STATE.orgId);
+      siteSelect.innerHTML = sitesForOrg.map(site =>
+        `<option value="${site.id}">${site.name}</option>`
+      ).join('');
+
+      STATE.siteId = sitesForOrg[0]?.id || '';
+      localStorage.setItem('NP_SITE_ID', STATE.siteId);
+
+      showToast('Organization switched', 'success');
+      loadDashboard();
+    });
+
+    document.getElementById('site-select').addEventListener('change', (e) => {
+      STATE.siteId = e.target.value;
+      localStorage.setItem('NP_SITE_ID', STATE.siteId);
+      showToast('Site switched', 'success');
+      loadDashboard();
+    });
+
+    // ========================================
+    // Dashboard
+    // ========================================
+    async function loadDashboard() {
+      try {
+        const [health, quotas, reorders] = await Promise.all([
+          apiFetch('/health'),
+          apiFetch('/api/quotas/status'),
+          apiFetch('/api/reorders/latest').catch(() => ({ recommendations: [] }))
+        ]);
+
+        // Health Card
+        const healthStatus = document.getElementById('health-status');
+        healthStatus.textContent = health.status;
+        healthStatus.className = `px-2 py-1 text-xs font-semibold rounded-full ${
+          health.status === 'healthy' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800'
+        }`;
+        document.getElementById('health-uptime').textContent = health.uptime || '--';
+
+        // Quotas
+        if (quotas.usage_rows_today) {
+          document.getElementById('usage-count').textContent = quotas.usage_rows_today.current;
+          document.getElementById('usage-quota').textContent = `of ${quotas.usage_rows_today.limit} limit`;
+          const usagePct = (quotas.usage_rows_today.current / quotas.usage_rows_today.limit) * 100;
+          document.getElementById('quota-usage-bar').style.width = usagePct + '%';
+        }
+
+        if (quotas.items) {
+          document.getElementById('items-count').textContent = quotas.items.current;
+          document.getElementById('items-quota').textContent = `of ${quotas.items.limit} limit`;
+          const itemsPct = (quotas.items.current / quotas.items.limit) * 100;
+          document.getElementById('quota-items-bar').style.width = itemsPct + '%';
+        }
+
+        // Reorders Table
+        const tbody = document.getElementById('reorders-table');
+        if (reorders.recommendations && reorders.recommendations.length > 0) {
+          tbody.innerHTML = reorders.recommendations.slice(0, 5).map(r => `
+            <tr>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.sku}</td>
+              <td class="px-6 py-4 text-sm">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                  r.priority === 'URGENT' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                  r.priority === 'HIGH' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                  r.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                }">${r.priority}</span>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.current_stock || 0}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.suggested_qty || 0}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.days_cover || '--'}</td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No reorder suggestions</td></tr>';
+        }
+
+        // Usage Chart (mock data for demo - in production would fetch actual usage)
+        const ctx = document.getElementById('usage-chart');
+        if (STATE.usageChart) STATE.usageChart.destroy();
+        STATE.usageChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['7 days ago', '6 days ago', '5 days ago', '4 days ago', '3 days ago', '2 days ago', 'Yesterday'],
+            datasets: [{
+              label: 'Usage Rows',
+              data: [120, 145, 132, 158, 142, 165, quotas.usage_rows_today?.current || 0],
+              borderColor: 'rgb(59, 130, 246)',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+
+      } catch (err) {
+        showToast('Failed to load dashboard: ' + err.message, 'error');
+      }
+    }
+
+    // ========================================
+    // CSV Import Workflow
+    // ========================================
+    function showImportStep(stepNum) {
+      document.querySelectorAll('.import-step').forEach(s => s.classList.add('hidden'));
+      document.getElementById(`import-step-${stepNum}`).classList.remove('hidden');
+
+      // Update stepper
+      for (let i = 1; i <= 5; i++) {
+        const stepDiv = document.getElementById(`step-${['upload','map','validate','import','done'][i-1]}`);
+        const circle = stepDiv.querySelector('div');
+        const line = stepDiv.querySelector('.flex-1.h-1');
+
+        if (i < stepNum) {
+          circle.className = 'flex items-center justify-center w-10 h-10 rounded-full bg-green-500 text-white font-semibold';
+          if (line) line.className = 'flex-1 h-1 bg-green-500 mx-2';
+        } else if (i === stepNum) {
+          circle.className = 'flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white font-semibold';
+          if (line) line.className = 'flex-1 h-1 bg-gray-300 dark:bg-gray-700 mx-2';
+        } else {
+          circle.className = 'flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold';
+          if (line) line.className = 'flex-1 h-1 bg-gray-300 dark:bg-gray-700 mx-2';
+        }
+      }
+    }
+
+    // Step 1: Upload
+    const csvUpload = document.getElementById('csv-upload');
+    csvUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      STATE.csvFile = file;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const parsed = Papa.parse(evt.target.result.trim(), { header: true, skipEmptyLines: true });
+        STATE.csvData = parsed;
+
+        document.getElementById('preview-filename').textContent = file.name;
+        document.getElementById('preview-size').textContent = (file.size / 1024).toFixed(2) + ' KB';
+        document.getElementById('preview-rows').textContent = parsed.data.length;
+        document.getElementById('preview-columns').textContent = parsed.meta.fields.join(', ');
+        document.getElementById('upload-preview').classList.remove('hidden');
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('btn-next-map').addEventListener('click', () => {
+      const detectedCols = STATE.csvData.meta.fields;
+      const storedMapping = loadHeaderMapping(STATE.orgId, STATE.siteId);
+      const autoMapping = autoMatchHeaders(detectedCols);
+      STATE.headerMapping = Object.keys(storedMapping).length > 0 ? storedMapping : autoMapping;
+
+      const mapper = document.getElementById('header-mapper');
+      mapper.innerHTML = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS].map(field => {
+        const isRequired = REQUIRED_FIELDS.includes(field);
+        return `
+          <div class="flex items-center space-x-4">
+            <label class="w-32 text-sm font-medium text-gray-700 dark:text-gray-300">
+              ${field}${isRequired ? ' <span class="text-red-500">*</span>' : ''}
+            </label>
+            <select data-field="${field}" class="header-select flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">-- Not Mapped --</option>
+              ${detectedCols.map(col => `<option value="${col}" ${STATE.headerMapping[field] === col ? 'selected' : ''}>${col}</option>`).join('')}
+            </select>
+          </div>
+        `;
+      }).join('');
+
+      showImportStep(2);
+    });
+
+    document.getElementById('btn-back-upload').addEventListener('click', () => showImportStep(1));
+
+    document.getElementById('btn-next-validate').addEventListener('click', async () => {
+      const selects = document.querySelectorAll('.header-select');
+      STATE.headerMapping = {};
+      selects.forEach(sel => {
+        if (sel.value) STATE.headerMapping[sel.dataset.field] = sel.value;
+      });
+
+      const missing = REQUIRED_FIELDS.filter(f => !STATE.headerMapping[f]);
+      if (missing.length > 0) {
+        showToast(`Missing required fields: ${missing.join(', ')}`, 'error');
+        return;
+      }
+
+      saveHeaderMapping(STATE.orgId, STATE.siteId, STATE.headerMapping);
+      showImportStep(3);
+
+      // Run validation
+      addTimelineJob('CSV Validation', [
+        { label: 'Remapping headers', status: 'active' },
+        { label: 'Sending to API', status: 'pending' },
+        { label: 'Checking quotas', status: 'pending' },
+        { label: 'Validation complete', status: 'pending' }
+      ]);
+
+      try {
+        updateTimelineJob('CSV Validation', 0, 'done');
+        updateTimelineJob('CSV Validation', 1, 'active');
+
+        const remapped = remapCsvData(STATE.csvData.data, STATE.headerMapping);
+        const csvText = Papa.unparse(remapped);
+
+        const result = await apiFetch('/api/usage/validate', {
+          method: 'POST',
+          body: JSON.stringify({ csv: csvText })
+        });
+
+        updateTimelineJob('CSV Validation', 1, 'done');
+        updateTimelineJob('CSV Validation', 2, 'active');
+
+        STATE.validationResult = result.validation;
+
+        updateTimelineJob('CSV Validation', 2, 'done');
+        updateTimelineJob('CSV Validation', 3, 'done');
+
+        const summary = document.getElementById('validation-summary');
+        summary.innerHTML = `
+          <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Validation Results</h4>
+          <div class="space-y-1 text-sm">
+            <p><strong>Total Rows:</strong> ${result.validation.total_rows}</p>
+            <p><strong>Detected Columns:</strong> ${result.validation.detected_columns.join(', ')}</p>
+            ${result.validation.missing_columns?.length > 0 ? `<p class="text-red-600"><strong>Missing Columns:</strong> ${result.validation.missing_columns.join(', ')}</p>` : ''}
+            ${result.validation.warnings?.length > 0 ? `<p class="text-yellow-600"><strong>Warnings:</strong> ${result.validation.warnings.join('; ')}</p>` : ''}
+            ${result.validation.errors?.length > 0 ? `<p class="text-red-600"><strong>Errors:</strong> ${result.validation.errors.join('; ')}</p>` : ''}
+            <p><strong>Would Reject:</strong> ${result.validation.would_reject ? 'YES' : 'NO'}</p>
+          </div>
+        `;
+
+        document.getElementById('validation-results').classList.add('hidden');
+        document.getElementById('validation-complete').classList.remove('hidden');
+
+        const importBtn = document.getElementById('btn-next-import');
+        if (result.validation.would_reject) {
+          importBtn.disabled = true;
+          importBtn.classList.add('opacity-50', 'cursor-not-allowed');
+          showToast('Validation failed - cannot proceed with import', 'error');
+        } else {
+          importBtn.disabled = false;
+          importBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          showToast('Validation passed', 'success');
+        }
+
+      } catch (err) {
+        showToast('Validation failed: ' + err.message, 'error');
+        updateTimelineJob('CSV Validation', 1, 'error');
+      }
+    });
+
+    document.getElementById('btn-back-map').addEventListener('click', () => showImportStep(2));
+
+    document.getElementById('btn-next-import').addEventListener('click', async () => {
+      showImportStep(4);
+
+      addTimelineJob('Usage Import', [
+        { label: 'Uploading CSV', status: 'active' },
+        { label: 'Processing rows', status: 'pending' },
+        { label: 'Updating database', status: 'pending' },
+        { label: 'Import complete', status: 'pending' }
+      ]);
+
+      try {
+        const remapped = remapCsvData(STATE.csvData.data, STATE.headerMapping);
+        const csvText = Papa.unparse(remapped);
+
+        updateTimelineJob('Usage Import', 0, 'done');
+        updateTimelineJob('Usage Import', 1, 'active');
+
+        const result = await apiFetch('/api/usage/import', {
+          method: 'POST',
+          body: JSON.stringify({ csv: csvText })
+        });
+
+        updateTimelineJob('Usage Import', 1, 'done');
+        updateTimelineJob('Usage Import', 2, 'active');
+        updateTimelineJob('Usage Import', 2, 'done');
+        updateTimelineJob('Usage Import', 3, 'done');
+
+        document.getElementById('import-progress').classList.add('hidden');
+        document.getElementById('import-complete').classList.remove('hidden');
+        document.getElementById('import-success-msg').textContent = `Successfully imported ${result.imported} rows.`;
+
+        showToast(`Imported ${result.imported} rows`, 'success');
+
+      } catch (err) {
+        showToast('Import failed: ' + err.message, 'error');
+        updateTimelineJob('Usage Import', 1, 'error');
+      }
+    });
+
+    document.getElementById('btn-finish-import').addEventListener('click', () => {
+      showImportStep(1);
+      STATE.csvData = null;
+      STATE.csvFile = null;
+      STATE.headerMapping = {};
+      STATE.validationResult = null;
+      document.getElementById('csv-upload').value = '';
+      document.getElementById('upload-preview').classList.add('hidden');
+      document.getElementById('validation-results').classList.remove('hidden');
+      document.getElementById('validation-complete').classList.add('hidden');
+      document.getElementById('import-progress').classList.remove('hidden');
+      document.getElementById('import-complete').classList.add('hidden');
+      showPanel('dashboard');
+    });
+
+    // ========================================
+    // Forecast
+    // ========================================
+    document.getElementById('btn-run-forecast').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-run-forecast');
+      btn.disabled = true;
+
+      const progress = document.getElementById('forecast-progress');
+      const logsContainer = document.getElementById('forecast-logs-container');
+      const logs = document.getElementById('forecast-logs');
+      const results = document.getElementById('forecast-results');
+
+      progress.classList.remove('hidden');
+      logsContainer.classList.remove('hidden');
+      logs.innerHTML = '';
+      results.classList.add('hidden');
+
+      const progressBar = document.getElementById('forecast-progress-bar');
+      progressBar.style.width = '0%';
+
+      addTimelineJob('Forecast Generation', [
+        { label: 'Acquiring lock', status: 'active' },
+        { label: 'Loading usage data', status: 'pending' },
+        { label: 'Running forecasts', status: 'pending' },
+        { label: 'Saving results', status: 'pending' }
+      ]);
+
+      function addLog(msg) {
+        logs.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${msg}</div>`;
+        logs.scrollTop = logs.scrollHeight;
+      }
+
+      try {
+        addLog('Acquiring lock...');
+        progressBar.style.width = '25%';
+        updateTimelineJob('Forecast Generation', 0, 'done');
+        updateTimelineJob('Forecast Generation', 1, 'active');
+
+        await new Promise(r => setTimeout(r, 500));
+        addLog('Loading usage data...');
+        progressBar.style.width = '50%';
+        updateTimelineJob('Forecast Generation', 1, 'done');
+        updateTimelineJob('Forecast Generation', 2, 'active');
+
+        const result = await apiFetch('/api/forecast/run', { method: 'POST' });
+
+        addLog('Running forecasts...');
+        progressBar.style.width = '75%';
+        updateTimelineJob('Forecast Generation', 2, 'done');
+        updateTimelineJob('Forecast Generation', 3, 'active');
+
+        await new Promise(r => setTimeout(r, 500));
+        addLog('Saving results...');
+        progressBar.style.width = '100%';
+        updateTimelineJob('Forecast Generation', 3, 'done');
+
+        addLog(`Forecast complete: ${result.forecasts_generated} forecasts generated`);
+        showToast(`Generated ${result.forecasts_generated} forecasts`, 'success');
+
+        // Load latest forecasts
+        const latest = await apiFetch('/api/forecast/latest');
+        const tbody = document.getElementById('forecast-table');
+        tbody.innerHTML = latest.forecasts.slice(0, 20).map(f => `
+          <tr>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${f.sku}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${f.location || '--'}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${f.forecast_period_weeks || 1} week(s)</td>
+            <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${f.predicted_demand}</td>
+            <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">${f.model || 'seasonal_naive'}</td>
+          </tr>
+        `).join('');
+
+        results.classList.remove('hidden');
+        progress.classList.add('hidden');
+
+      } catch (err) {
+        addLog('ERROR: ' + err.message);
+        showToast('Forecast failed: ' + err.message, 'error');
+        updateTimelineJob('Forecast Generation', 2, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('toggle-forecast-logs').addEventListener('click', () => {
+      const logs = document.getElementById('forecast-logs');
+      const chevron = document.getElementById('logs-chevron');
+      logs.classList.toggle('hidden');
+      chevron.classList.toggle('rotate-180');
+    });
+
+    // ========================================
+    // Reorders
+    // ========================================
+    async function loadReorders() {
+      try {
+        const data = await apiFetch('/api/reorders/latest');
+        const tbody = document.getElementById('reorders-full-table');
+
+        if (data.recommendations && data.recommendations.length > 0) {
+          tbody.innerHTML = data.recommendations.map(r => `
+            <tr>
+              <td class="px-6 py-4 text-sm">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                  r.priority === 'URGENT' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                  r.priority === 'HIGH' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                  r.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                }">${r.priority}</span>
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.sku}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.location || '--'}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.current_stock || 0}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.weekly_demand || '--'}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.suggested_qty || 0}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${r.days_cover || '--'}</td>
+              <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">${r.reason || '--'}</td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No reorder suggestions available</td></tr>';
+        }
+      } catch (err) {
+        showToast('Failed to load reorders: ' + err.message, 'error');
+      }
+    }
+
+    document.getElementById('btn-refresh-reorders').addEventListener('click', loadReorders);
+
+    // ========================================
+    // Audit Log
+    // ========================================
+    async function loadAuditLog() {
+      try {
+        const action = document.getElementById('audit-action').value;
+        const resource = document.getElementById('audit-resource').value;
+        const limit = document.getElementById('audit-limit').value;
+
+        let path = `/api/audit/log?limit=${limit}`;
+        if (action) path += `&action=${action}`;
+        if (resource) path += `&resource=${resource}`;
+
+        const data = await apiFetch(path);
+        const tbody = document.getElementById('audit-table');
+
+        if (data.entries && data.entries.length > 0) {
+          STATE.auditData = data.entries;
+          tbody.innerHTML = data.entries.map(e => `
+            <tr>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${new Date(e.created_at).toLocaleString()}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${e.user_id || '--'}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${e.action}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${e.resource}</td>
+              <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">${JSON.stringify(e.meta || {})}</td>
+              <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">${e.ip || '--'}</td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No audit entries found</td></tr>';
+        }
+
+        // Load quotas
+        const quotas = await apiFetch('/api/quotas/status');
+
+        if (quotas.usage_rows_today) {
+          document.getElementById('quota-usage-current').textContent = quotas.usage_rows_today.current;
+          document.getElementById('quota-usage-limit').textContent = quotas.usage_rows_today.limit;
+          document.getElementById('quota-usage-reset').textContent = 'Resets: ' + new Date(quotas.usage_rows_today.reset_at).toLocaleString();
+          const usagePct = (quotas.usage_rows_today.current / quotas.usage_rows_today.limit) * 100;
+          document.getElementById('quota-usage-bar').style.width = Math.min(usagePct, 100) + '%';
+        }
+
+        if (quotas.items) {
+          document.getElementById('quota-items-current').textContent = quotas.items.current;
+          document.getElementById('quota-items-limit').textContent = quotas.items.limit;
+          const itemsPct = (quotas.items.current / quotas.items.limit) * 100;
+          document.getElementById('quota-items-bar').style.width = Math.min(itemsPct, 100) + '%';
+        }
+
+        if (quotas.forecasts_per_hour) {
+          document.getElementById('quota-forecasts-limit').textContent = quotas.forecasts_per_hour.limit;
+        }
+
+      } catch (err) {
+        showToast('Failed to load audit log: ' + err.message, 'error');
+      }
+    }
+
+    document.getElementById('btn-apply-audit-filters').addEventListener('click', loadAuditLog);
+    document.getElementById('btn-export-audit-csv').addEventListener('click', () => {
+      if (STATE.auditData) exportAuditCsv(STATE.auditData);
+    });
+    document.getElementById('btn-export-audit-pdf').addEventListener('click', () => {
+      if (STATE.auditData) exportAuditPdf(STATE.auditData);
+    });
+
+    // ========================================
+    // Settings
+    // ========================================
+    document.getElementById('settings-api-url').value = STATE.apiUrl;
+    document.getElementById('settings-token').value = STATE.token;
+
+    document.getElementById('btn-save-settings').addEventListener('click', () => {
+      STATE.apiUrl = document.getElementById('settings-api-url').value || window.location.origin;
+      STATE.token = document.getElementById('settings-token').value;
+
+      localStorage.setItem('NP_API_URL', STATE.apiUrl);
+      localStorage.setItem('NP_TOKEN', STATE.token);
+
+      showToast('Settings saved', 'success');
+    });
+
+    document.getElementById('btn-clear-storage').addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear all local data? This action cannot be undone.')) {
+        localStorage.clear();
+        showToast('All data cleared. Reloading...', 'success');
+        setTimeout(() => location.reload(), 1500);
+      }
+    });
+
+    // ========================================
+    // Timeline Drawer
+    // ========================================
+    document.getElementById('timeline-toggle').addEventListener('click', () => {
+      const drawer = document.getElementById('timeline-drawer');
+      drawer.classList.toggle('translate-x-full');
+    });
+
+    document.getElementById('close-timeline').addEventListener('click', () => {
+      document.getElementById('timeline-drawer').classList.add('translate-x-full');
+    });
+
+    // ========================================
+    // Keyboard Shortcuts
+    // ========================================
+    let keySequence = '';
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+      keySequence += e.key;
+
+      if (keySequence.includes('gu')) {
+        showPanel('import');
+        keySequence = '';
+      } else if (keySequence.includes('gf')) {
+        showPanel('forecast');
+        keySequence = '';
+      } else if (keySequence.includes('ga')) {
+        showPanel('audit');
+        keySequence = '';
+      } else if (keySequence.includes('gs')) {
+        showPanel('settings');
+        keySequence = '';
+      }
+
+      setTimeout(() => { keySequence = ''; }, 1000);
+    });
+
+    // ========================================
+    // Initialization
+    // ========================================
+    async function init() {
+      applyTheme(STATE.theme);
+
+      if (!STATE.token) {
+        showToast('No JWT token found. Please configure in Settings.', 'warning');
+        showPanel('settings');
+        return;
+      }
+
+      try {
+        await loadTenancy();
+        await loadDashboard();
+      } catch (err) {
+        showToast('Initialization failed: ' + err.message, 'error');
+        showPanel('settings');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
