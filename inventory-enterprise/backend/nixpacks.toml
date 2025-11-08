@@ -8,7 +8,12 @@ nixPkgs = ["nodejs_20"]
 cmds = ["npm ci --omit=dev"]
 
 [phases.build]
-cmds = ["echo 'Build phase complete'"]
+cmds = [
+  "npm install --production=false",
+  "mkdir -p public",
+  "if [ -d ../frontend/public ]; then cp -r ../frontend/public/* ./public/ && echo '✅ Copied frontend files to ./public'; else echo '⚠️  Frontend not found - will serve from backend directory'; fi",
+  "ls -la public || echo 'No public directory created'"
+]
 
 [start]
-cmd = "bash start.sh"
+cmd = "node server-v20_1.js"

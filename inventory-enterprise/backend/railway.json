@@ -1,11 +1,9 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "npm install --production=false && mkdir -p public && if [ -d ../frontend/public ]; then cp -r ../frontend/public/* ./public/; echo 'Copied frontend files'; else echo 'Frontend not found - will serve from backend directory'; fi"
+    "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "node server-v20_1.js",
     "healthcheckPath": "/api/health/status",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
