@@ -1,503 +1,392 @@
 /**
- * Menu Planning API Routes (v14.4.2)
- * 4-week menu calendar, recipe management, quantity scaling, shopping lists
- *
- * @version 14.4.2
+ * Menu Planning Routes - V21.1
+ * 4-week menu cycle management with recipe assignments
+ * Schema: menus, menu_days, menu_recipes (migration 009)
  */
 
 const express = require('express');
 const router = express.Router();
-const { logger } = require('../config/logger');
 
-const Planner = require('../src/menu/Planner');
-const RecipeBook = require('../src/menu/RecipeBook');
-const ShoppingList = require('../src/menu/ShoppingList');
+// GET /api/menu - List all menus (4-week cycles)
+router.get('/', async (req, res) => {
+  const { org_id } = req.user;
+  const { site_id, active } = req.query;
 
-// Rate limiting (10 ops/min per IP)
-const rateLimits = {};
-const RATE_LIMIT_WINDOW = 60000; // 1 min
-const RATE_LIMIT_MAX = 10;
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-
-  if (!rateLimits[ip]) {
-    rateLimits[ip] = { count: 1, window: now };
-    return { allowed: true };
-  }
-
-  const entry = rateLimits[ip];
-
-  if (now - entry.window > RATE_LIMIT_WINDOW) {
-    entry.count = 1;
-    entry.window = now;
-    return { allowed: true };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) {
-    const resetIn = Math.ceil((RATE_LIMIT_WINDOW - (now - entry.window)) / 1000);
-    return { allowed: false, resetIn };
-  }
-
-  entry.count++;
-  return { allowed: true };
-}
-
-/**
- * Transform recipe to frontend format
- */
-function transformRecipe(recipe) {
-  if (!recipe) return null;
-
-  return {
-    id: recipe.id,
-    name: recipe.name,
-    mealType: recipe.meal, // Transform 'meal' to 'mealType'
-    description: recipe.notes || '',
-    servings: recipe.basePortions?.length || 0,
-    items: recipe.calculatedLines || []
-  };
-}
-
-/**
- * GET /api/menu/weeks
- * Get 4-week menu structure with dates
- */
-router.get('/weeks', (req, res) => {
   try {
-    const weeks = Planner.buildWeeksStructure();
+    let query = `
+      SELECT m.*,
+        COUNT(DISTINCT md.id) as day_count,
+        COUNT(DISTINCT mr.id) as recipe_count
+      FROM menus m
+      LEFT JOIN menu_days md ON m.id = md.menu_id
+      LEFT JOIN menu_recipes mr ON md.id = mr.menu_day_id
+      WHERE m.org_id = $1
+    `;
+    const params = [org_id];
+    let paramCount = 1;
 
-    // Populate recipes for each day
-    weeks.forEach(week => {
-      week.days.forEach(day => {
-        const recipes = RecipeBook.getDayRecipes(day.isoDate);
-        day.recipes = recipes.map(transformRecipe);
-      });
-    });
-
-    res.json({
-      success: true,
-      headcount: RecipeBook.getHeadcount(),
-      currentWeek: Planner.getCurrentWeekNumber(),
-      weeks
-    });
-  } catch (error) {
-    logger.error('GET /api/menu/weeks error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/menu/week/:n
- * Get specific week with calculated quantities
- */
-router.get('/week/:n', (req, res) => {
-  try {
-    const weekNum = parseInt(req.params.n);
-
-    if (weekNum < 1 || weekNum > 4) {
-      return res.status(400).json({
-        success: false,
-        error: 'Week number must be between 1 and 4'
-      });
+    if (site_id) {
+      paramCount++;
+      query += ` AND m.site_id = $${paramCount}`;
+      params.push(site_id);
     }
 
-    const weekStart = Planner.getWeekStartDate(weekNum);
-    const days = Planner.getWeekDays(weekStart);
-    const headcount = RecipeBook.getHeadcount();
-
-    const weekData = {
-      weekNumber: weekNum,
-      startsOn: days[0],
-      endsOn: days[6],
-      headcount,
-      days: days.map(isoDate => {
-        const recipes = RecipeBook.getDayRecipes(isoDate);
-        const scaledRecipes = recipes.map(recipe => {
-          const scaled = RecipeBook.scaleRecipeForHeadcount(recipe.id);
-          return transformRecipe(scaled);
-        });
-
-        // Debug logging
-        if (recipes.length > 0) {
-          const mealTypes = recipes.map(r => r.meal).join(', ');
-          logger.info(`Day ${isoDate}: ${recipes.length} recipes - Meals: ${mealTypes}`);
-        }
-
-        return {
-          isoDate,
-          dayName: Planner.getDayName(isoDate),
-          recipes: scaledRecipes
-        };
-      })
-    };
-
-    res.json({
-      success: true,
-      week: weekData
-    });
-  } catch (error) {
-    logger.error(`GET /api/menu/week/${req.params.n} error:`, error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * POST /api/menu/headcount
- * Update headcount (affects all scaling)
- */
-router.post('/headcount', (req, res) => {
-  const rateLimitCheck = checkRateLimit(req.ip);
-  if (!rateLimitCheck.allowed) {
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-      resetIn: rateLimitCheck.resetIn
-    });
-  }
-
-  try {
-    const { headcount } = req.body;
-
-    if (!headcount || typeof headcount !== 'number') {
-      return res.status(400).json({
-        success: false,
-        error: 'headcount (number) is required'
-      });
+    if (active !== undefined) {
+      paramCount++;
+      query += ` AND m.active = $${paramCount}`;
+      params.push(active === 'true');
     }
 
-    const newHeadcount = RecipeBook.setHeadcount(headcount);
+    query += ' GROUP BY m.id ORDER BY m.cycle_week DESC, m.created_at DESC';
 
-    logger.info(`Headcount updated to ${newHeadcount} by ${req.user.email}`);
+    const result = await global.db.query(query, params);
 
-    res.json({
-      success: true,
-      headcount: newHeadcount
-    });
+    res.json({ success: true, data: result.rows, count: result.rows.length });
   } catch (error) {
-    logger.error('POST /api/menu/headcount error:', error);
+    console.error('GET /api/menu error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-/**
- * GET /api/menu/recipes
- * Get all recipes
- */
-router.get('/recipes', (req, res) => {
+// GET /api/menu/:id - Get menu with all days and recipes
+router.get('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
   try {
-    const recipes = RecipeBook.getAllRecipes();
+    // Get menu
+    const menu = await global.db.query(
+      'SELECT * FROM menus WHERE org_id = $1 AND id = $2',
+      [org_id, id]
+    );
 
-    res.json({
-      success: true,
-      recipes,
-      total: recipes.length
-    });
-  } catch (error) {
-    logger.error('GET /api/menu/recipes error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/menu/recipe/:id
- * Get single recipe with calculated quantities
- */
-router.get('/recipe/:id', (req, res) => {
-  try {
-    const scaled = RecipeBook.scaleRecipeForHeadcount(req.params.id);
-
-    if (!scaled) {
-      return res.status(404).json({
-        success: false,
-        error: 'Recipe not found'
-      });
+    if (menu.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu not found' });
     }
 
-    // Transform calculatedLines to items with proper field names
-    const items = (scaled.calculatedLines || []).map(line => ({
-      item_code: line.itemCode,
-      item_name: line.description,
-      qty_scaled: line.issueQty,
-      unit: line.issueUnit,
-      pack_size: line.packSize?.qty || 1
-    }));
-
-    const transformed = {
-      id: scaled.id,
-      name: scaled.name,
-      mealType: scaled.meal, // Transform 'meal' to 'mealType'
-      description: scaled.notes || '',
-      servings: scaled.headcount || RecipeBook.getHeadcount(),
-      items
-    };
-
-    res.json({
-      success: true,
-      recipe: transformed
-    });
-  } catch (error) {
-    logger.error(`GET /api/menu/recipe/${req.params.id} error:`, error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * POST /api/menu/recipe
- * Create new recipe
- */
-router.post('/recipe', (req, res) => {
-  const rateLimitCheck = checkRateLimit(req.ip);
-  if (!rateLimitCheck.allowed) {
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-      resetIn: rateLimitCheck.resetIn
-    });
-  }
-
-  try {
-    const recipe = RecipeBook.createRecipe(req.body);
-
-    logger.info(`Recipe created: ${recipe.id} by ${req.user.email}`);
+    // Get all days with recipes
+    const days = await global.db.query(`
+      SELECT
+        md.*,
+        json_agg(
+          json_build_object(
+            'id', mr.id,
+            'recipe_id', mr.recipe_id,
+            'meal', mr.meal,
+            'portion_target', mr.portion_target,
+            'recipe_name', r.name,
+            'recipe_code', r.code
+          ) ORDER BY mr.meal
+        ) FILTER (WHERE mr.id IS NOT NULL) as recipes
+      FROM menu_days md
+      LEFT JOIN menu_recipes mr ON md.id = mr.menu_day_id
+      LEFT JOIN recipes r ON mr.recipe_id = r.id
+      WHERE md.menu_id = $1
+      GROUP BY md.id
+      ORDER BY md.date
+    `, [id]);
 
     res.json({
       success: true,
-      recipe
-    });
-  } catch (error) {
-    logger.error('POST /api/menu/recipe error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * PATCH /api/menu/recipe/:id
- * Update recipe
- */
-router.patch('/recipe/:id', (req, res) => {
-  const rateLimitCheck = checkRateLimit(req.ip);
-  if (!rateLimitCheck.allowed) {
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-      resetIn: rateLimitCheck.resetIn
-    });
-  }
-
-  try {
-    const updated = RecipeBook.updateRecipe(req.params.id, req.body);
-
-    if (!updated) {
-      return res.status(404).json({
-        success: false,
-        error: 'Recipe not found'
-      });
-    }
-
-    logger.info(`Recipe updated: ${updated.id} by ${req.user.email}`);
-
-    res.json({
-      success: true,
-      recipe: updated
-    });
-  } catch (error) {
-    logger.error(`PATCH /api/menu/recipe/${req.params.id} error:`, error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * DELETE /api/menu/recipe/:id
- * Delete recipe
- */
-router.delete('/recipe/:id', (req, res) => {
-  const rateLimitCheck = checkRateLimit(req.ip);
-  if (!rateLimitCheck.allowed) {
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-      resetIn: rateLimitCheck.resetIn
-    });
-  }
-
-  try {
-    const deleted = RecipeBook.deleteRecipe(req.params.id);
-
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        error: 'Recipe not found'
-      });
-    }
-
-    logger.info(`Recipe deleted: ${req.params.id} by ${req.user.email}`);
-
-    res.json({
-      success: true,
-      message: 'Recipe deleted'
-    });
-  } catch (error) {
-    logger.error(`DELETE /api/menu/recipe/${req.params.id} error:`, error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * POST /api/menu/day/:isoDate/recipes
- * Set recipes for a day
- */
-router.post('/day/:isoDate/recipes', (req, res) => {
-  const rateLimitCheck = checkRateLimit(req.ip);
-  if (!rateLimitCheck.allowed) {
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-      resetIn: rateLimitCheck.resetIn
-    });
-  }
-
-  try {
-    const { isoDate } = req.params;
-    const { recipeIds } = req.body;
-
-    if (!Array.isArray(recipeIds)) {
-      return res.status(400).json({
-        success: false,
-        error: 'recipeIds array is required'
-      });
-    }
-
-    RecipeBook.setDayRecipes(isoDate, recipeIds);
-
-    logger.info(`Day recipes updated for ${isoDate}: ${recipeIds.length} recipes by ${req.user.email}`);
-
-    res.json({
-      success: true,
-      isoDate,
-      recipeIds
-    });
-  } catch (error) {
-    logger.error(`POST /api/menu/day/${req.params.isoDate}/recipes error:`, error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/menu/shopping-list
- * Generate weekly shopping list
- */
-router.get('/shopping-list', (req, res) => {
-  try {
-    const weekNum = parseInt(req.query.week) || 1;
-
-    if (weekNum < 1 || weekNum > 4) {
-      return res.status(400).json({
-        success: false,
-        error: 'Week must be between 1 and 4'
-      });
-    }
-
-    const shoppingList = ShoppingList.generateWeeklyShoppingList(weekNum);
-    const csv = ShoppingList.exportAsCSV(shoppingList, weekNum);
-
-    // Transform to frontend format
-    const items = shoppingList.map(item => ({
-      item_code: item.itemCode,
-      item_name: item.description,
-      totalQty: item.totalIssueQty,
-      unit: item.unit,
-      pack_size: item.packSize?.qty || 1
-    }));
-
-    res.json({
-      success: true,
-      week: weekNum,
-      headcount: RecipeBook.getHeadcount(),
-      items,
-      total: items.length,
-      csv
-    });
-  } catch (error) {
-    logger.error('GET /api/menu/shopping-list error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/menu/policy
- * Get menu policy settings
- */
-router.get('/policy', (req, res) => {
-  try {
-    const policy = RecipeBook.getPolicy();
-
-    // Debug: Log meal type distribution
-    const allRecipes = RecipeBook.getAllRecipes();
-    const mealCounts = allRecipes.reduce((acc, r) => {
-      acc[r.meal] = (acc[r.meal] || 0) + 1;
-      return acc;
-    }, {});
-    logger.info(`Recipe meal distribution: ${JSON.stringify(mealCounts)}`);
-
-    res.json({
-      success: true,
-      policy: {
-        population: policy.population,
-        takeoutLockTime: policy.takeoutLockTime,
-        currentWeek: policy.currentWeek,
-        currentDay: policy.currentDay,
-        takeOutAfter: policy.takeoutLockTime,
-        portionTargetGrams: 650,
-        serviceWindowStart: '18:45',
-        serviceWindowEnd: '19:15',
-        portionDriftThresholdPct: 15
+      data: {
+        ...menu.rows[0],
+        days: days.rows
       }
     });
   } catch (error) {
-    logger.error('GET /api/menu/policy error:', error);
+    console.error('GET /api/menu/:id error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-/**
- * POST /api/menu/policy
- * Update menu policy settings
- */
-router.post('/policy', (req, res) => {
-  const rateLimitCheck = checkRateLimit(req.ip);
-  if (!rateLimitCheck.allowed) {
-    return res.status(429).json({
-      success: false,
-      error: 'Rate limit exceeded',
-      resetIn: rateLimitCheck.resetIn
-    });
+// POST /api/menu - Create new menu cycle
+router.post('/', async (req, res) => {
+  const { org_id } = req.user;
+  const { site_id, cycle_week, name, notes } = req.body;
+
+  if (!cycle_week) {
+    return res.status(400).json({ success: false, error: 'cycle_week is required (1-52)' });
   }
 
   try {
-    const { population, takeoutLockTime, currentWeek, currentDay } = req.body;
+    const result = await global.db.query(`
+      INSERT INTO menus (org_id, site_id, cycle_week, name, notes, active)
+      VALUES ($1, $2, $3, $4, $5, true)
+      RETURNING *
+    `, [org_id, site_id, cycle_week, name, notes]);
 
-    const updates = {};
-    if (population) updates.population = population;
-    if (takeoutLockTime) updates.takeoutLockTime = takeoutLockTime;
-    if (currentWeek) updates.currentWeek = currentWeek;
-    if (currentDay) updates.currentDay = currentDay;
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('POST /api/menu error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-    const updated = RecipeBook.updatePolicy(updates);
+// PUT /api/menu/:id - Update menu
+router.put('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+  const { cycle_week, name, notes, active } = req.body;
 
-    // Also update headcount if population changed
-    if (population) {
-      RecipeBook.setHeadcount(population);
+  try {
+    const result = await global.db.query(`
+      UPDATE menus SET
+        cycle_week = COALESCE($3, cycle_week),
+        name = COALESCE($4, name),
+        notes = COALESCE($5, notes),
+        active = COALESCE($6, active),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE org_id = $1 AND id = $2
+      RETURNING *
+    `, [org_id, id, cycle_week, name, notes, active]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu not found' });
     }
 
-    logger.info(`Policy updated by ${req.user.email}:`, updates);
-
-    res.json({
-      success: true,
-      policy: updated
-    });
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    logger.error('POST /api/menu/policy error:', error);
+    console.error('PUT /api/menu/:id error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/menu/:id - Delete menu
+router.delete('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
+  try {
+    const result = await global.db.query(
+      'DELETE FROM menus WHERE org_id = $1 AND id = $2 RETURNING id',
+      [org_id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu not found' });
+    }
+
+    res.json({ success: true, message: 'Menu deleted' });
+  } catch (error) {
+    console.error('DELETE /api/menu/:id error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/menu/:id/days - Add day to menu
+router.post('/:id/days', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+  const { date, notes } = req.body;
+
+  if (!date) {
+    return res.status(400).json({ success: false, error: 'date is required' });
+  }
+
+  try {
+    // Verify menu belongs to org
+    const menuCheck = await global.db.query(
+      'SELECT id FROM menus WHERE org_id = $1 AND id = $2',
+      [org_id, id]
+    );
+
+    if (menuCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu not found' });
+    }
+
+    const result = await global.db.query(`
+      INSERT INTO menu_days (menu_id, date, notes)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (menu_id, date) DO UPDATE SET
+        notes = EXCLUDED.notes,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [id, date, notes]);
+
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('POST /api/menu/:id/days error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/menu/:id/days/:dayId - Get day with recipes
+router.get('/:id/days/:dayId', async (req, res) => {
+  const { org_id } = req.user;
+  const { id, dayId } = req.params;
+
+  try {
+    // Verify menu belongs to org
+    const menuCheck = await global.db.query(
+      'SELECT id FROM menus WHERE org_id = $1 AND id = $2',
+      [org_id, id]
+    );
+
+    if (menuCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu not found' });
+    }
+
+    // Get day with recipes
+    const result = await global.db.query(`
+      SELECT
+        md.*,
+        json_agg(
+          json_build_object(
+            'id', mr.id,
+            'recipe_id', mr.recipe_id,
+            'meal', mr.meal,
+            'portion_target', mr.portion_target,
+            'recipe_name', r.name,
+            'recipe_code', r.code
+          ) ORDER BY mr.meal
+        ) FILTER (WHERE mr.id IS NOT NULL) as recipes
+      FROM menu_days md
+      LEFT JOIN menu_recipes mr ON md.id = mr.menu_day_id
+      LEFT JOIN recipes r ON mr.recipe_id = r.id
+      WHERE md.id = $1 AND md.menu_id = $2
+      GROUP BY md.id
+    `, [dayId, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu day not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('GET /api/menu/:id/days/:dayId error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/menu/:id/days/:dayId/recipes - Add recipe to day
+router.post('/:id/days/:dayId/recipes', async (req, res) => {
+  const { org_id } = req.user;
+  const { id, dayId } = req.params;
+  const { recipe_id, meal, portion_target } = req.body;
+
+  if (!recipe_id || !meal) {
+    return res.status(400).json({ success: false, error: 'recipe_id and meal are required' });
+  }
+
+  try {
+    // Verify menu belongs to org
+    const menuCheck = await global.db.query(
+      'SELECT id FROM menus WHERE org_id = $1 AND id = $2',
+      [org_id, id]
+    );
+
+    if (menuCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu not found' });
+    }
+
+    // Verify recipe belongs to org
+    const recipeCheck = await global.db.query(
+      'SELECT id FROM recipes WHERE org_id = $1 AND id = $2',
+      [org_id, recipe_id]
+    );
+
+    if (recipeCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Recipe not found' });
+    }
+
+    const result = await global.db.query(`
+      INSERT INTO menu_recipes (menu_day_id, recipe_id, meal, portion_target)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [dayId, recipe_id, meal, portion_target]);
+
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('POST /api/menu/:id/days/:dayId/recipes error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/menu/:id/days/:dayId/recipes/:recipeId - Remove recipe from day
+router.delete('/:id/days/:dayId/recipes/:recipeId', async (req, res) => {
+  const { org_id } = req.user;
+  const { id, dayId, recipeId } = req.params;
+
+  try {
+    // Verify menu belongs to org
+    const menuCheck = await global.db.query(
+      'SELECT id FROM menus WHERE org_id = $1 AND id = $2',
+      [org_id, id]
+    );
+
+    if (menuCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu not found' });
+    }
+
+    const result = await global.db.query(
+      'DELETE FROM menu_recipes WHERE id = $1 AND menu_day_id = $2 RETURNING id',
+      [recipeId, dayId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Menu recipe assignment not found' });
+    }
+
+    res.json({ success: true, message: 'Recipe removed from day' });
+  } catch (error) {
+    console.error('DELETE /api/menu/:id/days/:dayId/recipes/:recipeId error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/menu/week/:weekNum - Get current active menu for a specific week
+router.get('/week/:weekNum', async (req, res) => {
+  const { org_id } = req.user;
+  const { weekNum } = req.params;
+  const { site_id } = req.query;
+
+  try {
+    let query = `
+      SELECT m.*,
+        json_agg(
+          json_build_object(
+            'id', md.id,
+            'date', md.date,
+            'notes', md.notes,
+            'recipes', (
+              SELECT json_agg(
+                json_build_object(
+                  'id', mr2.id,
+                  'recipe_id', mr2.recipe_id,
+                  'meal', mr2.meal,
+                  'portion_target', mr2.portion_target,
+                  'recipe_name', r2.name,
+                  'recipe_code', r2.code
+                )
+              )
+              FROM menu_recipes mr2
+              JOIN recipes r2 ON mr2.recipe_id = r2.id
+              WHERE mr2.menu_day_id = md.id
+            )
+          ) ORDER BY md.date
+        ) as days
+      FROM menus m
+      LEFT JOIN menu_days md ON m.id = md.menu_id
+      WHERE m.org_id = $1 AND m.cycle_week = $2 AND m.active = true
+    `;
+    const params = [org_id, weekNum];
+
+    if (site_id) {
+      query += ' AND m.site_id = $3';
+      params.push(site_id);
+    }
+
+    query += ' GROUP BY m.id LIMIT 1';
+
+    const result = await global.db.query(query, params);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'No active menu found for this week' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('GET /api/menu/week/:weekNum error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

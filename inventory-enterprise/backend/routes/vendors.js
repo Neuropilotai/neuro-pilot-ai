@@ -1,116 +1,243 @@
 /**
- * Vendors & Pricing Routes
- * Manages vendors, vendor items, pricing imports, and org preferences
+ * Vendors & Pricing Routes - V21.1
+ * Multi-vendor time-series pricing with org preferences
+ * Schema: vendors, vendor_prices, org_vendor_defaults (migration 009)
  */
 
 const express = require('express');
 const router = express.Router();
-const db = require('../config/database');
-const { resolveEffectivePrice } = require('../services/costing');
 
-// GET /api/vendors - List all vendors
+// GET /api/vendors - List all vendors with pricing stats
 router.get('/', async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT id, name, code, active, created_at, updated_at
-      FROM vendors
-      ORDER BY name
-    `);
+  const { org_id } = req.user;
 
-    res.json({ success: true, vendors: result.rows });
-  } catch (err) {
-    console.error('Error fetching vendors:', err);
-    res.status(500).json({ success: false, error: err.message });
+  try {
+    const result = await global.db.query(`
+      SELECT
+        v.*,
+        COUNT(DISTINCT vp.id) as price_count,
+        MAX(vp.updated_at) as last_price_update,
+        COUNT(DISTINCT vp.sku) as sku_count
+      FROM vendors v
+      LEFT JOIN vendor_prices vp ON v.id = vp.vendor_id AND vp.org_id = v.org_id
+      WHERE v.org_id = $1 AND v.active = true
+      GROUP BY v.id
+      ORDER BY v.preferred DESC, v.name ASC
+    `, [org_id]);
+
+    res.json({ success: true, data: result.rows, count: result.rows.length });
+  } catch (error) {
+    console.error('GET /api/vendors error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// POST /api/vendors - Create vendor
-router.post('/', async (req, res) => {
+// GET /api/vendors/:id - Get vendor details
+router.get('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
   try {
-    const { name, code } = req.body;
-
-    if (!name || !code) {
-      return res.status(400).json({ success: false, error: 'Name and code required' });
-    }
-
-    const result = await db.query(
-      'INSERT INTO vendors (name, code) VALUES ($1, $2) RETURNING *',
-      [name, code]
+    const vendor = await global.db.query(
+      'SELECT * FROM vendors WHERE org_id = $1 AND id = $2',
+      [org_id, id]
     );
 
-    res.json({ success: true, vendor: result.rows[0] });
-  } catch (err) {
-    console.error('Error creating vendor:', err);
-    res.status(500).json({ success: false, error: err.message });
+    if (vendor.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Vendor not found' });
+    }
+
+    res.json({ success: true, data: vendor.rows[0] });
+  } catch (error) {
+    console.error('GET /api/vendors/:id error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// POST /api/vendors/prices/import - Import vendor prices from CSV
-router.post('/prices/import', async (req, res) => {
-  try {
-    const { rows } = req.body; // Array of {vendor, item_sku, price, currency, effective_from, vendor_sku?, pack_size?, uom?}
-    const org_id = req.user?.org_id || 1;
+// POST /api/vendors - Create new vendor
+router.post('/', async (req, res) => {
+  const { org_id } = req.user;
+  const { name, contact_name, contact_email, contact_phone, address, city, state, zip, country, payment_terms, lead_time_days, notes, preferred } = req.body;
 
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'No rows provided' });
+  if (!name) {
+    return res.status(400).json({ success: false, error: 'Vendor name is required' });
+  }
+
+  try {
+    const result = await global.db.query(`
+      INSERT INTO vendors (
+        org_id, name, contact_name, contact_email, contact_phone,
+        address, city, state, zip, country, payment_terms,
+        lead_time_days, notes, preferred, active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true)
+      RETURNING *
+    `, [
+      org_id, name, contact_name, contact_email, contact_phone,
+      address, city, state, zip, country, payment_terms,
+      lead_time_days || 7, notes, preferred || false
+    ]);
+
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('POST /api/vendors error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/vendors/:id - Update vendor
+router.put('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+  const { name, contact_name, contact_email, contact_phone, address, city, state, zip, country, payment_terms, lead_time_days, notes, preferred, active } = req.body;
+
+  try {
+    const result = await global.db.query(`
+      UPDATE vendors SET
+        name = COALESCE($3, name),
+        contact_name = COALESCE($4, contact_name),
+        contact_email = COALESCE($5, contact_email),
+        contact_phone = COALESCE($6, contact_phone),
+        address = COALESCE($7, address),
+        city = COALESCE($8, city),
+        state = COALESCE($9, state),
+        zip = COALESCE($10, zip),
+        country = COALESCE($11, country),
+        payment_terms = COALESCE($12, payment_terms),
+        lead_time_days = COALESCE($13, lead_time_days),
+        notes = COALESCE($14, notes),
+        preferred = COALESCE($15, preferred),
+        active = COALESCE($16, active),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE org_id = $1 AND id = $2
+      RETURNING *
+    `, [org_id, id, name, contact_name, contact_email, contact_phone, address, city, state, zip, country, payment_terms, lead_time_days, notes, preferred, active]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Vendor not found' });
     }
 
-    const imported = [];
-    const errors = [];
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('PUT /api/vendors/:id error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
+// DELETE /api/vendors/:id - Soft delete vendor
+router.delete('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
+  try {
+    const result = await global.db.query(
+      'UPDATE vendors SET active = false, updated_at = CURRENT_TIMESTAMP WHERE org_id = $1 AND id = $2 RETURNING id',
+      [org_id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Vendor not found' });
+    }
+
+    res.json({ success: true, message: 'Vendor deactivated' });
+  } catch (error) {
+    console.error('DELETE /api/vendors/:id error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/vendors/:id/prices - Get all prices for a vendor
+router.get('/:id/prices', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
+  try {
+    const result = await global.db.query(`
+      SELECT vp.*, v.name as vendor_name
+      FROM vendor_prices vp
+      JOIN vendors v ON v.id = vp.vendor_id
+      WHERE vp.org_id = $1 AND vp.vendor_id = $2
+      ORDER BY vp.sku ASC, vp.valid_from DESC
+    `, [org_id, id]);
+
+    res.json({ success: true, data: result.rows, count: result.rows.length });
+  } catch (error) {
+    console.error('GET /api/vendors/:id/prices error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/vendors/prices/import - Bulk import vendor prices from CSV
+router.post('/prices/import', async (req, res) => {
+  const { org_id, user_id } = req.user;
+  const { rows } = req.body;
+
+  if (!rows || !Array.isArray(rows)) {
+    return res.status(400).json({ success: false, error: 'Request body must contain "rows" array' });
+  }
+
+  const imported = [];
+  const errors = [];
+
+  try {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const lineNum = i + 2; // +2 for header and 1-indexed
 
       try {
         // Validate required fields
-        if (!row.vendor || !row.item_sku || !row.price || !row.effective_from) {
-          errors.push({ line: lineNum, error: 'Missing required fields (vendor, item_sku, price, effective_from)' });
+        if (!row.vendor || !row.item_sku || !row.price) {
+          errors.push({ line: i + 2, error: 'Missing required fields: vendor, item_sku, price' });
           continue;
         }
 
         // Get or create vendor
-        let vendorQuery = await db.query('SELECT id FROM vendors WHERE code = $1', [row.vendor]);
-        let vendorId;
-
-        if (vendorQuery.rows.length === 0) {
-          // Create vendor if doesn't exist
-          const newVendor = await db.query(
-            'INSERT INTO vendors (name, code) VALUES ($1, $2) RETURNING id',
-            [row.vendor, row.vendor]
-          );
-          vendorId = newVendor.rows[0].id;
-        } else {
-          vendorId = vendorQuery.rows[0].id;
-        }
-
-        // Get or create vendor_item
-        let vendorItemQuery = await db.query(
-          'SELECT id FROM vendor_items WHERE vendor_id = $1 AND item_sku = $2',
-          [vendorId, row.item_sku]
+        let vendor = await global.db.query(
+          'SELECT id FROM vendors WHERE org_id = $1 AND name = $2',
+          [org_id, row.vendor]
         );
-        let vendorItemId;
 
-        if (vendorItemQuery.rows.length === 0) {
-          const newVendorItem = await db.query(`
-            INSERT INTO vendor_items (vendor_id, item_sku, vendor_sku, pack_size, uom)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id
-          `, [vendorId, row.item_sku, row.vendor_sku || null, row.pack_size || null, row.uom || null]);
-          vendorItemId = newVendorItem.rows[0].id;
-        } else {
-          vendorItemId = vendorItemQuery.rows[0].id;
+        if (vendor.rows.length === 0) {
+          vendor = await global.db.query(
+            'INSERT INTO vendors (org_id, name, active) VALUES ($1, $2, true) RETURNING id',
+            [org_id, row.vendor]
+          );
         }
 
-        // Insert vendor price
-        await db.query(`
-          INSERT INTO vendor_prices (vendor_item_id, price, currency, effective_from, source)
-          VALUES ($1, $2, $3, $4, $5)
-        `, [vendorItemId, row.price, row.currency || 'USD', row.effective_from, 'csv_import']);
+        const vendor_id = vendor.rows[0].id;
 
-        imported.push({ line: lineNum, item_sku: row.item_sku, vendor: row.vendor });
+        // Parse dates
+        const valid_from = row.effective_from || new Date().toISOString().split('T')[0];
+        const valid_to = row.effective_to || null;
+
+        // Upsert vendor price
+        await global.db.query(`
+          INSERT INTO vendor_prices (
+            org_id, vendor_id, sku, price, currency, uom,
+            valid_from, valid_to, source, imported_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          ON CONFLICT (org_id, vendor_id, sku, valid_from)
+          DO UPDATE SET
+            price = EXCLUDED.price,
+            currency = EXCLUDED.currency,
+            uom = EXCLUDED.uom,
+            valid_to = EXCLUDED.valid_to,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          org_id,
+          vendor_id,
+          row.item_sku,
+          parseFloat(row.price),
+          row.currency || 'USD',
+          row.uom || 'EA',
+          valid_from,
+          valid_to,
+          'csv_import',
+          user_id
+        ]);
+
+        imported.push({ line: i + 2, vendor: row.vendor, sku: row.item_sku, price: row.price });
       } catch (err) {
-        errors.push({ line: lineNum, error: err.message });
+        console.error(`Import error on row ${i + 2}:`, err);
+        errors.push({ line: i + 2, error: err.message });
       }
     }
 
@@ -120,90 +247,65 @@ router.post('/prices/import', async (req, res) => {
       errors: errors.length,
       details: { imported, errors }
     });
-  } catch (err) {
-    console.error('Error importing vendor prices:', err);
-    res.status(500).json({ success: false, error: err.message });
+  } catch (error) {
+    console.error('POST /api/vendors/prices/import error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// GET /api/vendors/prices - Get effective price for an item
-router.get('/prices', async (req, res) => {
-  try {
-    const { item_sku, at } = req.query;
-    const org_id = req.user?.org_id || 1;
+// GET /api/vendors/prices/lookup - Lookup current price for a SKU using helper function
+router.get('/prices/lookup', async (req, res) => {
+  const { org_id } = req.user;
+  const { sku, date } = req.query;
 
-    if (!item_sku) {
-      return res.status(400).json({ success: false, error: 'item_sku required' });
-    }
-
-    const atDate = at || new Date().toISOString().split('T')[0];
-
-    const priceInfo = await resolveEffectivePrice(org_id, item_sku, atDate);
-
-    // Get vendor name
-    const vendorQuery = await db.query('SELECT name FROM vendors WHERE id = $1', [priceInfo.vendor_id]);
-    const vendorName = vendorQuery.rows[0]?.name || 'Unknown';
-
-    res.json({
-      success: true,
-      item_sku,
-      price: priceInfo.price,
-      currency: priceInfo.currency,
-      vendor_id: priceInfo.vendor_id,
-      vendor_name: vendorName,
-      source: priceInfo.source,
-      date: atDate
-    });
-  } catch (err) {
-    console.error('Error getting vendor price:', err);
-    res.status(404).json({ success: false, error: err.message });
+  if (!sku) {
+    return res.status(400).json({ success: false, error: 'SKU parameter required' });
   }
-});
 
-// PUT /api/org/vendor-default - Set preferred vendor for org
-router.put('/org/vendor-default', async (req, res) => {
+  const lookup_date = date || new Date().toISOString().split('T')[0];
+
   try {
-    const { vendor_id } = req.body;
-    const org_id = req.user?.org_id || 1;
-
-    if (!vendor_id) {
-      return res.status(400).json({ success: false, error: 'vendor_id required' });
-    }
-
-    // Upsert org vendor default
-    await db.query(`
-      INSERT INTO org_vendor_defaults (org_id, preferred_vendor_id)
-      VALUES ($1, $2)
-      ON CONFLICT (org_id) DO UPDATE SET preferred_vendor_id = $2, updated_at = CURRENT_TIMESTAMP
-    `, [org_id, vendor_id]);
-
-    res.json({ success: true, message: 'Preferred vendor updated' });
-  } catch (err) {
-    console.error('Error setting vendor default:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/org/vendor-default - Get preferred vendor for org
-router.get('/org/vendor-default', async (req, res) => {
-  try {
-    const org_id = req.user?.org_id || 1;
-
-    const result = await db.query(`
-      SELECT ovd.preferred_vendor_id, v.name, v.code
-      FROM org_vendor_defaults ovd
-      JOIN vendors v ON ovd.preferred_vendor_id = v.id
-      WHERE ovd.org_id = $1
-    `, [org_id]);
+    const result = await global.db.query(`
+      SELECT * FROM get_current_vendor_price($1, $2, $3)
+    `, [org_id, sku, lookup_date]);
 
     if (result.rows.length === 0) {
-      return res.json({ success: true, vendor: null });
+      return res.status(404).json({ success: false, error: 'No price found for SKU' });
     }
 
-    res.json({ success: true, vendor: result.rows[0] });
-  } catch (err) {
-    console.error('Error getting vendor default:', err);
-    res.status(500).json({ success: false, error: err.message });
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('GET /api/vendors/prices/lookup error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/vendors/:id/set-preferred - Set vendor as preferred
+router.post('/:id/set-preferred', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
+  try {
+    // Unset all other preferred vendors
+    await global.db.query(
+      'UPDATE vendors SET preferred = false WHERE org_id = $1',
+      [org_id]
+    );
+
+    // Set this vendor as preferred
+    const result = await global.db.query(
+      'UPDATE vendors SET preferred = true, updated_at = CURRENT_TIMESTAMP WHERE org_id = $1 AND id = $2 RETURNING *',
+      [org_id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Vendor not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('POST /api/vendors/:id/set-preferred error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

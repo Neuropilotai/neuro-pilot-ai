@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neuro.Pilot.AI Commissary POS</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Day.js for date handling -->
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+
+  <!-- PapaParse for CSV export -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+
+    .status-pill {
+      @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+    }
+
+    .status-online {
+      @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+    }
+
+    .status-offline {
+      @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+    }
+
+    .btn-primary {
+      @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+    }
+
+    .btn-secondary {
+      @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors;
+    }
+
+    .btn-danger {
+      @apply px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors;
+    }
+
+    .btn-success {
+      @apply px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors;
+    }
+
+    .cart-item {
+      @apply border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors;
+    }
+
+    .catalog-tile {
+      @apply p-4 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-gray-700 transition-all hover:shadow-md;
+    }
+
+    .quick-tile {
+      @apply p-6 rounded-lg text-white cursor-pointer hover:opacity-90 transition-opacity shadow-lg;
+    }
+  </style>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900">
+
+<div id="app" class="h-full flex flex-col">
+
+  <!-- Login Screen -->
+  <div id="loginScreen" class="flex items-center justify-center h-full bg-gradient-to-br from-blue-500 to-purple-600">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Neuro.Pilot.AI</h1>
+        <p class="text-gray-600 dark:text-gray-400 mt-2">Commissary POS</p>
+      </div>
+
+      <form id="loginForm" class="space-y-4" data-testid="login-form">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+          <input type="email" id="loginEmail" required
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            placeholder="user@example.com">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password</label>
+          <input type="password" id="loginPassword" required
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            placeholder="••••••••">
+        </div>
+
+        <div id="loginError" class="hidden text-red-600 text-sm p-3 bg-red-50 dark:bg-red-900/20 rounded-lg"></div>
+
+        <button type="submit" class="w-full btn-primary" data-testid="login-button">
+          Sign In
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main App (hidden until logged in) -->
+  <div id="mainApp" class="hidden h-full flex flex-col">
+
+    <!-- Top Header -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">POS Terminal</h1>
+        <span id="networkStatus" class="status-pill status-online">Online</span>
+        <span id="queuedCount" class="hidden status-pill bg-yellow-100 text-yellow-800">0 Queued</span>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <div id="shiftBanner" class="hidden px-4 py-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-lg text-sm">
+          <span class="font-semibold">Shift #<span id="shiftId"></span></span>
+          <span class="mx-2">|</span>
+          <span id="shiftCashier"></span>
+          <span class="mx-2">|</span>
+          <span id="shiftTime"></span>
+        </div>
+
+        <button id="themeToggle" class="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+          <span class="dark:hidden">🌙</span>
+          <span class="hidden dark:inline">☀️</span>
+        </button>
+
+        <div class="text-right">
+          <div class="text-sm font-semibold text-gray-900 dark:text-white" id="userEmail"></div>
+          <div class="text-xs text-gray-500 dark:text-gray-400" id="roleDisplay"></div>
+        </div>
+
+        <button id="logoutBtn" class="btn-secondary text-sm">Logout</button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-hidden flex">
+
+      <!-- Left Panel: Catalog -->
+      <aside class="w-1/3 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+          <input type="text" id="barcodeInput" placeholder="🔍 Search or scan barcode..." autofocus
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+
+          <div class="flex space-x-2 mt-3">
+            <button id="tabItems" class="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg text-sm font-semibold">Items</button>
+            <button id="tabRecipes" class="flex-1 py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-semibold">Recipes</button>
+            <button id="tabQuick" class="flex-1 py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-semibold">Quick</button>
+          </div>
+        </div>
+
+        <div id="catalogPanel" class="flex-1 overflow-y-auto p-4">
+          <div id="catalogLoading" class="text-center py-8 text-gray-500">Loading catalog...</div>
+          <div id="catalogContent" class="space-y-2"></div>
+        </div>
+      </aside>
+
+      <!-- Center Panel: Cart & Totals -->
+      <section class="flex-1 flex flex-col">
+
+        <!-- Cart -->
+        <div class="flex-1 overflow-y-auto p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Current Order</h2>
+            <div class="space-x-2">
+              <button id="newOrderBtn" class="btn-secondary text-sm" data-testid="new-order">
+                <span class="mr-1">+</span> New Order
+              </button>
+              <button id="voidOrderBtn" class="btn-danger text-sm" data-testid="void-order">
+                Void
+              </button>
+            </div>
+          </div>
+
+          <div id="cart" class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <table class="w-full">
+              <thead class="bg-gray-100 dark:bg-gray-700">
+                <tr>
+                  <th class="text-left p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Item</th>
+                  <th class="text-center p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Qty</th>
+                  <th class="text-right p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Price</th>
+                  <th class="text-right p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Total</th>
+                  <th class="w-12"></th>
+                </tr>
+              </thead>
+              <tbody id="cartItems" class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tr>
+                  <td colspan="5" class="text-center py-12 text-gray-400">No items in cart</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Totals & Payment Panel -->
+        <div class="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+          <div class="space-y-2 mb-4">
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600 dark:text-gray-400">Subtotal</span>
+              <span class="font-semibold text-gray-900 dark:text-white" id="subtotal">$0.00</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600 dark:text-gray-400">Tax</span>
+              <span class="font-semibold text-gray-900 dark:text-white" id="tax">$0.00</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600 dark:text-gray-400">Discount</span>
+              <span class="font-semibold text-red-600" id="discount">$0.00</span>
+            </div>
+            <div class="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+              <span class="text-lg font-bold text-gray-900 dark:text-white">Total</span>
+              <span class="text-2xl font-bold text-blue-600" id="total">$0.00</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button id="discountBtn" class="btn-secondary text-sm" data-testid="apply-discount">
+              Discount
+            </button>
+            <button id="payBtn" class="btn-success text-sm font-semibold" data-testid="pay-button">
+              Pay
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Actions & Reports -->
+      <aside class="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col p-6 space-y-4">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Actions</h3>
+
+        <button id="openShiftBtn" class="btn-primary w-full" data-testid="open-shift">
+          Open Shift
+        </button>
+
+        <button id="closeShiftBtn" class="btn-danger w-full" data-testid="close-shift">
+          Close Shift
+        </button>
+
+        <button id="xReportBtn" class="btn-secondary w-full" data-testid="x-report">
+          X Report
+        </button>
+
+        <hr class="border-gray-200 dark:border-gray-700">
+
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Reports</h3>
+
+        <button id="salesReportBtn" class="btn-secondary w-full text-sm">
+          Sales Summary
+        </button>
+
+        <button id="zReportPdfBtn" class="btn-secondary w-full text-sm" data-testid="z-report-pdf">
+          Z Report PDF
+        </button>
+
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-auto">
+          <p class="font-semibold mb-2">Keyboard Shortcuts:</p>
+          <p><kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">/ </kbd> Barcode focus</p>
+          <p><kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">Ctrl+P</kbd> Pay</p>
+          <p><kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">Ctrl+D</kbd> Discount</p>
+          <p><kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">Ctrl+N</kbd> New Order</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Payment</h2>
+
+      <div class="mb-6">
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Amount Due</p>
+        <p class="text-4xl font-bold text-blue-600" id="paymentAmount">$0.00</p>
+      </div>
+
+      <div class="space-y-3 mb-6">
+        <button class="tender-btn w-full py-4 bg-green-600 text-white rounded-lg font-bold text-lg hover:bg-green-700" data-amount="exact">
+          Exact Cash
+        </button>
+        <div class="grid grid-cols-3 gap-2">
+          <button class="tender-btn py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" data-amount="5">$5</button>
+          <button class="tender-btn py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" data-amount="10">$10</button>
+          <button class="tender-btn py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" data-amount="20">$20</button>
+          <button class="tender-btn py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" data-amount="50">$50</button>
+          <button class="tender-btn py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" data-amount="100">$100</button>
+          <button class="tender-btn py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700" data-amount="card">Card</button>
+        </div>
+      </div>
+
+      <div id="cardRefInput" class="hidden mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Card Ref (Last 4 / Terminal ID)</label>
+        <input type="text" id="cardRef" placeholder="VISA-1234" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+      </div>
+
+      <div id="changeDue" class="hidden p-4 bg-green-50 dark:bg-green-900/20 rounded-lg mb-4">
+        <p class="text-sm text-gray-600 dark:text-gray-400">Change Due</p>
+        <p class="text-3xl font-bold text-green-600" id="changeAmount">$0.00</p>
+      </div>
+
+      <div class="flex space-x-3">
+        <button id="cancelPaymentBtn" class="flex-1 btn-secondary">Cancel</button>
+        <button id="confirmPaymentBtn" class="flex-1 btn-success">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shiftModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6" id="shiftModalTitle">Open Shift</h2>
+
+      <div id="openShiftForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Register</label>
+          <select id="registerSelect" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+            <option>Loading...</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Opening Float ($)</label>
+          <input type="number" id="openingFloat" value="100.00" step="0.01" min="0"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        </div>
+      </div>
+
+      <div id="closeShiftForm" class="hidden space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Closing Cash ($)</label>
+          <input type="number" id="closingCash" step="0.01" min="0"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notes (optional)</label>
+          <textarea id="shiftNotes" rows="3"
+            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
+        </div>
+      </div>
+
+      <div class="flex space-x-3 mt-6">
+        <button id="cancelShiftBtn" class="flex-1 btn-secondary">Cancel</button>
+        <button id="confirmShiftBtn" class="flex-1 btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+<script>
+// ============================================
+// GLOBAL STATE
+// ============================================
+const state = {
+  config: {
+    apiUrl: localStorage.getItem('NP_API_URL') || 'https://inventory-backend-7-agent-build.up.railway.app',
+    token: localStorage.getItem('NP_TOKEN'),
+    user: JSON.parse(localStorage.getItem('NP_USER') || 'null'),
+    orgId: localStorage.getItem('NP_ORG_ID'),
+    siteId: localStorage.getItem('NP_SITE_ID'),
+    theme: localStorage.getItem('NP_THEME') || 'light',
+  },
+  catalog: { items: [], recipes: [], quick: [] },
+  cart: { items: [], orderId: null, shiftId: null },
+  shift: null,
+  register: null,
+  networkStatus: 'online',
+  queue: JSON.parse(localStorage.getItem('NP_OFFLINE_QUEUE') || '[]'),
+  pendingPayment: null
+};
+
+// ============================================
+// API WRAPPER
+// ============================================
+async function api(endpoint, options = {}) {
+  const url = `${state.config.apiUrl}${endpoint}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(state.config.token && { 'Authorization': `Bearer ${state.config.token}` }),
+    ...(state.config.orgId && { 'x-org-id': state.config.orgId }),
+    ...(state.config.siteId && { 'x-site-id': state.config.siteId }),
+    ...options.headers,
+  };
+
+  try {
+    const response = await fetch(url, { ...options, headers });
+
+    if (response.status === 401) {
+      toast('Session expired. Please login again.', 'error');
+      logout();
+      throw new Error('Unauthorized');
+    }
+
+    if (response.status === 403) {
+      toast('Insufficient permissions', 'error');
+      throw new Error('Forbidden');
+    }
+
+    if (response.status === 429) {
+      toast('Rate limit reached. Please wait.', 'warning');
+      throw new Error('Rate limit exceeded');
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(errorData.error || 'Request failed');
+    }
+
+    // Handle PDF downloads
+    if (response.headers.get('Content-Type') === 'application/pdf') {
+      return await response.blob();
+    }
+
+    return await response.json();
+  } catch (error) {
+    // Queue for retry if offline
+    if (error.message === 'Failed to fetch' && options.method !== 'GET') {
+      queueRequest(endpoint, options);
+    }
+    throw error;
+  }
+}
+
+function queueRequest(endpoint, options) {
+  state.queue.push({ endpoint, options, timestamp: Date.now() });
+  localStorage.setItem('NP_OFFLINE_QUEUE', JSON.stringify(state.queue));
+  updateQueueUI();
+}
+
+async function processQueue() {
+  if (state.queue.length === 0) return;
+
+  const item = state.queue[0];
+  try {
+    await api(item.endpoint, item.options);
+    state.queue.shift();
+    localStorage.setItem('NP_OFFLINE_QUEUE', JSON.stringify(state.queue));
+    updateQueueUI();
+    toast(`Synced ${state.queue.length} items`, 'success');
+
+    if (state.queue.length > 0) {
+      setTimeout(processQueue, 1000);
+    }
+  } catch (error) {
+    console.error('Queue processing failed:', error);
+  }
+}
+
+function updateQueueUI() {
+  const queuedCount = document.getElementById('queuedCount');
+  if (state.queue.length > 0) {
+    queuedCount.textContent = `${state.queue.length} Queued`;
+    queuedCount.classList.remove('hidden');
+  } else {
+    queuedCount.classList.add('hidden');
+  }
+}
+
+// ============================================
+// AUTH
+// ============================================
+async function login(email, password) {
+  try {
+    const data = await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    state.config.token = data.accessToken || data.data?.token || data.token;
+    state.config.user = data.user || data.data?.user;
+
+    localStorage.setItem('NP_TOKEN', state.config.token);
+    localStorage.setItem('NP_USER', JSON.stringify(state.config.user));
+
+    // Load tenancy
+    await loadTenancy();
+
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+    document.getElementById('userEmail').textContent = email;
+    document.getElementById('roleDisplay').textContent = (state.config.user.role || 'USER').toUpperCase();
+
+    toast(`Welcome, ${email}!`, 'success');
+    await init();
+  } catch (error) {
+    document.getElementById('loginError').textContent = error.message;
+    document.getElementById('loginError').classList.remove('hidden');
+  }
+}
+
+async function loadTenancy() {
+  try {
+    const data = await api('/api/me/tenancy');
+    if (data.success && data.data) {
+      state.config.orgId = data.data.org_id;
+      state.config.siteId = data.data.site_id;
+      localStorage.setItem('NP_ORG_ID', state.config.orgId);
+      localStorage.setItem('NP_SITE_ID', state.config.siteId);
+    }
+  } catch (error) {
+    console.warn('Tenancy load failed:', error);
+  }
+}
+
+function logout() {
+  localStorage.removeItem('NP_TOKEN');
+  localStorage.removeItem('NP_USER');
+  state.config.token = null;
+  state.config.user = null;
+  location.reload();
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+async function init() {
+  await loadCatalog();
+  await loadRegisters();
+  await checkCurrentShift();
+  processQueue(); // Retry any queued requests
+  startNetworkMonitor();
+}
+
+// ============================================
+// CATALOG
+// ============================================
+async function loadCatalog() {
+  try {
+    const data = await api('/api/pos/catalog?limit=100');
+    state.catalog.items = data.data.items;
+    state.catalog.recipes = data.data.recipes;
+
+    const quickData = await api('/api/pos/catalog/quick');
+    state.catalog.quick = quickData.data.tiles || [];
+
+    renderCatalog('items');
+  } catch (error) {
+    toast('Failed to load catalog', 'error');
+  }
+}
+
+function renderCatalog(tab) {
+  const content = document.getElementById('catalogContent');
+  content.innerHTML = '';
+
+  let items = [];
+  if (tab === 'items') items = state.catalog.items;
+  else if (tab === 'recipes') items = state.catalog.recipes;
+  else if (tab === 'quick') items = state.catalog.quick;
+
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = tab === 'quick' ? 'quick-tile' : 'catalog-tile';
+
+    if (tab === 'quick') {
+      div.style.backgroundColor = item.color === 'blue' ? '#3b82f6' : '#10b981';
+      div.innerHTML = `
+        <div class="font-bold text-lg">${item.name}</div>
+        <div class="text-sm opacity-90">$${(item.price_cents / 100).toFixed(2)}</div>
+      `;
+    } else {
+      div.innerHTML = `
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <div class="font-semibold text-gray-900 dark:text-white">${item.name}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${item.sku || item.code}</div>
+          </div>
+          <div class="text-right">
+            <div class="font-bold text-blue-600">$${(item.price_cents / 100).toFixed(2)}</div>
+            ${tab === 'items' && item.in_stock ? '<div class="text-xs text-green-600">In Stock</div>' : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    div.onclick = () => addToCart(item);
+    content.appendChild(div);
+  });
+
+  // Update tab buttons
+  document.querySelectorAll('[id^="tab"]').forEach(btn => {
+    btn.className = btn.id === `tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`
+      ? 'flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg text-sm font-semibold'
+      : 'flex-1 py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-semibold';
+  });
+}
+
+// ============================================
+// CART MANAGEMENT
+// ============================================
+async function addToCart(item) {
+  // Create order if none exists
+  if (!state.cart.orderId) {
+    if (!state.shift) {
+      toast('Please open a shift first', 'warning');
+      return;
+    }
+
+    try {
+      const orderData = await api('/api/pos/orders', {
+        method: 'POST',
+        body: JSON.stringify({ shift_id: state.shift.id })
+      });
+
+      state.cart.orderId = orderData.data.id;
+    } catch (error) {
+      toast('Failed to create order', 'error');
+      return;
+    }
+  }
+
+  // Add line to order
+  try {
+    const lineData = await api(`/api/pos/orders/${state.cart.orderId}/line`, {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: item.kind,
+        sku_or_code: item.sku || item.code || item.sku_or_code,
+        qty: 1,
+        unit_price_cents: item.price_cents
+      })
+    });
+
+    // Refresh cart
+    await loadOrder();
+    toast(`Added ${item.name}`, 'success');
+  } catch (error) {
+    toast(`Failed to add item: ${error.message}`, 'error');
+  }
+}
+
+async function loadOrder() {
+  if (!state.cart.orderId) return;
+
+  try {
+    const data = await api(`/api/pos/orders/${state.cart.orderId}`);
+    const order = data.data.order;
+    const lines = data.data.lines;
+
+    state.cart.items = lines;
+    renderCart();
+    updateTotals(order);
+  } catch (error) {
+    console.error('Failed to load order:', error);
+  }
+}
+
+function renderCart() {
+  const tbody = document.getElementById('cartItems');
+
+  if (state.cart.items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-gray-400">No items in cart</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = state.cart.items.map(line => `
+    <tr class="cart-item">
+      <td class="p-3">
+        <div class="font-semibold text-gray-900 dark:text-white">${line.name_snapshot}</div>
+        <div class="text-xs text-gray-500">${line.sku_or_code}</div>
+      </td>
+      <td class="p-3 text-center">
+        <div class="flex items-center justify-center space-x-2">
+          <button onclick="updateQty(${line.id}, ${line.qty - 1})" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300">−</button>
+          <span class="font-semibold">${line.qty}</span>
+          <button onclick="updateQty(${line.id}, ${line.qty + 1})" class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300">+</button>
+        </div>
+      </td>
+      <td class="p-3 text-right">$${(line.unit_price_cents / 100).toFixed(2)}</td>
+      <td class="p-3 text-right font-semibold">$${(line.line_total_cents / 100).toFixed(2)}</td>
+      <td class="p-3">
+        <button onclick="removeLine(${line.id})" class="text-red-600 hover:text-red-800">×</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function updateQty(lineId, newQty) {
+  if (newQty < 1) {
+    await removeLine(lineId);
+    return;
+  }
+
+  // For now, remove and re-add (could implement PATCH endpoint)
+  await removeLine(lineId);
+  // Re-adding with new qty would require catalog lookup
+}
+
+async function removeLine(lineId) {
+  try {
+    await api(`/api/pos/orders/${state.cart.orderId}/line/${lineId}`, { method: 'DELETE' });
+    await loadOrder();
+  } catch (error) {
+    toast('Failed to remove item', 'error');
+  }
+}
+
+function updateTotals(order) {
+  document.getElementById('subtotal').textContent = `$${(order.subtotal_cents / 100).toFixed(2)}`;
+  document.getElementById('tax').textContent = `$${(order.tax_cents / 100).toFixed(2)}`;
+  document.getElementById('discount').textContent = `$${(order.discount_cents / 100).toFixed(2)}`;
+  document.getElementById('total').textContent = `$${(order.total_cents / 100).toFixed(2)}`;
+}
+
+async function newOrder() {
+  state.cart = { items: [], orderId: null, shiftId: null };
+  renderCart();
+  updateTotals({ subtotal_cents: 0, tax_cents: 0, discount_cents: 0, total_cents: 0 });
+  toast('New order started', 'success');
+}
+
+async function voidOrder() {
+  if (!state.cart.orderId) return;
+
+  if (confirm('Void this order?')) {
+    try {
+      await api(`/api/pos/orders/${state.cart.orderId}/void`, { method: 'POST' });
+      await newOrder();
+      toast('Order voided', 'success');
+    } catch (error) {
+      toast('Failed to void order', 'error');
+    }
+  }
+}
+
+// ============================================
+// PAYMENT
+// ============================================
+function openPaymentModal() {
+  if (!state.cart.orderId || state.cart.items.length === 0) {
+    toast('Cart is empty', 'warning');
+    return;
+  }
+
+  const total = parseFloat(document.getElementById('total').textContent.replace('$', ''));
+  document.getElementById('paymentAmount').textContent = `$${total.toFixed(2)}`;
+  document.getElementById('paymentModal').classList.remove('hidden');
+  document.getElementById('cardRefInput').classList.add('hidden');
+  document.getElementById('changeDue').classList.add('hidden');
+  state.pendingPayment = null;
+}
+
+function closePaymentModal() {
+  document.getElementById('paymentModal').classList.add('hidden');
+}
+
+document.querySelectorAll('.tender-btn').forEach(btn => {
+  btn.onclick = () => {
+    const amount = btn.dataset.amount;
+    const total = parseFloat(document.getElementById('paymentAmount').textContent.replace('$', ''));
+
+    if (amount === 'card') {
+      document.getElementById('cardRefInput').classList.remove('hidden');
+      state.pendingPayment = { method: 'external_card', amount_cents: Math.round(total * 100) };
+    } else {
+      const cashAmount = amount === 'exact' ? total : parseFloat(amount);
+      const change = cashAmount - total;
+
+      if (change >= 0) {
+        document.getElementById('changeAmount').textContent = `$${change.toFixed(2)}`;
+        document.getElementById('changeDue').classList.remove('hidden');
+      }
+
+      state.pendingPayment = { method: 'cash', amount_cents: Math.round(cashAmount * 100) };
+    }
+  };
+});
+
+async function confirmPayment() {
+  if (!state.pendingPayment) {
+    toast('Select a payment method', 'warning');
+    return;
+  }
+
+  const payload = { ...state.pendingPayment };
+
+  if (payload.method === 'external_card') {
+    payload.ref = document.getElementById('cardRef').value || 'N/A';
+  }
+
+  try {
+    await api(`/api/pos/payments/${state.cart.orderId}/capture`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    toast('Payment successful!', 'success');
+    closePaymentModal();
+    await newOrder();
+  } catch (error) {
+    toast(`Payment failed: ${error.message}`, 'error');
+  }
+}
+
+// ============================================
+// SHIFT MANAGEMENT
+// ============================================
+async function loadRegisters() {
+  try {
+    const data = await api('/api/pos/registers/registers');
+    const select = document.getElementById('registerSelect');
+
+    if (data.length === 0) {
+      select.innerHTML = '<option>No registers found - create one in admin</option>';
+    } else {
+      select.innerHTML = data.map(r =>
+        `<option value="${r.id}">${r.name} (${r.device_id})</option>`
+      ).join('');
+
+      state.register = data[0];
+    }
+  } catch (error) {
+    toast('Failed to load registers', 'error');
+  }
+}
+
+async function checkCurrentShift() {
+  if (!state.register) return;
+
+  try {
+    const data = await api(`/api/pos/registers/shifts/current?register_id=${state.register.id}`);
+
+    if (data.success && data.data) {
+      state.shift = data.data;
+      updateShiftBanner();
+    }
+  } catch (error) {
+    console.warn('No current shift');
+  }
+}
+
+function updateShiftBanner() {
+  if (state.shift) {
+    document.getElementById('shiftBanner').classList.remove('hidden');
+    document.getElementById('shiftId').textContent = state.shift.id;
+    document.getElementById('shiftCashier').textContent = state.config.user?.email || 'Cashier';
+    document.getElementById('shiftTime').textContent = dayjs(state.shift.opened_at).format('h:mm A');
+  } else {
+    document.getElementById('shiftBanner').classList.add('hidden');
+  }
+}
+
+function openShiftModal() {
+  document.getElementById('shiftModalTitle').textContent = 'Open Shift';
+  document.getElementById('openShiftForm').classList.remove('hidden');
+  document.getElementById('closeShiftForm').classList.add('hidden');
+  document.getElementById('shiftModal').classList.remove('hidden');
+}
+
+function closeShiftModalUI() {
+  document.getElementById('shiftModalTitle').textContent = 'Close Shift';
+  document.getElementById('openShiftForm').classList.add('hidden');
+  document.getElementById('closeShiftForm').classList.remove('hidden');
+  document.getElementById('shiftModal').classList.remove('hidden');
+}
+
+async function confirmShift() {
+  const isOpening = !document.getElementById('openShiftForm').classList.contains('hidden');
+
+  if (isOpening) {
+    const registerId = parseInt(document.getElementById('registerSelect').value);
+    const openingFloat = parseFloat(document.getElementById('openingFloat').value) * 100;
+
+    try {
+      const data = await api('/api/pos/registers/shifts/open', {
+        method: 'POST',
+        body: JSON.stringify({ register_id: registerId, opening_float_cents: openingFloat })
+      });
+
+      state.shift = data.data;
+      updateShiftBanner();
+      toast('Shift opened successfully', 'success');
+      closeShiftModal();
+    } catch (error) {
+      toast(`Failed to open shift: ${error.message}`, 'error');
+    }
+  } else {
+    const closingCash = parseFloat(document.getElementById('closingCash').value) * 100;
+    const notes = document.getElementById('shiftNotes').value;
+
+    try {
+      await api('/api/pos/registers/shifts/close', {
+        method: 'POST',
+        body: JSON.stringify({ shift_id: state.shift.id, closing_cash_cents: closingCash, notes })
+      });
+
+      toast('Shift closed successfully', 'success');
+      state.shift = null;
+      updateShiftBanner();
+      closeShiftModal();
+    } catch (error) {
+      toast(`Failed to close shift: ${error.message}`, 'error');
+    }
+  }
+}
+
+function closeShiftModal() {
+  document.getElementById('shiftModal').classList.add('hidden');
+}
+
+// ============================================
+// REPORTS
+// ============================================
+async function generateXReport() {
+  if (!state.shift) {
+    toast('No open shift', 'warning');
+    return;
+  }
+
+  try {
+    const data = await api(`/api/pos/reports/x?shift_id=${state.shift.id}`);
+
+    const report = data.data;
+    const summary = report.summary;
+
+    alert(`X REPORT\n\nShift #${report.shift.id}\nOpened: ${dayjs(report.shift.opened_at).format('h:mm A')}\n\nOrders: ${summary.order_count}\nGross Sales: $${(summary.gross_sales_cents / 100).toFixed(2)}\nTax: $${(summary.tax_cents / 100).toFixed(2)}\nNet Sales: $${(summary.net_sales_cents / 100).toFixed(2)}\n\nCash: $${(report.payments.cash.total_cents / 100).toFixed(2)}\nCard: $${(report.payments.external_card.total_cents / 100).toFixed(2)}`);
+  } catch (error) {
+    toast('Failed to generate X report', 'error');
+  }
+}
+
+async function generateZReportPDF() {
+  if (!state.shift) {
+    toast('No closed shift selected', 'warning');
+    return;
+  }
+
+  try {
+    const blob = await api('/api/pdfs/pos/z-report', {
+      method: 'POST',
+      body: JSON.stringify({ shift_id: state.shift.id })
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `z-report-${state.shift.id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    toast('Z Report PDF downloaded', 'success');
+  } catch (error) {
+    toast('Failed to generate Z Report PDF', 'error');
+  }
+}
+
+// ============================================
+// NETWORK MONITORING
+// ============================================
+function startNetworkMonitor() {
+  setInterval(async () => {
+    try {
+      await fetch(`${state.config.apiUrl}/health`, { method: 'HEAD' });
+      if (state.networkStatus !== 'online') {
+        state.networkStatus = 'online';
+        document.getElementById('networkStatus').className = 'status-pill status-online';
+        document.getElementById('networkStatus').textContent = 'Online';
+        processQueue(); // Try to process queue
+      }
+    } catch {
+      state.networkStatus = 'offline';
+      document.getElementById('networkStatus').className = 'status-pill status-offline';
+      document.getElementById('networkStatus').textContent = 'Offline';
+    }
+  }, 10000);
+}
+
+// ============================================
+// UTILITIES
+// ============================================
+function toast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+
+  const colors = {
+    success: 'bg-green-600',
+    error: 'bg-red-600',
+    warning: 'bg-yellow-600',
+    info: 'bg-blue-600'
+  };
+
+  toast.className = `${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg animate-slide-in`;
+  toast.textContent = message;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+document.getElementById('loginForm').onsubmit = (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  login(email, password);
+};
+
+document.getElementById('logoutBtn').onclick = logout;
+
+document.getElementById('themeToggle').onclick = () => {
+  const html = document.documentElement;
+  const isDark = html.classList.contains('dark');
+
+  if (isDark) {
+    html.classList.remove('dark');
+    state.config.theme = 'light';
+  } else {
+    html.classList.add('dark');
+    state.config.theme = 'dark';
+  }
+
+  localStorage.setItem('NP_THEME', state.config.theme);
+};
+
+document.getElementById('barcodeInput').oninput = (e) => {
+  const search = e.target.value.toLowerCase();
+  // Filter catalog based on search
+  renderCatalog('items'); // Could filter here
+};
+
+document.getElementById('barcodeInput').onkeypress = (e) => {
+  if (e.key === 'Enter') {
+    const barcode = e.target.value;
+    // Look up item by barcode and add to cart
+    const item = [...state.catalog.items, ...state.catalog.recipes].find(i =>
+      (i.sku || i.code) === barcode
+    );
+
+    if (item) {
+      addToCart(item);
+      e.target.value = '';
+    } else {
+      toast('Item not found', 'warning');
+    }
+  }
+};
+
+document.getElementById('tabItems').onclick = () => renderCatalog('items');
+document.getElementById('tabRecipes').onclick = () => renderCatalog('recipes');
+document.getElementById('tabQuick').onclick = () => renderCatalog('quick');
+
+document.getElementById('newOrderBtn').onclick = newOrder;
+document.getElementById('voidOrderBtn').onclick = voidOrder;
+
+document.getElementById('payBtn').onclick = openPaymentModal;
+document.getElementById('cancelPaymentBtn').onclick = closePaymentModal;
+document.getElementById('confirmPaymentBtn').onclick = confirmPayment;
+
+document.getElementById('openShiftBtn').onclick = openShiftModal;
+document.getElementById('closeShiftBtn').onclick = closeShiftModalUI;
+document.getElementById('cancelShiftBtn').onclick = closeShiftModal;
+document.getElementById('confirmShiftBtn').onclick = confirmShift;
+
+document.getElementById('xReportBtn').onclick = generateXReport;
+document.getElementById('zReportPdfBtn').onclick = generateZReportPDF;
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    document.getElementById('barcodeInput').focus();
+  }
+
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'p') {
+      e.preventDefault();
+      openPaymentModal();
+    } else if (e.key === 'n') {
+      e.preventDefault();
+      newOrder();
+    } else if (e.key === 'x') {
+      e.preventDefault();
+      generateXReport();
+    }
+  }
+});
+
+// ============================================
+// INITIALIZATION
+// ============================================
+if (state.config.theme === 'dark') {
+  document.documentElement.classList.add('dark');
+}
+
+if (state.config.token) {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  document.getElementById('userEmail').textContent = state.config.user?.email || 'User';
+  document.getElementById('roleDisplay').textContent = (state.config.user?.role || 'USER').toUpperCase();
+  init();
+} else {
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+updateQueueUI();
+</script>
+
+</body>
+</html>
