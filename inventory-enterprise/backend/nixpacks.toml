@@ -1,7 +1,3 @@
-# Nixpacks Configuration for Railway
-# Root Directory: inventory-enterprise/backend (Railway setting)
-# Frontend files are committed to backend/public/ directory
-
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
@@ -9,11 +5,7 @@ nixPkgs = ["nodejs_20"]
 cmds = ["npm ci --omit=dev"]
 
 [phases.build]
-cmds = [
-  "npm install --production=false",
-  "echo '✅ Frontend files already in backend/public'",
-  "ls -la public | head -10"
-]
+cmds = ["npm install --production=false"]
 
 [start]
-cmd = "node server-v20_1.js"
+cmd = "node server-v21_1.js"
