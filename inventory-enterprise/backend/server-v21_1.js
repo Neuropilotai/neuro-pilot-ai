@@ -9,9 +9,9 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const cron = require('node-cron');
-const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const promClient = require('prom-client');
+const { pool } = require('./db');
 
 // V21.1 Security Middleware
 const { authGuard: rbacAuthGuard, requirePermissions } = require('./middleware/authorize');
@@ -26,26 +26,9 @@ const PORT = process.env.PORT || 8080;
 // DATABASE CONNECTION
 // ============================================
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000
-});
-
+// Pool imported from ./db.js
 // Make pool globally accessible for routes
 global.db = pool;
-
-// Test database connection
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('ERROR: Failed to connect to PostgreSQL database:', err);
-    process.exit(1);
-  }
-  console.log('✓ Connected to PostgreSQL database');
-  release();
-});
 
 // ============================================
 // MIDDLEWARE
