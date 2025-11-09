@@ -5,7 +5,7 @@
     "buildCommand": "npm install --production=false && echo '✅ Frontend files in backend/public' && ls -la public | head -5"
   },
   "deploy": {
-    "startCommand": "node server-v20_1.js",
+    "startCommand": "node server-v21_1.js",
     "healthcheckPath": "/api/health/status",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
