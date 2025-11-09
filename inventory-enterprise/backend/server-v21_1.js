@@ -183,6 +183,26 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Backward compatibility with v20 healthcheck path
+app.get('/api/health/status', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({
+      success: true,
+      version: 'v21.1',
+      database: 'connected',
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      version: 'v21.1',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
+});
+
 app.get('/', (req, res) => {
   res.json({
     name: 'NeuroInnovate Inventory Enterprise API',
