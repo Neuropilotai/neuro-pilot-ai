@@ -1,0 +1,403 @@
+{
+  "name": "Group7 Shotstack Video Pipeline",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": "group7-video-trigger",
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "agent",
+            "type": "text",
+            "label": "Agent Name",
+            "required": true
+          },
+          {
+            "name": "hook",
+            "type": "text",
+            "label": "Hook Text",
+            "required": true
+          },
+          {
+            "name": "insight",
+            "type": "text",
+            "label": "Insight Text",
+            "required": true
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "label": "Video Slug",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/{{1.agent_voice_id}}",
+        "method": "post",
+        "headers": [
+          {
+            "name": "xi-api-key",
+            "value": "{{ELEVENLABS_API_KEY}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "qs": [],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "authPass": "",
+        "authUser": "",
+        "timeout": "",
+        "shareCookies": false,
+        "ca": "",
+        "rejectUnauthorized": true,
+        "followRedirect": true,
+        "useQuerystring": false,
+        "followAllRedirects": false,
+        "serializeUrl": false,
+        "body": "{\"text\":\"{{1.hook}}. {{1.insight}}.\",\"model_id\":\"eleven_turbo_v2\",\"voice_settings\":{\"stability\":0.5,\"similarity_boost\":0.75}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "mode": "chose",
+              "label": "POST"
+            },
+            "headers": {
+              "mode": "chose"
+            },
+            "qs": {
+              "mode": "chose"
+            },
+            "bodyType": {
+              "label": "Raw"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "handleErrors",
+            "type": "boolean",
+            "label": "Evaluate all states as errors",
+            "required": false
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "google-drive:uploadAFile",
+      "version": 2,
+      "parameters": {
+        "drive": "drive",
+        "folder": "{{GDRIVE_TEMP_FOLDER_ID}}"
+      },
+      "mapper": {
+        "fileName": "temp_audio_{{1.slug}}.mp3",
+        "data": "{{2.data}}",
+        "convert": false
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "drive": {
+              "label": "My Drive"
+            },
+            "folder": {
+              "label": "Group7 Temp"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "google-drive:makeAFileAccessibleToAnyone",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "fileId": "{{3.id}}",
+        "role": "reader"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.shotstack.io/{{SHOTSTACK_REGION}}/v1/render",
+        "method": "post",
+        "headers": [
+          {
+            "name": "x-api-key",
+            "value": "{{SHOTSTACK_API_KEY}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": "{\"timeline\":{\"background\":\"#0B1220\",\"tracks\":[{\"clips\":[{\"asset\":{\"type\":\"html\",\"html\":\"<div style='width:1080px;height:1920px;background:linear-gradient(135deg, #0B1220 0%, #1E293B 100%);padding:96px;font-family:Inter,system-ui,sans-serif;color:#F8FAFC;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box'><div style='animation: fadeInUp 0.8s ease-out'><h1 style='font-size:72px;font-weight:600;line-height:1.2;margin:0;color:#F8FAFC;text-shadow:0 4px 12px rgba(0,0,0,0.3)'>{{1.hook}}</h1></div><div style='width:70%;animation: fadeInUp 1s ease-out 0.3s both'><p style='font-size:42px;line-height:1.4;margin:0;color:#CBD5E1'>{{1.insight}}</p></div><div style='display:flex;justify-content:space-between;align-items:center;animation: fadeInUp 1.2s ease-out 0.6s both'><div style='background:#0EA5E9;padding:24px 48px;border-radius:48px;font-size:36px;font-weight:600;box-shadow:0 8px 24px rgba(14,165,233,0.4)'>Follow Group7</div><div style='font-size:24px;color:#94A3B8;font-weight:500'>{{1.agent}}-7</div></div></div><style>@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}</style>\",\"css\":\"body{margin:0;padding:0;overflow:hidden}*{box-sizing:border-box}\",\"width\":1080,\"height\":1920},\"start\":0,\"length\":30,\"transition\":{\"in\":\"fade\",\"out\":\"fade\"}}]},{\"clips\":[{\"asset\":{\"type\":\"audio\",\"src\":\"https://drive.google.com/uc?export=download&id={{3.id}}\"},\"start\":0,\"length\":30}]}]},\"output\":{\"format\":\"mp4\",\"resolution\":\"hd\",\"fps\":30,\"size\":{\"width\":1080,\"height\":1920}}}",
+        "parseResponse": true,
+        "timeout": ""
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "mode": "chose",
+              "label": "POST"
+            },
+            "headers": {
+              "mode": "chose"
+            },
+            "bodyType": {
+              "label": "Raw"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "module": "util:Sleep",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "delay": "10"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 7,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "filter": {
+        "name": "Poll until done",
+        "conditions": [
+          [
+            {
+              "a": "{{8.response.status}}",
+              "b": "done",
+              "o": "text:notequal"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "url": "https://api.shotstack.io/{{SHOTSTACK_REGION}}/v1/render/{{5.response.id}}",
+        "method": "get",
+        "headers": [
+          {
+            "name": "x-api-key",
+            "value": "{{SHOTSTACK_API_KEY}}"
+          }
+        ],
+        "parseResponse": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 1800,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "mode": "chose",
+              "label": "GET"
+            },
+            "headers": {
+              "mode": "chose"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "module": "util:SetVariable",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "render_status",
+        "value": "{{7.response.status}}",
+        "lifetime": "1"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 9,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "filter": {
+        "name": "When done",
+        "conditions": [
+          [
+            {
+              "a": "{{8.response.status}}",
+              "b": "done",
+              "o": "text:equal"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "url": "{{7.response.url}}",
+        "method": "get",
+        "parseResponse": false
+      },
+      "metadata": {
+        "designer": {
+          "x": 2400,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 10,
+      "module": "google-drive:uploadAFile",
+      "version": 2,
+      "parameters": {
+        "drive": "drive",
+        "folder": "{{GDRIVE_OUTPUT_FOLDER_ID}}"
+      },
+      "mapper": {
+        "fileName": "{{1.slug}}.mp4",
+        "data": "{{9.data}}",
+        "convert": false
+      },
+      "metadata": {
+        "designer": {
+          "x": 2700,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 11,
+      "module": "notion:createPage",
+      "version": 1,
+      "parameters": {
+        "databaseId": "{{NOTION_VIDEO_DB_ID}}"
+      },
+      "mapper": {
+        "properties": {
+          "Title": {
+            "title": [
+              {
+                "text": {
+                  "content": "{{1.agent}} - {{1.slug}}"
+                }
+              }
+            ]
+          },
+          "Agent": {
+            "select": {
+              "name": "{{1.agent}}"
+            }
+          },
+          "Hook": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{1.hook}}"
+                }
+              }
+            ]
+          },
+          "Insight": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{1.insight}}"
+                }
+              }
+            ]
+          },
+          "Video URL": {
+            "url": "https://drive.google.com/file/d/{{10.id}}/view"
+          },
+          "Status": {
+            "select": {
+              "name": "Published"
+            }
+          }
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 3000,
+          "y": 0
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": false,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us1.make.com"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "daily_schedule": [
+    {
+      "time": "09:00",
+      "agent": "Lyra-7",
+      "platforms": ["tiktok", "instagram_reels"],
+      "priority": "high"
+    },
+    {
+      "time": "11:00",
+      "agent": "Atlas",
+      "platforms": ["tiktok", "instagram_reels"],
+      "priority": "medium"
+    },
+    {
+      "time": "13:00",
+      "agent": "Nova",
+      "platforms": ["tiktok", "instagram_reels"],
+      "priority": "high"
+    },
+    {
+      "time": "15:00",
+      "agent": "Cipher",
+      "platforms": ["tiktok", "instagram_reels"],
+      "priority": "medium"
+    },
+    {
+      "time": "17:00",
+      "agent": "Echo",
+      "platforms": ["tiktok", "instagram_reels"],
+      "priority": "high"
+    },
+    {
+      "time": "19:00",
+      "agent": "Quantum",
+      "platforms": ["tiktok", "instagram_reels"],
+      "priority": "medium"
+    },
+    {
+      "time": "21:00",
+      "agent": "Nexus",
+      "platforms": ["tiktok", "instagram_reels"],
+      "priority": "high"
+    }
+  ],
+  "cron_expressions": {
+    "daily_production": "0 6 * * *",
+    "nightly_learning": "0 2 * * *",
+    "hourly_monitor": "0 * * * *"
+  },
+  "throttle_limits": {
+    "max_concurrent_renders": 3,
+    "max_videos_per_day": 7,
+    "min_time_between_posts": 7200
+  },
+  "timezone": "America/New_York",
+  "enable_weekends": true,
+  "auto_retry_failed": true,
+  "max_retries": 2
+}

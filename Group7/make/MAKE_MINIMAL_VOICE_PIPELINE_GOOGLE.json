@@ -1,0 +1,118 @@
+{
+  "name": "Group7 Voice Pipeline (Google Drive)",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": "manual_trigger",
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": { "x": 0, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 2,
+      "module": "google-drive:ActionGetAFile",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "select": "map",
+        "fileId": "{{CSV_FILE_ID}}"
+      },
+      "metadata": {
+        "designer": { "x": 300, "y": 0 },
+        "restore": { "expect": {} }
+      }
+    },
+    {
+      "id": 3,
+      "module": "util:ParseCSV",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "csv": "{{2.data}}",
+        "delimiter": ",",
+        "header": true,
+        "skipEmpty": true
+      },
+      "metadata": {
+        "designer": { "x": 600, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 4,
+      "module": "builtin:BasicIterator",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "array": "{{3.csv}}"
+      },
+      "metadata": {
+        "designer": { "x": 900, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 5,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/{{if(4.agent = \"Lyra-7\", \"21m00Tcm4TlvDq8ikWAM\", if(4.agent = \"Atlas\", \"pNInz6obpgDQGcFmaJgB\", if(4.agent = \"Nova\", \"AZnzlk1XvdvUeBnXmlld\", if(4.agent = \"Cipher\", \"pNInz6obpgDQGcFmaJgB\", if(4.agent = \"Echo\", \"EXAVITQu4vr4xnSDxMaL\", if(4.agent = \"Quantum\", \"N2lVS1w4EtoT3dr4eOWO\", if(4.agent = \"Nexus\", \"JBFqnCBsd6RMkjVDRZzb\", \"21m00Tcm4TlvDq8ikWAM\")))))))}}/stream",
+        "method": "post",
+        "headers": [
+          { "name": "xi-api-key", "value": "{{ELEVENLABS_API_KEY}}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ],
+        "body": "{\n  \"text\": \"{{4.script}}\",\n  \"model_id\": \"eleven_turbo_v2_5\",\n  \"voice_settings\": {\n    \"stability\": {{if(4.agent = \"Lyra-7\", 0.70, if(4.agent = \"Atlas\", 0.65, if(4.agent = \"Nova\", 0.55, if(4.agent = \"Cipher\", 0.75, if(4.agent = \"Echo\", 0.60, if(4.agent = \"Quantum\", 0.68, if(4.agent = \"Nexus\", 0.72, 0.70)))))))}},\n    \"similarity_boost\": {{if(4.agent = \"Cipher\", 0.85, 0.75)}},\n    \"style\": {{if(4.agent = \"Nova\", 0.60, if(4.agent = \"Cipher\", 0.25, 0.45))}},\n    \"use_speaker_boost\": true\n  },\n  \"output_format\": \"mp3_44100_128\",\n  \"request_id\": \"make_{{4.outfile_slug}}\"\n}",
+        "parseResponse": false,
+        "timeout": 30000,
+        "followRedirect": true,
+        "rejectUnauthorized": true
+      },
+      "metadata": {
+        "designer": { "x": 1200, "y": 0 },
+        "restore": {}
+      }
+    },
+    {
+      "id": 6,
+      "module": "google-drive:ActionUploadAFile",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "select": "map",
+        "folderId": "{{GOOGLE_DRIVE_VOICE_FOLDER_ID}}",
+        "fileName": "{{4.outfile_slug}}.mp3",
+        "data": "{{5.data}}",
+        "mimeType": "audio/mpeg"
+      },
+      "metadata": {
+        "designer": { "x": 1500, "y": 0 },
+        "restore": { "expect": {} }
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": false,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us1.make.com"
+  }
+}

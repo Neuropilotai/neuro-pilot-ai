@@ -1,0 +1,190 @@
+{
+  "name": "Group 7 - Simple Voice Pipeline",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": 184858,
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "hook": {
+              "label": "Manual Trigger (Click Run Once)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "google-drive:ActionDownloadAFile",
+      "version": 4,
+      "parameters": {},
+      "mapper": {
+        "select": "path",
+        "path": "/Group7/Production/CSV_Inputs/GROUP7_CANVA_BATCH_2025-10-30.csv"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "select": {
+              "label": "By Path"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "module": "util:TextParser",
+      "version": 1,
+      "parameters": {
+        "type": "csv"
+      },
+      "mapper": {
+        "csv": "{{2.data}}",
+        "delimiter": ",",
+        "skipEmptyLines": true,
+        "containsHeaders": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "type": {
+              "label": "CSV"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "builtin:BasicFeeder",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "array": "{{3.array}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/TX3LPaxmHKxFdv7VOQHJ",
+        "method": "post",
+        "headers": [
+          {
+            "name": "xi-api-key",
+            "value": "PASTE_YOUR_ELEVENLABS_API_KEY_HERE"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "qs": [],
+        "bodyType": "raw",
+        "parseResponse": false,
+        "timeout": 300,
+        "shareCookies": false,
+        "rejectUnauthorized": true,
+        "followRedirect": true,
+        "useQuerystring": false,
+        "followAllRedirects": false,
+        "body": "{\"text\":\"{{4.VOICEOVER}}\",\"model_id\":\"eleven_turbo_v2\",\"voice_settings\":{\"stability\":0.75,\"similarity_boost\":0.80}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "mode": "chose",
+              "label": "POST"
+            },
+            "headers": {
+              "mode": "chose",
+              "items": [null, null]
+            },
+            "qs": {
+              "mode": "chose"
+            },
+            "bodyType": {
+              "label": "Raw"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "module": "google-drive:ActionUploadAFile",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "select": "path",
+        "path": "/Group7/Production/Voice/2025-10-30",
+        "fileName": "{{4.AUTOTAG}}_VO.mp3",
+        "data": "{{5.data}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "select": {
+              "label": "By Path"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us2.make.com"
+  }
+}

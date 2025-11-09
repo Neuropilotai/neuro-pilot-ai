@@ -1,0 +1,408 @@
+{
+  "version": "1.0.0",
+  "description": "CloudConvert API templates for audio normalization and video processing",
+  "api_base_url": "https://api.cloudconvert.com/v2",
+  "documentation": "https://cloudconvert.com/api/v2",
+
+  "authentication": {
+    "type": "Bearer Token",
+    "header": "Authorization: Bearer {{CLOUDCONVERT_TOKEN}}",
+    "note": "Get API key from CloudConvert dashboard: https://cloudconvert.com/dashboard/api/v2/keys"
+  },
+
+  "templates": {
+    "normalize_video_audio": {
+      "name": "Normalize Video Audio to -14 LUFS",
+      "description": "Industry standard loudness normalization for social media video",
+      "method": "POST",
+      "url": "{{api_base_url}}/jobs",
+      "headers": {
+        "Authorization": "Bearer {{CLOUDCONVERT_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "tasks": {
+          "import-video": {
+            "operation": "import/url",
+            "url": "{{video_url}}",
+            "filename": "{{original_filename}}"
+          },
+          "normalize-audio": {
+            "operation": "audio/normalize",
+            "input": ["import-video"],
+            "loudness": -14,
+            "true_peak": -1.0,
+            "lra": 7.0,
+            "format": "mp4",
+            "audio_codec": "aac",
+            "audio_bitrate": 192
+          },
+          "export-result": {
+            "operation": "export/url",
+            "input": ["normalize-audio"]
+          }
+        },
+        "tag": "group7_normalize"
+      },
+      "response": {
+        "job_id": "{{data.id}}",
+        "status_url": "{{api_base_url}}/jobs/{{data.id}}",
+        "webhook_url": "{{webhook_endpoint}}"
+      }
+    },
+
+    "merge_voice_video_music": {
+      "name": "Merge Voice Track + Background Music + Video",
+      "description": "Composite audio: voice at full volume, music at -22dB, normalize final mix",
+      "method": "POST",
+      "url": "{{api_base_url}}/jobs",
+      "headers": {
+        "Authorization": "Bearer {{CLOUDCONVERT_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "tasks": {
+          "import-video": {
+            "operation": "import/url",
+            "url": "{{video_url}}",
+            "filename": "video.mp4"
+          },
+          "import-voice": {
+            "operation": "import/url",
+            "url": "{{voice_url}}",
+            "filename": "voice.mp3"
+          },
+          "import-music": {
+            "operation": "import/url",
+            "url": "{{music_url}}",
+            "filename": "music.mp3"
+          },
+          "adjust-music-volume": {
+            "operation": "audio/adjust",
+            "input": ["import-music"],
+            "volume": "-22dB",
+            "fade_in": 0.5,
+            "fade_out": 1.0
+          },
+          "merge-audio": {
+            "operation": "audio/merge",
+            "input": ["import-voice", "adjust-music-volume"],
+            "mix_mode": "overlay",
+            "output_format": "mp3"
+          },
+          "normalize-merged-audio": {
+            "operation": "audio/normalize",
+            "input": ["merge-audio"],
+            "loudness": -14,
+            "true_peak": -1.0
+          },
+          "combine-video-audio": {
+            "operation": "video/merge",
+            "input": ["import-video", "normalize-merged-audio"],
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "preset": "medium",
+            "crf": 23
+          },
+          "export-final": {
+            "operation": "export/url",
+            "input": ["combine-video-audio"]
+          }
+        },
+        "tag": "group7_full_merge"
+      }
+    },
+
+    "convert_optimize_social": {
+      "name": "Optimize Video for Social Media",
+      "description": "Convert to optimal format for TikTok/IG/YT: 1080x1920, H.264, AAC, mobile-optimized",
+      "method": "POST",
+      "url": "{{api_base_url}}/jobs",
+      "headers": {
+        "Authorization": "Bearer {{CLOUDCONVERT_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "tasks": {
+          "import-video": {
+            "operation": "import/url",
+            "url": "{{video_url}}"
+          },
+          "optimize-video": {
+            "operation": "video/convert",
+            "input": ["import-video"],
+            "output_format": "mp4",
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "preset": "medium",
+            "crf": 23,
+            "profile": "high",
+            "level": "4.2",
+            "pixel_format": "yuv420p",
+            "video_bitrate": 5000,
+            "audio_bitrate": 192,
+            "audio_frequency": 48000,
+            "audio_channels": 2,
+            "width": 1080,
+            "height": 1920,
+            "fit": "scale",
+            "strip_metadata": false,
+            "faststart": true
+          },
+          "normalize-audio": {
+            "operation": "audio/normalize",
+            "input": ["optimize-video"],
+            "loudness": -14,
+            "true_peak": -1.0
+          },
+          "export-optimized": {
+            "operation": "export/url",
+            "input": ["normalize-audio"]
+          }
+        },
+        "tag": "group7_optimize"
+      }
+    },
+
+    "simple_normalize": {
+      "name": "Simple Audio Normalization (Fastest)",
+      "description": "Quick normalization without re-encoding video",
+      "method": "POST",
+      "url": "{{api_base_url}}/jobs",
+      "headers": {
+        "Authorization": "Bearer {{CLOUDCONVERT_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "tasks": {
+          "import": {
+            "operation": "import/url",
+            "url": "{{video_url}}"
+          },
+          "normalize": {
+            "operation": "audio/normalize",
+            "input": ["import"],
+            "loudness": -14,
+            "true_peak": -1.0,
+            "format": "mp4",
+            "copy_video": true
+          },
+          "export": {
+            "operation": "export/url",
+            "input": ["normalize"]
+          }
+        },
+        "tag": "group7_quick_normalize"
+      }
+    }
+  },
+
+  "job_polling": {
+    "check_status": {
+      "method": "GET",
+      "url": "{{api_base_url}}/jobs/{{job_id}}",
+      "headers": {
+        "Authorization": "Bearer {{CLOUDCONVERT_TOKEN}}"
+      },
+      "response_fields": {
+        "status": "waiting|processing|finished|error",
+        "created_at": "ISO 8601 timestamp",
+        "started_at": "ISO 8601 timestamp",
+        "ended_at": "ISO 8601 timestamp",
+        "tasks": "array of task objects with status",
+        "error": "error message if failed"
+      }
+    },
+    "get_export_url": {
+      "description": "Extract download URL from completed job",
+      "method": "GET",
+      "url": "{{api_base_url}}/jobs/{{job_id}}",
+      "extract_url": "data.tasks[?(@.name=='export-*')].result.files[0].url"
+    },
+    "wait_strategy": {
+      "poll_interval_seconds": 5,
+      "max_wait_seconds": 300,
+      "exponential_backoff": false,
+      "note": "CloudConvert provides webhooks for async processing (recommended)"
+    }
+  },
+
+  "make_com_module_10": {
+    "name": "Module #10: Normalize Audio with CloudConvert",
+    "type": "HTTP Request",
+    "description": "Create CloudConvert job to normalize video audio",
+    "config": {
+      "url": "https://api.cloudconvert.com/v2/jobs",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{env.CLOUDCONVERT_TOKEN}}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": "{{json({tasks: {import: {operation: 'import/url', url: module[9].video_url}, normalize: {operation: 'audio/normalize', input: ['import'], loudness: -14, true_peak: -1.0, format: 'mp4', copy_video: true}, export: {operation: 'export/url', input: ['normalize']}}, tag: 'group7_normalize_' + module[1].date})}}",
+      "timeout": 120000
+    },
+    "output": {
+      "job_id": "{{data.data.id}}",
+      "status": "{{data.data.status}}"
+    },
+    "next_steps": [
+      "Wait 30-60 seconds for processing",
+      "Poll job status until 'finished'",
+      "Extract export URL from tasks",
+      "Upload to Google Drive"
+    ]
+  },
+
+  "webhook_integration": {
+    "description": "CloudConvert can POST to webhook when job completes (recommended for Make.com)",
+    "setup": {
+      "webhook_url": "{{make_com_webhook_url}}",
+      "add_to_job": {
+        "webhook": "{{make_com_webhook_url}}"
+      }
+    },
+    "webhook_payload": {
+      "event": "job.finished|job.failed",
+      "job": {
+        "id": "string",
+        "status": "finished|error",
+        "tasks": "array",
+        "created_at": "timestamp",
+        "ended_at": "timestamp"
+      }
+    },
+    "make_com_webhook_module": {
+      "trigger": "Webhook",
+      "url": "Auto-generated by Make.com",
+      "response": "CloudConvert job result",
+      "next_module": "Extract export URL → Upload to Drive"
+    }
+  },
+
+  "audio_specifications": {
+    "target_loudness": {
+      "lufs": -14,
+      "standard": "ITU-R BS.1770-4",
+      "reason": "TikTok/Instagram/YouTube recommended loudness",
+      "tolerance": "±0.5 LUFS"
+    },
+    "true_peak": {
+      "level": -1.0,
+      "reason": "Prevent clipping on mobile devices"
+    },
+    "codec": "AAC",
+    "bitrate": "192 kbps (stereo)",
+    "sample_rate": "48 kHz",
+    "channels": 2,
+    "notes": [
+      "All social platforms normalize audio anyway, but pre-normalizing ensures consistency",
+      "Background music should be 22dB quieter than voice for clarity",
+      "-14 LUFS is the sweet spot for mobile listening",
+      "TikTok auto-normalizes to -14 LUFS",
+      "Instagram targets -14 LUFS for Reels",
+      "YouTube normalizes to -14 LUFS for Shorts"
+    ]
+  },
+
+  "video_specifications": {
+    "format": "MP4",
+    "container": "MPEG-4 Part 14",
+    "video_codec": "H.264 (AVC)",
+    "profile": "High",
+    "level": "4.2",
+    "pixel_format": "yuv420p",
+    "resolution": "1080x1920 (9:16 portrait)",
+    "frame_rate": "30 fps",
+    "video_bitrate": "5000 kbps (5 Mbps)",
+    "crf": "23 (balanced quality/size)",
+    "preset": "medium",
+    "faststart": true,
+    "notes": [
+      "faststart=true moves moov atom to start for faster streaming",
+      "CRF 23 is visually lossless for most content",
+      "yuv420p ensures compatibility with all devices",
+      "Profile High + Level 4.2 works on all modern devices"
+    ]
+  },
+
+  "error_handling": {
+    "rate_limits": {
+      "free_tier": "25 conversions/day",
+      "paid_tier": "Unlimited (fair use)",
+      "concurrent_jobs": "5 (can request increase)"
+    },
+    "common_errors": [
+      {
+        "code": 401,
+        "message": "Unauthorized - Invalid API key",
+        "solution": "Regenerate CLOUDCONVERT_TOKEN"
+      },
+      {
+        "code": 422,
+        "message": "Invalid input URL",
+        "solution": "Ensure video URL is publicly accessible (check Google Drive permissions)"
+      },
+      {
+        "code": 500,
+        "message": "Processing failed",
+        "solution": "Check source video format and size (max 5GB free, 50GB paid)"
+      }
+    ],
+    "retry_strategy": {
+      "max_attempts": 3,
+      "backoff": "exponential",
+      "initial_delay": 5000
+    }
+  },
+
+  "testing": {
+    "curl_example": "curl -X POST https://api.cloudconvert.com/v2/jobs \\\n  -H 'Authorization: Bearer YOUR_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"tasks\": {\n      \"import\": {\"operation\": \"import/url\", \"url\": \"https://example.com/video.mp4\"},\n      \"normalize\": {\"operation\": \"audio/normalize\", \"input\": [\"import\"], \"loudness\": -14},\n      \"export\": {\"operation\": \"export/url\", \"input\": [\"normalize\"]}\n    }\n  }'",
+    "test_video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    "test_checklist": [
+      "[ ] API key valid and not expired",
+      "[ ] Test with small video first (<10MB)",
+      "[ ] Verify normalized output is -14 LUFS (use ffmpeg or audacity)",
+      "[ ] Check true peak ≤ -1.0 dB",
+      "[ ] Confirm video quality maintained (CRF 23)",
+      "[ ] Test webhook delivery to Make.com",
+      "[ ] Measure processing time (30-60s typical for 30s video)",
+      "[ ] Verify export URL is accessible"
+    ]
+  },
+
+  "alternatives": {
+    "ffmpeg_command": {
+      "description": "If CloudConvert is unavailable, use FFmpeg directly",
+      "command": "ffmpeg -i input.mp4 -af loudnorm=I=-14:TP=-1.0:LRA=7 -c:v copy output.mp4",
+      "pros": "Free, unlimited, faster",
+      "cons": "Requires server with FFmpeg installed, more complex integration"
+    },
+    "elevenlabs_normalization": {
+      "description": "ElevenLabs can output pre-normalized audio",
+      "note": "Configure voice generation to export at -14 LUFS directly",
+      "limitation": "Only normalizes voice, not background music"
+    }
+  },
+
+  "cost_estimates": {
+    "free_tier": {
+      "conversions_per_day": 25,
+      "minutes_per_day": 25,
+      "total_monthly_cost": "$0"
+    },
+    "paid_tier_estimates": {
+      "videos_per_day": 7,
+      "avg_duration_seconds": 30,
+      "minutes_per_month": "7 * 0.5 * 30 = 105 minutes",
+      "cost_per_minute": "$0.008",
+      "monthly_cost": "$0.84",
+      "note": "Incredibly cheap for what it does"
+    }
+  }
+}

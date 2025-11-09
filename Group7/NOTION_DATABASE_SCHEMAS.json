@@ -1,0 +1,678 @@
+{
+  "version": "1.0.0",
+  "description": "Notion database schemas for Group7 AI Video Factory tracking and analytics",
+  "workspace": "Neuro.Pilot.AI",
+  "created": "2025-01-15",
+
+  "databases": {
+    "video_production_log": {
+      "name": "📹 Video Production Log",
+      "description": "Master database tracking all videos produced by the AI Video Factory",
+      "icon": "🎬",
+      "schema": {
+        "Agent": {
+          "type": "title",
+          "description": "AI agent name (Lyra, Atlas, Nova, etc.)"
+        },
+        "Date": {
+          "type": "date",
+          "description": "Production date"
+        },
+        "Sequence": {
+          "type": "number",
+          "format": "number",
+          "description": "Daily sequence number (1-7)"
+        },
+        "Job Key": {
+          "type": "rich_text",
+          "description": "Unique identifier: date_agent_sequence_hash"
+        },
+        "Hook": {
+          "type": "rich_text",
+          "description": "Video hook text"
+        },
+        "Insight": {
+          "type": "rich_text",
+          "description": "Core message/insight"
+        },
+        "CTA": {
+          "type": "rich_text",
+          "description": "Call to action"
+        },
+        "Caption": {
+          "type": "rich_text",
+          "description": "Social media caption"
+        },
+        "Hashtags": {
+          "type": "rich_text",
+          "description": "Hashtags used"
+        },
+        "Voice ID": {
+          "type": "select",
+          "options": [
+            {"name": "Rachel", "color": "blue"},
+            {"name": "Adam", "color": "green"},
+            {"name": "Domi", "color": "pink"},
+            {"name": "Bella", "color": "purple"},
+            {"name": "Callum", "color": "orange"},
+            {"name": "George", "color": "red"}
+          ],
+          "description": "ElevenLabs voice used"
+        },
+        "Voice URL": {
+          "type": "url",
+          "description": "Google Drive link to voice file"
+        },
+        "Video URL": {
+          "type": "url",
+          "description": "Google Drive link to final video"
+        },
+        "Metricool Post ID": {
+          "type": "rich_text",
+          "description": "Metricool post identifier"
+        },
+        "Post Time": {
+          "type": "date",
+          "description": "Scheduled post time"
+        },
+        "Status": {
+          "type": "select",
+          "options": [
+            {"name": "Pending", "color": "gray"},
+            {"name": "Processing", "color": "yellow"},
+            {"name": "Scheduled", "color": "blue"},
+            {"name": "Posted", "color": "green"},
+            {"name": "Failed", "color": "red"}
+          ],
+          "description": "Production status"
+        },
+        "Views (Total)": {
+          "type": "number",
+          "format": "number",
+          "description": "Total views across all platforms"
+        },
+        "Likes (Total)": {
+          "type": "number",
+          "format": "number",
+          "description": "Total likes across all platforms"
+        },
+        "Comments (Total)": {
+          "type": "number",
+          "format": "number",
+          "description": "Total comments across all platforms"
+        },
+        "Shares (Total)": {
+          "type": "number",
+          "format": "number",
+          "description": "Total shares across all platforms"
+        },
+        "Engagement Rate": {
+          "type": "number",
+          "format": "percent",
+          "description": "Overall engagement percentage"
+        },
+        "Watch Time Avg": {
+          "type": "number",
+          "format": "number",
+          "description": "Average watch time in seconds"
+        },
+        "TikTok Views": {
+          "type": "number",
+          "format": "number"
+        },
+        "Instagram Views": {
+          "type": "number",
+          "format": "number"
+        },
+        "YouTube Views": {
+          "type": "number",
+          "format": "number"
+        },
+        "Performance Score": {
+          "type": "formula",
+          "formula": "(prop(\"Views (Total)\") * 1) + (prop(\"Likes (Total)\") * 5) + (prop(\"Comments (Total)\") * 10) + (prop(\"Shares (Total)\") * 20)",
+          "description": "Weighted performance score"
+        },
+        "Created At": {
+          "type": "created_time",
+          "description": "Record creation timestamp"
+        },
+        "Updated At": {
+          "type": "last_edited_time",
+          "description": "Last update timestamp"
+        }
+      },
+      "views": [
+        {
+          "name": "All Videos",
+          "type": "table",
+          "sort": [{"property": "Date", "direction": "descending"}]
+        },
+        {
+          "name": "By Agent",
+          "type": "table",
+          "group_by": "Agent"
+        },
+        {
+          "name": "Top Performers",
+          "type": "table",
+          "sort": [{"property": "Performance Score", "direction": "descending"}],
+          "filter": {"property": "Status", "select": {"equals": "Posted"}}
+        },
+        {
+          "name": "This Week",
+          "type": "calendar",
+          "calendar_by": "Date"
+        }
+      ]
+    },
+
+    "analytics_insights": {
+      "name": "📊 Analytics & Insights",
+      "description": "Daily analytics summaries and AI-generated insights",
+      "icon": "📈",
+      "schema": {
+        "Date": {
+          "type": "title",
+          "description": "Analysis date"
+        },
+        "Total Views": {
+          "type": "number",
+          "format": "number"
+        },
+        "Total Likes": {
+          "type": "number",
+          "format": "number"
+        },
+        "Total Shares": {
+          "type": "number",
+          "format": "number"
+        },
+        "Avg Engagement Rate": {
+          "type": "number",
+          "format": "percent"
+        },
+        "Best Video": {
+          "type": "relation",
+          "relation": {
+            "database_id": "{{VIDEO_PRODUCTION_LOG_DB_ID}}",
+            "type": "single_property"
+          },
+          "description": "Link to best performing video"
+        },
+        "Worst Video": {
+          "type": "relation",
+          "relation": {
+            "database_id": "{{VIDEO_PRODUCTION_LOG_DB_ID}}",
+            "type": "single_property"
+          },
+          "description": "Link to worst performing video"
+        },
+        "Top Agent": {
+          "type": "select",
+          "options": [
+            {"name": "Lyra", "color": "blue"},
+            {"name": "Atlas", "color": "green"},
+            {"name": "Nova", "color": "pink"},
+            {"name": "Cipher", "color": "red"},
+            {"name": "Echo", "color": "purple"},
+            {"name": "Quantum", "color": "orange"},
+            {"name": "Nexus", "color": "gray"}
+          ]
+        },
+        "Key Insights": {
+          "type": "rich_text",
+          "description": "AI-generated insights from GPT analysis"
+        },
+        "Recommendations": {
+          "type": "rich_text",
+          "description": "Actionable recommendations for tomorrow"
+        },
+        "Trending Topics": {
+          "type": "multi_select",
+          "options": [
+            {"name": "AI Agents", "color": "blue"},
+            {"name": "Automation", "color": "green"},
+            {"name": "Productivity", "color": "pink"},
+            {"name": "Security", "color": "red"},
+            {"name": "Remote Work", "color": "purple"},
+            {"name": "Data Analytics", "color": "orange"},
+            {"name": "Integration", "color": "gray"}
+          ]
+        },
+        "Confidence Score": {
+          "type": "number",
+          "format": "percent",
+          "description": "Statistical confidence in insights"
+        },
+        "Created At": {
+          "type": "created_time"
+        }
+      }
+    },
+
+    "error_log": {
+      "name": "⚠️ Error & Retry Log",
+      "description": "Track failures and retry attempts for debugging",
+      "icon": "🚨",
+      "schema": {
+        "Job Key": {
+          "type": "title",
+          "description": "Failed job identifier"
+        },
+        "Date": {
+          "type": "date",
+          "description": "When error occurred"
+        },
+        "Agent": {
+          "type": "select",
+          "options": [
+            {"name": "Lyra", "color": "blue"},
+            {"name": "Atlas", "color": "green"},
+            {"name": "Nova", "color": "pink"},
+            {"name": "Cipher", "color": "red"},
+            {"name": "Echo", "color": "purple"},
+            {"name": "Quantum", "color": "orange"},
+            {"name": "Nexus", "color": "gray"}
+          ]
+        },
+        "Error Type": {
+          "type": "select",
+          "options": [
+            {"name": "API Timeout", "color": "red"},
+            {"name": "Rate Limit", "color": "orange"},
+            {"name": "Auth Failed", "color": "red"},
+            {"name": "Invalid Data", "color": "yellow"},
+            {"name": "Network Error", "color": "red"},
+            {"name": "Canva Export Failed", "color": "orange"},
+            {"name": "Voice Generation Failed", "color": "orange"},
+            {"name": "Upload Failed", "color": "yellow"}
+          ]
+        },
+        "Error Message": {
+          "type": "rich_text",
+          "description": "Full error message"
+        },
+        "Module": {
+          "type": "select",
+          "options": [
+            {"name": "Script Generation", "color": "blue"},
+            {"name": "Voice Creation", "color": "green"},
+            {"name": "Canva Render", "color": "pink"},
+            {"name": "Audio Normalize", "color": "purple"},
+            {"name": "Video Upload", "color": "orange"},
+            {"name": "Metricool Post", "color": "red"},
+            {"name": "Notion Logging", "color": "gray"}
+          ]
+        },
+        "Attempt": {
+          "type": "number",
+          "format": "number",
+          "description": "Retry attempt number"
+        },
+        "Status": {
+          "type": "select",
+          "options": [
+            {"name": "Retry Pending", "color": "yellow"},
+            {"name": "Retry Success", "color": "green"},
+            {"name": "Max Retries Reached", "color": "red"},
+            {"name": "Manual Fix Required", "color": "orange"}
+          ]
+        },
+        "Resolution": {
+          "type": "rich_text",
+          "description": "How the error was resolved"
+        },
+        "Created At": {
+          "type": "created_time"
+        }
+      }
+    },
+
+    "config_changelog": {
+      "name": "⚙️ Config Changelog",
+      "description": "Track all system configuration changes and AI learning updates",
+      "icon": "🔧",
+      "schema": {
+        "Date": {
+          "type": "title",
+          "description": "Change date"
+        },
+        "Change Type": {
+          "type": "select",
+          "options": [
+            {"name": "Prompt Update", "color": "blue"},
+            {"name": "Voice Settings", "color": "green"},
+            {"name": "Timing Adjustment", "color": "purple"},
+            {"name": "Hashtag Strategy", "color": "pink"},
+            {"name": "Agent Weights", "color": "orange"},
+            {"name": "Manual Override", "color": "red"}
+          ]
+        },
+        "Changed By": {
+          "type": "select",
+          "options": [
+            {"name": "AI Analytics", "color": "blue"},
+            {"name": "Manual Admin", "color": "red"}
+          ]
+        },
+        "Previous Value": {
+          "type": "rich_text",
+          "description": "Old configuration"
+        },
+        "New Value": {
+          "type": "rich_text",
+          "description": "Updated configuration"
+        },
+        "Rationale": {
+          "type": "rich_text",
+          "description": "Why this change was made"
+        },
+        "Impact": {
+          "type": "select",
+          "options": [
+            {"name": "High", "color": "red"},
+            {"name": "Medium", "color": "yellow"},
+            {"name": "Low", "color": "green"}
+          ]
+        },
+        "Created At": {
+          "type": "created_time"
+        }
+      }
+    }
+  },
+
+  "api_payloads": {
+    "create_video_log_entry": {
+      "method": "POST",
+      "url": "https://api.notion.com/v1/pages",
+      "headers": {
+        "Authorization": "Bearer {{NOTION_TOKEN}}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+      },
+      "body": {
+        "parent": {
+          "database_id": "{{VIDEO_PRODUCTION_LOG_DB_ID}}"
+        },
+        "properties": {
+          "Agent": {
+            "title": [
+              {
+                "text": {
+                  "content": "{{agent}}"
+                }
+              }
+            ]
+          },
+          "Date": {
+            "date": {
+              "start": "{{date}}"
+            }
+          },
+          "Sequence": {
+            "number": "{{sequence}}"
+          },
+          "Job Key": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{job_key}}"
+                }
+              }
+            ]
+          },
+          "Hook": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{hook}}"
+                }
+              }
+            ]
+          },
+          "Insight": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{insight}}"
+                }
+              }
+            ]
+          },
+          "CTA": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{cta}}"
+                }
+              }
+            ]
+          },
+          "Caption": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{caption}}"
+                }
+              }
+            ]
+          },
+          "Hashtags": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{hashtags}}"
+                }
+              }
+            ]
+          },
+          "Voice ID": {
+            "select": {
+              "name": "{{voice_name}}"
+            }
+          },
+          "Voice URL": {
+            "url": "{{voice_url}}"
+          },
+          "Video URL": {
+            "url": "{{video_url}}"
+          },
+          "Metricool Post ID": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{metricool_post_id}}"
+                }
+              }
+            ]
+          },
+          "Post Time": {
+            "date": {
+              "start": "{{post_datetime}}"
+            }
+          },
+          "Status": {
+            "select": {
+              "name": "Scheduled"
+            }
+          }
+        }
+      }
+    },
+
+    "update_video_analytics": {
+      "method": "PATCH",
+      "url": "https://api.notion.com/v1/pages/{{page_id}}",
+      "headers": {
+        "Authorization": "Bearer {{NOTION_TOKEN}}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+      },
+      "body": {
+        "properties": {
+          "Views (Total)": {
+            "number": "{{total_views}}"
+          },
+          "Likes (Total)": {
+            "number": "{{total_likes}}"
+          },
+          "Comments (Total)": {
+            "number": "{{total_comments}}"
+          },
+          "Shares (Total)": {
+            "number": "{{total_shares}}"
+          },
+          "Engagement Rate": {
+            "number": "{{engagement_rate}}"
+          },
+          "Watch Time Avg": {
+            "number": "{{watch_time_avg}}"
+          },
+          "TikTok Views": {
+            "number": "{{tiktok_views}}"
+          },
+          "Instagram Views": {
+            "number": "{{instagram_views}}"
+          },
+          "YouTube Views": {
+            "number": "{{youtube_views}}"
+          },
+          "Status": {
+            "select": {
+              "name": "Posted"
+            }
+          }
+        }
+      }
+    },
+
+    "create_analytics_summary": {
+      "method": "POST",
+      "url": "https://api.notion.com/v1/pages",
+      "headers": {
+        "Authorization": "Bearer {{NOTION_TOKEN}}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+      },
+      "body": {
+        "parent": {
+          "database_id": "{{ANALYTICS_INSIGHTS_DB_ID}}"
+        },
+        "properties": {
+          "Date": {
+            "title": [
+              {
+                "text": {
+                  "content": "{{date}}"
+                }
+              }
+            ]
+          },
+          "Total Views": {
+            "number": "{{total_views}}"
+          },
+          "Total Likes": {
+            "number": "{{total_likes}}"
+          },
+          "Total Shares": {
+            "number": "{{total_shares}}"
+          },
+          "Avg Engagement Rate": {
+            "number": "{{avg_engagement_rate}}"
+          },
+          "Top Agent": {
+            "select": {
+              "name": "{{top_agent}}"
+            }
+          },
+          "Key Insights": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{insights}}"
+                }
+              }
+            ]
+          },
+          "Recommendations": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{recommendations}}"
+                }
+              }
+            ]
+          },
+          "Confidence Score": {
+            "number": "{{confidence_score}}"
+          }
+        }
+      }
+    },
+
+    "query_videos_by_date": {
+      "method": "POST",
+      "url": "https://api.notion.com/v1/databases/{{VIDEO_PRODUCTION_LOG_DB_ID}}/query",
+      "headers": {
+        "Authorization": "Bearer {{NOTION_TOKEN}}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+      },
+      "body": {
+        "filter": {
+          "property": "Date",
+          "date": {
+            "equals": "{{date}}"
+          }
+        },
+        "sorts": [
+          {
+            "property": "Sequence",
+            "direction": "ascending"
+          }
+        ]
+      }
+    }
+  },
+
+  "make_com_integration_modules": [
+    {
+      "module_id": 13,
+      "name": "Log Video to Notion",
+      "description": "Create entry in Video Production Log after successful Metricool post",
+      "type": "HTTP Request",
+      "url": "https://api.notion.com/v1/pages",
+      "method": "POST",
+      "body": "See api_payloads.create_video_log_entry above",
+      "input_from": ["Module 3 (script data)", "Module 11 (video URL)", "Module 12 (Metricool post ID)"],
+      "output": "Notion page ID for future updates"
+    },
+    {
+      "module_id": "Nightly Analytics Update",
+      "name": "Fetch Metricool Data & Update Notion",
+      "description": "Runs at 11 PM EST to pull analytics and update video entries",
+      "steps": [
+        "Query Notion for today's videos",
+        "For each video, fetch Metricool analytics via API",
+        "Update Notion page with metrics",
+        "Pass aggregated data to OpenAI analytics prompt",
+        "Create Analytics Insights entry with GPT response"
+      ]
+    }
+  ],
+
+  "setup_instructions": [
+    "1. Create 4 Notion databases using schemas above",
+    "2. Get database IDs from URL (32-char hex after workspace name)",
+    "3. Create Notion integration at https://www.notion.so/my-integrations",
+    "4. Share all 4 databases with your integration",
+    "5. Copy integration token to Make.com environment as NOTION_TOKEN",
+    "6. Copy database IDs to env: VIDEO_PRODUCTION_LOG_DB_ID, ANALYTICS_INSIGHTS_DB_ID, etc.",
+    "7. Test API calls with curl or Postman",
+    "8. Configure Make.com modules using api_payloads templates",
+    "9. Set up nightly analytics automation (Module #16+)",
+    "10. Verify data flows from Make.com → Notion → GPT → Config updates"
+  ]
+}

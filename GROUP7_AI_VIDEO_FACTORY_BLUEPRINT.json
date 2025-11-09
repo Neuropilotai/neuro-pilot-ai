@@ -1,0 +1,242 @@
+{
+  "name": "Group 7 AI Video Factory - Full Pipeline",
+  "flow": [
+    {
+      "id": 1,
+      "module": "builtin:BasicScheduler",
+      "version": 1,
+      "parameters": {
+        "interval": 1,
+        "unit": "day",
+        "time": "06:00",
+        "timezone": "America/Toronto"
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {"x": 0, "y": 0},
+        "notes": "Daily trigger at 6 AM EST"
+      }
+    },
+    {
+      "id": 2,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "method": "post",
+        "headers": [
+          {"name": "Authorization", "value": "Bearer {{OPENAI_API_KEY}}"},
+          {"name": "Content-Type", "value": "application/json"}
+        ],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "body": "{\"model\":\"gpt-4\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a viral content strategist for Group 7 AI agents. Generate 7 unique video concepts (one per agent: Lyra, Atlas, Nova, Cipher, Echo, Quantum, Nexus). Return JSON array with fields: agent, hook_text, insight_text, cta_text, voiceover_script, caption, hashtags, voice_id (Onyx/Rachel/Nova)\"},{\"role\":\"user\",\"content\":\"Generate 7 viral AI agent video concepts for today {{formatDate(now; \\\"YYYY-MM-DD\\\")}}\"}],\"temperature\":0.9}"
+      },
+      "metadata": {
+        "designer": {"x": 300, "y": 0},
+        "notes": "GPT-4 generates 7 video concepts"
+      }
+    },
+    {
+      "id": 3,
+      "module": "util:TextParser",
+      "version": 1,
+      "parameters": {"type": "json"},
+      "mapper": {
+        "json": "{{2.data.choices[0].message.content}}"
+      },
+      "metadata": {
+        "designer": {"x": 600, "y": 0},
+        "notes": "Parse GPT output to JSON array"
+      }
+    },
+    {
+      "id": 4,
+      "module": "builtin:BasicFeeder",
+      "version": 1,
+      "parameters": {},
+      "mapper": {"array": "{{3.array}}"},
+      "metadata": {
+        "designer": {"x": 900, "y": 0},
+        "notes": "Iterator - processes 7 videos"
+      }
+    },
+    {
+      "id": 5,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/{{if(4.voice_id = \\\"Rachel\\\"; \\\"21m00Tcm4TlvDq8ikWAM\\\"; if(4.voice_id = \\\"Nova\\\"; \\\"EXAVITQu4vr4xnSDxMaL\\\"; \\\"TX3LPaxmHKxFdv7VOQHJ\\\"))}}/stream",
+        "method": "post",
+        "headers": [
+          {"name": "xi-api-key", "value": "{{ELEVENLABS_API_KEY}}"},
+          {"name": "accept", "value": "audio/mpeg"},
+          {"name": "content-type", "value": "application/json"}
+        ],
+        "bodyType": "raw",
+        "parseResponse": false,
+        "timeout": 300,
+        "body": "{\"text\":\"{{4.voiceover_script}}\",\"model_id\":\"eleven_multilingual_v2\",\"voice_settings\":{\"stability\":0.70,\"similarity_boost\":0.85,\"style\":0.45,\"use_speaker_boost\":true}}"
+      },
+      "metadata": {
+        "designer": {"x": 1200, "y": 0},
+        "notes": "ElevenLabs TTS - generates voiceover MP3"
+      }
+    },
+    {
+      "id": 6,
+      "module": "google-drive:ActionUploadAFile",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "select": "path",
+        "path": "/Group7/Production/Production/Voice",
+        "fileName": "GRP7_{{upper(4.agent)}}_{{formatDate(now; \\\"YYYYMMDD\\\")}}_VO.mp3",
+        "data": "{{5.data}}",
+        "conflictBehavior": "rename"
+      },
+      "metadata": {
+        "designer": {"x": 1500, "y": 0},
+        "notes": "Save voiceover MP3 to Drive"
+      }
+    },
+    {
+      "id": 7,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.canva.com/v1/designs",
+        "method": "post",
+        "headers": [
+          {"name": "Authorization", "value": "Bearer {{CANVA_API_KEY}}"},
+          {"name": "Content-Type", "value": "application/json"}
+        ],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "body": "{\"design_type\":\"Video\",\"template_id\":\"{{CANVA_TEMPLATE_ID}}\",\"title\":\"Group7_{{4.agent}}_{{formatDate(now; \\\"YYYYMMDD\\\")}}\",\"elements\":{\"hook_text\":\"{{4.hook_text}}\",\"insight_text\":\"{{4.insight_text}}\",\"cta_text\":\"{{4.cta_text}}\"},\"export\":{\"format\":\"mp4\",\"quality\":\"1080p\",\"width\":1080,\"height\":1920}}"
+      },
+      "metadata": {
+        "designer": {"x": 1800, "y": 0},
+        "notes": "Canva - render video from template"
+      }
+    },
+    {
+      "id": 8,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.cloudconvert.com/v2/jobs",
+        "method": "post",
+        "headers": [
+          {"name": "Authorization", "value": "Bearer {{CLOUDCONVERT_API_KEY}}"},
+          {"name": "Content-Type", "value": "application/json"}
+        ],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "body": "{\"tasks\":{\"import-video\":{\"operation\":\"import/url\",\"url\":\"{{7.data.export_url}}\"},\"import-audio\":{\"operation\":\"import/url\",\"url\":\"{{6.webViewLink}}\"},\"merge\":{\"operation\":\"merge\",\"input\":[\"import-video\",\"import-audio\"],\"output_format\":\"mp4\",\"audio_codec\":\"aac\",\"audio_bitrate\":192,\"video_codec\":\"h264\",\"audio_loudness\":\"-14 LUFS\"},\"export\":{\"operation\":\"export/url\"}}}"
+      },
+      "metadata": {
+        "designer": {"x": 2100, "y": 0},
+        "notes": "CloudConvert - merge MP3 + MP4, normalize audio"
+      }
+    },
+    {
+      "id": 9,
+      "module": "google-drive:ActionUploadAFile",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "select": "path",
+        "path": "/Group7/Production/Production/Videos",
+        "fileName": "GRP7_{{upper(4.agent)}}_{{formatDate(now; \\\"YYYYMMDD\\\")}}_FINAL.mp4",
+        "data": "{{8.data.tasks.export.result.files[0].url}}",
+        "conflictBehavior": "rename"
+      },
+      "metadata": {
+        "designer": {"x": 2400, "y": 0},
+        "notes": "Save final merged video to Drive"
+      }
+    },
+    {
+      "id": 10,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.metricool.com/v1/posts",
+        "method": "post",
+        "headers": [
+          {"name": "Authorization", "value": "Bearer {{METRICOOL_API_TOKEN}}"},
+          {"name": "Content-Type", "value": "application/json"}
+        ],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "body": "{\"brand_id\":\"{{METRICOOL_BRAND_ID}}\",\"profiles\":[\"{{TIKTOK_PROFILE_ID}}\",\"{{INSTAGRAM_PROFILE_ID}}\",\"{{YOUTUBE_PROFILE_ID}}\"],\"media_url\":\"{{9.webViewLink}}\",\"caption\":\"{{4.caption}}\\n\\n{{4.hashtags}} #Group7 #NeuroGenesisAI\",\"scheduled_time\":\"{{addHours(now; 2)}}\",\"timezone\":\"America/Toronto\",\"first_comment\":\"Which agent superpower would YOU want? Drop a number 1-7! 🧠⚡\",\"platforms\":[\"tiktok\",\"instagram_reels\",\"youtube_shorts\"]}"
+      },
+      "metadata": {
+        "designer": {"x": 2700, "y": 0},
+        "notes": "Metricool - schedule post to TikTok, IG, YT"
+      }
+    },
+    {
+      "id": 11,
+      "module": "notion:ActionCreateADatabaseItem",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "databaseId": "{{NOTION_VIDEO_DB_ID}}",
+        "properties": {
+          "Video ID": {"title": [{"text": {"content": "GRP7_{{upper(4.agent)}}_{{formatDate(now; \"YYYYMMDD\")}}"}}]},
+          "Agent": {"select": {"name": "{{4.agent}}"}},
+          "Status": {"select": {"name": "Scheduled"}},
+          "Batch Date": {"date": {"start": "{{formatDate(now; \"YYYY-MM-DD\")}}"}},
+          "Post Time": {"date": {"start": "{{addHours(now; 2)}}"}},
+          "Platforms": {"multi_select": [{"name": "TikTok"}, {"name": "Instagram"}, {"name": "YouTube"}]},
+          "Voiceover Script": {"rich_text": [{"text": {"content": "{{4.voiceover_script}}"}}]},
+          "Caption": {"rich_text": [{"text": {"content": "{{4.caption}}"}}]},
+          "Hashtags": {"rich_text": [{"text": {"content": "{{4.hashtags}}"}}]},
+          "Voice File": {"url": "{{6.webViewLink}}"},
+          "Final Video": {"url": "{{9.webViewLink}}"},
+          "Metricool Post ID": {"rich_text": [{"text": {"content": "{{10.data.post_id}}"}}]}
+        }
+      },
+      "metadata": {
+        "designer": {"x": 3000, "y": 0},
+        "notes": "Notion - log video metadata for analytics"
+      }
+    },
+    {
+      "id": 12,
+      "module": "builtin:ErrorHandler",
+      "version": 1,
+      "parameters": {
+        "retry": true,
+        "maxRetries": 3,
+        "retryInterval": 60
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {"x": 3300, "y": 300},
+        "notes": "Error handler - retry failed operations"
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": {"orphans": []},
+    "zone": "us2.make.com"
+  }
+}

@@ -1,0 +1,448 @@
+{
+  "scenario_name": "Group7 AI Video Factory - Daily Production Pipeline",
+  "version": "1.0.0",
+  "timezone": "America/Toronto",
+  "schedule": "Daily at 06:00 EST",
+  "description": "Automated pipeline producing 7 viral AI videos daily, one per agent with full lifecycle: script → voice → video → post → analytics",
+
+  "modules": [
+    {
+      "id": 1,
+      "name": "Daily Trigger",
+      "type": "Scheduler",
+      "app": "Make.com Scheduler",
+      "config": {
+        "cron": "0 6 * * *",
+        "timezone": "America/Toronto"
+      },
+      "output": {
+        "timestamp": "{{now}}",
+        "date": "{{formatDate(now; 'YYYY-MM-DD')}}"
+      }
+    },
+
+    {
+      "id": 2,
+      "name": "Generate Daily Scripts (GPT-4)",
+      "type": "HTTP Request",
+      "app": "OpenAI API",
+      "depends_on": [1],
+      "config": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer {{env.OPENAI_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "gpt-4-turbo",
+          "temperature": 0.85,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a viral video script writer for AI-themed TikTok/IG content. Generate exactly 7 video scripts (one per AI agent) in JSON array format. Each script must have: hook (attention-grabber <10 words), insight (core message 20-30 words), cta (call to action <15 words), caption (100-150 chars), hashtags (8-12 trending tags), post_time (HH:MM in EST). Style: 2025 AI-trend + emotion + data-driven + motivational. Agents: Lyra (strategic AI), Atlas (infrastructure), Nova (innovation), Cipher (security), Echo (communication), Quantum (prediction), Nexus (integration)."
+            },
+            {
+              "role": "user",
+              "content": "Generate 7 viral AI video scripts for {{module[1].date}}. Mix trends: AI automation, productivity hacks, tech motivation, data insights. Each agent should have unique angle. Hooks must be shareable. Target: 18-35 tech entrepreneurs."
+            }
+          ],
+          "response_format": { "type": "json_object" }
+        }
+      },
+      "output": {
+        "scripts": "{{parseJSON(data.choices[0].message.content).videos}}"
+      }
+    },
+
+    {
+      "id": 3,
+      "name": "Iterator: Process Each Script",
+      "type": "Iterator",
+      "app": "Make.com Flow Control",
+      "depends_on": [2],
+      "config": {
+        "array": "{{module[2].scripts}}"
+      },
+      "output": {
+        "agent": "{{item.agent}}",
+        "hook": "{{item.hook}}",
+        "insight": "{{item.insight}}",
+        "cta": "{{item.cta}}",
+        "caption": "{{item.caption}}",
+        "hashtags": "{{item.hashtags}}",
+        "post_time": "{{item.post_time}}"
+      }
+    },
+
+    {
+      "id": 4,
+      "name": "Get Voice Config",
+      "type": "Data Store",
+      "app": "Make.com Data Store",
+      "depends_on": [3],
+      "config": {
+        "store_name": "voice_profiles",
+        "operation": "search",
+        "filter": {
+          "agent": "{{module[3].agent}}"
+        }
+      },
+      "output": {
+        "voice_id": "{{item.voice_id}}",
+        "stability": "{{item.stability}}",
+        "style": "{{item.style}}",
+        "speed": "{{item.speed}}",
+        "pitch": "{{item.pitch}}"
+      }
+    },
+
+    {
+      "id": 5,
+      "name": "Generate Voice (ElevenLabs)",
+      "type": "HTTP Request",
+      "app": "ElevenLabs API",
+      "depends_on": [3, 4],
+      "config": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/{{module[4].voice_id}}",
+        "method": "POST",
+        "headers": {
+          "xi-api-key": "{{env.ELEVENLABS_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "text": "{{module[3].hook}}. {{module[3].insight}}. {{module[3].cta}}",
+          "model_id": "eleven_turbo_v2_5",
+          "voice_settings": {
+            "stability": "{{module[4].stability}}",
+            "similarity_boost": "{{module[4].style}}",
+            "speed": "{{module[4].speed}}",
+            "pitch": "{{module[4].pitch}}"
+          }
+        },
+        "response_type": "binary"
+      },
+      "output": {
+        "audio_binary": "{{data}}"
+      }
+    },
+
+    {
+      "id": 6,
+      "name": "Upload Voice to Google Drive",
+      "type": "Google Drive",
+      "app": "Google Drive",
+      "depends_on": [5],
+      "config": {
+        "operation": "upload",
+        "folder_path": "/Group7/Voice/{{module[1].date}}",
+        "filename": "{{module[3].agent}}_{{module[1].date}}.mp3",
+        "data": "{{module[5].audio_binary}}",
+        "share": true
+      },
+      "output": {
+        "voice_url": "{{data.webContentLink}}",
+        "voice_id": "{{data.id}}"
+      }
+    },
+
+    {
+      "id": 7,
+      "name": "Render Video in Canva",
+      "type": "HTTP Request",
+      "app": "Canva App API",
+      "depends_on": [3, 6],
+      "config": {
+        "url": "{{env.CANVA_ENDPOINT}}/autofill",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer {{env.CANVA_ACCESS_TOKEN}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "design_id": "{{env.CANVA_TEMPLATE_ID}}",
+          "data": {
+            "hook_text": "{{module[3].hook}}",
+            "insight_text": "{{module[3].insight}}",
+            "cta_text": "{{module[3].cta}}",
+            "agent_name": "{{module[3].agent}}",
+            "voice_url": "{{module[6].voice_url}}",
+            "brand_primary": "#0B1220",
+            "brand_accent": "#0EA5E9",
+            "brand_light": "#F8FAFC"
+          },
+          "export": {
+            "format": "mp4",
+            "quality": "1080p",
+            "fps": 30
+          }
+        }
+      },
+      "output": {
+        "export_job_id": "{{data.job.id}}"
+      }
+    },
+
+    {
+      "id": 8,
+      "name": "Wait for Canva Export",
+      "type": "Sleep",
+      "app": "Make.com Flow Control",
+      "depends_on": [7],
+      "config": {
+        "delay": 45
+      }
+    },
+
+    {
+      "id": 9,
+      "name": "Download Canva Video",
+      "type": "HTTP Request",
+      "app": "Canva App API",
+      "depends_on": [8],
+      "config": {
+        "url": "{{env.CANVA_ENDPOINT}}/export/{{module[7].export_job_id}}",
+        "method": "GET",
+        "headers": {
+          "Authorization": "Bearer {{env.CANVA_ACCESS_TOKEN}}"
+        },
+        "response_type": "binary"
+      },
+      "output": {
+        "video_binary": "{{data}}",
+        "video_url": "{{data.urls[0]}}"
+      }
+    },
+
+    {
+      "id": 10,
+      "name": "Normalize Audio with CloudConvert",
+      "type": "HTTP Request",
+      "app": "CloudConvert API",
+      "depends_on": [9],
+      "config": {
+        "url": "https://api.cloudconvert.com/v2/jobs",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer {{env.CLOUDCONVERT_TOKEN}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "tasks": {
+            "import-video": {
+              "operation": "import/url",
+              "url": "{{module[9].video_url}}"
+            },
+            "normalize-audio": {
+              "operation": "audio/normalize",
+              "input": "import-video",
+              "loudness": -14,
+              "format": "mp4"
+            },
+            "export-final": {
+              "operation": "export/url",
+              "input": "normalize-audio"
+            }
+          }
+        }
+      },
+      "output": {
+        "job_id": "{{data.data.id}}"
+      }
+    },
+
+    {
+      "id": 11,
+      "name": "Upload Final Video to Google Drive",
+      "type": "Google Drive",
+      "app": "Google Drive",
+      "depends_on": [10],
+      "config": {
+        "operation": "upload",
+        "folder_path": "/Group7/Production/Videos/{{module[1].date}}",
+        "filename": "{{module[3].agent}}_FINAL_{{module[1].date}}.mp4",
+        "url": "{{module[10].export_url}}",
+        "share": true
+      },
+      "output": {
+        "final_video_url": "{{data.webContentLink}}",
+        "final_video_id": "{{data.id}}"
+      }
+    },
+
+    {
+      "id": 12,
+      "name": "Schedule Post on Metricool",
+      "type": "HTTP Request",
+      "app": "Metricool API",
+      "depends_on": [3, 11],
+      "config": {
+        "url": "https://api.metricool.com/v1/posts",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer {{env.METRICOOL_TOKEN}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "platforms": ["tiktok", "instagram", "youtube_shorts"],
+          "text": "{{module[3].caption}} {{module[3].hashtags}}",
+          "media": [
+            {
+              "type": "video",
+              "url": "{{module[11].final_video_url}}"
+            }
+          ],
+          "schedule": {
+            "date": "{{module[1].date}}",
+            "time": "{{module[3].post_time}}",
+            "timezone": "America/Toronto"
+          }
+        }
+      },
+      "output": {
+        "post_id": "{{data.id}}",
+        "scheduled_at": "{{data.scheduled_at}}"
+      }
+    },
+
+    {
+      "id": 13,
+      "name": "Log to Notion Database",
+      "type": "HTTP Request",
+      "app": "Notion API",
+      "depends_on": [3, 11, 12],
+      "config": {
+        "url": "https://api.notion.com/v1/pages",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer {{env.NOTION_TOKEN}}",
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28"
+        },
+        "body": {
+          "parent": {
+            "database_id": "{{env.NOTION_VIDEO_DB_ID}}"
+          },
+          "properties": {
+            "Agent": {
+              "title": [
+                {
+                  "text": {
+                    "content": "{{module[3].agent}}"
+                  }
+                }
+              ]
+            },
+            "Date": {
+              "date": {
+                "start": "{{module[1].date}}"
+              }
+            },
+            "Hook": {
+              "rich_text": [
+                {
+                  "text": {
+                    "content": "{{module[3].hook}}"
+                  }
+                }
+              ]
+            },
+            "Insight": {
+              "rich_text": [
+                {
+                  "text": {
+                    "content": "{{module[3].insight}}"
+                  }
+                }
+              ]
+            },
+            "CTA": {
+              "rich_text": [
+                {
+                  "text": {
+                    "content": "{{module[3].cta}}"
+                  }
+                }
+              ]
+            },
+            "Video URL": {
+              "url": "{{module[11].final_video_url}}"
+            },
+            "Metricool Post ID": {
+              "rich_text": [
+                {
+                  "text": {
+                    "content": "{{module[12].post_id}}"
+                  }
+                }
+              ]
+            },
+            "Status": {
+              "select": {
+                "name": "Scheduled"
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "notion_page_id": "{{data.id}}"
+      }
+    },
+
+    {
+      "id": 14,
+      "name": "End Iterator Loop",
+      "type": "Aggregator",
+      "app": "Make.com Flow Control",
+      "depends_on": [13],
+      "config": {
+        "source": 3,
+        "target_structure": "array"
+      },
+      "output": {
+        "total_videos": "{{length(array)}}",
+        "summary": "{{array}}"
+      }
+    },
+
+    {
+      "id": 15,
+      "name": "Send Success Notification",
+      "type": "Email",
+      "app": "Make.com Email",
+      "depends_on": [14],
+      "config": {
+        "to": "{{env.NOTIFICATION_EMAIL}}",
+        "subject": "✅ Group7 AI Video Factory - {{module[14].total_videos}} Videos Produced",
+        "body": "Daily production complete for {{module[1].date}}.\n\nVideos produced: {{module[14].total_videos}}\n\nSummary:\n{{module[14].summary}}\n\n🎬 All videos scheduled and logged to Notion.\n\nDashboard: {{env.NOTION_DASHBOARD_URL}}"
+      }
+    }
+  ],
+
+  "error_handling": {
+    "retry_policy": {
+      "max_attempts": 3,
+      "backoff": "exponential",
+      "initial_delay": 5
+    },
+    "fallback": {
+      "on_failure": "log_to_notion_errors",
+      "notify": true
+    }
+  },
+
+  "data_stores": {
+    "voice_profiles": {
+      "description": "Voice settings per AI agent",
+      "structure": {
+        "agent": "string",
+        "voice_id": "string",
+        "stability": "number",
+        "style": "number",
+        "speed": "number",
+        "pitch": "number"
+      }
+    }
+  }
+}

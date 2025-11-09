@@ -1,0 +1,55 @@
+{
+  "comment": "Canva Autofill API - Create design from template",
+  "endpoint": "POST https://api.canva.com/rest/v1/autofills",
+  "headers": {
+    "Authorization": "Bearer {CANVA_ACCESS_TOKEN}",
+    "Content-Type": "application/json"
+  },
+  "request_body": {
+    "title": "Group7 Video - {AGENT} - {SLUG}",
+    "design_id": "{CANVA_TEMPLATE_ID}",
+    "data": {
+      "hook_text": {
+        "type": "text",
+        "text": "Most people wait for the future. We build it."
+      },
+      "insight_text": {
+        "type": "text",
+        "text": "Group7: 7 AI agents working as one."
+      },
+      "cta_text": {
+        "type": "text",
+        "text": "Follow Group7 →"
+      }
+    }
+  },
+  "response_example": {
+    "job": {
+      "id": "Jaf82jfla93",
+      "status": "in_progress",
+      "url": null,
+      "error": null
+    }
+  },
+  "polling": {
+    "endpoint": "GET https://api.canva.com/rest/v1/autofills/{job_id}",
+    "poll_interval_seconds": 5,
+    "max_polls": 60,
+    "success_status": "success",
+    "response_when_complete": {
+      "job": {
+        "id": "Jaf82jfla93",
+        "status": "success",
+        "url": "https://export-download.canva.com/DAFxxx/0/0/0001-xxxxx.mp4",
+        "error": null
+      }
+    }
+  },
+  "notes": [
+    "Canva autofills replace text/image placeholders in a template",
+    "Template must have named text elements matching data keys",
+    "Poll the job until status = 'success' or 'failed'",
+    "Export URL is temporary (valid ~24 hours)",
+    "Download the MP4 immediately after success"
+  ]
+}

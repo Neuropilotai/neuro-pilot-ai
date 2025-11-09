@@ -1,0 +1,68 @@
+{
+  "timeline": {
+    "background": "#0B1220",
+    "tracks": [
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "html",
+              "html": "<div style='width:1080px;height:1920px;background:linear-gradient(135deg, #0B1220 0%, #1E293B 100%);padding:96px;font-family:Inter,system-ui,sans-serif;color:#F8FAFC;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box'><div style='animation: fadeInUp 0.8s ease-out'><h1 style='font-size:72px;font-weight:600;line-height:1.2;margin:0;color:#F8FAFC;text-shadow:0 4px 12px rgba(0,0,0,0.3)'>{{hook_text}}</h1></div><div style='width:70%;animation: fadeInUp 1s ease-out 0.3s both'><p style='font-size:42px;line-height:1.4;margin:0;color:#CBD5E1'>{{insight_text}}</p></div><div style='display:flex;justify-content:space-between;align-items:center;animation: fadeInUp 1.2s ease-out 0.6s both'><div style='background:#0EA5E9;padding:24px 48px;border-radius:48px;font-size:36px;font-weight:600;box-shadow:0 8px 24px rgba(14,165,233,0.4)'>{{cta_text}}</div><div style='font-size:24px;color:#94A3B8;font-weight:500'>{{agent_name}}</div></div></div><style>@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}</style>",
+              "css": "body{margin:0;padding:0;overflow:hidden}*{box-sizing:border-box}",
+              "width": 1080,
+              "height": 1920
+            },
+            "start": 0,
+            "length": "{{duration}}",
+            "transition": {
+              "in": "fade",
+              "out": "fade"
+            }
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "audio",
+              "src": "{{voice_url}}"
+            },
+            "start": 0,
+            "length": "{{duration}}"
+          }
+        ]
+      },
+      {
+        "clips": [
+          {
+            "asset": {
+              "type": "image",
+              "src": "{{avatar_url}}"
+            },
+            "start": 0,
+            "length": "{{duration}}",
+            "position": "bottomRight",
+            "offset": {
+              "x": -0.12,
+              "y": -0.05
+            },
+            "scale": 0.15,
+            "transition": {
+              "in": "fade",
+              "out": "fade"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "output": {
+    "format": "mp4",
+    "fps": 30,
+    "size": {
+      "width": 1080,
+      "height": 1920
+    }
+  }
+}

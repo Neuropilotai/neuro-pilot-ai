@@ -1,0 +1,509 @@
+{
+  "name": "Group7 Shotstack Video Automation",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": "group7-video-trigger",
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {},
+        "expect": [
+          {
+            "name": "agent",
+            "type": "text",
+            "label": "Agent Name",
+            "required": true
+          },
+          {
+            "name": "hook",
+            "type": "text",
+            "label": "Hook Text",
+            "required": false
+          },
+          {
+            "name": "insight",
+            "type": "text",
+            "label": "Insight Text",
+            "required": false
+          },
+          {
+            "name": "cta",
+            "type": "text",
+            "label": "CTA Text",
+            "required": false
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "module": "openai:CreateCompletion",
+      "version": 1,
+      "parameters": {
+        "model": "gpt-4",
+        "temperature": 0.8,
+        "max_tokens": 200
+      },
+      "mapper": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are {{1.agent}}, an AI agent for Group7. Generate a compelling 15-30 second video script with:\n1. A hook (6-10 words, attention-grabbing)\n2. An insight (15-20 words, valuable information)\n\nFormat your response as JSON:\n{\n  \"hook\": \"your hook here\",\n  \"insight\": \"your insight here\"\n}\n\nFocus on AI, automation, productivity, and future tech. Be bold and confident."
+          },
+          {
+            "role": "user",
+            "content": "Generate a video script for today's post."
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "restore": {},
+        "parameters": [
+          {
+            "name": "model",
+            "type": "select",
+            "label": "Model",
+            "required": true
+          }
+        ]
+      },
+      "filter": {
+        "name": "Only if no hook/insight provided",
+        "conditions": [
+          [
+            {
+              "a": "{{1.hook}}",
+              "o": "text:isempty"
+            },
+            {
+              "a": "{{1.insight}}",
+              "o": "text:isempty"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "util:SetVariables",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "variables": [
+          {
+            "name": "hook",
+            "value": "{{if(1.hook; 1.hook; parseJSON(2.choices[].message.content).hook)}}"
+          },
+          {
+            "name": "insight",
+            "value": "{{if(1.insight; 1.insight; parseJSON(2.choices[].message.content).insight)}}"
+          },
+          {
+            "name": "cta",
+            "value": "{{if(1.cta; 1.cta; \"Follow Group7\")}}"
+          },
+          {
+            "name": "slug",
+            "value": "{{lower(1.agent)}}_{{formatDate(now; \"YYYYMMDD_HHmmss\")}}"
+          }
+        ],
+        "scope": "roundtrip"
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": false
+      },
+      "mapper": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/{{switch(1.agent; \"Lyra\"; \"jsCqWAovK2LkecY7zXl4\"; \"Atlas\"; \"TxGEqnHWrfWFTfGW9XjX\"; \"Nova\"; \"pFZP5JQG7iQjIQuC4Bku\"; \"Cipher\"; \"cgSgspJ2msm6clMCkdW9\"; \"Echo\"; \"EXAVITQu4vr4xnSDxMaL\"; \"Quantum\"; \"flq6f7yk4E4fJM5XTYuZ\"; \"Nexus\"; \"21m00Tcm4TlvDq8ikWAM\"; \"jsCqWAovK2LkecY7zXl4\")}}",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "xi-api-key",
+            "value": "{{env.ELEVENLABS_API_KEY}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "text": "{{3.hook}}. {{3.insight}}.",
+          "model_id": "eleven_turbo_v2",
+          "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.75
+          }
+        },
+        "serializeUrl": false,
+        "parseResponse": true,
+        "timeout": 300
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "label": "POST"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "google-drive:uploadFile",
+      "version": 3,
+      "parameters": {
+        "drive": "MY_DRIVE",
+        "folder": "{{env.GDRIVE_TEMP_FOLDER_ID}}",
+        "fileName": "temp_audio_{{3.slug}}.mp3",
+        "data": "{{4.data}}",
+        "convert": false
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 6,
+      "module": "google-drive:ActionMakeAFilePublic",
+      "version": 2,
+      "parameters": {},
+      "mapper": {
+        "fileId": "{{5.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 7,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": false
+      },
+      "mapper": {
+        "url": "https://api.shotstack.io/{{env.SHOTSTACK_REGION}}/v1/render",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "x-api-key",
+            "value": "{{env.SHOTSTACK_API_KEY}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "timeline": {
+            "background": "#0B1220",
+            "tracks": [
+              {
+                "clips": [
+                  {
+                    "asset": {
+                      "type": "html",
+                      "html": "<div style='width:1080px;height:1920px;background:linear-gradient(135deg, #0B1220 0%, #1E293B 100%);padding:96px;font-family:Inter,system-ui,sans-serif;color:#F8FAFC;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box'><div style='animation: fadeInUp 0.8s ease-out'><h1 style='font-size:72px;font-weight:600;line-height:1.2;margin:0;color:#F8FAFC;text-shadow:0 4px 12px rgba(0,0,0,0.3)'>{{3.hook}}</h1></div><div style='width:70%;animation: fadeInUp 1s ease-out 0.3s both'><p style='font-size:42px;line-height:1.4;margin:0;color:#CBD5E1'>{{3.insight}}</p></div><div style='display:flex;justify-content:space-between;align-items:center;animation: fadeInUp 1.2s ease-out 0.6s both'><div style='background:#0EA5E9;padding:24px 48px;border-radius:48px;font-size:36px;font-weight:600;box-shadow:0 8px 24px rgba(14,165,233,0.4)'>{{3.cta}}</div><div style='font-size:24px;color:#94A3B8;font-weight:500'>{{1.agent}}-7</div></div></div><style>@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}</style>",
+                      "css": "body{margin:0;padding:0;overflow:hidden}*{box-sizing:border-box}",
+                      "width": 1080,
+                      "height": 1920
+                    },
+                    "start": 0,
+                    "length": 30,
+                    "transition": {
+                      "in": "fade",
+                      "out": "fade"
+                    }
+                  }
+                ]
+              },
+              {
+                "clips": [
+                  {
+                    "asset": {
+                      "type": "audio",
+                      "src": "https://drive.google.com/uc?export=download&id={{5.id}}"
+                    },
+                    "start": 0,
+                    "length": 30
+                  }
+                ]
+              }
+            ]
+          },
+          "output": {
+            "format": "mp4",
+            "fps": 30,
+            "size": {
+              "width": 1080,
+              "height": 1920
+            }
+          }
+        },
+        "serializeUrl": false,
+        "parseResponse": true,
+        "timeout": 300
+      },
+      "metadata": {
+        "designer": {
+          "x": 1800,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "label": "POST"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "module": "util:Sleep",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "delay": 10
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 9,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": false
+      },
+      "mapper": {
+        "url": "https://api.shotstack.io/{{env.SHOTSTACK_REGION}}/v1/render/{{7.response.id}}",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "x-api-key",
+            "value": "{{env.SHOTSTACK_API_KEY}}"
+          }
+        ],
+        "serializeUrl": false,
+        "parseResponse": true,
+        "timeout": 300
+      },
+      "metadata": {
+        "designer": {
+          "x": 2400,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "label": "GET"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "module": "gateway:Repeater",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "repeats": 60,
+        "iterator": "{{9}}",
+        "until": "{{9.response.status = \"done\"}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2100,
+          "y": 150
+        },
+        "restore": {}
+      }
+    },
+    {
+      "id": 11,
+      "module": "http:ActionDownloadFile",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "url": "{{9.response.url}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 2700,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 12,
+      "module": "google-drive:uploadFile",
+      "version": 3,
+      "parameters": {
+        "drive": "MY_DRIVE",
+        "folder": "{{env.GDRIVE_OUTPUT_FOLDER_ID}}",
+        "fileName": "{{3.slug}}.mp4",
+        "data": "{{11.data}}",
+        "convert": false
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 3000,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "module": "notion:createPage",
+      "version": 1,
+      "parameters": {
+        "databaseId": "{{env.NOTION_VIDEO_DB_ID}}"
+      },
+      "mapper": {
+        "properties": {
+          "Title": {
+            "title": [
+              {
+                "text": {
+                  "content": "{{1.agent}} - {{3.slug}}"
+                }
+              }
+            ]
+          },
+          "Agent": {
+            "select": {
+              "name": "{{1.agent}}"
+            }
+          },
+          "Hook": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{3.hook}}"
+                }
+              }
+            ]
+          },
+          "Insight": {
+            "rich_text": [
+              {
+                "text": {
+                  "content": "{{3.insight}}"
+                }
+              }
+            ]
+          },
+          "Video URL": {
+            "url": "https://drive.google.com/file/d/{{12.id}}/view"
+          },
+          "Status": {
+            "select": {
+              "name": "Published"
+            }
+          },
+          "Created": {
+            "date": {
+              "start": "{{now}}"
+            }
+          }
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 3300,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 14,
+      "module": "gateway:WebhookRespond",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "status": 200,
+        "body": {
+          "status": "done",
+          "agent": "{{1.agent}}",
+          "slug": "{{3.slug}}",
+          "hook": "{{3.hook}}",
+          "insight": "{{3.insight}}",
+          "voice_url": "https://drive.google.com/uc?export=download&id={{5.id}}",
+          "video_url": "https://drive.google.com/file/d/{{12.id}}/view",
+          "render_id": "{{7.response.id}}",
+          "notion_page_id": "{{13.id}}"
+        },
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 3600,
+          "y": 0
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": false,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us1.make.com"
+  }
+}

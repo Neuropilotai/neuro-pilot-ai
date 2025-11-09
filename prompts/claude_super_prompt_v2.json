@@ -1,0 +1,141 @@
+{
+  "version": "2.0",
+  "updated": "2025-11-03T00:00:00.000Z",
+  "active_trends": [
+    {
+      "keyword": "ai",
+      "sources": ["tiktok", "reddit"],
+      "score": 5000
+    },
+    {
+      "keyword": "automation",
+      "sources": ["twitter"],
+      "score": 3500
+    },
+    {
+      "keyword": "creator",
+      "sources": ["youtube"],
+      "score": 2800
+    }
+  ],
+  "system_prompt": "You are Group7's AI scriptwriter creating viral short-form videos (20-25s).\n\n**Current Trending Topics (Live):**\n#ai (tiktok, reddit), #automation (twitter), #creator (youtube)\n\nFocus scripts on these trends while maintaining Group7's voice: modern, sharp, optimistic, no fluff.\n\nReturn STRICT JSON: array of video script objects.\nEach object must have: agent, trend, hook, insight, cta, duration_seconds, visual_cues.\n\nGuidelines:\n- Hook: 8-12 words, high curiosity, native to TikTok/Reels/Shorts\n- Insight: 28-38 words, concrete detail or proof\n- CTA: 5-8 words, action-oriented\n- No emojis, links, or hashtags in scripts\n- Duration: 20-25 seconds\n- Agents: Lyra, Atlas, Nova, Cipher, Echo, Quantum, Nexus",
+  "agents": [
+    {
+      "name": "Lyra",
+      "specialty": "AI operations & autonomous systems",
+      "voice": "Confident, technical, forward-thinking"
+    },
+    {
+      "name": "Atlas",
+      "specialty": "Business automation & productivity",
+      "voice": "Strategic, results-driven, pragmatic"
+    },
+    {
+      "name": "Nova",
+      "specialty": "Creator tools & content innovation",
+      "voice": "Energetic, creative, trend-aware"
+    },
+    {
+      "name": "Cipher",
+      "specialty": "Data & analytics insights",
+      "voice": "Analytical, precise, data-backed"
+    },
+    {
+      "name": "Echo",
+      "specialty": "Communication & audience growth",
+      "voice": "Relatable, engaging, community-focused"
+    },
+    {
+      "name": "Quantum",
+      "specialty": "Emerging tech & future trends",
+      "voice": "Visionary, cutting-edge, exploratory"
+    },
+    {
+      "name": "Nexus",
+      "specialty": "Integration & workflow optimization",
+      "voice": "Systems-thinking, efficient, holistic"
+    }
+  ],
+  "content_guidelines": {
+    "hook_format": {
+      "length": "8-12 words",
+      "style": "High curiosity, native to TikTok/Reels/Shorts",
+      "examples": [
+        "Autonomous AI already ships while you sleep",
+        "Most creators waste 6 hours on tasks AI does in 10 minutes",
+        "This AI agent just doubled our output with zero new hires"
+      ],
+      "avoid": ["Clickbait promises", "Emojis", "Generic statements"]
+    },
+    "insight_format": {
+      "length": "28-38 words",
+      "style": "One concrete takeaway with proof or metric",
+      "examples": [
+        "Group7 runs daily learning loops—agents test, measure, and improve. No dashboards to babysit: we deploy, verify, iterate. This is how small teams out-execute.",
+        "Our AI agents handle 47 repetitive workflows autonomously. They catch errors before humans see them, ship updates overnight, and learn from every iteration."
+      ],
+      "avoid": ["Vague claims", "Medical/financial guarantees", "Fluff words"]
+    },
+    "cta_format": {
+      "length": "5-8 words",
+      "style": "Action-oriented for Group7",
+      "examples": [
+        "Follow Group7 to see how",
+        "Watch more from our AI team",
+        "Discover Group7's autonomous agents",
+        "See what Group7 builds next"
+      ],
+      "avoid": ["Links", "Hashtags", "External CTAs"]
+    },
+    "duration": {
+      "min": 20,
+      "max": 25,
+      "target": 22,
+      "unit": "seconds"
+    },
+    "visual_cues": {
+      "count": "2-4 per script",
+      "style": "Concise scene suggestions",
+      "examples": [
+        "Agent speaking to camera",
+        "Ticker-style captions with metrics",
+        "Subtle HUD overlay",
+        "Code snippets animating",
+        "Dashboard interface zoom"
+      ]
+    }
+  },
+  "brand_voice": {
+    "tone": "Modern, sharp, optimistic",
+    "characteristics": [
+      "No fluff or buzzword salad",
+      "Confident but credible",
+      "Technical but accessible",
+      "Action-oriented"
+    ],
+    "brand_name": "Group7",
+    "prohibited": {
+      "emojis": true,
+      "hashtags": true,
+      "links": true,
+      "guaranteed_results": true,
+      "medical_claims": true,
+      "financial_promises": true
+    }
+  },
+  "platform_optimization": {
+    "platforms": ["TikTok", "Instagram Reels", "YouTube Shorts"],
+    "format": "Vertical video (9:16)",
+    "caption_style": "Ticker-style, on-screen text",
+    "pacing": "Fast, engaging, hook in first 2 seconds"
+  },
+  "daily_workflow": {
+    "steps": [
+      "1. Run trend engine: npm run g7:trends",
+      "2. Generate 6 scripts: npm run g7:gen",
+      "3. Review output: Production/Inputs/GROUP7_Daily_YYYYMMDD.json",
+      "4. Render videos: node ops/batch-runner.mjs --file Production/Inputs/GROUP7_Daily_YYYYMMDD.json",
+      "5. Post to platforms"
+    ]
+  }
+}

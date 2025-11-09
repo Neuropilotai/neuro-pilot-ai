@@ -1,0 +1,51 @@
+{
+  "comment": "Google Drive API v3 - Upload file to folder",
+  "auth_method": "Service Account JWT",
+  "scope": "https://www.googleapis.com/auth/drive.file",
+  "metadata_endpoint": "POST https://www.googleapis.com/drive/v3/files",
+  "upload_endpoint": "POST https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+  "headers": {
+    "Authorization": "Bearer {JWT_ACCESS_TOKEN}",
+    "Content-Type": "multipart/related; boundary=boundary_string"
+  },
+  "jwt_generation": {
+    "algorithm": "RS256",
+    "issuer": "{GDRIVE_SERVICE_EMAIL}",
+    "scope": "https://www.googleapis.com/auth/drive.file",
+    "aud": "https://oauth2.googleapis.com/token",
+    "exp": "now + 3600 seconds",
+    "iat": "now"
+  },
+  "request_multipart_body": "--boundary_string\nContent-Type: application/json; charset=UTF-8\n\n{\n  \"name\": \"GRP7_Lyra_test01.mp4\",\n  \"mimeType\": \"video/mp4\",\n  \"parents\": [\"{GDRIVE_OUTPUT_FOLDER_ID}\"]\n}\n\n--boundary_string\nContent-Type: video/mp4\n\n{BINARY_FILE_DATA}\n\n--boundary_string--",
+  "response_example": {
+    "kind": "drive#file",
+    "id": "1a2b3c4d5e6f7g8h9i0j",
+    "name": "GRP7_Lyra_test01.mp4",
+    "mimeType": "video/mp4",
+    "parents": [
+      "1XYZ_FOLDER_ID"
+    ],
+    "webViewLink": "https://drive.google.com/file/d/1a2b3c4d5e6f7g8h9i0j/view",
+    "webContentLink": "https://drive.google.com/uc?id=1a2b3c4d5e6f7g8h9i0j&export=download",
+    "size": "15234567",
+    "createdTime": "2025-11-02T12:00:00.000Z"
+  },
+  "service_account_setup": {
+    "steps": [
+      "1. Go to Google Cloud Console > IAM & Admin > Service Accounts",
+      "2. Create new service account (e.g., 'group7-uploader')",
+      "3. Download JSON key file",
+      "4. Share target Google Drive folder with service account email",
+      "5. Base64 encode the private key: cat key.json | jq -r .private_key | base64 | tr -d '\\n'",
+      "6. Set GDRIVE_PRIVATE_KEY_BASE64 in .env"
+    ]
+  },
+  "notes": [
+    "Service Account auth avoids OAuth user consent flow",
+    "JWT tokens expire after 1 hour, regenerate as needed",
+    "Multipart upload combines metadata + file data in one request",
+    "webViewLink is shareable URL for viewing in browser",
+    "Folder must be shared with service account email (Editor access)",
+    "Rate limit: 1000 requests per 100 seconds per project"
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "name": "group7-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GROUP7 AI Video Production Pipeline - Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "build": "pnpm --recursive build",
+    "start": "pnpm --parallel start",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint",
+    "clean": "pnpm --recursive clean && rm -rf node_modules",
+    "env:check": "node scripts/env-check.mjs",
+    "smoke": "node ../scripts/smoke-test.mjs",
+    "e2e:dry": "node ../tests/e2e/dry-run.mjs",
+    "typecheck": "pnpm --recursive typecheck",
+    "say": "node --env-file=.env ops/scripts/say.js",
+    "canva:render": "node scripts/canva-render.mjs",
+    "video:merge": "node scripts/cloudconvert-merge.mjs",
+    "drive:upload": "node scripts/upload-gdrive.mjs",
+    "notion:log": "node scripts/notion-log.mjs",
+    "run:one": "node ops/run-one.mjs",
+    "test:voices": "./ops/scripts/test-all-voices.sh",
+    "learn:analyze": "node ops/learning/analyze-performance.mjs",
+    "learn:adapt": "node ops/learning/adapt-prompts.mjs",
+    "learn:loop": "node ops/learning/learning-loop.mjs",
+    "style:optimize": "node scripts/canva-style-optimizer.mjs",
+    "publish:metricool": "node ops/publisher/post-to-metricool.mjs",
+    "schedule:daily": "node ops/publisher/scheduler.mjs",
+    "monitor:heartbeat": "node ops/monitor/heartbeat.mjs",
+    "monitor:status": "node scripts/report-status.mjs",
+    "selftest": "node scripts/selftest.mjs",
+    "shotstack:render": "node ops/run-one-shotstack.mjs",
+    "shotstack:test": "node scripts/shotstack-render.mjs test",
+    "shotstack:validate": "node scripts/shotstack-render.mjs validate",
+    "env:check:shotstack": "node scripts/env-check-shotstack.mjs",
+    "g7:gen": "node scripts/generate-daily-scripts.mjs",
+    "g7:gen:ai": "node scripts/generate-daily-scripts.mjs --topic 'AI agents & automation' --count 7",
+    "g7:gen:today": "node scripts/generate-daily-scripts.mjs --count 7"
+  },
+  "dependencies": {
+    "openai": "^4.68.4",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "prettier": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "keywords": [
+    "ai",
+    "video",
+    "automation",
+    "canva",
+    "make.com"
+  ],
+  "author": "David Mikulis / Neuro.Pilot.AI",
+  "license": "MIT"
+}

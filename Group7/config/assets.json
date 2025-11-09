@@ -1,0 +1,102 @@
+{
+  "brand": {
+    "name": "Group7",
+    "tagline": "We build the future together",
+    "logo_path": "/Users/davidmikulis/Library/CloudStorage/GoogleDrive-neuro.pilot.ai@gmail.com/My Drive/Group7/Lyra Group7.png",
+    "colors": {
+      "primary": "#0B1220",
+      "accent": "#0EA5E9",
+      "light": "#F8FAFC",
+      "dark": "#0F172A",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444"
+    }
+  },
+  "video": {
+    "resolution": {
+      "width": 1080,
+      "height": 1920,
+      "format": "vertical",
+      "aspect_ratio": "9:16"
+    },
+    "encoding": {
+      "codec": "h264",
+      "crf": 22,
+      "preset": "medium",
+      "audio_codec": "aac",
+      "audio_bitrate": "192k",
+      "audio_lufs": -14
+    },
+    "framerate": 30,
+    "duration_max": 60
+  },
+  "canva_template": {
+    "text_layers": {
+      "hook": "hook_text",
+      "insight": "insight_text",
+      "cta": "cta_text"
+    },
+    "animation_style": "smooth",
+    "transition_duration": 0.3
+  },
+  "agents": {
+    "Lyra-7": {
+      "display_name": "Lyra",
+      "color": "#A78BFA",
+      "icon": "🧠",
+      "role": "Creative Architect"
+    },
+    "Atlas": {
+      "display_name": "Atlas",
+      "color": "#3B82F6",
+      "icon": "🎯",
+      "role": "Strategic Intelligence"
+    },
+    "Nova": {
+      "display_name": "Nova",
+      "color": "#EC4899",
+      "icon": "⚡",
+      "role": "Research Intelligence"
+    },
+    "Cipher": {
+      "display_name": "Cipher",
+      "color": "#10B981",
+      "icon": "🛡️",
+      "role": "Security Intelligence"
+    },
+    "Echo": {
+      "display_name": "Echo",
+      "color": "#F59E0B",
+      "icon": "🗣️",
+      "role": "Communication Intelligence"
+    },
+    "Quantum": {
+      "display_name": "Quantum",
+      "color": "#8B5CF6",
+      "icon": "⚛️",
+      "role": "Optimization Intelligence"
+    },
+    "Nexus": {
+      "display_name": "Nexus",
+      "color": "#06B6D4",
+      "icon": "🌐",
+      "role": "Integration Intelligence"
+    }
+  },
+  "output": {
+    "filename_pattern": "GRP7_{AGENT}_{SLUG}.mp4",
+    "temp_prefix": "tmp_",
+    "metadata": {
+      "title_template": "Group7: {AGENT} - {HOOK}",
+      "description_template": "{INSIGHT}\n\n{CTA}\n\n#Group7 #AI #FutureOfWork",
+      "tags": [
+        "Group7",
+        "AI",
+        "Automation",
+        "FutureOfWork",
+        "TechTok"
+      ]
+    }
+  }
+}

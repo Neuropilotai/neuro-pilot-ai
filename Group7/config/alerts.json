@@ -1,0 +1,65 @@
+{
+  "version": "1.0.0",
+  "alert_channels": {
+    "email": {
+      "enabled": false,
+      "recipients": ["team@group7.ai"],
+      "smtp_config": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "secure": false
+      }
+    },
+    "discord": {
+      "enabled": false,
+      "webhook_url": "DISCORD_WEBHOOK_URL_HERE"
+    },
+    "slack": {
+      "enabled": false,
+      "webhook_url": "SLACK_WEBHOOK_URL_HERE"
+    }
+  },
+  "thresholds": {
+    "api_latency_ms": 5000,
+    "video_processing_time_min": 10,
+    "engagement_rate_min": 2.0,
+    "success_rate_min": 0.85,
+    "disk_usage_max_gb": 50
+  },
+  "alert_rules": [
+    {
+      "name": "High API Latency",
+      "condition": "api_latency > 5000ms",
+      "severity": "warning",
+      "cooldown_minutes": 30
+    },
+    {
+      "name": "Video Production Failed",
+      "condition": "video_status = failed",
+      "severity": "critical",
+      "cooldown_minutes": 0
+    },
+    {
+      "name": "Low Engagement",
+      "condition": "engagement_rate < 2.0%",
+      "severity": "info",
+      "cooldown_minutes": 1440
+    },
+    {
+      "name": "Success Rate Below Threshold",
+      "condition": "success_rate < 85%",
+      "severity": "warning",
+      "cooldown_minutes": 360
+    },
+    {
+      "name": "Disk Space Critical",
+      "condition": "disk_usage > 50GB",
+      "severity": "critical",
+      "cooldown_minutes": 60
+    }
+  ],
+  "alert_format": {
+    "title": "🚨 Group7 Alert: {alert_name}",
+    "body": "**Severity**: {severity}\n**Time**: {timestamp}\n**Details**: {message}\n**Action**: {recommended_action}"
+  }
+}

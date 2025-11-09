@@ -1,0 +1,50 @@
+{
+  "agent": "Lyra-7",
+  "model_id": "eleven_turbo_v2_5",
+  "voice": {
+    "name": "Rachel",
+    "fallback": ["Nova", "Bella"]
+  },
+  "voice_settings": {
+    "stability": 0.70,
+    "similarity_boost": 0.75,
+    "style": 0.45,
+    "use_speaker_boost": true
+  },
+  "delivery": {
+    "speed_multiplier": 0.92,
+    "pitch_semitones": -2
+  },
+  "mix": {
+    "normalize_lufs": -14,
+    "high_pass_hz": 80,
+    "compressor": { "threshold_db": -3, "ratio": 3.0 }
+  },
+  "defaults": {
+    "optimize_streaming_latency": 3,
+    "output_format": "mp3_44100_128",
+    "apply_voice_settings": true
+  },
+  "style_guide": {
+    "persona": "Calm confidence, futuristic empathy; sounds like a thoughtful systems architect.",
+    "tone_split": { "informative": 0.70, "inspiring": 0.20, "playful": 0.10 },
+    "dos": [
+      "Emphasize power words: build, system, signal, architecture, evolution.",
+      "Short sentences. Intentional pauses."
+    ],
+    "donts": [
+      "Overly salesy language.",
+      "Fast run-on sentences."
+    ],
+    "pause_marks": {
+      "short": "…",
+      "med": " — ",
+      "long": "\n\n"
+    }
+  },
+  "test_lines": [
+    "Group Seven. We don't wait… we build.",
+    "While you sleep — we're engineering tomorrow.",
+    "The future doesn't exist yet. Good. Let's build it together."
+  ]
+}

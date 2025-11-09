@@ -1,0 +1,496 @@
+{
+  "version": "1.0.0",
+  "description": "Complete testing dataset for Group7 AI Video Factory with expected inputs/outputs per pipeline stage",
+  "test_date": "2025-01-20",
+  "test_mode": "development",
+
+  "agents": [
+    {
+      "sequence": 1,
+      "agent": "Lyra",
+      "test_input": {
+        "date": "2025-01-20",
+        "trending_topic": "AI agents replacing middle management",
+        "target_emotion": "urgency"
+      },
+      "script_output": {
+        "hook": "Your manager's job just became obsolete",
+        "insight": "73% of Fortune 500 companies are deploying AI agents for decision-making roles. Middle management is the first layer to go.",
+        "cta": "Adapt or get replaced",
+        "caption": "The AI revolution starts at the org chart. Your team structure is about to flip. Are you ready? 🚀",
+        "hashtags": "#AI #FutureOfWork #Leadership #AIAgents #Automation #Management #TechTrends #BusinessTransformation #Innovation #WorkplaceAI #DigitalLeadership #AgileOrg",
+        "post_time": "09:00",
+        "duration_estimate": 28,
+        "tone": "urgent"
+      },
+      "voice_output": {
+        "voice_id": "21m00Tcm4TlvDq8ikWAM",
+        "voice_name": "Rachel",
+        "text": "Your manager's job just became obsolete. 73% of Fortune 500 companies are deploying AI agents for decision-making roles. Middle management is the first layer to go. Adapt or get replaced.",
+        "expected_duration": 11,
+        "settings": {
+          "stability": 0.65,
+          "similarity_boost": 0.75,
+          "style": 0.70,
+          "speed": 0.92,
+          "pitch": -2
+        },
+        "expected_file": "Lyra_2025-01-20.mp3",
+        "expected_url": "https://drive.google.com/file/d/TEST_LYRA_VOICE/view"
+      },
+      "canva_render": {
+        "template_id": "DAGabcdefgh",
+        "bindings": {
+          "hook_text": "Your manager's job just became obsolete",
+          "insight_text": "73% of Fortune 500 deploying AI for decisions. Middle management → first to go.",
+          "cta_text": "Adapt or get replaced",
+          "agent_name": "Lyra",
+          "voice_url": "https://drive.google.com/file/d/TEST_LYRA_VOICE/view",
+          "brand_primary": "#0B1220",
+          "brand_accent": "#0EA5E9",
+          "brand_light": "#F8FAFC"
+        },
+        "expected_output": {
+          "export_format": "mp4",
+          "resolution": "1080x1920",
+          "duration": 28,
+          "file_size_mb": 12,
+          "job_id": "canva_job_lyra_001"
+        }
+      },
+      "cloudconvert_normalize": {
+        "input_video_url": "https://canva.export.url/lyra_raw.mp4",
+        "tasks": ["import", "normalize", "export"],
+        "target_lufs": -14,
+        "expected_output": {
+          "job_id": "cc_job_lyra_001",
+          "output_url": "https://cloudconvert.export.url/lyra_normalized.mp4",
+          "processing_time_seconds": 45
+        }
+      },
+      "google_drive_upload": {
+        "folder_path": "/Group7/Production/Videos/2025-01-20",
+        "filename": "Lyra_FINAL_2025-01-20.mp4",
+        "expected_output": {
+          "file_id": "1TEST_LYRA_FINAL",
+          "web_view_link": "https://drive.google.com/file/d/1TEST_LYRA_FINAL/view",
+          "web_content_link": "https://drive.google.com/uc?export=download&id=1TEST_LYRA_FINAL"
+        }
+      },
+      "metricool_post": {
+        "platforms": ["tiktok", "instagram", "youtube"],
+        "text": "The AI revolution starts at the org chart. Your team structure is about to flip. Are you ready? 🚀 #AI #FutureOfWork #Leadership #AIAgents #Automation #Management #TechTrends #BusinessTransformation #Innovation #WorkplaceAI #DigitalLeadership #AgileOrg",
+        "media_url": "https://drive.google.com/uc?export=download&id=1TEST_LYRA_FINAL",
+        "schedule": {
+          "date": "2025-01-20",
+          "time": "09:00",
+          "timezone": "America/Toronto"
+        },
+        "expected_output": {
+          "post_id": "mp_lyra_20250120",
+          "status": "scheduled",
+          "scheduled_at": "2025-01-20T09:00:00-05:00"
+        }
+      },
+      "notion_log": {
+        "database_id": "{{VIDEO_PRODUCTION_LOG_DB_ID}}",
+        "expected_entry": {
+          "Agent": "Lyra",
+          "Date": "2025-01-20",
+          "Sequence": 1,
+          "Job Key": "2025-01-20_Lyra_1_a3f2b8c9",
+          "Hook": "Your manager's job just became obsolete",
+          "Status": "Scheduled",
+          "Metricool Post ID": "mp_lyra_20250120"
+        }
+      },
+      "expected_analytics": {
+        "day_1": {
+          "views_total": 85000,
+          "likes_total": 6800,
+          "comments_total": 342,
+          "shares_total": 891,
+          "engagement_rate": 9.7,
+          "watch_time_avg": 15.2,
+          "platform_breakdown": {
+            "tiktok": {"views": 52000, "engagement_rate": 11.2},
+            "instagram": {"views": 24000, "engagement_rate": 8.9},
+            "youtube": {"views": 9000, "engagement_rate": 7.4}
+          }
+        }
+      }
+    },
+
+    {
+      "sequence": 2,
+      "agent": "Atlas",
+      "test_input": {
+        "date": "2025-01-20",
+        "trending_topic": "Infrastructure as the moat for AI companies",
+        "target_emotion": "inspiration"
+      },
+      "script_output": {
+        "hook": "Your infrastructure is your only moat",
+        "insight": "AI models are commoditized. Distribution is easy. Infrastructure scalability? That's your competitive advantage and survival key.",
+        "cta": "Build systems, not features",
+        "caption": "In 2025, infrastructure isn't boring—it's existential. Scale or die. ⚡",
+        "hashtags": "#Infrastructure #CloudComputing #DevOps #TechStack #ScaleUp #AIInfrastructure #SystemDesign #TechLeadership #EnterpriseAI #CloudNative #Kubernetes #BackendDev",
+        "post_time": "11:30",
+        "duration_estimate": 25,
+        "tone": "professional"
+      },
+      "voice_output": {
+        "voice_id": "pNInz6obpgDQGcFmaJgB",
+        "voice_name": "Adam",
+        "text": "Your infrastructure is your only moat. AI models are commoditized. Distribution is easy. Infrastructure scalability? That's your competitive advantage and survival key. Build systems, not features.",
+        "expected_duration": 10,
+        "settings": {
+          "stability": 0.70,
+          "similarity_boost": 0.80,
+          "style": 0.65,
+          "speed": 0.88,
+          "pitch": -5
+        }
+      },
+      "expected_analytics": {
+        "day_1": {
+          "views_total": 62000,
+          "engagement_rate": 7.8
+        }
+      }
+    },
+
+    {
+      "sequence": 3,
+      "agent": "Nova",
+      "test_input": {
+        "date": "2025-01-20",
+        "trending_topic": "Product innovation cycles accelerating with AI",
+        "target_emotion": "inspiration"
+      },
+      "script_output": {
+        "hook": "Ship in days, not months",
+        "insight": "AI-assisted development is 10x faster. Teams shipping MVPs in 72 hours that used to take quarters. Speed is the new quality.",
+        "cta": "Move faster or move over",
+        "caption": "Innovation used to take months. Now it takes a weekend. What's your excuse? 🚀",
+        "hashtags": "#Innovation #ProductDev #AITools #StartupLife #BuildInPublic #NoCode #RapidPrototyping #TechInnovation #MVPDevelopment #AgileAI #ShipFast #ProductManagement",
+        "post_time": "14:00",
+        "duration_estimate": 22,
+        "tone": "energetic"
+      },
+      "voice_output": {
+        "voice_id": "AZnzlk1XvdvUeBnXmlld",
+        "voice_name": "Domi",
+        "text": "Ship in days, not months. AI-assisted development is 10x faster. Teams shipping MVPs in 72 hours that used to take quarters. Speed is the new quality. Move faster or move over.",
+        "expected_duration": 9,
+        "settings": {
+          "stability": 0.55,
+          "similarity_boost": 0.70,
+          "style": 0.80,
+          "speed": 1.05,
+          "pitch": 2
+        }
+      },
+      "expected_analytics": {
+        "day_1": {
+          "views_total": 94000,
+          "engagement_rate": 12.1
+        }
+      }
+    },
+
+    {
+      "sequence": 4,
+      "agent": "Cipher",
+      "test_input": {
+        "date": "2025-01-20",
+        "trending_topic": "AI security vulnerabilities surge",
+        "target_emotion": "urgency"
+      },
+      "script_output": {
+        "hook": "Your AI is leaking secrets right now",
+        "insight": "89% of companies using AI have data exposure risks. Prompt injection, model poisoning, and data exfiltration are the new attack vectors.",
+        "cta": "Secure your stack before it's too late",
+        "caption": "AI security isn't optional anymore. Every vulnerability is multiplied by automation. 🔒",
+        "hashtags": "#CyberSecurity #AISecure #DataPrivacy #InfoSec #TechSecurity #AIEthics #ZeroTrust #SecurityFirst #AIGovernance #PromptInjection #ModelSecurity #EnterpriseSecurity",
+        "post_time": "16:30",
+        "duration_estimate": 26,
+        "tone": "urgent"
+      },
+      "voice_output": {
+        "voice_id": "pNInz6obpgDQGcFmaJgB",
+        "voice_name": "Adam (lower pitch)",
+        "text": "Your AI is leaking secrets right now. 89% of companies using AI have data exposure risks. Prompt injection, model poisoning, and data exfiltration are the new attack vectors. Secure your stack before it's too late.",
+        "expected_duration": 11,
+        "settings": {
+          "stability": 0.75,
+          "similarity_boost": 0.85,
+          "style": 0.55,
+          "speed": 0.85,
+          "pitch": -8
+        }
+      },
+      "expected_analytics": {
+        "day_1": {
+          "views_total": 71000,
+          "engagement_rate": 8.4
+        }
+      }
+    },
+
+    {
+      "sequence": 5,
+      "agent": "Echo",
+      "test_input": {
+        "date": "2025-01-20",
+        "trending_topic": "Async communication as competitive advantage",
+        "target_emotion": "inspiration"
+      },
+      "script_output": {
+        "hook": "Stop calling meetings",
+        "insight": "High-performing teams communicate 90% async. Real-time sync is a tax on productivity. Document, automate, then meet only when critical.",
+        "cta": "Master async or stay stuck",
+        "caption": "The best teams talk less and ship more. Async communication isn't a perk—it's a superpower. 💬",
+        "hashtags": "#RemoteWork #AsyncWork #TeamCulture #ProductivityHacks #DistributedTeams #WorkplaceInnovation #FutureOfWork #NoMeetings #Documentation #TeamCollaboration #DigitalWorkplace #RemoteFirst",
+        "post_time": "18:00",
+        "duration_estimate": 24,
+        "tone": "inspiring"
+      },
+      "voice_output": {
+        "voice_id": "EXAVITQu4vr4xnSDxMaL",
+        "voice_name": "Bella",
+        "text": "Stop calling meetings. High-performing teams communicate 90% async. Real-time sync is a tax on productivity. Document, automate, then meet only when critical. Master async or stay stuck.",
+        "expected_duration": 10,
+        "settings": {
+          "stability": 0.60,
+          "similarity_boost": 0.75,
+          "style": 0.75,
+          "speed": 0.95,
+          "pitch": 0
+        }
+      },
+      "expected_analytics": {
+        "day_1": {
+          "views_total": 78000,
+          "engagement_rate": 10.2
+        }
+      }
+    },
+
+    {
+      "sequence": 6,
+      "agent": "Quantum",
+      "test_input": {
+        "date": "2025-01-20",
+        "trending_topic": "Predictive AI outperforming human strategists",
+        "target_emotion": "curiosity"
+      },
+      "script_output": {
+        "hook": "AI predicted this 6 months ago",
+        "insight": "Predictive models are forecasting market shifts with 84% accuracy. Your competitors aren't guessing—they're using data. You're already behind.",
+        "cta": "Start predicting, stop reacting",
+        "caption": "Strategy used to be intuition. Now it's algorithms. The future belongs to those who see it coming. 🔮",
+        "hashtags": "#PredictiveAI #DataScience #AIAnalytics #MachineLearning #BusinessIntelligence #DataDriven #AIForecasting #QuantumComputing #FutureOfBusiness #StrategyAI #AnalyticsPlatform #PredictiveAnalytics",
+        "post_time": "19:30",
+        "duration_estimate": 27,
+        "tone": "analytical"
+      },
+      "voice_output": {
+        "voice_id": "flq6f7yk4E4fJg5jBPQE",
+        "voice_name": "Callum",
+        "text": "AI predicted this 6 months ago. Predictive models are forecasting market shifts with 84% accuracy. Your competitors aren't guessing—they're using data. You're already behind. Start predicting, stop reacting.",
+        "expected_duration": 11,
+        "settings": {
+          "stability": 0.68,
+          "similarity_boost": 0.78,
+          "style": 0.68,
+          "speed": 0.90,
+          "pitch": -3
+        }
+      },
+      "expected_analytics": {
+        "day_1": {
+          "views_total": 68000,
+          "engagement_rate": 9.1
+        }
+      }
+    },
+
+    {
+      "sequence": 7,
+      "agent": "Nexus",
+      "test_input": {
+        "date": "2025-01-20",
+        "trending_topic": "Integration complexity killing productivity gains",
+        "target_emotion": "urgency"
+      },
+      "script_output": {
+        "hook": "You don't need more tools",
+        "insight": "Average company uses 110 SaaS apps. 68% of data is siloed. Integration is the bottleneck. Your stack is a liability, not an asset.",
+        "cta": "Connect everything or lose everything",
+        "caption": "Stop buying tools. Start connecting them. Integration is the ultimate force multiplier. 🔗",
+        "hashtags": "#Integration #TechStack #SaaS #APIFirst #NoCode #WorkflowAutomation #CloudIntegration #TechEfficiency #DigitalTransformation #SystemsThinking #AutomationTools #IntegrationPlatform",
+        "post_time": "21:00",
+        "duration_estimate": 25,
+        "tone": "professional"
+      },
+      "voice_output": {
+        "voice_id": "ThT5KcBeYPX3keUQdHPO",
+        "voice_name": "George",
+        "text": "You don't need more tools. Average company uses 110 SaaS apps. 68% of data is siloed. Integration is the bottleneck. Your stack is a liability, not an asset. Connect everything or lose everything.",
+        "expected_duration": 11,
+        "settings": {
+          "stability": 0.72,
+          "similarity_boost": 0.82,
+          "style": 0.60,
+          "speed": 0.87,
+          "pitch": -4
+        }
+      },
+      "expected_analytics": {
+        "day_1": {
+          "views_total": 59000,
+          "engagement_rate": 8.6
+        }
+      }
+    }
+  ],
+
+  "test_execution_plan": {
+    "phase_1_unit_tests": {
+      "description": "Test each component individually",
+      "tests": [
+        {
+          "component": "OpenAI Script Generation",
+          "input": "Date: 2025-01-20, Trending: AI agents",
+          "expected_output": "JSON array with 7 scripts",
+          "validation": ["Check all fields present", "Hook ≤60 chars", "7 unique agents"]
+        },
+        {
+          "component": "ElevenLabs Voice Generation",
+          "input": "Agent: Lyra, Text: Test script",
+          "expected_output": "MP3 file, ~10 seconds",
+          "validation": ["Audio format: MP3", "Duration matches text length"]
+        },
+        {
+          "component": "Canva Render",
+          "input": "Template + data bindings",
+          "expected_output": "Export job ID",
+          "validation": ["Job ID returned", "Status: pending"]
+        },
+        {
+          "component": "CloudConvert Normalize",
+          "input": "Video URL",
+          "expected_output": "Normalized video at -14 LUFS",
+          "validation": ["LUFS = -14 ± 0.5", "True peak ≤ -1.0"]
+        },
+        {
+          "component": "Metricool Post",
+          "input": "Video URL + caption",
+          "expected_output": "Post ID + scheduled status",
+          "validation": ["Post ID format: mp_*", "Status: scheduled"]
+        },
+        {
+          "component": "Notion Logging",
+          "input": "Video metadata",
+          "expected_output": "Page ID",
+          "validation": ["Page created in correct database"]
+        }
+      ]
+    },
+
+    "phase_2_integration_tests": {
+      "description": "Test full pipeline with 1 agent",
+      "agent": "Lyra",
+      "steps": [
+        "1. Generate script via OpenAI",
+        "2. Create voice via ElevenLabs",
+        "3. Upload voice to Drive",
+        "4. Render video in Canva",
+        "5. Normalize audio via CloudConvert",
+        "6. Upload final video to Drive",
+        "7. Schedule post on Metricool",
+        "8. Log to Notion",
+        "9. Verify all URLs valid",
+        "10. Check Notion entry complete"
+      ],
+      "expected_duration": "5-8 minutes",
+      "success_criteria": [
+        "All steps complete without errors",
+        "Final video URL accessible",
+        "Metricool post scheduled",
+        "Notion log entry created"
+      ]
+    },
+
+    "phase_3_full_system_test": {
+      "description": "Run full daily production with all 7 agents",
+      "trigger": "Manual Make.com scenario run",
+      "expected_outputs": [
+        "7 scripts generated",
+        "7 voice files created",
+        "7 videos rendered",
+        "7 videos normalized",
+        "7 videos uploaded to Drive",
+        "7 posts scheduled on Metricool",
+        "7 entries in Notion",
+        "1 success email sent"
+      ],
+      "expected_duration": "15-25 minutes total",
+      "success_criteria": [
+        "All 7 videos produced",
+        "All posts scheduled for correct times",
+        "No errors in Make.com execution log",
+        "Notion database has 7 new entries with status: Scheduled"
+      ]
+    },
+
+    "phase_4_analytics_test": {
+      "description": "Test nightly analytics and learning loop",
+      "prerequisites": "At least 1 day of posted videos with real metrics",
+      "steps": [
+        "1. Fetch Metricool analytics via API",
+        "2. Update Notion with performance data",
+        "3. Query Notion for aggregated metrics",
+        "4. Pass to OpenAI analytics prompt",
+        "5. Parse GPT response (insights + recommendations)",
+        "6. Update Make.com Data Store with new config",
+        "7. Create Analytics Insights entry in Notion",
+        "8. Send analytics email"
+      ],
+      "expected_outputs": [
+        "Notion entries updated with views/likes/shares",
+        "Analytics summary generated by GPT",
+        "Config updates applied to Data Store",
+        "Email with top performers sent"
+      ]
+    }
+  },
+
+  "validation_checklist": {
+    "pre_deployment": [
+      "[ ] All API keys valid and not expired",
+      "[ ] Notion databases created and shared with integration",
+      "[ ] Google Drive folders exist with correct permissions",
+      "[ ] Canva template configured with named variables",
+      "[ ] ElevenLabs voices tested and sound correct",
+      "[ ] Metricool accounts connected (TikTok, IG, YouTube)",
+      "[ ] Make.com scenario imported and modules connected",
+      "[ ] Data Store populated with voice profiles",
+      "[ ] Webhooks configured for CloudConvert",
+      "[ ] Retry logic tested with simulated failures"
+    ],
+    "post_deployment": [
+      "[ ] First video produced successfully",
+      "[ ] All 7 agents tested at least once",
+      "[ ] Audio levels verified (-14 LUFS ± 0.5)",
+      "[ ] Video quality acceptable on mobile",
+      "[ ] Posts appearing correctly on all platforms",
+      "[ ] Notion logging working without gaps",
+      "[ ] Analytics fetching and updating correctly",
+      "[ ] AI learning loop adjusting prompts",
+      "[ ] Error notifications reaching admin",
+      "[ ] Weekly performance review completed"
+    ]
+  }
+}

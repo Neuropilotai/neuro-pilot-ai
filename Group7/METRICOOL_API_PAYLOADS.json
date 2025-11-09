@@ -1,0 +1,492 @@
+{
+  "version": "1.0.0",
+  "description": "Metricool API integration for automated social media posting",
+  "base_url": "https://api.metricool.com/v1",
+  "documentation": "https://developer.metricool.com/",
+
+  "authentication": {
+    "type": "Bearer Token",
+    "header": "Authorization: Bearer {{METRICOOL_TOKEN}}",
+    "note": "Get token from Metricool dashboard → Settings → API Access"
+  },
+
+  "endpoints": {
+    "create_post": {
+      "method": "POST",
+      "url": "/posts",
+      "description": "Schedule a post to multiple platforms simultaneously"
+    },
+    "get_post": {
+      "method": "GET",
+      "url": "/posts/{post_id}",
+      "description": "Get post details and performance metrics"
+    },
+    "list_posts": {
+      "method": "GET",
+      "url": "/posts",
+      "description": "List all scheduled/published posts"
+    },
+    "delete_post": {
+      "method": "DELETE",
+      "url": "/posts/{post_id}",
+      "description": "Delete a scheduled post"
+    },
+    "get_analytics": {
+      "method": "GET",
+      "url": "/analytics/posts/{post_id}",
+      "description": "Get detailed analytics for a post"
+    }
+  },
+
+  "payload_templates": {
+    "video_post_multi_platform": {
+      "description": "Post video to TikTok + Instagram Reels + YouTube Shorts simultaneously",
+      "method": "POST",
+      "url": "{{base_url}}/posts",
+      "headers": {
+        "Authorization": "Bearer {{METRICOOL_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "platforms": [
+          {
+            "name": "tiktok",
+            "account_id": "{{TIKTOK_ACCOUNT_ID}}"
+          },
+          {
+            "name": "instagram",
+            "account_id": "{{INSTAGRAM_ACCOUNT_ID}}",
+            "type": "reel"
+          },
+          {
+            "name": "youtube",
+            "account_id": "{{YOUTUBE_ACCOUNT_ID}}",
+            "type": "short"
+          }
+        ],
+        "text": "{{caption}} {{hashtags}}",
+        "media": [
+          {
+            "type": "video",
+            "url": "{{video_url}}",
+            "thumbnail_url": "{{thumbnail_url}}"
+          }
+        ],
+        "schedule": {
+          "type": "scheduled",
+          "date": "{{post_date}}",
+          "time": "{{post_time}}",
+          "timezone": "America/Toronto"
+        },
+        "settings": {
+          "first_comment": "{{first_comment}}",
+          "enable_notifications": true,
+          "auto_publish": true
+        },
+        "metadata": {
+          "campaign": "Group7_AI_Video_Factory",
+          "agent": "{{agent_name}}",
+          "job_key": "{{job_key}}"
+        }
+      },
+      "example": {
+        "platforms": [
+          {
+            "name": "tiktok",
+            "account_id": "tt_123456"
+          },
+          {
+            "name": "instagram",
+            "account_id": "ig_789012",
+            "type": "reel"
+          },
+          {
+            "name": "youtube",
+            "account_id": "yt_345678",
+            "type": "short"
+          }
+        ],
+        "text": "The AI revolution isn't coming. It's here. Are you building or becoming obsolete? 🤖 #AI #Automation #TechLeadership #FutureOfWork #AIAgents #Innovation #Productivity #TechTrends #Entrepreneurship #DigitalTransformation",
+        "media": [
+          {
+            "type": "video",
+            "url": "https://drive.google.com/file/d/abc123/view",
+            "thumbnail_url": "https://drive.google.com/file/d/thumb123/view"
+          }
+        ],
+        "schedule": {
+          "type": "scheduled",
+          "date": "2025-01-15",
+          "time": "09:00",
+          "timezone": "America/Toronto"
+        },
+        "settings": {
+          "first_comment": "What's your AI automation strategy? Drop a comment! 👇",
+          "enable_notifications": true,
+          "auto_publish": true
+        },
+        "metadata": {
+          "campaign": "Group7_AI_Video_Factory",
+          "agent": "Lyra",
+          "job_key": "2025-01-15_Lyra_1_a3f2b8c9"
+        }
+      }
+    },
+
+    "tiktok_only": {
+      "description": "Post to TikTok only (with platform-specific settings)",
+      "method": "POST",
+      "url": "{{base_url}}/posts",
+      "headers": {
+        "Authorization": "Bearer {{METRICOOL_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "platforms": [
+          {
+            "name": "tiktok",
+            "account_id": "{{TIKTOK_ACCOUNT_ID}}",
+            "settings": {
+              "allow_comments": true,
+              "allow_duet": true,
+              "allow_stitch": true,
+              "privacy": "public",
+              "disclosure": false
+            }
+          }
+        ],
+        "text": "{{caption}} {{hashtags}}",
+        "media": [
+          {
+            "type": "video",
+            "url": "{{video_url}}"
+          }
+        ],
+        "schedule": {
+          "type": "scheduled",
+          "date": "{{post_date}}",
+          "time": "{{post_time}}",
+          "timezone": "America/Toronto"
+        }
+      }
+    },
+
+    "instagram_reel": {
+      "description": "Post to Instagram Reels only",
+      "method": "POST",
+      "url": "{{base_url}}/posts",
+      "headers": {
+        "Authorization": "Bearer {{METRICOOL_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "platforms": [
+          {
+            "name": "instagram",
+            "account_id": "{{INSTAGRAM_ACCOUNT_ID}}",
+            "type": "reel",
+            "settings": {
+              "share_to_feed": true,
+              "share_to_story": false,
+              "location": null,
+              "collaborators": []
+            }
+          }
+        ],
+        "text": "{{caption}} {{hashtags}}",
+        "media": [
+          {
+            "type": "video",
+            "url": "{{video_url}}",
+            "thumbnail_url": "{{thumbnail_url}}"
+          }
+        ],
+        "schedule": {
+          "type": "scheduled",
+          "date": "{{post_date}}",
+          "time": "{{post_time}}",
+          "timezone": "America/Toronto"
+        }
+      }
+    },
+
+    "youtube_short": {
+      "description": "Post to YouTube Shorts only",
+      "method": "POST",
+      "url": "{{base_url}}/posts",
+      "headers": {
+        "Authorization": "Bearer {{METRICOOL_TOKEN}}",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "platforms": [
+          {
+            "name": "youtube",
+            "account_id": "{{YOUTUBE_ACCOUNT_ID}}",
+            "type": "short",
+            "settings": {
+              "title": "{{video_title}}",
+              "description": "{{description}}\\n\\n{{hashtags}}",
+              "category": "22",
+              "privacy": "public",
+              "made_for_kids": false,
+              "tags": "{{tags_array}}"
+            }
+          }
+        ],
+        "text": "{{caption}}",
+        "media": [
+          {
+            "type": "video",
+            "url": "{{video_url}}"
+          }
+        ],
+        "schedule": {
+          "type": "scheduled",
+          "date": "{{post_date}}",
+          "time": "{{post_time}}",
+          "timezone": "America/Toronto"
+        }
+      }
+    }
+  },
+
+  "analytics_queries": {
+    "get_post_performance": {
+      "method": "GET",
+      "url": "{{base_url}}/analytics/posts/{{post_id}}",
+      "headers": {
+        "Authorization": "Bearer {{METRICOOL_TOKEN}}"
+      },
+      "response_fields": {
+        "views": "number",
+        "likes": "number",
+        "comments": "number",
+        "shares": "number",
+        "saves": "number",
+        "reach": "number",
+        "impressions": "number",
+        "engagement_rate": "number",
+        "watch_time_avg": "number (seconds)",
+        "ctr": "number (click-through rate)",
+        "platform_breakdown": {
+          "tiktok": "object",
+          "instagram": "object",
+          "youtube": "object"
+        }
+      },
+      "example_response": {
+        "post_id": "mp_abc123",
+        "status": "published",
+        "published_at": "2025-01-15T09:00:00Z",
+        "platforms": {
+          "tiktok": {
+            "views": 45230,
+            "likes": 3412,
+            "comments": 189,
+            "shares": 542,
+            "engagement_rate": 9.2,
+            "watch_time_avg": 12.3
+          },
+          "instagram": {
+            "views": 28940,
+            "likes": 2103,
+            "comments": 87,
+            "shares": 234,
+            "saves": 412,
+            "engagement_rate": 9.8,
+            "watch_time_avg": 14.1
+          },
+          "youtube": {
+            "views": 12450,
+            "likes": 876,
+            "comments": 43,
+            "shares": 112,
+            "watch_time_avg": 18.7
+          }
+        },
+        "total": {
+          "views": 86620,
+          "likes": 6391,
+          "comments": 319,
+          "shares": 888,
+          "engagement_rate": 9.3
+        }
+      }
+    },
+
+    "get_daily_analytics": {
+      "method": "GET",
+      "url": "{{base_url}}/analytics/posts",
+      "headers": {
+        "Authorization": "Bearer {{METRICOOL_TOKEN}}"
+      },
+      "params": {
+        "start_date": "{{start_date}}",
+        "end_date": "{{end_date}}",
+        "platforms": "tiktok,instagram,youtube",
+        "metrics": "views,likes,comments,shares,engagement_rate"
+      }
+    }
+  },
+
+  "make_com_integration": {
+    "module_12_schedule_post": {
+      "description": "Make.com HTTP module configuration for scheduling posts",
+      "module_type": "HTTP Request",
+      "config": {
+        "url": "https://api.metricool.com/v1/posts",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{env.METRICOOL_TOKEN}}"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": "{{json({platforms: [{name: 'tiktok', account_id: env.TIKTOK_ACCOUNT_ID}, {name: 'instagram', account_id: env.INSTAGRAM_ACCOUNT_ID, type: 'reel'}, {name: 'youtube', account_id: env.YOUTUBE_ACCOUNT_ID, type: 'short'}], text: module[3].caption + ' ' + module[3].hashtags, media: [{type: 'video', url: module[11].final_video_url}], schedule: {type: 'scheduled', date: module[1].date, time: module[3].post_time, timezone: 'America/Toronto'}, metadata: {campaign: 'Group7_AI_Video_Factory', agent: module[3].agent, job_key: module[3].job_key}})}}",
+        "parse_response": true,
+        "timeout": 30000
+      },
+      "output_mapping": {
+        "post_id": "{{data.id}}",
+        "status": "{{data.status}}",
+        "scheduled_at": "{{data.schedule.datetime}}",
+        "platforms": "{{data.platforms}}"
+      }
+    },
+
+    "nightly_analytics_fetch": {
+      "description": "Fetch performance data for Notion update",
+      "module_type": "HTTP Request",
+      "schedule": "Daily at 11:00 PM EST",
+      "config": {
+        "url": "https://api.metricool.com/v1/analytics/posts",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer {{env.METRICOOL_TOKEN}}"
+          }
+        ],
+        "params": {
+          "start_date": "{{formatDate(now; 'YYYY-MM-DD')}}",
+          "end_date": "{{formatDate(now; 'YYYY-MM-DD')}}",
+          "platforms": "tiktok,instagram,youtube"
+        }
+      },
+      "next_step": "Update Notion with metrics → Feed to OpenAI analytics prompt"
+    }
+  },
+
+  "platform_specific_notes": {
+    "tiktok": {
+      "video_requirements": {
+        "min_duration": "3 seconds",
+        "max_duration": "60 seconds",
+        "aspect_ratio": "9:16 (vertical)",
+        "resolution": "1080x1920 recommended",
+        "format": "mp4, mov",
+        "max_file_size": "287.6 MB"
+      },
+      "best_practices": [
+        "Hook in first 3 seconds is CRITICAL",
+        "Use trending sounds when applicable",
+        "Vertical video only, no black bars",
+        "Captions/text overlay for accessibility",
+        "Hashtags: 3-5 (TikTok limits discovery)",
+        "Post times: 9am, 2pm, 7pm EST (peak engagement)"
+      ]
+    },
+    "instagram": {
+      "video_requirements": {
+        "min_duration": "3 seconds",
+        "max_duration": "90 seconds",
+        "aspect_ratio": "9:16 (vertical)",
+        "resolution": "1080x1920 recommended",
+        "format": "mp4, mov",
+        "max_file_size": "4 GB"
+      },
+      "best_practices": [
+        "Share to feed + explore (not story for Reels)",
+        "Cover image matters (first frame or custom)",
+        "Use 8-12 hashtags in caption",
+        "Tag location for local discovery",
+        "Post times: 11am, 1pm, 6pm EST",
+        "Reels pushed harder than regular posts"
+      ]
+    },
+    "youtube": {
+      "video_requirements": {
+        "min_duration": "15 seconds",
+        "max_duration": "60 seconds",
+        "aspect_ratio": "9:16 (vertical)",
+        "resolution": "1080x1920 recommended",
+        "format": "mp4, mov, avi",
+        "max_file_size": "256 GB (but keep small)"
+      },
+      "best_practices": [
+        "Title max 100 chars (front-load keywords)",
+        "Description with keywords + hashtags",
+        "Category: Science & Technology (22)",
+        "Tags: 5-8 relevant keywords",
+        "Thumbnail auto-generated (can't customize Shorts)",
+        "Post times: 12pm, 3pm, 9pm EST",
+        "Shorts feed is discovery-focused"
+      ]
+    }
+  },
+
+  "error_handling": {
+    "rate_limits": {
+      "metricool_api": "100 requests per hour",
+      "tiktok": "30 posts per day",
+      "instagram": "25 posts per day",
+      "youtube": "6 shorts per day"
+    },
+    "common_errors": [
+      {
+        "code": 401,
+        "message": "Unauthorized - Invalid token",
+        "solution": "Regenerate METRICOOL_TOKEN in dashboard"
+      },
+      {
+        "code": 403,
+        "message": "Forbidden - Account not connected",
+        "solution": "Reconnect social account in Metricool"
+      },
+      {
+        "code": 422,
+        "message": "Validation error - Invalid media URL",
+        "solution": "Ensure video URL is publicly accessible"
+      },
+      {
+        "code": 429,
+        "message": "Rate limit exceeded",
+        "solution": "Wait and retry with exponential backoff"
+      }
+    ],
+    "retry_strategy": {
+      "5xx_errors": "Retry 3 times with exponential backoff",
+      "4xx_errors": "Log and notify, do not retry",
+      "network_errors": "Retry 5 times with 5s delay"
+    }
+  },
+
+  "testing": {
+    "curl_example": "curl -X POST https://api.metricool.com/v1/posts \\\n  -H 'Authorization: Bearer YOUR_TOKEN' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"platforms\":[{\"name\":\"tiktok\",\"account_id\":\"tt_123\"}],\"text\":\"Test post\",\"media\":[{\"type\":\"video\",\"url\":\"https://example.com/video.mp4\"}],\"schedule\":{\"type\":\"now\"}}'",
+    "test_checklist": [
+      "[ ] Metricool token valid and not expired",
+      "[ ] All social accounts connected in Metricool",
+      "[ ] Test video URL publicly accessible",
+      "[ ] Timezone set to America/Toronto",
+      "[ ] Post scheduled for future time (not past)",
+      "[ ] Caption + hashtags within platform limits",
+      "[ ] Video meets platform requirements",
+      "[ ] Metadata fields populated for tracking"
+    ]
+  }
+}

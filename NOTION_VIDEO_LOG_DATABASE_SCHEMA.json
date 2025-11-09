@@ -1,0 +1,290 @@
+{
+  "database_name": "Group 7 Video Log",
+  "description": "Complete video production tracking for NeuroGenesis.AI Group 7 content pipeline",
+  "icon": "🎬",
+  "cover": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1500",
+  "properties": {
+    "Video ID": {
+      "type": "title",
+      "description": "Unique identifier for each video (e.g., GRP7_LYRA_001)"
+    },
+    "Agent": {
+      "type": "select",
+      "options": [
+        {"name": "Lyra-7", "color": "blue"},
+        {"name": "Atlas-7", "color": "purple"},
+        {"name": "Nova-7", "color": "pink"},
+        {"name": "Cipher-7", "color": "red"},
+        {"name": "Echo-7", "color": "green"},
+        {"name": "Quantum-7", "color": "yellow"},
+        {"name": "Nexus-7", "color": "orange"}
+      ]
+    },
+    "Theme": {
+      "type": "select",
+      "options": [
+        {"name": "Creative_Architect", "color": "blue"},
+        {"name": "Strategic_Intelligence", "color": "purple"},
+        {"name": "Research_Intelligence", "color": "pink"},
+        {"name": "Security_Intelligence", "color": "red"},
+        {"name": "Communication_Intelligence", "color": "green"},
+        {"name": "Optimization_Intelligence", "color": "yellow"},
+        {"name": "Integration_Intelligence", "color": "orange"},
+        {"name": "Origin_Story", "color": "gray"},
+        {"name": "Tech_Demo", "color": "brown"},
+        {"name": "Vision", "color": "default"},
+        {"name": "Community", "color": "blue"},
+        {"name": "Philosophy", "color": "purple"}
+      ]
+    },
+    "Status": {
+      "type": "select",
+      "options": [
+        {"name": "Pending", "color": "gray"},
+        {"name": "In Production", "color": "yellow"},
+        {"name": "Scheduled", "color": "blue"},
+        {"name": "Published", "color": "green"},
+        {"name": "Failed", "color": "red"},
+        {"name": "Archived", "color": "default"}
+      ]
+    },
+    "Batch Date": {
+      "type": "date",
+      "description": "Production batch date (YYYY-MM-DD)"
+    },
+    "Post Time (EST)": {
+      "type": "date",
+      "description": "Scheduled publish time with timezone"
+    },
+    "Platforms": {
+      "type": "multi_select",
+      "options": [
+        {"name": "TikTok", "color": "pink"},
+        {"name": "Instagram", "color": "purple"},
+        {"name": "YouTube", "color": "red"},
+        {"name": "Twitter", "color": "blue"},
+        {"name": "LinkedIn", "color": "blue"}
+      ]
+    },
+    "Voiceover Script": {
+      "type": "rich_text",
+      "description": "Full voiceover script with timing markers"
+    },
+    "Caption": {
+      "type": "rich_text",
+      "description": "Social media caption (≤200 chars)"
+    },
+    "Hashtags": {
+      "type": "multi_select",
+      "options": [
+        {"name": "Group7", "color": "blue"},
+        {"name": "NeuroGenesisAI", "color": "blue"},
+        {"name": "NeuroPilotAI", "color": "blue"},
+        {"name": "AIAgent", "color": "purple"},
+        {"name": "CreativeAI", "color": "pink"},
+        {"name": "AIStrategy", "color": "purple"},
+        {"name": "AIResearch", "color": "pink"},
+        {"name": "CyberSecurity", "color": "red"},
+        {"name": "AILanguage", "color": "green"},
+        {"name": "AIOptimization", "color": "yellow"},
+        {"name": "AINetwork", "color": "orange"},
+        {"name": "TechTok", "color": "gray"},
+        {"name": "Innovation", "color": "blue"},
+        {"name": "FutureOfWork", "color": "purple"},
+        {"name": "BusinessIntelligence", "color": "purple"},
+        {"name": "DeepLearning", "color": "pink"},
+        {"name": "KnowledgeGraph", "color": "pink"},
+        {"name": "AIGuardian", "color": "red"},
+        {"name": "InfoSec", "color": "red"},
+        {"name": "ZeroTrust", "color": "red"},
+        {"name": "NLP", "color": "green"},
+        {"name": "Communication", "color": "green"},
+        {"name": "GlobalAI", "color": "green"},
+        {"name": "Efficiency", "color": "yellow"},
+        {"name": "SupplyChain", "color": "yellow"},
+        {"name": "CollectiveIntelligence", "color": "orange"},
+        {"name": "Synergy", "color": "orange"},
+        {"name": "FutureIsNow", "color": "default"},
+        {"name": "DigitalEvolution", "color": "default"},
+        {"name": "FutureOfBusiness", "color": "purple"}
+      ]
+    },
+    "Video File": {
+      "type": "url",
+      "description": "Google Drive link to final MP4"
+    },
+    "Voice File": {
+      "type": "url",
+      "description": "Google Drive link to voiceover MP3"
+    },
+    "Captions File": {
+      "type": "url",
+      "description": "Google Drive link to SRT captions"
+    },
+    "Metricool Post ID": {
+      "type": "rich_text",
+      "description": "Post ID from Metricool API"
+    },
+    "Views (24h)": {
+      "type": "number",
+      "format": "number",
+      "description": "Total views in first 24 hours"
+    },
+    "Views (7d)": {
+      "type": "number",
+      "format": "number",
+      "description": "Total views in first 7 days"
+    },
+    "Likes": {
+      "type": "number",
+      "format": "number"
+    },
+    "Comments": {
+      "type": "number",
+      "format": "number"
+    },
+    "Shares": {
+      "type": "number",
+      "format": "number"
+    },
+    "Saves": {
+      "type": "number",
+      "format": "number"
+    },
+    "Engagement Rate": {
+      "type": "number",
+      "format": "percent",
+      "description": "(Likes + Comments + Shares) / Views"
+    },
+    "Completion Rate": {
+      "type": "number",
+      "format": "percent",
+      "description": "% of viewers who watched to end"
+    },
+    "Avg Watch Time": {
+      "type": "number",
+      "format": "number",
+      "description": "Average watch time in seconds"
+    },
+    "Profile Visits": {
+      "type": "number",
+      "format": "number"
+    },
+    "Bio Link Clicks": {
+      "type": "number",
+      "format": "number"
+    },
+    "Follower Growth": {
+      "type": "number",
+      "format": "number",
+      "description": "Net new followers from this video"
+    },
+    "Performance Score": {
+      "type": "formula",
+      "formula": "if(prop(\"Views (24h)\") > 0, (prop(\"Engagement Rate\") * 100 + prop(\"Completion Rate\") * 100) / 2, 0)",
+      "description": "Calculated: Avg of engagement & completion rates"
+    },
+    "Is Viral": {
+      "type": "checkbox",
+      "description": "Check if views > 50,000"
+    },
+    "Repurpose Potential": {
+      "type": "select",
+      "options": [
+        {"name": "⭐", "color": "gray"},
+        {"name": "⭐⭐", "color": "gray"},
+        {"name": "⭐⭐⭐", "color": "yellow"},
+        {"name": "⭐⭐⭐⭐", "color": "orange"},
+        {"name": "⭐⭐⭐⭐⭐", "color": "red"}
+      ],
+      "description": "Evergreen content value"
+    },
+    "Notes": {
+      "type": "rich_text",
+      "description": "Production notes, learnings, issues"
+    },
+    "Created By": {
+      "type": "created_by"
+    },
+    "Created Time": {
+      "type": "created_time"
+    },
+    "Last Edited": {
+      "type": "last_edited_time"
+    }
+  },
+  "views": [
+    {
+      "name": "All Videos",
+      "type": "table",
+      "sorts": [{"property": "Post Time (EST)", "direction": "descending"}],
+      "filter": {}
+    },
+    {
+      "name": "By Agent",
+      "type": "board",
+      "group_by": "Agent",
+      "sorts": [{"property": "Post Time (EST)", "direction": "descending"}]
+    },
+    {
+      "name": "By Status",
+      "type": "board",
+      "group_by": "Status",
+      "sorts": [{"property": "Batch Date", "direction": "descending"}]
+    },
+    {
+      "name": "Published",
+      "type": "table",
+      "filter": {
+        "property": "Status",
+        "select": {
+          "equals": "Published"
+        }
+      },
+      "sorts": [{"property": "Views (24h)", "direction": "descending"}]
+    },
+    {
+      "name": "Top Performers",
+      "type": "gallery",
+      "filter": {
+        "property": "Views (24h)",
+        "number": {
+          "greater_than": 10000
+        }
+      },
+      "sorts": [{"property": "Performance Score", "direction": "descending"}]
+    },
+    {
+      "name": "This Week",
+      "type": "calendar",
+      "calendar_by": "Post Time (EST)",
+      "filter": {
+        "property": "Batch Date",
+        "date": {
+          "past_week": {}
+        }
+      }
+    },
+    {
+      "name": "Viral Potential",
+      "type": "table",
+      "filter": {
+        "or": [
+          {
+            "property": "Is Viral",
+            "checkbox": {
+              "equals": true
+            }
+          },
+          {
+            "property": "Engagement Rate",
+            "number": {
+              "greater_than": 0.1
+            }
+          }
+        ]
+      },
+      "sorts": [{"property": "Views (24h)", "direction": "descending"}]
+    }
+  ]
+}

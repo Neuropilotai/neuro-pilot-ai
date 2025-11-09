@@ -1,0 +1,273 @@
+{
+  "database_name": "Group 7 - Video Production Analytics",
+  "description": "Tracks all AI-generated videos from ideation to performance analytics with self-learning loop",
+  "icon": "🎬",
+  "properties": {
+    "Video ID": {
+      "type": "title",
+      "description": "Unique identifier for each video (e.g., GRP7_LYRA_20251101)"
+    },
+    "Agent": {
+      "type": "select",
+      "options": [
+        {"name": "Lyra", "color": "purple"},
+        {"name": "Atlas", "color": "blue"},
+        {"name": "Nova", "color": "pink"},
+        {"name": "Cipher", "color": "red"},
+        {"name": "Echo", "color": "green"},
+        {"name": "Quantum", "color": "yellow"},
+        {"name": "Nexus", "color": "orange"}
+      ],
+      "description": "Which Group 7 AI agent this video features"
+    },
+    "Status": {
+      "type": "select",
+      "options": [
+        {"name": "Generating", "color": "gray"},
+        {"name": "Scheduled", "color": "yellow"},
+        {"name": "Posted", "color": "blue"},
+        {"name": "Live", "color": "green"},
+        {"name": "Analyzing", "color": "orange"},
+        {"name": "Optimized", "color": "purple"},
+        {"name": "Failed", "color": "red"}
+      ],
+      "description": "Current status in the production pipeline"
+    },
+    "Batch Date": {
+      "type": "date",
+      "description": "Date when this video batch was generated"
+    },
+    "Post Time": {
+      "type": "date",
+      "description": "Scheduled/actual posting time to social platforms"
+    },
+    "Platforms": {
+      "type": "multi_select",
+      "options": [
+        {"name": "TikTok", "color": "pink"},
+        {"name": "Instagram", "color": "orange"},
+        {"name": "YouTube", "color": "red"},
+        {"name": "LinkedIn", "color": "blue"},
+        {"name": "Twitter", "color": "gray"}
+      ],
+      "description": "Social platforms where video was posted"
+    },
+    "Hook Text": {
+      "type": "rich_text",
+      "description": "Opening hook text displayed in video (first 3 seconds)"
+    },
+    "Insight Text": {
+      "type": "rich_text",
+      "description": "Key insight text displayed in video (middle section)"
+    },
+    "CTA Text": {
+      "type": "rich_text",
+      "description": "Call-to-action text displayed in video (final section)"
+    },
+    "Voiceover Script": {
+      "type": "rich_text",
+      "description": "Full text-to-speech script read by AI voice"
+    },
+    "Voice Model": {
+      "type": "select",
+      "options": [
+        {"name": "Onyx", "color": "gray"},
+        {"name": "Rachel", "color": "pink"},
+        {"name": "Nova", "color": "blue"}
+      ],
+      "description": "ElevenLabs voice model used for this video"
+    },
+    "Caption": {
+      "type": "rich_text",
+      "description": "Social media post caption text"
+    },
+    "Hashtags": {
+      "type": "rich_text",
+      "description": "Hashtags used in post"
+    },
+    "First Comment": {
+      "type": "rich_text",
+      "description": "Engagement-driving first comment posted by automation"
+    },
+    "Voice File": {
+      "type": "url",
+      "description": "Google Drive link to generated MP3 voiceover file"
+    },
+    "Final Video": {
+      "type": "url",
+      "description": "Google Drive link to final merged MP4 video file"
+    },
+    "Metricool Post ID": {
+      "type": "rich_text",
+      "description": "Metricool API post ID for tracking and analytics"
+    },
+    "TikTok URL": {
+      "type": "url",
+      "description": "Direct link to TikTok post (once published)"
+    },
+    "Instagram URL": {
+      "type": "url",
+      "description": "Direct link to Instagram Reel (once published)"
+    },
+    "YouTube URL": {
+      "type": "url",
+      "description": "Direct link to YouTube Short (once published)"
+    },
+    "Views (24h)": {
+      "type": "number",
+      "format": "number",
+      "description": "Total views across all platforms in first 24 hours"
+    },
+    "Views (7d)": {
+      "type": "number",
+      "format": "number",
+      "description": "Total views across all platforms after 7 days"
+    },
+    "Likes": {
+      "type": "number",
+      "format": "number",
+      "description": "Total likes/hearts across all platforms"
+    },
+    "Comments": {
+      "type": "number",
+      "format": "number",
+      "description": "Total comments across all platforms"
+    },
+    "Shares": {
+      "type": "number",
+      "format": "number",
+      "description": "Total shares/reposts across all platforms"
+    },
+    "Saves": {
+      "type": "number",
+      "format": "number",
+      "description": "Total saves/bookmarks (Instagram/TikTok)"
+    },
+    "CTR (%)": {
+      "type": "number",
+      "format": "percent",
+      "description": "Click-through rate from video to bio/link"
+    },
+    "Completion Rate (%)": {
+      "type": "number",
+      "format": "percent",
+      "description": "Percentage of viewers who watched to the end"
+    },
+    "Engagement Rate (%)": {
+      "type": "formula",
+      "formula": "prop(\"Likes\") + prop(\"Comments\") + prop(\"Shares\") / prop(\"Views (24h)\") * 100",
+      "description": "Calculated engagement rate based on interactions"
+    },
+    "Performance Score": {
+      "type": "formula",
+      "formula": "(prop(\"Views (24h)\") * 0.4) + (prop(\"Engagement Rate (%)\") * 0.3) + (prop(\"Completion Rate (%)\") * 0.3) / 100",
+      "description": "Weighted performance score for ranking videos"
+    },
+    "Top Performing Hook?": {
+      "type": "checkbox",
+      "description": "Mark if this hook outperformed 80th percentile"
+    },
+    "Viral Threshold Met?": {
+      "type": "checkbox",
+      "description": "Mark if video exceeded 100K views in 7 days"
+    },
+    "GPT Concept Quality": {
+      "type": "select",
+      "options": [
+        {"name": "Excellent", "color": "green"},
+        {"name": "Good", "color": "blue"},
+        {"name": "Average", "color": "yellow"},
+        {"name": "Poor", "color": "red"}
+      ],
+      "description": "Manual rating of GPT-4 generated concept quality"
+    },
+    "Learning Notes": {
+      "type": "rich_text",
+      "description": "What worked/failed - feed back to GPT-4 for next batch"
+    },
+    "Next Optimization": {
+      "type": "rich_text",
+      "description": "Specific improvements to apply in next video iteration"
+    },
+    "Cost (USD)": {
+      "type": "number",
+      "format": "dollar",
+      "description": "Total production cost (GPT-4 + ElevenLabs + Canva + CloudConvert)"
+    },
+    "Revenue (USD)": {
+      "type": "number",
+      "format": "dollar",
+      "description": "Estimated revenue from views/engagement (if monetized)"
+    },
+    "ROI": {
+      "type": "formula",
+      "formula": "(prop(\"Revenue (USD)\") - prop(\"Cost (USD)\")) / prop(\"Cost (USD)\") * 100",
+      "description": "Return on investment percentage"
+    },
+    "Created At": {
+      "type": "created_time",
+      "description": "Timestamp when database entry was created"
+    },
+    "Last Updated": {
+      "type": "last_edited_time",
+      "description": "Timestamp of last modification"
+    }
+  },
+  "views": [
+    {
+      "name": "All Videos",
+      "type": "table",
+      "sort": [{"property": "Batch Date", "direction": "descending"}],
+      "description": "Chronological view of all videos"
+    },
+    {
+      "name": "Performance Dashboard",
+      "type": "table",
+      "sort": [{"property": "Performance Score", "direction": "descending"}],
+      "filter": {"property": "Status", "select": {"equals": "Live"}},
+      "description": "Live videos ranked by performance score"
+    },
+    {
+      "name": "By Agent",
+      "type": "board",
+      "group_by": "Agent",
+      "description": "Kanban board grouped by AI agent"
+    },
+    {
+      "name": "Weekly Analytics",
+      "type": "table",
+      "filter": {
+        "and": [
+          {"property": "Batch Date", "date": {"past_week": {}}},
+          {"property": "Status", "select": {"equals": "Live"}}
+        ]
+      },
+      "description": "This week's videos with analytics"
+    },
+    {
+      "name": "Top Performers",
+      "type": "gallery",
+      "filter": {"property": "Viral Threshold Met?", "checkbox": {"equals": true}},
+      "sort": [{"property": "Views (7d)", "direction": "descending"}],
+      "description": "Gallery of viral videos (100K+ views)"
+    },
+    {
+      "name": "Learning Loop",
+      "type": "table",
+      "filter": {"property": "Learning Notes", "rich_text": {"is_not_empty": true}},
+      "visible_properties": ["Video ID", "Agent", "Performance Score", "Learning Notes", "Next Optimization"],
+      "description": "Videos with optimization insights for GPT-4 training"
+    }
+  ],
+  "relations": {
+    "Agent Performance Database": {
+      "type": "relation",
+      "description": "Link to separate database tracking cumulative agent performance metrics"
+    },
+    "Content Calendar": {
+      "type": "relation",
+      "description": "Link to master content calendar for scheduling coordination"
+    }
+  },
+  "automation_notes": "This database is auto-populated by Make.com Module 11 (Notion API). Manual updates are only for Learning Notes, GPT Concept Quality, and Next Optimization fields. Analytics sync every 24 hours via Metricool webhook."
+}

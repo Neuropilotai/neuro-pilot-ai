@@ -1,0 +1,130 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-11-02",
+  "profiles": {
+    "Lyra-7": {
+      "primary_color": "#A78BFA",
+      "secondary_color": "#C4B5FD",
+      "text_color": "#F8FAFC",
+      "background_gradient": ["#0B1220", "#1E1B4B"],
+      "font_family": "Inter",
+      "font_weight": 600,
+      "animation_speed": "medium",
+      "transition_style": "smooth_fade",
+      "motion_intensity": 0.7,
+      "personality": "calm_confident",
+      "visual_keywords": ["futuristic", "empathetic", "thoughtful"]
+    },
+    "Atlas": {
+      "primary_color": "#3B82F6",
+      "secondary_color": "#60A5FA",
+      "text_color": "#F8FAFC",
+      "background_gradient": ["#0B1220", "#1E3A8A"],
+      "font_family": "Space Grotesk",
+      "font_weight": 700,
+      "animation_speed": "slow",
+      "transition_style": "hard_cut",
+      "motion_intensity": 0.5,
+      "personality": "authoritative_grounded",
+      "visual_keywords": ["strategic", "powerful", "infrastructure"]
+    },
+    "Nova": {
+      "primary_color": "#EC4899",
+      "secondary_color": "#F472B6",
+      "text_color": "#F8FAFC",
+      "background_gradient": ["#0B1220", "#831843"],
+      "font_family": "Poppins",
+      "font_weight": 500,
+      "animation_speed": "fast",
+      "transition_style": "bounce",
+      "motion_intensity": 0.9,
+      "personality": "energetic_dynamic",
+      "visual_keywords": ["rapid", "innovative", "creative"]
+    },
+    "Cipher": {
+      "primary_color": "#10B981",
+      "secondary_color": "#34D399",
+      "text_color": "#F8FAFC",
+      "background_gradient": ["#0B1220", "#064E3B"],
+      "font_family": "Roboto Mono",
+      "font_weight": 600,
+      "animation_speed": "very_slow",
+      "transition_style": "glitch",
+      "motion_intensity": 0.3,
+      "personality": "deliberate_secure",
+      "visual_keywords": ["security", "encryption", "protection"]
+    },
+    "Echo": {
+      "primary_color": "#F59E0B",
+      "secondary_color": "#FBBF24",
+      "text_color": "#0B1220",
+      "background_gradient": ["#F8FAFC", "#FEF3C7"],
+      "font_family": "Lato",
+      "font_weight": 400,
+      "animation_speed": "medium",
+      "transition_style": "wave",
+      "motion_intensity": 0.6,
+      "personality": "warm_approachable",
+      "visual_keywords": ["communication", "clarity", "empathy"]
+    },
+    "Quantum": {
+      "primary_color": "#8B5CF6",
+      "secondary_color": "#A78BFA",
+      "text_color": "#F8FAFC",
+      "background_gradient": ["#0B1220", "#5B21B6"],
+      "font_family": "Montserrat",
+      "font_weight": 600,
+      "animation_speed": "variable",
+      "transition_style": "quantum_flicker",
+      "motion_intensity": 0.8,
+      "personality": "analytical_precise",
+      "visual_keywords": ["optimization", "data", "efficiency"]
+    },
+    "Nexus": {
+      "primary_color": "#06B6D4",
+      "secondary_color": "#22D3EE",
+      "text_color": "#F8FAFC",
+      "background_gradient": ["#0B1220", "#164E63"],
+      "font_family": "Work Sans",
+      "font_weight": 500,
+      "animation_speed": "medium",
+      "transition_style": "network_pulse",
+      "motion_intensity": 0.7,
+      "personality": "systematic_methodical",
+      "visual_keywords": ["integration", "connection", "orchestration"]
+    }
+  },
+  "adaptive_rules": {
+    "high_engagement_threshold": 7.0,
+    "low_engagement_threshold": 3.0,
+    "adjustments": {
+      "if_low_engagement": {
+        "increase_motion_intensity": 0.2,
+        "speed_up_animations": true,
+        "boost_color_saturation": 15,
+        "add_visual_effects": ["glow", "particle"]
+      },
+      "if_high_engagement": {
+        "maintain_current_style": true,
+        "minor_variations_only": true
+      },
+      "if_agent_underperforming": {
+        "test_alternative_colors": true,
+        "try_different_transitions": true,
+        "a_b_test_fonts": true
+      }
+    }
+  },
+  "canva_api_mappings": {
+    "text_layer_ids": {
+      "hook": "hook_text",
+      "insight": "insight_text",
+      "cta": "cta_text"
+    },
+    "color_layer_ids": {
+      "primary_bg": "background_shape_1",
+      "accent": "accent_element",
+      "text_highlight": "highlight_box"
+    }
+  }
+}

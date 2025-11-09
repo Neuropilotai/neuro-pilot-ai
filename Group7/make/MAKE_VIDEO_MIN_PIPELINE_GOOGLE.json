@@ -1,0 +1,179 @@
+{
+  "name": "Group7 Video Pipeline (Google Drive)",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": { "hook": "manual_trigger", "maxResults": 1 },
+      "mapper": {},
+      "metadata": { "designer": { "x": 0, "y": 0 } }
+    },
+    {
+      "id": 2,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.canva.com/rest/v1/autofills",
+        "method": "post",
+        "headers": [
+          { "name": "Authorization", "value": "Bearer {{CANVA_ACCESS_TOKEN}}" },
+          { "name": "Content-Type", "value": "application/json" }
+        ],
+        "body": "{\"title\":\"Group7 - {{1.agent}} - {{1.slug}}\",\"design_id\":\"{{CANVA_TEMPLATE_ID}}\",\"data\":{\"hook_text\":{\"type\":\"text\",\"text\":\"{{1.hook}}\"},\"insight_text\":{\"type\":\"text\",\"text\":\"{{1.insight}}\"},\"cta_text\":{\"type\":\"text\",\"text\":\"{{1.cta}}\"}}}",
+        "parseResponse": true,
+        "timeout": 120000
+      },
+      "metadata": { "designer": { "x": 300, "y": 0 } }
+    },
+    {
+      "id": 3,
+      "module": "builtin:Repeater",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "repeats": 60,
+        "sleep": 5000
+      },
+      "metadata": { "designer": { "x": 600, "y": 0 } }
+    },
+    {
+      "id": 4,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.canva.com/rest/v1/autofills/{{2.job.id}}",
+        "method": "get",
+        "headers": [
+          { "name": "Authorization", "value": "Bearer {{CANVA_ACCESS_TOKEN}}" }
+        ],
+        "parseResponse": true
+      },
+      "metadata": { "designer": { "x": 900, "y": 0 } }
+    },
+    {
+      "id": 5,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "parameters": {},
+      "mapper": {},
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 6,
+              "module": "http:ActionSendData",
+              "version": 3,
+              "mapper": {
+                "url": "https://api.cloudconvert.com/v2/jobs",
+                "method": "post",
+                "headers": [
+                  { "name": "Authorization", "value": "Bearer {{CLOUDCONVERT_API_KEY}}" },
+                  { "name": "Content-Type", "value": "application/json" }
+                ],
+                "body": "{\"tasks\":{\"import-video\":{\"operation\":\"import/url\",\"url\":\"{{4.job.url}}\"},\"import-audio\":{\"operation\":\"import/url\",\"url\":\"{{VOICE_FILE_URL}}\"},\"merge\":{\"operation\":\"merge\",\"input\":[\"import-video\",\"import-audio\"],\"output_format\":\"mp4\",\"video_codec\":\"h264\",\"crf\":22,\"audio_codec\":\"aac\",\"audio_bitrate\":\"192\",\"audio_normalize\":\"loudnorm\",\"loudness_target\":\"-14\"},\"export\":{\"operation\":\"export/url\",\"input\":\"merge\"}},\"tag\":\"group7-{{1.agent}}-{{1.slug}}\"}",
+                "parseResponse": true
+              }
+            }
+          ],
+          "filter": {
+            "name": "Canva Success",
+            "conditions": [
+              [
+                {
+                  "a": "{{4.job.status}}",
+                  "b": "success",
+                  "o": "text:equal"
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      "metadata": { "designer": { "x": 1200, "y": 0 } }
+    },
+    {
+      "id": 7,
+      "module": "builtin:Repeater",
+      "version": 1,
+      "mapper": { "repeats": 120, "sleep": 5000 },
+      "metadata": { "designer": { "x": 1500, "y": 0 } }
+    },
+    {
+      "id": 8,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "mapper": {
+        "url": "https://api.cloudconvert.com/v2/jobs/{{6.data.id}}",
+        "method": "get",
+        "headers": [
+          { "name": "Authorization", "value": "Bearer {{CLOUDCONVERT_API_KEY}}" }
+        ],
+        "parseResponse": true
+      },
+      "metadata": { "designer": { "x": 1800, "y": 0 } }
+    },
+    {
+      "id": 9,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 10,
+              "module": "google-drive:ActionUploadAFile",
+              "version": 3,
+              "mapper": {
+                "select": "map",
+                "folderId": "{{GOOGLE_DRIVE_FOLDER_ID}}",
+                "fileName": "GRP7_{{1.agent}}_{{1.slug}}.mp4",
+                "url": "{{first(8.data.tasks.where(name = \"export\").result.files).url}}",
+                "mimeType": "video/mp4"
+              }
+            }
+          ],
+          "filter": {
+            "name": "Merge Complete",
+            "conditions": [
+              [
+                {
+                  "a": "{{8.data.status}}",
+                  "b": "finished",
+                  "o": "text:equal"
+                }
+              ]
+            ]
+          }
+        }
+      ],
+      "metadata": { "designer": { "x": 2100, "y": 0 } }
+    },
+    {
+      "id": 11,
+      "module": "notion:createDatabaseItem",
+      "version": 1,
+      "mapper": {
+        "databaseId": "{{NOTION_VIDEO_DB_ID}}",
+        "properties": [
+          { "key": "Name", "type": "title", "title": "GRP7_{{1.agent}}_{{1.slug}}" },
+          { "key": "Agent", "type": "select", "select": "{{1.agent}}" },
+          { "key": "Status", "type": "select", "select": "success" },
+          { "key": "Drive Link", "type": "url", "url": "{{10.webViewLink}}" }
+        ]
+      },
+      "metadata": { "designer": { "x": 2400, "y": 0 } }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": false,
+      "sequential": false
+    }
+  }
+}

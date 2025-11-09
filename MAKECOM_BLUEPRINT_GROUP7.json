@@ -1,0 +1,223 @@
+{
+  "name": "Group 7 Daily Video Pipeline",
+  "flow": [
+    {
+      "id": 1,
+      "module": "builtin:BasicScheduler",
+      "version": 1,
+      "parameters": {
+        "interval": 1,
+        "unit": "day",
+        "time": "06:00"
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "google-drive:ActionDownloadAFile",
+      "version": 4,
+      "parameters": {
+        "__IMTCONN__": {
+          "data": {
+            "scoped": "true",
+            "connection": "google"
+          }
+        }
+      },
+      "mapper": {
+        "select": "path",
+        "path": "/Group7/Production/CSV_Inputs/GROUP7_CANVA_BATCH_{{formatDate(now; \"YYYY-MM-DD\")}}.csv"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "google"
+              },
+              "label": "Google Drive - Group 7"
+            }
+          }
+        },
+        "expect": [
+          {
+            "name": "select",
+            "type": "select",
+            "label": "Select a method",
+            "required": true,
+            "validate": {
+              "enum": ["path", "id", "map"]
+            }
+          },
+          {
+            "name": "path",
+            "type": "text",
+            "label": "File path",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "util:ParseCSV",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "csv": "{{2.data}}",
+        "delimiter": ",",
+        "skipEmptyLines": true,
+        "containsHeaders": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "builtin:Iterator",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "array": "{{3.array}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "xi-api-key",
+            "value": "YOUR_ELEVENLABS_API_KEY"
+          },
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "name": "Accept",
+            "value": "audio/mpeg"
+          }
+        ],
+        "qs": [],
+        "bodyType": "raw",
+        "parseResponse": false,
+        "authUser": "",
+        "authPass": "",
+        "timeout": 180,
+        "shareCookies": false,
+        "ca": "",
+        "rejectUnauthorized": true,
+        "followRedirect": true,
+        "useQuerystring": false,
+        "followAllRedirects": false,
+        "serializeUrl": false,
+        "body": "{\"text\": \"{{4.VOICEOVER}}\", \"model_id\": \"eleven_turbo_v2\", \"voice_settings\": {\"stability\": 0.75, \"similarity_boost\": 0.80, \"style\": 0.50, \"use_speaker_boost\": true}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0
+        },
+        "restore": {
+          "expect": {
+            "method": {
+              "label": "POST"
+            },
+            "headers": {
+              "mode": "chose",
+              "items": [
+                null,
+                null,
+                null
+              ]
+            },
+            "qs": {
+              "mode": "chose"
+            },
+            "bodyType": {
+              "label": "Raw"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "module": "google-drive:ActionUploadAFile",
+      "version": 3,
+      "parameters": {
+        "__IMTCONN__": {
+          "data": {
+            "scoped": "true",
+            "connection": "google"
+          }
+        }
+      },
+      "mapper": {
+        "select": "path",
+        "path": "/Group7/Production/Voice/{{formatDate(now; \"YYYY-MM-DD\")}}",
+        "fileName": "{{4.AUTOTAG}}_VO.mp3",
+        "data": "{{5.data}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 0
+        },
+        "restore": {
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "google"
+              },
+              "label": "Google Drive - Group 7"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": false,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us2.make.com"
+  }
+}
