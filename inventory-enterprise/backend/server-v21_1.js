@@ -393,7 +393,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`  Mode: ${process.env.NODE_ENV || 'development'}`);
   console.log(`  Port: ${PORT}`);
   console.log(`  Database: PostgreSQL (${process.env.DATABASE_URL ? 'configured' : 'NOT CONFIGURED'})`);
-  console.log(`  CORS: ${corsOptions.origin === '*' ? 'All origins' : corsOptions.origin}`);
+  console.log(`  CORS: Configured via privacy middleware`);
   console.log(`  Metrics: http://localhost:${PORT}/metrics`);
   console.log(`  Health: http://localhost:${PORT}/health`);
   console.log('================================================');
