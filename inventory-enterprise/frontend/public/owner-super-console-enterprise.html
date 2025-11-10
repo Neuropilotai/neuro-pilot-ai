@@ -1589,5 +1589,47 @@
       document.addEventListener('keydown', (e) => APP.handleKeyPress(e));
     });
   </script>
+
+  <script>
+(function () {
+  const NUMERIC_VB = /^\s*-?\d+(\.\d+)?\s+-?\d+(\.\d+)?\s+-?\d+(\.\d+)?\s+-?\d+(\.\d+)?\s*$/;
+  function sanitize(el) {
+    if (!el || el.tagName !== 'svg') return;
+    const vb = el.getAttribute('viewBox');
+    if (!vb || NUMERIC_VB.test(vb)) return;
+
+    // Split, coerce to numbers, fallback to sensible defaults
+    const parts = (vb || '').split(/\s+/).map(s => s.trim());
+    let x = parseFloat(parts[0]); if (!isFinite(x)) x = 0;
+    let y = parseFloat(parts[1]); if (!isFinite(y)) y = 0;
+    let w = parseFloat(parts[2]); if (!isFinite(w) || w <= 0) w = 100;
+    let h = parseFloat(parts[3]); if (!isFinite(h) || h <= 0) h = 20;
+
+    // Preserve display intent if author used % or px by moving them to width/height
+    if (parts[2] && /%|px/i.test(parts[2])) el.setAttribute('width', parts[2]);
+    if (parts[3] && /%|px/i.test(parts[3])) el.setAttribute('height', parts[3]);
+
+    el.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+  }
+  function sweep(root) { root.querySelectorAll('svg[viewBox]').forEach(sanitize); }
+  // Initial pass
+  sweep(document);
+
+  // Catch dynamically injected SVGs (cookie banners, etc.)
+  const mo = new MutationObserver(muts => {
+    for (const m of muts) {
+      if (m.type === 'childList') {
+        m.addedNodes.forEach(node => {
+          if (node.nodeType !== 1) return;
+          if (node.tagName === 'svg') sanitize(node); else sweep(node);
+        });
+      } else if (m.type === 'attributes' && m.target.tagName === 'svg' && m.attributeName === 'viewBox') {
+        sanitize(m.target);
+      }
+    }
+  });
+  mo.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['viewBox'] });
+})();
+</script>
 </body>
 </html>
