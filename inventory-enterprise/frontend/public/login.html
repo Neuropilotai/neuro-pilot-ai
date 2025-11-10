@@ -199,9 +199,9 @@
           return;
         }
 
-        // Store the token (V21.1 API format)
-        localStorage.setItem('authToken', data.accessToken);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Store the token (V21.1 API format - Enterprise Console keys)
+        localStorage.setItem('NP_TOKEN', data.accessToken);
+        localStorage.setItem('NP_USER', JSON.stringify(data.user));
 
         // Show success and redirect to ENTERPRISE console
         showSuccess(`Welcome ${data.user.email}! Redirecting...`);
@@ -229,7 +229,7 @@
     }
 
     // Check if already logged in
-    const existingToken = localStorage.getItem('authToken');
+    const existingToken = localStorage.getItem('NP_TOKEN');
     if (existingToken) {
       try {
         const payload = JSON.parse(atob(existingToken.split('.')[1]));
