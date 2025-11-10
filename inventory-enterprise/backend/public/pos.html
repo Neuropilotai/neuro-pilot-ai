@@ -119,6 +119,14 @@
           <span class="hidden dark:inline">☀️</span>
         </button>
 
+        <!-- Settings Gear -->
+        <button id="np-gear" class="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" aria-label="Settings" title="Settings">
+          <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V22a2 2 0 0 1-4 0v-.07a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.07a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 4.02 3l.06.06a1.65 1.65 0 0 0 1.82.33H6a1.65 1.65 0 0 0 1-1.51V2a2 2 0 0 1 4 0v.07c0 .66.39 1.25 1 1.51.27.13.58.2.9.2.32 0 .62-.07.9-.2a1.65 1.65 0 0 0 1.51-1V2a2 2 0 1 1 4 0v.07c0 .66.39 1.25 1 1.51.64.31 1.4.2 1.95-.35l.06-.06A2 2 0 1 1 22 6.02l-.06.06c-.55.55-.66 1.31-.35 1.95.26.61.85 1 1.51 1H24a2 2 0 0 1 0 4h-.07c-.66 0-1.25.39-1.51 1Z"/>
+          </svg>
+        </button>
+
         <div class="text-right">
           <div class="text-sm font-semibold text-gray-900 dark:text-white" id="userEmail"></div>
           <div class="text-xs text-gray-500 dark:text-gray-400" id="roleDisplay"></div>
@@ -1095,6 +1103,57 @@ if (state.config.token) {
 }
 
 updateQueueUI();
+</script>
+
+<!-- SVG viewBox Sanitizer (defensive against third-party scripts) -->
+<script>
+(function svgViewBoxSanitizer(){
+  function isNumericViewBox(v){
+    if(typeof v !== 'string') return false;
+    const parts = v.trim().split(/\s+/);
+    if(parts.length !== 4) return false;
+    return parts.every(p => /^[+-]?(\d+(\.\d+)?)$/.test(p));
+  }
+  function normalize(el){
+    try{
+      const vb = el.getAttribute('viewBox');
+      if(!vb || isNumericViewBox(vb)) return;
+      // Fallback by measured box or defaults
+      const w = parseFloat(el.getAttribute('width')) || el.clientWidth || 100;
+      const h = parseFloat(el.getAttribute('height')) || el.clientHeight || 24;
+      el.setAttribute('viewBox', `0 0 ${Math.max(1, Math.round(w))} ${Math.max(1, Math.round(h))}`);
+      // move sizing to CSS if needed
+      if(el.hasAttribute('width')) el.removeAttribute('width');
+      if(el.hasAttribute('height')) el.removeAttribute('height');
+      el.style.width = el.style.width || '100%';
+      el.style.height = el.style.height || `${h}px`;
+    }catch(e){}
+  }
+  function sweep(root=document){
+    root.querySelectorAll('svg[viewBox]').forEach(normalize);
+    root.querySelectorAll('svg:not([viewBox])').forEach(el=>{
+      // Set a safe default
+      const w = el.clientWidth || 100, h = el.clientHeight || 24;
+      el.setAttribute('viewBox', `0 0 ${Math.max(1, w)} ${Math.max(1, h)}`);
+    });
+  }
+  // Initial sweep
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=>sweep());
+  } else { sweep(); }
+  // Mutation observer for third-party injections
+  const mo = new MutationObserver((muts)=>{
+    for(const m of muts){
+      m.addedNodes && m.addedNodes.forEach(n=>{
+        if(n.nodeType===1){
+          if(n.tagName==='svg' || n.querySelector?.('svg')) sweep(n);
+        }
+      }
+    });
+  }
+  });
+  mo.observe(document.documentElement, {childList:true, subtree:true});
+})();
 </script>
 
 </body>
