@@ -5,5 +5,5 @@ if grep -RIn --include=\*.{html,js,svg} 'viewBox="[^"]*\(%\|px\)' inventory-ente
   grep -RIn --include=\*.{html,js,svg} 'viewBox="[^"]*\(%\|px\)' inventory-enterprise || true
   exit 1
 else
-  echo "✅ No invalid viewBox found."
+  echo "✅ No invalid viewBox patterns found in static sources."
 fi
