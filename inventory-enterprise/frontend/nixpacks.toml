@@ -5,4 +5,4 @@ nixPkgs = ["nodejs_20"]
 cmds = ["npm install --omit=dev --no-audit --no-fund"]
 
 [start]
-cmd = "npx serve public -l $PORT -s"
+cmd = "npx serve public -l $PORT"

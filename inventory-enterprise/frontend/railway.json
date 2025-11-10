@@ -4,8 +4,8 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npx serve public -l $PORT -s",
-    "healthcheckPath": "/",
+    "startCommand": "npx serve public -l $PORT",
+    "healthcheckPath": "/index.html",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
