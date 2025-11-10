@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --omit=dev --no-audit --no-fund"]
+
+[start]
+cmd = "npx serve public -l $PORT -s"

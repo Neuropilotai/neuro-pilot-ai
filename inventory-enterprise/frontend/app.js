@@ -65,7 +65,7 @@ async function handleLogin(e) {
     errorDiv.classList.remove('show');
 
     try {
-        const response = await fetch('http://localhost:8083/api/auth/login', {
+        const response = await fetch(API_CONFIG.getUrl('login'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -99,7 +99,7 @@ async function handleLogin(e) {
 
 async function validateToken() {
     try {
-        const response = await fetch('http://localhost:8083/api/auth/me', {
+        const response = await fetch(API_CONFIG.getUrl('me'), {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
@@ -150,7 +150,7 @@ async function loadDashboardData() {
     }
 
     try {
-        const response = await fetch('http://localhost:8083/health');
+        const response = await fetch(API_CONFIG.getUrl('health'));
         const data = await response.json();
         document.getElementById('status').textContent = 'API Status: ' + data.status;
 
@@ -165,7 +165,7 @@ async function loadDashboardData() {
 
 async function loadInventoryData() {
     try {
-        const response = await fetch('http://localhost:8083/api/inventory/items', {
+        const response = await fetch(API_CONFIG.getUrl('inventory'), {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
