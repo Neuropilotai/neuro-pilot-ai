@@ -2,10 +2,10 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm ci --omit=dev"]
+cmds = ["npm ci --omit=dev --no-audit --no-fund"]
 
 [phases.build]
-cmds = ["npm install --production=false"]
+cmds = ["npm install --production=false --no-audit --no-fund"]
 
 [start]
-cmd = "node server-v21_1.js"
+cmd = "npm start"
