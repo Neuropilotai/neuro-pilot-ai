@@ -1,6 +1,82 @@
-**/__pycache__/
-**/.DS_Store
-**/node_modules/
+# Version Control
 **/.git/
+**/.gitignore
+.github/
+
+# Dependencies
+**/node_modules/
+**/__pycache__/
+**/venv/
+**/.venv/
+
+# IDE & Editor
 **/.idea/
 **/.vscode/
+**/.DS_Store
+*.swp
+*.swo
+*~
+
+# Environment & Secrets
+**/.env
+**/.env.*
+!**/.env.example
+*.key
+*.pem
+
+# Logs
+**/logs/
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Test & Coverage
+**/test/
+**/tests/
+**/__tests__/
+**/coverage/
+**/.nyc_output/
+*.test.js
+*.spec.js
+
+# Documentation
+**/*.md
+!backend/RAILWAY_DEPLOYMENT.md
+docs/
+
+# Build artifacts
+**/dist/
+**/build/
+**/.next/
+**/.nuxt/
+**/out/
+
+# Database files (use mounted volumes instead)
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Temporary files
+**/tmp/
+**/temp/
+**/.cache/
+
+# Backups
+**/backups/
+**/*.backup
+**/*.bak
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Misc
+*.zip
+*.tar
+*.gz
+validation_reports/
+frontend_rbac_verification_*.log
+rbac_verification_*.log
+v15_5_1_production_verification_*.log
