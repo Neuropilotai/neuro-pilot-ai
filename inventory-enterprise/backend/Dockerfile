@@ -8,8 +8,8 @@ ENV NPM_CONFIG_CACHE=/root/.npm
 # Copy manifests first for better layer caching
 COPY package*.json ./
 
-# Use BuildKit cache with an explicit id (REQUIRED by Railway)
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
+# Use BuildKit cache with Railway-compatible format
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     npm ci --omit=dev --no-audit --no-fund
 
 # Bring in the rest of the source
