@@ -3,17 +3,14 @@ FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
 
 WORKDIR /app
 ENV NODE_ENV=production
-ENV NPM_CONFIG_CACHE=/root/.npm
 
-# Copy manifests first for better layer caching
+# Copy package files for dependency installation
 COPY package*.json ./
 
-# Use BuildKit cache with Railway service-prefixed ID format
-# Railway requires: id=s/<service-id>-<cache-name>
-RUN --mount=type=cache,id=s/c4523800-800b-4200-9f84-90c142fd0168-npm,target=/root/.npm \
-    npm ci --omit=dev --no-audit --no-fund
+# Install production dependencies (Railway will handle caching)
+RUN npm ci --omit=dev --no-audit --no-fund
 
-# Bring in the rest of the source
+# Copy application source
 COPY . .
 
 # Start the server
