@@ -342,4 +342,4 @@ CREATE TRIGGER update_ai_consumption_updated_at BEFORE UPDATE ON ai_consumption_
 -- COMPLETE
 -- ============================================================================
 
-COMMENT ON DATABASE CURRENT_DATABASE() IS 'Inventory Enterprise v2.1 - PostgreSQL Schema';
+-- Database comment skipped (requires explicit database name)
