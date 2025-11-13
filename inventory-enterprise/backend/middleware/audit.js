@@ -113,12 +113,12 @@ async function writeAuditLog(entry) {
           action, org_id, actor_id, ip,
           details, success, latency_ms, created_at
         )
-        VALUES ($1, $2, $3::uuid, $4::inet, $5::jsonb, $6, $7, NOW())
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, NOW())
       `, [
         entry.action,
         entry.org_id || 1,
-        entry.user_id || null,
-        entry.ip_address || null,
+        entry.user_id || null,  // Let PostgreSQL handle NULL for UUID column
+        entry.ip_address || null,  // Let PostgreSQL handle NULL for INET column
         JSON.stringify(redactSecrets(entry.metadata || {})),
         entry.success !== false, // Default true
         entry.latency_ms || null
