@@ -110,10 +110,10 @@ async function writeAuditLog(entry) {
     try {
       await client.query(`
         INSERT INTO audit_log (
-          action, org_id, user_id, ip_address,
-          metadata, success, latency_ms, created_at
+          action, org_id, actor_id, ip,
+          details, success, latency_ms, created_at
         )
-        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, NOW())
+        VALUES ($1, $2, $3::uuid, $4::inet, $5::jsonb, $6, $7, NOW())
       `, [
         entry.action,
         entry.org_id || 1,
