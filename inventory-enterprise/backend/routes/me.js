@@ -9,137 +9,37 @@ const router = express.Router();
 // GET /api/me/tenancy
 // Returns the authenticated user's org_id and site_id for multi-tenant operations
 router.get('/tenancy', async (req, res) => {
-  try {
-    // req.user is populated by authGuard middleware
-    const userId = req.user.user_id || req.user.id;
-
-    // Query database for user's org and site associations
-    // V21.1: Users can belong to multiple orgs/sites, return primary association
-    const result = await global.db.query(
-      `SELECT
-        COALESCE(ur.org_id, 'default-org') as org_id,
-        ur.site_id,
-        'Default Organization' as org_name,
-        'Default Site' as site_name
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id
-      WHERE u.id = $1 AND u.active = true
-      LIMIT 1`,
-      [userId]
-    );
-
-    if (result.rows.length === 0) {
-      // User not found in database, return defaults from JWT
-      // This handles cases where auth uses in-memory users (legacy)
-      return res.json({
-        success: true,
-        data: {
-          org_id: req.user.org_id || 1,
-          site_id: req.user.site_id || 1,
-          org_name: req.user.org_name || 'Default Organization',
-          site_name: req.user.site_name || 'Default Site'
-        },
-        source: 'jwt_fallback'
-      });
-    }
-
-    const user = result.rows[0];
-
-    res.json({
-      success: true,
-      data: {
-        org_id: user.org_id,
-        site_id: user.site_id,
-        org_name: user.org_name,
-        site_name: user.site_name
-      },
-      source: 'database'
-    });
-
-  } catch (error) {
-    console.error('Tenancy lookup error:', error);
-
-    // Fail gracefully with defaults
-    res.json({
-      success: true,
-      data: {
-        org_id: req.user?.org_id || 1,
-        site_id: req.user?.site_id || 1,
-        org_name: 'Default Organization',
-        site_name: 'Default Site'
-      },
-      source: 'error_fallback',
-      warning: 'Database query failed, using defaults'
-    });
-  }
+  // req.user is populated by authGuard middleware (includes fallback for in-memory users)
+  // Simply return the tenancy info that authGuard already populated
+  return res.json({
+    success: true,
+    data: {
+      org_id: req.user.org_id || 'default-org',
+      site_id: req.user.site_id || null,
+      org_name: 'Default Organization',
+      site_name: 'Default Site'
+    },
+    source: 'middleware'
+  });
 });
 
 // GET /api/me
 // Returns authenticated user's profile information
 router.get('/', async (req, res) => {
-  try {
-    const userId = req.user.user_id || req.user.id;
-
-    // Try to get user from database
-    const result = await global.db.query(
-      `SELECT
-        u.id,
-        u.email,
-        u.display_name,
-        u.role,
-        COALESCE(ur.org_id, 'default-org') as org_id,
-        ur.site_id,
-        u.active as is_active,
-        u.created_at,
-        u.last_login
-      FROM users u
-      LEFT JOIN user_roles ur ON ur.user_id = u.id
-      WHERE u.id = $1 AND u.active = true`,
-      [userId]
-    );
-
-    if (result.rows.length === 0) {
-      // Fallback to JWT data
-      return res.json({
-        success: true,
-        user: {
-          id: req.user.id,
-          email: req.user.email,
-          role: req.user.role,
-          org_id: req.user.org_id,
-          site_id: req.user.site_id
-        },
-        source: 'jwt'
-      });
-    }
-
-    const user = result.rows[0];
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.display_name,
-        role: user.role,
-        org_id: user.org_id,
-        site_id: user.site_id,
-        isActive: user.is_active,
-        createdAt: user.created_at,
-        lastLogin: user.last_login
-      },
-      source: 'database'
-    });
-
-  } catch (error) {
-    console.error('User profile error:', error);
-
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve user profile',
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
-    });
-  }
+  // req.user is populated by authGuard middleware (includes fallback for in-memory users)
+  return res.json({
+    success: true,
+    user: {
+      id: req.user.id,
+      email: req.user.email,
+      displayName: req.user.name,
+      role: req.user.role,
+      org_id: req.user.org_id,
+      site_id: req.user.site_id,
+      createdAt: req.user.created_at
+    },
+    source: 'middleware'
+  });
 });
 
 module.exports = router;
