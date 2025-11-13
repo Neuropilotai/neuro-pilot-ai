@@ -17,14 +17,13 @@ router.get('/tenancy', async (req, res) => {
     // V21.1: Users can belong to multiple orgs/sites, return primary association
     const result = await global.db.query(
       `SELECT
-        u.org_id,
-        u.site_id,
-        o.name as org_name,
-        s.name as site_name
+        COALESCE(ur.org_id, 'default-org') as org_id,
+        ur.site_id,
+        'Default Organization' as org_name,
+        'Default Site' as site_name
       FROM users u
-      LEFT JOIN organizations o ON u.org_id = o.id
-      LEFT JOIN sites s ON u.site_id = s.id
-      WHERE u.id = $1 AND u.is_active = true
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      WHERE u.id = $1 AND u.active = true
       LIMIT 1`,
       [userId]
     );
@@ -84,18 +83,18 @@ router.get('/', async (req, res) => {
     // Try to get user from database
     const result = await global.db.query(
       `SELECT
-        id,
-        email,
-        first_name,
-        last_name,
-        role,
-        org_id,
-        site_id,
-        is_active,
-        created_at,
-        last_login
-      FROM users
-      WHERE id = $1 AND is_active = true`,
+        u.id,
+        u.email,
+        u.display_name,
+        u.role,
+        COALESCE(ur.org_id, 'default-org') as org_id,
+        ur.site_id,
+        u.active as is_active,
+        u.created_at,
+        u.last_login
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      WHERE u.id = $1 AND u.active = true`,
       [userId]
     );
 
@@ -121,8 +120,7 @@ router.get('/', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        displayName: user.display_name,
         role: user.role,
         org_id: user.org_id,
         site_id: user.site_id,

@@ -131,12 +131,12 @@ function authGuard(requiredRoles = []) {
       // Load user from database with role
       const userResult = await pool.query(`
         SELECT
-          u.id, u.email, u.name, u.org_id, u.created_at,
-          COALESCE(ur.role, 'viewer') AS role,
+          u.id, u.email, u.display_name as name, u.role, u.created_at,
+          COALESCE(ur.org_id, 'default-org') AS org_id,
           ur.site_id
         FROM users u
         LEFT JOIN user_roles ur ON ur.user_id = u.id
-        WHERE u.id = $1 AND u.deleted_at IS NULL
+        WHERE u.id = $1 AND u.active = true
         LIMIT 1
       `, [decoded.userId]);
 
@@ -144,7 +144,7 @@ function authGuard(requiredRoles = []) {
         authAttempts.inc({ result: 'user_not_found', role: 'none' });
         return res.status(401).json({
           error: 'Unauthorized',
-          message: 'User not found or deleted'
+          message: 'User not found or inactive'
         });
       }
 
