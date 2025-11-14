@@ -335,17 +335,21 @@ process.on('uncaughtException', (error) => {
     stack: error.stack,
     name: error.name
   });
-  
+
   securityLog('uncaught_exception', 'critical', {
     message: error.message,
     stack: error.stack,
     name: error.name
   });
-  
-  // Graceful shutdown
-  setTimeout(() => {
-    process.exit(1);
-  }, 2000);
+
+  // Only exit in development - log but continue in production
+  if (process.env.NODE_ENV !== 'production') {
+    setTimeout(() => {
+      process.exit(1);
+    }, 2000);
+  } else {
+    logger.warn('Uncaught exception in production - continuing (investigate immediately!)');
+  }
 });
 
 // 📊 ERROR METRICS ENDPOINT
