@@ -1,20 +1,20 @@
 # Nixpacks Configuration for Railway
-# Root Directory should be: inventory-enterprise
+# Railway runs from neuro-pilot-ai directory, so paths need inventory-enterprise prefix
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["cd backend && npm ci --omit=dev"]
+cmds = ["cd inventory-enterprise/backend && npm ci --omit=dev"]
 
 [phases.build]
 cmds = [
-  "cd backend && npm install --production=false",
-  "mkdir -p backend/public",
-  "cp -r frontend/public/* backend/public/",
+  "cd inventory-enterprise/backend && npm install --production=false",
+  "mkdir -p inventory-enterprise/backend/public",
+  "cp -r inventory-enterprise/frontend/public/* inventory-enterprise/backend/public/ || true",
   "echo '✅ Copied frontend files to backend/public'",
-  "ls -la backend/public | head -10"
+  "ls -la inventory-enterprise/backend/public | head -10 || true"
 ]
 
 [start]
-cmd = "cd backend && node server-v21_1.js"
+cmd = "cd inventory-enterprise/backend && node server-v21_1.js"
