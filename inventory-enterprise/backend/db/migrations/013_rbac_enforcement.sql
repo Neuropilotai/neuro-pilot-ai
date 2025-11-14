@@ -161,7 +161,7 @@ END $$;
 
 -- Create index on audit_log for performance
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_user_org ON audit_log(user_id, org_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_actor_org ON audit_log(actor_id, org_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
 
 -- ============================================================
