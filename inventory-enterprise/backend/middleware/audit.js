@@ -117,9 +117,9 @@ async function writeAuditLog(entry) {
       `, [
         entry.action,
         entry.org_id || 1,
-        entry.user_id || null,  // Let PostgreSQL handle NULL for UUID column
-        entry.ip_address || null,  // Let PostgreSQL handle NULL for INET column
-        JSON.stringify(redactSecrets(entry.metadata || {})),
+        entry.actor_id || entry.user_id || null,  // Support both field names
+        entry.ip || entry.ip_address || null,  // Support both field names
+        JSON.stringify(redactSecrets(entry.details || entry.metadata || {})),
         entry.success !== false, // Default true
         entry.latency_ms || null
       ]);
@@ -149,11 +149,11 @@ function auditLog(action) {
       const auditEntry = {
         action,
         org_id: req.tenancy?.org_id || req.user?.org_id || 1,
-        user_id: req.user?.id || null,
-        ip_address: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress,
+        actor_id: req.user?.id || null,
+        ip: req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress,
         success: res.statusCode >= 200 && res.statusCode < 400,
         latency_ms: latencyMs,
-        metadata: {
+        details: {
           method: req.method,
           path: req.path,
           status: res.statusCode,
@@ -178,10 +178,10 @@ async function queryAuditLogs(filters = {}, limit = 1000) {
     const params = [];
     let paramCount = 0;
 
-    if (filters.user_id) {
+    if (filters.user_id || filters.actor_id) {
       paramCount++;
-      whereClauses.push(`user_id = $${paramCount}`);
-      params.push(filters.user_id);
+      whereClauses.push(`actor_id = $${paramCount}`);
+      params.push(filters.actor_id || filters.user_id);
     }
 
     if (filters.org_id) {
@@ -218,8 +218,8 @@ async function queryAuditLogs(filters = {}, limit = 1000) {
 
     const result = await pool.query(`
       SELECT
-        id, action, org_id, user_id, ip_address,
-        metadata, success, latency_ms, created_at
+        id, action, org_id, actor_id, ip,
+        details, success, latency_ms, created_at
       FROM audit_log
       ${whereClause}
       ORDER BY created_at DESC
@@ -280,12 +280,12 @@ async function exportUserAuditTrail(userId, days = 90) {
   try {
     const result = await pool.query(`
       SELECT
-        action, ip_address, success, created_at,
-        metadata->>'method' AS method,
-        metadata->>'path' AS path,
-        metadata->>'status' AS status
+        action, ip, success, created_at,
+        details->>'method' AS method,
+        details->>'path' AS path,
+        details->>'status' AS status
       FROM audit_log
-      WHERE user_id = $1
+      WHERE actor_id = $1
         AND created_at >= NOW() - INTERVAL '${days} days'
       ORDER BY created_at DESC
     `, [userId]);
