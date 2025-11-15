@@ -56,6 +56,8 @@ const defaultAdmin = {
   role: ROLES.OWNER,
   firstName: 'David',
   lastName: 'Owner',
+  org_id: 'default-org',
+  site_id: null,
   isActive: true,
   createdAt: new Date().toISOString(),
   lastLogin: null,
@@ -73,6 +75,8 @@ const v15Owner = {
   role: ROLES.OWNER,
   firstName: 'System',
   lastName: 'Owner',
+  org_id: 'default-org',
+  site_id: null,
   isActive: true,
   createdAt: new Date('2025-10-14T10:07:44').toISOString(),
   lastLogin: null,
@@ -88,6 +92,8 @@ const generateTokens = (user) => {
     id: user.id,
     email: user.email,
     role: user.role,
+    org_id: user.org_id || 'default-org',
+    site_id: user.site_id || null,
     permissions: PERMISSIONS[user.role] || []
   };
 
@@ -388,6 +394,8 @@ const authenticateUser = async (email, password, req) => {
       role: user.role,
       firstName: user.firstName,
       lastName: user.lastName,
+      org_id: user.org_id || 'default-org',
+      site_id: user.site_id || null,
       permissions: PERMISSIONS[user.role] || []
     },
     tokens
