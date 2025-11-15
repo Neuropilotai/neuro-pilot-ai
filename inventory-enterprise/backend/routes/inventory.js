@@ -13,7 +13,9 @@ const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
 const { PERMISSIONS } = require('../src/security/permissions');
 const { requirePermission } = require('../middleware/tenantContext');
-const metricsExporter = require('../utils/metricsExporter');
+// TEMP FIX: Disabled metricsExporter due to duplicate metric registration
+// const metricsExporter = require('../utils/metricsExporter');
+const metricsExporter = { recordTenantRequest: () => {} }; // Stub
 const { auditLog, performanceLog } = require('../config/logger');
 // MIGRATED: Switched from SQLite to PostgreSQL
 // const db = require('../config/database');
