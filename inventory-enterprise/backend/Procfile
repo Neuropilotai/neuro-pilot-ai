@@ -1,4 +1,4 @@
 # V21.1 Backend - Railway Procfile
-# Using server-v21_1.js with database initialization
+# Using server-v21_1.js with PostgreSQL database
 
-web: echo "Procfile: Starting Node.js server..." && ls -la && echo "Running: node server-v21_1.js" && node server-v21_1.js
+web: node server-v21_1.js

@@ -322,19 +322,15 @@ app.post('/api/privacy/do-not-sell', authGuard(['staff', 'manager', 'admin', 'ow
 // V21.1 ROUTES
 // ============================================
 
-console.log('[STARTUP] Loading routes...');
-
 // Auth routes (no auth guard for login/register, but audit login attempts)
-console.log('[STARTUP] Loading /api/auth route...');
 app.use('/api/auth', auditLog('AUTH'), require('./routes/auth'));
 
 // User profile routes (requires authentication)
-console.log('[STARTUP] Loading /api/me route...');
 app.use('/api/me', authGuard(['staff', 'manager', 'admin', 'owner']), auditLog('USER_PROFILE'), require('./routes/me'));
 
 // All routes require authentication (staff role minimum) + audit logging
-console.log('[STARTUP] TEMPORARY: Skipping SQLite-dependent routes (inventory, vendors, recipes, menu, population, waste, pdfs)...');
-console.log('[STARTUP] These routes need to be migrated from SQLite to PostgreSQL');
+// NOTE: The following routes are temporarily disabled - they use SQLite (config/database.js)
+// and need to be migrated to use PostgreSQL (db.js pool)
 // TEMPORARILY DISABLED - These routes use config/database.js (SQLite) instead of PostgreSQL
 // app.use('/api/inventory', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), require('./routes/inventory'));
 // app.use('/api/vendors', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR'), require('./routes/vendors'));
@@ -345,14 +341,12 @@ console.log('[STARTUP] These routes need to be migrated from SQLite to PostgreSQ
 // app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), require('./routes/pdfs'));
 
 // POS routes (commissary point of sale) + audit logging
-console.log('[STARTUP] Loading POS routes...');
 app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), require('./routes/pos.catalog'));
 app.use('/api/pos/registers', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REGISTER'), require('./routes/pos.registers'));
 app.use('/api/pos/orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_ORDER'), require('./routes/pos.orders'));
 app.use('/api/pos/payments', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, validatePayment(), auditLog('POS_PAYMENT'), require('./routes/pos.payments'));
 app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REPORT'), require('./routes/pos.reports'));
 app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), require('./routes/pdfs.pos'));
-console.log('[STARTUP] All routes loaded successfully');
 
 // ============================================
 // ERROR HANDLERS
@@ -423,7 +417,6 @@ if (process.env.SCHEDULER_ENABLED === 'true') {
 // SERVER START
 // ============================================
 
-console.log('[STARTUP] Starting server on port', PORT, '...');
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('================================================');
   console.log('  NeuroInnovate Inventory Enterprise V21.1');
