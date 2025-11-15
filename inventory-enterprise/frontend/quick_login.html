@@ -176,13 +176,18 @@
                     resultDiv.className = 'result success';
                     resultDiv.innerHTML = '✅ Login successful! Redirecting to console...';
 
-                    // Store token and user info (authToken for owner-console.html)
+                    // Store token and user info (NP_* keys for owner-super-console-enterprise.html)
+                    localStorage.setItem('NP_TOKEN', data.accessToken);
+                    localStorage.setItem('NP_USER', JSON.stringify(data.user));
+                    localStorage.setItem('NP_API_URL', BACKEND_URL);
+
+                    // Also store with legacy keys for backwards compatibility
                     localStorage.setItem('authToken', data.accessToken);
                     localStorage.setItem('user', JSON.stringify(data.user));
 
                     // Redirect to owner console (use relative path)
                     setTimeout(() => {
-                        window.location.href = 'owner-super-console-enterprise.html';
+                        window.location.href = 'public/owner-super-console-enterprise.html';
                     }, 1500);
                 } else {
                     resultDiv.className = 'result error';
