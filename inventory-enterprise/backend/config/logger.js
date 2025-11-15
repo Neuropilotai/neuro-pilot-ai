@@ -16,12 +16,23 @@ const logFormat = winston.format.combine(
   })
 );
 
-// Create logs directory if it doesn't exist
+// Create logs directory if it doesn't exist (skip in Railway/containerized environments)
 const fs = require('fs');
 const logsDir = path.join(__dirname, '../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+
+// Try to create logs directory, but don't fail if we can't (e.g., in Railway containers)
+try {
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+} catch (err) {
+  console.warn('[Logger] Could not create logs directory (this is normal in containerized environments):', err.message);
 }
+
+// Determine if we're in a containerized/Railway environment
+// In these environments, file logging may not work or logs are ephemeral
+const isRailway = process.env.RAILWAY_ENVIRONMENT !== undefined;
+const useFileLogging = !isRailway && fs.existsSync(logsDir);
 
 // Create Winston logger
 const logger = winston.createLogger({
@@ -30,7 +41,7 @@ const logger = winston.createLogger({
   defaultMeta: {
     service: 'inventory-enterprise'
   },
-  transports: [
+  transports: useFileLogging ? [
     // Error logs
     new winston.transports.File({
       filename: path.join(logsDir, 'error.log'),
@@ -56,37 +67,36 @@ const logger = winston.createLogger({
       maxFiles: 10,
       tailable: true
     })
-  ],
+  ] : [], // No file logging in Railway - use console only
 
   // Handle exceptions
-  exceptionHandlers: [
+  exceptionHandlers: useFileLogging ? [
     new winston.transports.File({
       filename: path.join(logsDir, 'exceptions.log')
     })
-  ],
+  ] : [],
 
   // Handle rejections
-  rejectionHandlers: [
+  rejectionHandlers: useFileLogging ? [
     new winston.transports.File({
       filename: path.join(logsDir, 'rejections.log')
     })
-  ]
+  ] : []
 });
 
-// Add console logging in development
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple(),
-      winston.format.printf(({ timestamp, level, message, ...meta }) => {
-        const metaString = Object.keys(meta).length ? 
-          ` ${JSON.stringify(meta, null, 2)}` : '';
-        return `${timestamp} [${level}]: ${message}${metaString}`;
-      })
-    )
-  }));
-}
+// Add console logging (always enabled for Railway/containerized deployments)
+// In Railway, we need console output since file logs are ephemeral
+logger.add(new winston.transports.Console({
+  format: winston.format.combine(
+    winston.format.colorize(),
+    winston.format.simple(),
+    winston.format.printf(({ timestamp, level, message, ...meta }) => {
+      const metaString = Object.keys(meta).length ?
+        ` ${JSON.stringify(meta, null, 2)}` : '';
+      return `${timestamp} [${level}]: ${message}${metaString}`;
+    })
+  )
+}));
 
 // Audit logging for security events
 const auditLog = (event, details, req = null) => {
