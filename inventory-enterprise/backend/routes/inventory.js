@@ -15,13 +15,39 @@ const { PERMISSIONS } = require('../src/security/permissions');
 const { requirePermission } = require('../middleware/tenantContext');
 const metricsExporter = require('../utils/metricsExporter');
 const { auditLog, performanceLog } = require('../config/logger');
-const db = require('../config/database');
+// MIGRATED: Switched from SQLite to PostgreSQL
+// const db = require('../config/database');
 const { getFileIO } = require('../utils/fileIO');
 const { getEncryption } = require('../config/encryption');
 const fs = require('fs');
 const path = require('path');
 
 const router = express.Router();
+
+// PostgreSQL wrapper to mimic SQLite API for easier migration
+// Converts SQLite ? placeholders to PostgreSQL $1, $2, $3 placeholders
+function convertSqlParams(sql) {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
+}
+
+const db = {
+  async get(sql, params = []) {
+    const pgSql = convertSqlParams(sql);
+    const result = await global.db.query(pgSql, params);
+    return result.rows[0];
+  },
+  async all(sql, params = []) {
+    const pgSql = convertSqlParams(sql);
+    const result = await global.db.query(pgSql, params);
+    return result.rows;
+  },
+  async run(sql, params = []) {
+    const pgSql = convertSqlParams(sql);
+    const result = await global.db.query(pgSql, params);
+    return { lastID: result.rows[0]?.id, changes: result.rowCount };
+  }
+};
 
 // In-memory data stores (tenant-scoped for v2.4.2)
 // Structure: { tenantId: { items: [], locations: Map(), history: [] } }

@@ -329,10 +329,8 @@ app.use('/api/auth', auditLog('AUTH'), require('./routes/auth'));
 app.use('/api/me', authGuard(['staff', 'manager', 'admin', 'owner']), auditLog('USER_PROFILE'), require('./routes/me'));
 
 // All routes require authentication (staff role minimum) + audit logging
-// NOTE: routes/inventory.js is disabled - uses SQLite and needs PostgreSQL migration
-// app.use('/api/inventory', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), require('./routes/inventory'));
-
-// These routes use PostgreSQL and are ready to use
+// All routes now use PostgreSQL
+app.use('/api/inventory', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), require('./routes/inventory'));
 app.use('/api/vendors', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR'), require('./routes/vendors'));
 app.use('/api/recipes', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('RECIPE'), require('./routes/recipes'));
 app.use('/api/menu', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('MENU'), require('./routes/menu'));
