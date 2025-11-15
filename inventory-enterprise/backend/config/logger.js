@@ -41,6 +41,7 @@ const logger = winston.createLogger({
   defaultMeta: {
     service: 'inventory-enterprise'
   },
+  exitOnError: false, // Don't exit on unhandled errors - let the app handle them
   transports: useFileLogging ? [
     // Error logs
     new winston.transports.File({
