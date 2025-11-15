@@ -329,16 +329,16 @@ app.use('/api/auth', auditLog('AUTH'), require('./routes/auth'));
 app.use('/api/me', authGuard(['staff', 'manager', 'admin', 'owner']), auditLog('USER_PROFILE'), require('./routes/me'));
 
 // All routes require authentication (staff role minimum) + audit logging
-// NOTE: The following routes are temporarily disabled - they use SQLite (config/database.js)
-// and need to be migrated to use PostgreSQL (db.js pool)
-// TEMPORARILY DISABLED - These routes use config/database.js (SQLite) instead of PostgreSQL
+// NOTE: routes/inventory.js is disabled - uses SQLite and needs PostgreSQL migration
 // app.use('/api/inventory', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), require('./routes/inventory'));
-// app.use('/api/vendors', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR'), require('./routes/vendors'));
-// app.use('/api/recipes', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('RECIPE'), require('./routes/recipes'));
-// app.use('/api/menu', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('MENU'), require('./routes/menu'));
-// app.use('/api/population', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POPULATION'), require('./routes/population'));
-// app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('WASTE'), require('./routes/waste'));
-// app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), require('./routes/pdfs'));
+
+// These routes use PostgreSQL and are ready to use
+app.use('/api/vendors', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR'), require('./routes/vendors'));
+app.use('/api/recipes', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('RECIPE'), require('./routes/recipes'));
+app.use('/api/menu', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('MENU'), require('./routes/menu'));
+app.use('/api/population', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POPULATION'), require('./routes/population'));
+app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('WASTE'), require('./routes/waste'));
+app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), require('./routes/pdfs'));
 
 // POS routes (commissary point of sale) + audit logging
 app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), require('./routes/pos.catalog'));
