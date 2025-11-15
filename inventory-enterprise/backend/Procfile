@@ -1,24 +1,4 @@
-# NeuroNexus v19.0 Backend - Railway Procfile
-# This file helps Railway/Nixpacks detect the correct start command
+# V21.1 Backend - Railway Procfile
+# Using server-v21_1.js with database initialization
 
-# Initialize database (run migrations) then start server
-web: node scripts/init-database.js && node server.js
-
-# CRITICAL: server.js MUST listen on 0.0.0.0, not 127.0.0.1
-#
-# Current code (LINE 637 in server.js):
-#   httpServer.listen(PORT, '127.0.0.1', ...)
-#
-# Required fix for Railway:
-#   httpServer.listen(PORT, '0.0.0.0', ...)
-#
-# Reason: Railway requires apps to bind to 0.0.0.0 to accept traffic.
-# Binding to 127.0.0.1 only accepts localhost connections, which fails
-# Railway's health checks and routing.
-#
-# Alternative: Remove host parameter entirely (defaults to 0.0.0.0):
-#   httpServer.listen(PORT, async () => { ... })
-#
-# PORT binding:
-#   Railway injects $PORT automatically (usually 3000+)
-#   Code correctly reads: process.env.PORT || 3001
+web: node server-v21_1.js
