@@ -811,7 +811,7 @@
             skipAuth: true,
           });
 
-          this.config.token = data.token || data.data?.token;
+          this.config.token = data.accessToken || data.token || data.data?.token;
           this.config.user = data.user || data.data?.user;
 
           localStorage.setItem('NP_TOKEN', this.config.token);
