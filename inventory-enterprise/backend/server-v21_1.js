@@ -210,6 +210,50 @@ app.get('/api/health/status', async (req, res) => {
   }
 });
 
+// Database migration endpoint (one-time use, secured by secret key)
+app.post('/api/admin/migrate', async (req, res) => {
+  const { secret } = req.body;
+
+  // Simple secret key protection (change this to a secure value)
+  if (secret !== process.env.MIGRATION_SECRET && secret !== 'migrate-now-2024') {
+    return res.status(403).json({ success: false, error: 'Invalid secret' });
+  }
+
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const migrationsDir = path.join(__dirname, 'migrations', 'postgres');
+
+    const files = fs.readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort();
+
+    const results = [];
+
+    for (const file of files) {
+      const filePath = path.join(migrationsDir, file);
+      const sql = fs.readFileSync(filePath, 'utf8');
+
+      try {
+        await pool.query(sql);
+        results.push({ file, status: 'success' });
+      } catch (error) {
+        // Table already exists is ok
+        if (error.code === '42P07' || error.message.includes('already exists')) {
+          results.push({ file, status: 'skipped', reason: 'already exists' });
+        } else {
+          results.push({ file, status: 'error', error: error.message });
+        }
+      }
+    }
+
+    res.json({ success: true, migrations: results });
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/', (req, res) => {
   res.json({
     name: 'NeuroInnovate Inventory Enterprise API',
