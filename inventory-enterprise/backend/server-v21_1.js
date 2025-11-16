@@ -4,6 +4,7 @@
  * PostgreSQL + Multi-tenant + RBAC + Metrics + Rate Limiting
  */
 
+console.log('[STARTUP] Loading dependencies...');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -11,16 +12,20 @@ const morgan = require('morgan');
 const cron = require('node-cron');
 const jwt = require('jsonwebtoken');
 const promClient = require('prom-client');
+console.log('[STARTUP] Loading database...');
 const { pool } = require('./db');
 
 // V21.1 Security Middleware
+console.log('[STARTUP] Loading middleware...');
 const { authGuard: rbacAuthGuard, requirePermissions } = require('./middleware/authorize');
 const { auditLog } = require('./middleware/audit');
 const { privacyGuard, executeScheduledDeletions } = require('./middleware/privacy');
 const { validatePayment } = require('./middleware/payments.validate');
 
+console.log('[STARTUP] Creating Express app...');
 const app = express();
 const PORT = process.env.PORT || 8080;
+console.log('[STARTUP] Express app created, PORT:', PORT);
 
 // ============================================
 // DATABASE CONNECTION
@@ -34,8 +39,10 @@ global.db = pool;
 // MIDDLEWARE
 // ============================================
 
+console.log('[STARTUP] Configuring middleware...');
 // Privacy Guard (CORS, input sanitization) - MUST BE FIRST
 app.use(privacyGuard());
+console.log('[STARTUP] Privacy guard configured');
 
 // Security headers
 app.use(helmet({
@@ -366,8 +373,11 @@ app.post('/api/privacy/do-not-sell', authGuard(['staff', 'manager', 'admin', 'ow
 // V21.1 ROUTES
 // ============================================
 
+console.log('[STARTUP] Loading routes...');
 // Auth routes (no auth guard for login/register, but audit login attempts)
+console.log('[STARTUP] Loading auth route...');
 app.use('/api/auth', auditLog('AUTH'), require('./routes/auth'));
+console.log('[STARTUP] Auth route loaded');
 
 // User profile routes (requires authentication)
 app.use('/api/me', authGuard(['staff', 'manager', 'admin', 'owner']), auditLog('USER_PROFILE'), require('./routes/me'));
