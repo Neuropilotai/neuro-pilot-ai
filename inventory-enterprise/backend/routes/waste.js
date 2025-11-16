@@ -128,83 +128,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET /api/waste/:id - Get single waste event
-router.get('/:id', async (req, res) => {
-  const { org_id } = req.user;
-  const { id } = req.params;
-
-  try {
-    const result = await global.db.query(`
-      SELECT wl.*, wr.reason as reason_name, wr.category
-      FROM waste_logs wl
-      LEFT JOIN waste_reasons wr ON wl.reason_id = wr.id
-      WHERE wl.org_id = $1 AND wl.id = $2
-    `, [org_id, id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Waste event not found' });
-    }
-
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('GET /api/waste/:id error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// PUT /api/waste/:id - Update waste event
-router.put('/:id', async (req, res) => {
-  const { org_id } = req.user;
-  const { id } = req.params;
-  const { qty, uom, reason_id, notes, photo_url } = req.body;
-
-  try {
-    const result = await global.db.query(`
-      UPDATE waste_logs SET
-        qty = COALESCE($3, qty),
-        uom = COALESCE($4, uom),
-        reason_id = COALESCE($5, reason_id),
-        notes = COALESCE($6, notes),
-        photo_url = COALESCE($7, photo_url),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE org_id = $1 AND id = $2
-      RETURNING *
-    `, [org_id, id, qty, uom, reason_id, notes, photo_url]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Waste event not found' });
-    }
-
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('PUT /api/waste/:id error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// DELETE /api/waste/:id - Delete waste event
-router.delete('/:id', async (req, res) => {
-  const { org_id } = req.user;
-  const { id } = req.params;
-
-  try {
-    const result = await global.db.query(
-      'DELETE FROM waste_logs WHERE org_id = $1 AND id = $2 RETURNING id',
-      [org_id, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Waste event not found' });
-    }
-
-    res.json({ success: true, message: 'Waste event deleted' });
-  } catch (error) {
-    console.error('DELETE /api/waste/:id error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/waste/summary - Aggregate waste analytics
+// GET /api/waste/summary - Aggregate waste analytics (MUST be before /:id route)
 router.get('/summary', async (req, res) => {
   const { org_id } = req.user;
   const { from, to, group_by, site_id } = req.query;
@@ -286,7 +210,7 @@ router.get('/summary', async (req, res) => {
   }
 });
 
-// GET /api/waste/reasons - Get waste reasons reference
+// GET /api/waste/reasons - Get waste reasons reference (MUST be before /:id route)
 router.get('/reasons', async (req, res) => {
   try {
     const result = await global.db.query(`
@@ -318,6 +242,82 @@ router.post('/reasons', async (req, res) => {
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('POST /api/waste/reasons error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/waste/:id - Get single waste event
+router.get('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
+  try {
+    const result = await global.db.query(`
+      SELECT wl.*, wr.reason as reason_name, wr.category
+      FROM waste_logs wl
+      LEFT JOIN waste_reasons wr ON wl.reason_id = wr.id
+      WHERE wl.org_id = $1 AND wl.id = $2
+    `, [org_id, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Waste event not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('GET /api/waste/:id error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/waste/:id - Update waste event
+router.put('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+  const { qty, uom, reason_id, notes, photo_url } = req.body;
+
+  try {
+    const result = await global.db.query(`
+      UPDATE waste_logs SET
+        qty = COALESCE($3, qty),
+        uom = COALESCE($4, uom),
+        reason_id = COALESCE($5, reason_id),
+        notes = COALESCE($6, notes),
+        photo_url = COALESCE($7, photo_url),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE org_id = $1 AND id = $2
+      RETURNING *
+    `, [org_id, id, qty, uom, reason_id, notes, photo_url]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Waste event not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('PUT /api/waste/:id error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/waste/:id - Delete waste event
+router.delete('/:id', async (req, res) => {
+  const { org_id } = req.user;
+  const { id } = req.params;
+
+  try {
+    const result = await global.db.query(
+      'DELETE FROM waste_logs WHERE org_id = $1 AND id = $2 RETURNING id',
+      [org_id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Waste event not found' });
+    }
+
+    res.json({ success: true, message: 'Waste event deleted' });
+  } catch (error) {
+    console.error('DELETE /api/waste/:id error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
