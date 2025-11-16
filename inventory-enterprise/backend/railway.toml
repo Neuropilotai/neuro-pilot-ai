@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "npm install --production=false"
 
 [deploy]
-startCommand = "cd inventory-enterprise/backend && node server-v21_1.js"
+startCommand = "node server-v21_1.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
