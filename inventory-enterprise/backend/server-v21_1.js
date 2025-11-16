@@ -374,8 +374,10 @@ app.use('/api/me', authGuard(['staff', 'manager', 'admin', 'owner']), auditLog('
 
 // All routes require authentication (staff role minimum) + audit logging
 // All routes now use PostgreSQL
-// TEMPORARILY DISABLED: inventory route has metricsExporter conflict - will fix separately
-// app.use('/api/inventory', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), require('./routes/inventory'));
+// FIXED: Re-enabled inventory route, registered as both /api/items and /api/inventory for compatibility
+const inventoryRouter = require('./routes/inventory');
+app.use('/api/items', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), inventoryRouter);
+app.use('/api/inventory', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), inventoryRouter);
 
 app.use('/api/vendors', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR'), require('./routes/vendors'));
 app.use('/api/recipes', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('RECIPE'), require('./routes/recipes'));
