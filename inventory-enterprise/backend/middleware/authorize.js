@@ -132,16 +132,22 @@ function authGuard(requiredRoles = []) {
       // JWT payload has 'id' field, not 'userId'
       const userId = decoded.userId || decoded.id;
 
-      const userResult = await pool.query(`
-        SELECT
-          u.id, u.email, u.display_name as name, u.role, u.created_at,
-          COALESCE(ur.org_id, 'default-org') AS org_id,
-          ur.site_id
-        FROM users u
-        LEFT JOIN user_roles ur ON ur.user_id = u.id
-        WHERE u.id = $1 AND u.active = true
-        LIMIT 1
-      `, [userId]);
+      let userResult = { rows: [] };
+      try {
+        userResult = await pool.query(`
+          SELECT
+            u.id, u.email, u.display_name as name, u.role, u.created_at,
+            COALESCE(ur.org_id, 'default-org') AS org_id,
+            ur.site_id
+          FROM users u
+          LEFT JOIN user_roles ur ON ur.user_id = u.id
+          WHERE u.id = $1 AND u.active = true
+          LIMIT 1
+        `, [userId]);
+      } catch (dbError) {
+        // Database tables don't exist - fall back to JWT payload (in-memory users)
+        authAttempts.inc({ result: 'db_fallback', role: decoded.role || 'none' });
+      }
 
       // Use database user if found, otherwise fall back to JWT payload
       // This handles in-memory users (like admin-1) that don't exist in database
