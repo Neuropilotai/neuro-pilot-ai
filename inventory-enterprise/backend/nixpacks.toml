@@ -5,4 +5,4 @@ nixPkgs = ["nodejs_20"]
 cmds = ["npm install --omit=dev --no-audit --no-fund"]
 
 [start]
-cmd = "node server-v21_1.js"
+cmd = "npm run start:postgres"

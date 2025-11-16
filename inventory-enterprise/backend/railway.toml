@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "npm install --production=false"
 
 [deploy]
-startCommand = "node server-v21_1.js"
+startCommand = "npm run start:postgres"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
