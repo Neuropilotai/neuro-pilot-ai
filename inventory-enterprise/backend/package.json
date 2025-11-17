@@ -9,7 +9,7 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "start": "node server-v21_1.js",
+    "start": "node scripts/init-postgres.js && node server-v21_1.js",
     "start:with-init": "node scripts/init-database.js && node server-v21_1.js",
     "start:postgres": "node scripts/init-postgres.js && node server-v21_1.js",
     "dev": "NODE_ENV=development nodemon server.js",
