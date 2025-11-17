@@ -5,6 +5,6 @@ buildCommand = "npm install --production=false"
 [deploy]
 startCommand = "npm run start:postgres"
 healthcheckPath = "/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
