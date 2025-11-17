@@ -1,0 +1,246 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "version": "1.0",
+  "description": "NeuroNexus v19.0 Autonomous Foundation - Monorepo Configuration",
+  "services": {
+    "backend": {
+      "name": "backend",
+      "description": "Node.js Express Backend with Autonomous Scheduler",
+      "root": "inventory-enterprise/backend",
+      "build": {
+        "builder": "NIXPACKS",
+        "buildCommand": "npm ci",
+        "watchPatterns": [
+          "backend/**"
+        ]
+      },
+      "deploy": {
+        "startCommand": "npm run start:postgres",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10,
+        "healthcheckPath": "/health",
+        "healthcheckTimeout": 300,
+        "healthcheckInterval": 60
+      },
+      "env": {
+        "NODE_ENV": {
+          "default": "production",
+          "description": "Node environment"
+        },
+        "PORT": {
+          "default": "3000",
+          "description": "HTTP port (Railway will override with $PORT)"
+        },
+        "SCHEDULER_ENABLED": {
+          "default": "true",
+          "description": "Enable autonomous cron scheduler"
+        },
+        "AUTO_RETRAIN_ENABLED": {
+          "default": "true",
+          "description": "Enable weekly ML model retraining"
+        },
+        "AUTO_ROLLBACK_ENABLED": {
+          "default": "true",
+          "description": "Enable auto-rollback on health failures"
+        },
+        "MAX_HEALTH_FAILURES": {
+          "default": "3",
+          "description": "Max consecutive health failures before rollback"
+        },
+        "MAPE_THRESHOLD": {
+          "default": "30",
+          "description": "Mean Absolute Percentage Error threshold"
+        },
+        "BACKEND_URL": {
+          "description": "Public backend URL (set in Railway Variables)"
+        },
+        "ML_URL": {
+          "default": "http://ml-service.railway.internal:8000",
+          "description": "Internal ML service URL"
+        },
+        "SMTP_HOST": {
+          "description": "SMTP server hostname (e.g., smtp.gmail.com)"
+        },
+        "SMTP_PORT": {
+          "default": "587",
+          "description": "SMTP port"
+        },
+        "SMTP_USER": {
+          "description": "SMTP username (email)"
+        },
+        "SMTP_PASS": {
+          "description": "SMTP password (use App Password for Gmail) - SET IN RAILWAY UI"
+        },
+        "JWT_SECRET": {
+          "description": "JWT signing secret (32+ bytes hex) - SET IN RAILWAY UI"
+        },
+        "DATA_KEY": {
+          "description": "Data encryption key (64-char hex) - SET IN RAILWAY UI"
+        },
+        "ADMIN_EMAIL": {
+          "description": "Admin email for notifications"
+        },
+        "DATABASE_PATH": {
+          "default": "backend/database.db",
+          "description": "SQLite database file path"
+        },
+        "LOG_LEVEL": {
+          "default": "info",
+          "description": "Logging level (debug, info, warn, error)"
+        }
+      }
+    },
+    "ml-service": {
+      "name": "ml-service",
+      "description": "Python FastAPI ML Forecasting Service",
+      "root": "inventory-enterprise/ml-service",
+      "build": {
+        "builder": "NIXPACKS",
+        "buildCommand": "pip install -r requirements.txt",
+        "watchPatterns": [
+          "inventory-enterprise/ml-service/**"
+        ]
+      },
+      "deploy": {
+        "startCommand": "uvicorn main:app --host 0.0.0.0 --port $PORT",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10,
+        "healthcheckPath": "/status",
+        "healthcheckTimeout": 30,
+        "healthcheckInterval": 60
+      },
+      "env": {
+        "LOG_LEVEL": {
+          "default": "INFO",
+          "description": "Python logging level"
+        },
+        "PYTHONUNBUFFERED": {
+          "default": "1",
+          "description": "Disable Python output buffering"
+        },
+        "MODEL_STORE": {
+          "default": "/data/models",
+          "description": "Path to store trained models (if using volume)"
+        },
+        "FORECAST_HORIZON": {
+          "default": "28",
+          "description": "Forecast horizon in days"
+        }
+      }
+    }
+  },
+  "comments": {
+    "usage": [
+      "MONOREPO CONFIGURATION FOR RAILWAY",
+      "",
+      "This file configures two services in a monorepo structure:",
+      "1. backend (Node.js) - inventory-enterprise/backend/",
+      "2. ml-service (Python FastAPI) - inventory-enterprise/ml-service/",
+      "",
+      "HOW TO USE IN RAILWAY DASHBOARD:",
+      "────────────────────────────────────",
+      "Option 1: Import this file (if Railway supports railway.json import)",
+      "  - Upload this file via Railway Dashboard → Settings → Configuration",
+      "",
+      "Option 2: Manually configure each service (RECOMMENDED)",
+      "  - Use values from this file as reference",
+      "  - Set 'Root Directory' to the path specified in 'root' field",
+      "  - Set 'Start Command' from 'deploy.startCommand'",
+      "  - Set 'Health Check Path' from 'deploy.healthcheckPath'",
+      "  - Copy environment variables from 'env' section",
+      "",
+      "CRITICAL SETTINGS:",
+      "─────────────────",
+      "Backend:",
+      "  Root Directory: inventory-enterprise/backend",
+      "  Start Command: node server.js",
+      "  Health Check: /api/health",
+      "",
+      "ML Service:",
+      "  Root Directory: inventory-enterprise/ml-service",
+      "  Start Command: uvicorn main:app --host 0.0.0.0 --port $PORT",
+      "  Health Check: /status",
+      "",
+      "SECRETS (NEVER COMMIT):",
+      "───────────────────────",
+      "Set these in Railway Dashboard → Variables (encrypted):",
+      "  - JWT_SECRET (generate: openssl rand -hex 32)",
+      "  - SMTP_PASS (use Gmail App Password)",
+      "  - DATA_KEY (generate: openssl rand -hex 64)",
+      "  - ADMIN_PASSWORD (change from default)",
+      "",
+      "INTERNAL SERVICE COMMUNICATION:",
+      "────────────────────────────────",
+      "Backend calls ML service via:",
+      "  ML_URL=http://ml-service.railway.internal:8000",
+      "",
+      "Railway provides private networking between services.",
+      "Do NOT use public URLs for inter-service calls.",
+      "",
+      "PORT BINDING:",
+      "─────────────",
+      "Railway injects $PORT environment variable automatically.",
+      "Your app MUST listen on process.env.PORT or $PORT:",
+      "",
+      "  Node.js: const port = process.env.PORT || 3000;",
+      "  Python: port = int(os.environ.get('PORT', 8000))",
+      "",
+      "WATCH PATTERNS:",
+      "───────────────",
+      "Auto-deploy triggers when files in watchPatterns change.",
+      "Current: inventory-enterprise/{backend,ml-service}/**",
+      "",
+      "If deployments trigger too often, narrow watchPatterns:",
+      "  'inventory-enterprise/backend/src/**'",
+      "  'inventory-enterprise/backend/package.json'",
+      "",
+      "HEALTH CHECKS:",
+      "──────────────",
+      "Railway monitors these endpoints to verify service health:",
+      "  Backend: GET /api/health (timeout 100s, interval 60s)",
+      "  ML Service: GET /status (timeout 30s, interval 60s)",
+      "",
+      "If health check fails, Railway marks service unhealthy.",
+      "After restartPolicyMaxRetries failures, service stops.",
+      "",
+      "LOGS & DEBUGGING:",
+      "─────────────────",
+      "View logs: Railway Dashboard → Service → Logs",
+      "CLI: railway logs --service backend",
+      "",
+      "Common issues:",
+      "  - 'npm: command not found' → Wrong buildpack (add package.json to root)",
+      "  - 'EADDRINUSE' → Port conflict (ensure using $PORT)",
+      "  - '404 on health check' → Wrong path or app not ready",
+      "  - 'Module not found' → npm ci failed or wrong working dir",
+      "",
+      "DEPLOYMENT WORKFLOW:",
+      "────────────────────",
+      "1. Push code to GitHub main branch",
+      "2. Railway detects changes in watchPatterns",
+      "3. Runs buildCommand in root directory",
+      "4. Starts app with startCommand",
+      "5. Waits for health check to pass",
+      "6. Routes traffic to new deployment",
+      "7. Old deployment terminated after graceful shutdown",
+      "",
+      "ROLLBACK:",
+      "─────────",
+      "Railway Dashboard → Deployments → Select previous deployment → Redeploy",
+      "",
+      "Or use tags:",
+      "  git tag v19.0 && git push origin v19.0",
+      "  Railway: Settings → Deploy from tag 'v19.0'",
+      "",
+      "COST OPTIMIZATION:",
+      "──────────────────",
+      "- Use Railway's Free tier: 500 hours/month shared across services",
+      "- Hobby tier: $5/month per service (recommended for production)",
+      "- Pro tier: $20/month per service (high traffic)",
+      "",
+      "Monitor usage: Railway Dashboard → Usage & Billing",
+      "",
+      "For more info: https://docs.railway.app"
+    ]
+  }
+}
