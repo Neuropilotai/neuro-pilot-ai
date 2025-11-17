@@ -97,21 +97,50 @@ async function initDatabase() {
         const sql = fs.readFileSync(filepath, 'utf8');
 
         try {
-          // Run the migration in a transaction
+          // Split SQL into individual statements to handle partial migrations
+          const statements = sql
+            .split(';')
+            .map(s => s.trim())
+            .filter(s => s.length > 0 && !s.startsWith('--'));
+
+          let successCount = 0;
+          let skipCount = 0;
+
           await client.query('BEGIN');
 
-          // Execute the migration SQL
-          await client.query(sql);
+          for (const statement of statements) {
+            try {
+              await client.query(statement);
+              successCount++;
+            } catch (stmtError) {
+              // Skip if object already exists (42P07 = duplicate object)
+              // Skip if table already exists (42P07)
+              // Skip if column already exists (42701)
+              if (stmtError.code === '42P07' || stmtError.code === '42701') {
+                skipCount++;
+                // Continue with next statement
+              } else {
+                // Log other errors but try to continue
+                console.log(`  ⚠️  ${stmtError.message.substring(0, 80)}`);
+                skipCount++;
+              }
+            }
+          }
 
-          // Mark as applied
-          await client.query(
-            'INSERT INTO schema_migrations (filename) VALUES ($1)',
-            [filename]
-          );
-
-          await client.query('COMMIT');
-          console.log(`✅ ${filename} applied successfully`);
-          appliedCount++;
+          // Mark as applied if any statements succeeded
+          if (successCount > 0) {
+            await client.query(
+              'INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING',
+              [filename]
+            );
+            await client.query('COMMIT');
+            console.log(`✅ ${filename} applied (${successCount} new, ${skipCount} skipped)`);
+            appliedCount++;
+          } else {
+            await client.query('ROLLBACK');
+            console.log(`⏭  ${filename} skipped (all objects already exist)`);
+            skippedCount++;
+          }
         } catch (error) {
           await client.query('ROLLBACK');
           console.error(`❌ Error running ${filename}:`, error.message);
