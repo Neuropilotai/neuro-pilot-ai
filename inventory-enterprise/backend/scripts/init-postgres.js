@@ -106,19 +106,24 @@ async function initDatabase() {
           let successCount = 0;
           let skipCount = 0;
 
-          await client.query('BEGIN');
-
+          // Execute each statement in its own transaction to prevent cascading failures
           for (const statement of statements) {
             try {
+              await client.query('BEGIN');
               await client.query(statement);
+              await client.query('COMMIT');
               successCount++;
             } catch (stmtError) {
+              await client.query('ROLLBACK');
+
               // Skip if object already exists (42P07 = duplicate object)
-              // Skip if table already exists (42P07)
               // Skip if column already exists (42701)
-              if (stmtError.code === '42P07' || stmtError.code === '42701') {
+              // Skip if object doesn't exist when trying to drop (42P01, 42883)
+              const ignorableCodes = ['42P07', '42701', '42P01', '42883'];
+
+              if (ignorableCodes.includes(stmtError.code)) {
                 skipCount++;
-                // Continue with next statement
+                // Silently skip expected errors
               } else {
                 // Log other errors but try to continue
                 console.log(`  ⚠️  ${stmtError.message.substring(0, 80)}`);
@@ -133,11 +138,9 @@ async function initDatabase() {
               'INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING',
               [filename]
             );
-            await client.query('COMMIT');
             console.log(`✅ ${filename} applied (${successCount} new, ${skipCount} skipped)`);
             appliedCount++;
           } else {
-            await client.query('ROLLBACK');
             console.log(`⏭  ${filename} skipped (all objects already exist)`);
             skippedCount++;
           }
