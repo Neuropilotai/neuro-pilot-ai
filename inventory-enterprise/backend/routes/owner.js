@@ -267,6 +267,33 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
 });
 
 /**
+ * GET /api/owner/dashboard/stats
+ * Returns just the dashboard statistics (subset of /dashboard for frontend consumption)
+ * v21.1: Created for owner console frontend compatibility
+ */
+router.get('/dashboard/stats', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const db = require('../config/database');
+
+    // Get database stats
+    const dbStats = await getDatabaseStats(db);
+
+    res.json({
+      success: true,
+      stats: dbStats,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Owner dashboard stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/owner/system-health
  * Returns detailed system health metrics
  */

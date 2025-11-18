@@ -400,6 +400,7 @@ app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLim
 app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), require('./routes/pdfs'));
 
 // V21.1 Owner Console Routes - Full Feature Restoration
+app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), require('./routes/owner-ops'));
 app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), require('./routes/owner'));
 app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), require('./routes/governance'));
 
