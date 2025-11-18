@@ -140,7 +140,9 @@ function authGuard(requiredRoles = []) {
       }
 
       const token = authHeader.substring(7);
-      const JWT_SECRET = process.env.JWT_SECRET || 'neuro-pilot-secret-v21';
+      // V21.1: Use same secret as auth.js for consistency
+      const { jwt: jwtConfig } = require('../config/security');
+      const JWT_SECRET = jwtConfig.secret;
 
       // Verify JWT
       let decoded;
