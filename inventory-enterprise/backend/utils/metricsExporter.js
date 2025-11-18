@@ -392,17 +392,46 @@ class MetricsExporter {
     // SECURITY METRICS
     // ========================================================================
 
-    this.authAttemptsTotal = new promClient.Counter({
-      name: 'auth_attempts_total',
-      help: 'Total authentication attempts',
-      labelNames: ['status']
-    });
+    // Get or create metrics to avoid duplicate registration errors
+    const globalRegister = promClient.register;
 
-    this.authFailedAttempts = new promClient.Counter({
-      name: 'auth_failed_attempts_total',
-      help: 'Total failed authentication attempts',
-      labelNames: ['reason']
-    });
+    try {
+      this.authAttemptsTotal = globalRegister.getSingleMetric('auth_attempts_total');
+      if (!this.authAttemptsTotal) {
+        this.authAttemptsTotal = new promClient.Counter({
+          name: 'auth_attempts_total',
+          help: 'Total authentication attempts',
+          labelNames: ['status', 'result', 'role'],
+          registers: [this.register, globalRegister]
+        });
+      }
+    } catch (e) {
+      this.authAttemptsTotal = new promClient.Counter({
+        name: 'auth_attempts_total',
+        help: 'Total authentication attempts',
+        labelNames: ['status', 'result', 'role'],
+        registers: [this.register, globalRegister]
+      });
+    }
+
+    try {
+      this.authFailedAttempts = globalRegister.getSingleMetric('auth_failed_attempts_total');
+      if (!this.authFailedAttempts) {
+        this.authFailedAttempts = new promClient.Counter({
+          name: 'auth_failed_attempts_total',
+          help: 'Total failed authentication attempts',
+          labelNames: ['reason'],
+          registers: [this.register, globalRegister]
+        });
+      }
+    } catch (e) {
+      this.authFailedAttempts = new promClient.Counter({
+        name: 'auth_failed_attempts_total',
+        help: 'Total failed authentication attempts',
+        labelNames: ['reason'],
+        registers: [this.register, globalRegister]
+      });
+    }
 
     this.usersActiveTotal = new promClient.Gauge({
       name: 'users_active_total',

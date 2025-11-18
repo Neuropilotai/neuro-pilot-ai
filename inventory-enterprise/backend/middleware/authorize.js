@@ -4,20 +4,46 @@
 
 const jwt = require('jsonwebtoken');
 const { pool } = require('../db');
-const { Counter } = require('prom-client');
+const promClient = require('prom-client');
 
-// Prometheus metrics
-const authAttempts = new Counter({
-  name: 'auth_attempts_total',
-  help: 'Total authentication attempts',
-  labelNames: ['result', 'role']
-});
+// Prometheus metrics - get or create to avoid duplicate registration errors
+const register = promClient.register;
 
-const permissionDenials = new Counter({
-  name: 'permission_denials_total',
-  help: 'Total permission denials',
-  labelNames: ['role', 'permission', 'route']
-});
+// Try to get existing metric or create new one
+let authAttempts, permissionDenials;
+try {
+  authAttempts = register.getSingleMetric('auth_attempts_total');
+  if (!authAttempts) {
+    authAttempts = new promClient.Counter({
+      name: 'auth_attempts_total',
+      help: 'Total authentication attempts',
+      labelNames: ['result', 'role']
+    });
+  }
+} catch (e) {
+  authAttempts = new promClient.Counter({
+    name: 'auth_attempts_total',
+    help: 'Total authentication attempts',
+    labelNames: ['result', 'role']
+  });
+}
+
+try {
+  permissionDenials = register.getSingleMetric('permission_denials_total');
+  if (!permissionDenials) {
+    permissionDenials = new promClient.Counter({
+      name: 'permission_denials_total',
+      help: 'Total permission denials',
+      labelNames: ['role', 'permission', 'route']
+    });
+  }
+} catch (e) {
+  permissionDenials = new promClient.Counter({
+    name: 'permission_denials_total',
+    help: 'Total permission denials',
+    labelNames: ['role', 'permission', 'route']
+  });
+}
 
 // Role-Permission Matrix (Production-safe, complete)
 const ROLE_PERMISSIONS = {

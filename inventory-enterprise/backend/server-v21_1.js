@@ -473,6 +473,7 @@ if (process.env.SCHEDULER_ENABLED === 'true') {
 // SERVER START
 // ============================================
 
+console.log('[STARTUP] About to start server on port', PORT);
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('================================================');
   console.log('  NeuroInnovate Inventory Enterprise V21.1');
