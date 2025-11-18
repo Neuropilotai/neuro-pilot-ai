@@ -194,17 +194,17 @@
 
         const data = await response.json();
 
-        if (!response.ok || !data.success) {
-          showError(data.error || 'Login failed. Please check your credentials.');
+        if (!response.ok || data.code !== 'LOGIN_SUCCESS') {
+          showError(data.error || data.message || 'Login failed. Please check your credentials.');
           return;
         }
 
-        // Store the token
-        localStorage.setItem('authToken', data.data.token);
-        localStorage.setItem('user', JSON.stringify(data.data.user));
+        // Store the token (API returns accessToken, not data.token)
+        localStorage.setItem('authToken', data.accessToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
 
         // Show success and redirect
-        showSuccess(`Welcome ${data.data.user.email}! Redirecting...`);
+        showSuccess(`Welcome ${data.user.email}! Redirecting...`);
 
         setTimeout(() => {
           window.location.href = 'owner-super-console.html';
