@@ -200,8 +200,14 @@
         }
 
         // Store the token (API returns accessToken, not data.token)
+        // V21.1: Store as 'authToken' for console compatibility
         localStorage.setItem('authToken', data.accessToken);
         localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Migration: Clear old token keys to prevent conflicts
+        localStorage.removeItem('token');
+        localStorage.removeItem('ownerToken');
+        sessionStorage.removeItem('ownerToken');
 
         // Show success and redirect
         showSuccess(`Welcome ${data.user.email}! Redirecting...`);

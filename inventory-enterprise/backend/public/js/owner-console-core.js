@@ -199,11 +199,14 @@ function apiUrl(path) {
 /**
  * PATCH 2: Hardened fetchAPI with zero-crash guarantee
  * Always returns null on failure, never throws, never causes "Invalid value" errors
+ * V21.1 FIX: Now includes Authorization header from authHeaders()
  */
 async function fetchAPI(path, opts = {}) {
   const url = apiUrl(path);
   try {
-    const res = await fetch(url, Object.assign({ headers: { 'Accept': 'application/json' } }, opts));
+    // Merge auth headers with any provided headers
+    const headers = Object.assign({}, authHeaders(), opts.headers || {});
+    const res = await fetch(url, Object.assign({}, opts, { headers }));
     const data = await res.json().catch(() => null);
     if (data == null) throw new Error('Empty JSON');
     return data;

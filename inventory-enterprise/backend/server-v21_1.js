@@ -399,6 +399,10 @@ app.use('/api/population', authGuard(['staff', 'manager', 'admin', 'owner']), ra
 app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('WASTE'), require('./routes/waste'));
 app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), require('./routes/pdfs'));
 
+// V21.1 Owner Console Routes - Full Feature Restoration
+app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), require('./routes/owner'));
+app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), require('./routes/governance'));
+
 // POS routes (commissary point of sale) + audit logging
 app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), require('./routes/pos.catalog'));
 app.use('/api/pos/registers', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REGISTER'), require('./routes/pos.registers'));
