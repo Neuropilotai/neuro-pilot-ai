@@ -200,6 +200,26 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// v21.1: Frontend compatibility - /api/health endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({
+      success: true,
+      version: 'v21.1',
+      database: 'connected',
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      version: 'v21.1',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
+});
+
 // Backward compatibility with v20 healthcheck path
 app.get('/api/health/status', async (req, res) => {
   try {
@@ -218,6 +238,23 @@ app.get('/api/health/status', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// v21.1: RBAC Bootstrap endpoint for frontend
+app.get('/api/rbac/bootstrap', async (req, res) => {
+  res.json({
+    success: true,
+    version: 'v21.1',
+    rbac: {
+      enabled: true,
+      roles: ['owner', 'admin', 'manager', 'staff', 'viewer'],
+      features: {
+        multiTenancy: true,
+        auditLogging: true,
+        permissionGranularity: 'resource:action'
+      }
+    }
+  });
 });
 
 // Database migration endpoint (one-time use, secured by secret key)

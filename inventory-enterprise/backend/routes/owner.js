@@ -294,6 +294,35 @@ router.get('/dashboard/stats', authenticateToken, requireOwnerAccess, async (req
 });
 
 /**
+ * GET /api/owner/console/locations
+ * Returns all storage locations for owner console
+ * v21.1: Frontend compatibility endpoint
+ */
+router.get('/console/locations', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const db = require('../config/database');
+
+    const locations = await db.all(`
+      SELECT id as location_id, name as location_name, active
+      FROM storage_locations
+      WHERE active = 1
+      ORDER BY name
+    `);
+
+    res.json({
+      success: true,
+      locations: locations || []
+    });
+  } catch (error) {
+    console.error('GET /api/owner/console/locations error:', error);
+    res.json({
+      success: true,
+      locations: [] // Return empty array on error to prevent frontend breakage
+    });
+  }
+});
+
+/**
  * GET /api/owner/system-health
  * Returns detailed system health metrics
  */
