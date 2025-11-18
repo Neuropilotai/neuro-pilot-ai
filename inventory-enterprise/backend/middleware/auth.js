@@ -86,6 +86,57 @@ const v15Owner = {
 
 users.set(v15Owner.email, v15Owner);
 
+// Add test accounts for login page
+const testAccounts = [
+  {
+    id: 'owner-test',
+    email: 'owner@neuropilot.ai',
+    password: bcrypt.hashSync('owner123', 10),
+    role: ROLES.OWNER,
+    firstName: 'Test',
+    lastName: 'Owner',
+    org_id: 'default-org',
+    site_id: null,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    lastLogin: null,
+    failedAttempts: 0,
+    lockedUntil: null
+  },
+  {
+    id: 'admin-test',
+    email: 'admin@neuropilot.ai',
+    password: bcrypt.hashSync('admin123', 10),
+    role: ROLES.ADMIN,
+    firstName: 'Test',
+    lastName: 'Admin',
+    org_id: 'default-org',
+    site_id: null,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    lastLogin: null,
+    failedAttempts: 0,
+    lockedUntil: null
+  },
+  {
+    id: 'staff-test',
+    email: 'staff@neuropilot.ai',
+    password: bcrypt.hashSync('staff123', 10),
+    role: ROLES.STAFF,
+    firstName: 'Test',
+    lastName: 'Staff',
+    org_id: 'default-org',
+    site_id: null,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    lastLogin: null,
+    failedAttempts: 0,
+    lockedUntil: null
+  }
+];
+
+testAccounts.forEach(user => users.set(user.email, user));
+
 // JWT token generation
 const generateTokens = (user) => {
   const payload = {
