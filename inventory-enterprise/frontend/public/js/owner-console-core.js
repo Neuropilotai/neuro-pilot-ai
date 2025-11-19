@@ -33,7 +33,15 @@ const H = (() => {
 
 // For backwards compatibility - but prefer using getAPIBase()
 const API_BASE = null; // Will be computed dynamically
-let token = localStorage.getItem('authToken');
+
+// LYRA-FIX: Read from NP_TOKEN (new standard) with fallback to authToken (legacy)
+let token = localStorage.getItem('NP_TOKEN') || localStorage.getItem('authToken') || window.NP_TOKEN || window.authToken;
+
+// Migration: if we found legacy token, migrate it
+if (!localStorage.getItem('NP_TOKEN') && localStorage.getItem('authToken')) {
+  localStorage.setItem('NP_TOKEN', localStorage.getItem('authToken'));
+}
+
 let currentUser = null;
 let tokenExpiresAt = null;
 let currentTab = 'dashboard';
