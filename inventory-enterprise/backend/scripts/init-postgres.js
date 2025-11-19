@@ -53,7 +53,8 @@ async function initDatabase() {
           '007_phase3_learning.sql',
           '008_inventory_counts.sql',
           '009_add_missing_v21_tables.sql',
-          '010_fix_missing_tables.sql'
+          '010_fix_missing_tables.sql',
+          '011_create_audit_log.sql'
         ]
       },
       {
