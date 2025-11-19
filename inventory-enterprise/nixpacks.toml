@@ -17,4 +17,4 @@ cmds = [
 ]
 
 [start]
-cmd = "cd inventory-enterprise/backend && npm run start:postgres"
+cmd = "cd inventory-enterprise/backend && node scripts/init-postgres.js && node server-v21_1.js"
