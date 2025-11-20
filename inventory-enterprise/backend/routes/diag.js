@@ -157,6 +157,7 @@ router.post('/create-users-table', async (req, res) => {
 /**
  * POST /diag/seed
  * Seed database with owner account
+ * Creates users table if it doesn't exist, then seeds owner account
  * Security: Requires secret key
  */
 router.post('/seed', async (req, res) => {
@@ -169,9 +170,32 @@ router.post('/seed', async (req, res) => {
 
   try {
     const bcrypt = require('bcrypt');
-    const client = await pool.query('SELECT 1');  // Test connection
 
-    // Check if owner exists
+    // STEP 1: Create users table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        user_id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        first_name VARCHAR(255),
+        last_name VARCHAR(255),
+        role VARCHAR(50) DEFAULT 'staff' CHECK (role IN ('owner', 'admin', 'manager', 'staff', 'viewer')),
+        org_id INTEGER DEFAULT 1,
+        is_active BOOLEAN DEFAULT TRUE,
+        two_factor_secret VARCHAR(255),
+        two_factor_enabled BOOLEAN DEFAULT FALSE,
+        failed_login_attempts INTEGER DEFAULT 0,
+        locked_until TIMESTAMP,
+        last_login TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
+
+    // STEP 2: Check if owner exists
     const ownerCheck = await pool.query(
       `SELECT user_id, email FROM users WHERE email = 'owner@neuropilot.ai'`
     );
@@ -187,7 +211,7 @@ router.post('/seed', async (req, res) => {
       });
     }
 
-    // Create owner account
+    // STEP 3: Create owner account
     const hashedPassword = await bcrypt.hash('NeuroPilot2025!', 10);
 
     const ownerResult = await pool.query(`
