@@ -553,6 +553,9 @@ app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('O
 app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), require('./routes/owner'));
 app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), require('./routes/governance'));
 
+// Diagnostic routes (temporary - for deployment validation)
+app.use('/diag', require('./routes/diag'));
+
 // POS routes (commissary point of sale) + audit logging
 app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), require('./routes/pos.catalog'));
 app.use('/api/pos/registers', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REGISTER'), require('./routes/pos.registers'));

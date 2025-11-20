@@ -11,10 +11,24 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+/**
+ * Normalize DATABASE_URL to prevent schemeless URLs from being treated as Unix sockets
+ */
+function normalizeDatabaseUrl(raw) {
+  if (!raw) {
+    throw new Error('Missing DATABASE_URL environment variable');
+  }
+  if (!/^postgres(ql)?:\/\//i.test(raw)) {
+    raw = `postgresql://${String(raw).replace(/^\/\//, '')}`;
+    console.warn('[INIT] Added missing postgresql:// scheme to DATABASE_URL');
+  }
+  return raw;
+}
+
+const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
+const ssl = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false;
+
+const pool = new Pool({ connectionString, ssl });
 
 console.log('═══════════════════════════════════════════════════════');
 console.log('  PostgreSQL Database Initialization Script v21.1');
