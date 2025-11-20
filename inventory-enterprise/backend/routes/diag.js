@@ -54,6 +54,32 @@ router.get('/env', async (req, res) => {
 });
 
 /**
+ * GET /diag/tables
+ * List all tables in the database
+ */
+router.get('/tables', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT tablename
+      FROM pg_tables
+      WHERE schemaname = 'public'
+      ORDER BY tablename
+    `);
+
+    return res.json({
+      success: true,
+      count: result.rows.length,
+      tables: result.rows.map(r => r.tablename)
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /diag/seed
  * Seed database with owner account
  * Security: Requires secret key
