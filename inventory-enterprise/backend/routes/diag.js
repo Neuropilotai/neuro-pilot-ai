@@ -80,6 +80,31 @@ router.get('/tables', async (req, res) => {
 });
 
 /**
+ * GET /diag/migrations
+ * List applied migrations
+ */
+router.get('/migrations', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT filename, applied_at
+      FROM schema_migrations
+      ORDER BY applied_at DESC
+    `);
+
+    return res.json({
+      success: true,
+      count: result.rows.length,
+      migrations: result.rows
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /diag/seed
  * Seed database with owner account
  * Security: Requires secret key
