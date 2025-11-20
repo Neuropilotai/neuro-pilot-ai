@@ -43,13 +43,30 @@ router.get('/db', async (req, res) => {
  * Returns: Boolean flags for required env vars
  */
 router.get('/env', async (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+
+  // Check if public directory exists and list files
+  let publicFiles = [];
+  try {
+    const publicDir = path.join(__dirname, '..', 'public');
+    if (fs.existsSync(publicDir)) {
+      publicFiles = fs.readdirSync(publicDir).filter(f => f.endsWith('.html'));
+    }
+  } catch (e) {
+    publicFiles = ['Error reading: ' + e.message];
+  }
+
   res.json({
     DATABASE_URL: !!process.env.DATABASE_URL,
     DATABASE_URL_has_scheme: /^postgres(ql)?:\/\//i.test(process.env.DATABASE_URL || ''),
     NODE_ENV: process.env.NODE_ENV || 'development',
     PORT: process.env.PORT || 8080,
     JWT_SECRET: !!process.env.JWT_SECRET,
-    SCHEDULER_ENABLED: process.env.SCHEDULER_ENABLED === 'true'
+    SCHEDULER_ENABLED: process.env.SCHEDULER_ENABLED === 'true',
+    cwd: process.cwd(),
+    publicDir: path.join(__dirname, '..', 'public'),
+    publicFiles: publicFiles
   });
 });
 
