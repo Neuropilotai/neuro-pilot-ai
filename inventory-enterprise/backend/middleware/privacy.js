@@ -8,6 +8,7 @@ const { pool } = require('../db');
 const ALLOWED_ORIGINS = [
   'https://inventory-backend-7-agent-build.up.railway.app',
   'https://inventory-frontend-v21-7-agent-build.up.railway.app',
+  'https://neuropilot-inventory.vercel.app',
   'https://staging.neuropilot.ai',
   'https://neuropilot.ai',
   'https://www.neuropilot.ai',
