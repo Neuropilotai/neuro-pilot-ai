@@ -16,10 +16,24 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+/**
+ * Normalize DATABASE_URL to prevent schemeless URLs from being treated as Unix sockets
+ */
+function normalizeDatabaseUrl(raw) {
+  if (!raw) {
+    throw new Error('Missing DATABASE_URL environment variable');
+  }
+  if (!/^postgres(ql)?:\/\//i.test(raw)) {
+    raw = `postgresql://${String(raw).replace(/^\/\//, '')}`;
+    console.warn('[SEED] Added missing postgresql:// scheme to DATABASE_URL');
+  }
+  return raw;
+}
+
+const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
+const ssl = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false;
+
+const pool = new Pool({ connectionString, ssl });
 
 console.log('═══════════════════════════════════════════════════════');
 console.log('  Neuro.Pilot.AI Production Database Seeding v21.1');

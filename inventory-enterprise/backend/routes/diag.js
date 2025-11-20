@@ -53,4 +53,69 @@ router.get('/env', async (req, res) => {
   });
 });
 
+/**
+ * POST /diag/seed
+ * Seed database with owner account
+ * Security: Requires secret key
+ */
+router.post('/seed', async (req, res) => {
+  const { secret } = req.body;
+
+  // Simple protection - change after first use
+  if (secret !== 'seed-db-2025') {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  try {
+    const bcrypt = require('bcrypt');
+    const client = await pool.query('SELECT 1');  // Test connection
+
+    // Check if owner exists
+    const ownerCheck = await pool.query(
+      `SELECT user_id, email FROM users WHERE email = 'owner@neuropilot.ai'`
+    );
+
+    if (ownerCheck.rows.length > 0) {
+      return res.json({
+        success: true,
+        message: 'Owner account already exists',
+        owner: {
+          id: ownerCheck.rows[0].user_id,
+          email: ownerCheck.rows[0].email
+        }
+      });
+    }
+
+    // Create owner account
+    const hashedPassword = await bcrypt.hash('NeuroPilot2025!', 10);
+
+    const ownerResult = await pool.query(`
+      INSERT INTO users (email, password_hash, first_name, last_name, role, org_id, is_active, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      RETURNING user_id, email
+    `, ['owner@neuropilot.ai', hashedPassword, 'David', 'Mikulis', 'owner', 1, true]);
+
+    const ownerId = ownerResult.rows[0].user_id;
+
+    return res.json({
+      success: true,
+      message: 'Owner account created successfully',
+      owner: {
+        id: ownerId,
+        email: 'owner@neuropilot.ai',
+        password: 'NeuroPilot2025!'
+      },
+      note: 'Please change the password after first login'
+    });
+
+  } catch (error) {
+    console.error('Seed error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      code: error.code
+    });
+  }
+});
+
 module.exports = router;
