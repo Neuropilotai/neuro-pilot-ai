@@ -15,7 +15,7 @@
   try {
     // 0) Resolve API base from meta / window / localStorage
     var meta = document.querySelector('meta[name="np-api-url"]');
-    var fallback = 'https://resourceful-achievement-production.up.railway.app';
+    var fallback = 'https://inventory-backend-7-agent-build.up.railway.app';
     var candidate = (meta && meta.content ? meta.content : (window.API_URL || localStorage.getItem('NP_API_URL') || '')).trim();
     var API_BASE = (/^https?:\/\//i.test(candidate) ? candidate : fallback).replace(/\/+$/, '');
 
