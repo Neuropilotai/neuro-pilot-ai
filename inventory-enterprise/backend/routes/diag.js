@@ -105,6 +105,56 @@ router.get('/migrations', async (req, res) => {
 });
 
 /**
+ * POST /diag/create-users-table
+ * Manually create the users table if it's missing
+ * Security: Requires secret key
+ */
+router.post('/create-users-table', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== 'fix-users-2025') {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        user_id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        first_name VARCHAR(255),
+        last_name VARCHAR(255),
+        role VARCHAR(50) DEFAULT 'staff' CHECK (role IN ('owner', 'admin', 'manager', 'staff', 'viewer')),
+        org_id INTEGER DEFAULT 1,
+        is_active BOOLEAN DEFAULT TRUE,
+        two_factor_secret VARCHAR(255),
+        two_factor_enabled BOOLEAN DEFAULT FALSE,
+        failed_login_attempts INTEGER DEFAULT 0,
+        locked_until TIMESTAMP,
+        last_login TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+      CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(org_id);
+    `);
+
+    return res.json({
+      success: true,
+      message: 'Users table created successfully'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      code: error.code
+    });
+  }
+});
+
+/**
  * POST /diag/seed
  * Seed database with owner account
  * Security: Requires secret key
