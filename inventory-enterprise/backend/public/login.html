@@ -241,7 +241,7 @@
         const payload = JSON.parse(atob(existingToken.split('.')[1]));
         if (payload.exp && payload.exp * 1000 > Date.now()) {
           // Token still valid, redirect to console
-          window.location.href = 'owner-super-console.html';
+          window.location.href = 'owner-super-console-enterprise.html';
         }
       } catch (e) {
         // Invalid token, stay on login page
