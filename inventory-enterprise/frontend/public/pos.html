@@ -378,6 +378,7 @@ async function api(endpoint, options = {}) {
     ...(state.config.token && { 'Authorization': `Bearer ${state.config.token}` }),
     ...(state.config.orgId && { 'x-org-id': state.config.orgId }),
     ...(state.config.siteId && { 'x-site-id': state.config.siteId }),
+    'X-Tenant-Id': '1', // Default tenant for single-tenant mode
     ...options.headers,
   };
 

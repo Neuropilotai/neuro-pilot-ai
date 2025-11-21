@@ -717,6 +717,7 @@
           ...(this.config.token && !options.skipAuth && { 'Authorization': `Bearer ${this.config.token}` }),
           ...(this.config.orgId && { 'x-org-id': this.config.orgId }),
           ...(this.config.siteId && { 'x-site-id': this.config.siteId }),
+          'X-Tenant-Id': '1', // Default tenant for single-tenant mode
           ...options.headers,
         };
 

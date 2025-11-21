@@ -185,6 +185,9 @@
         headers['x-site-id'] = this.siteId;
       }
 
+      // Default tenant ID for single-tenant mode
+      headers['X-Tenant-Id'] = '1';
+
       return headers;
     }
 
