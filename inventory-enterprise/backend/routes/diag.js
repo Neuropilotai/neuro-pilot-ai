@@ -172,6 +172,38 @@ router.post('/create-users-table', async (req, res) => {
 });
 
 /**
+ * POST /diag/execute-sql
+ * Execute arbitrary SQL (TEMPORARY - for setup only)
+ * Security: Requires secret key
+ */
+router.post('/execute-sql', async (req, res) => {
+  const { secret, sql } = req.body;
+
+  if (secret !== 'execute-sql-2025') {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  if (!sql) {
+    return res.status(400).json({ error: 'SQL required' });
+  }
+
+  try {
+    const result = await pool.query(sql);
+    return res.json({
+      success: true,
+      rowCount: result.rowCount,
+      rows: result.rows
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      code: error.code
+    });
+  }
+});
+
+/**
  * POST /diag/seed
  * Seed database with owner account
  * Creates users table if it doesn't exist, then seeds owner account
