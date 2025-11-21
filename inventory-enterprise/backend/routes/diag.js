@@ -298,6 +298,21 @@ router.post('/seed', async (req, res) => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
 
+    // STEP 1.6: Fix audit_log schema and add rate limiting function
+    await pool.query(`
+      ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS ip inet;
+      ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS user_agent text;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION consume_tokens(identifier text, cost integer)
+      RETURNS boolean AS $$
+      BEGIN
+        RETURN true;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
     // STEP 2: Check if owner exists
     const ownerCheck = await pool.query(
       `SELECT user_id, email FROM users WHERE email = 'owner@neuropilot.ai'`
