@@ -268,7 +268,7 @@ const transferValidation = [
  * Permission: INVENTORY_READ
  * Tenant Scoping: Automatic via req.tenant.tenantId
  */
-router.get('/items',
+router.get('/',
   requirePermission(PERMISSIONS.INVENTORY_READ),
   [
     query('category').optional().trim(),
@@ -398,7 +398,7 @@ router.get('/items',
  * Permission: INVENTORY_WRITE
  * Tenant Scoping: Injects tenant_id automatically
  */
-router.post('/items',
+router.post('/',
   requirePermission(PERMISSIONS.INVENTORY_WRITE),
   itemValidation,
   handleValidationErrors,
@@ -514,7 +514,7 @@ router.post('/items',
  * Permission: INVENTORY_WRITE
  * Tenant Scoping: Verifies item belongs to tenant before update
  */
-router.put('/items/:id',
+router.put('/:id',
   requirePermission(PERMISSIONS.INVENTORY_WRITE),
   [
     param('id').trim().isLength({ min: 1 }).withMessage('Item ID is required'),
@@ -662,7 +662,7 @@ router.put('/items/:id',
  * Permission: INVENTORY_DELETE
  * Tenant Scoping: Verifies item belongs to tenant before deletion
  */
-router.delete('/items/:id',
+router.delete('/:id',
   requirePermission(PERMISSIONS.INVENTORY_DELETE),
   [
     param('id').trim().isLength({ min: 1 }).withMessage('Item ID is required')
