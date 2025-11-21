@@ -241,6 +241,60 @@ router.post('/seed', async (req, res) => {
       )
     `);
 
+    // STEP 1.5: Create V21.1 core tables for inventory system
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS inventory_items (
+        item_id SERIAL PRIMARY KEY,
+        item_code TEXT NOT NULL UNIQUE,
+        item_name TEXT NOT NULL,
+        description TEXT,
+        unit TEXT NOT NULL DEFAULT 'EA',
+        category TEXT,
+        cost_code TEXT,
+        par_level NUMERIC(14,3) DEFAULT 0,
+        reorder_point NUMERIC(14,3) DEFAULT 0,
+        current_quantity NUMERIC(14,3) DEFAULT 0,
+        last_count_date DATE,
+        last_invoice_date DATE,
+        last_invoice_no TEXT,
+        is_active INTEGER DEFAULT 1,
+        barcode TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_inventory_items_code ON inventory_items(item_code);
+      CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
+
+      CREATE TABLE IF NOT EXISTS pdf_invoices (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL,
+        vendor TEXT,
+        invoice_date DATE,
+        total NUMERIC(14,2),
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        order_number TEXT UNIQUE,
+        status TEXT DEFAULT 'pending',
+        total NUMERIC(14,2),
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS locations (
+        id SERIAL PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        type TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
 
