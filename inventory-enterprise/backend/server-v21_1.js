@@ -183,9 +183,6 @@ app.use(helmet({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve static files from public directory
-app.use(express.static('public'));
-
 // Request logging
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
@@ -565,10 +562,13 @@ app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitM
 app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), require('./routes/pdfs.pos'));
 
 // ============================================
-// ERROR HANDLERS
+// STATIC FILES & ERROR HANDLERS
 // ============================================
 
-// 404 handler
+// Serve static files from public directory (AFTER API routes)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 404 handler (catches everything not handled by routes or static files)
 app.use((req, res) => {
   res.status(404).json({
     success: false,
