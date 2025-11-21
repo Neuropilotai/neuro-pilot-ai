@@ -73,20 +73,11 @@ async function resolveTenant(req, res, next) {
       }
     }
 
-    // Default to 'default' tenant if none resolved and ALLOW_DEFAULT_TENANT is true
-    if (!tenantId && process.env.ALLOW_DEFAULT_TENANT === 'true') {
-      tenantId = 'default';
-      source = 'default';
-    }
-
-    // No tenant found
+    // Default to 'default' tenant if none resolved (single-tenant mode)
     if (!tenantId) {
-      logger.warn('[TenantContext] No tenant resolved for request');
-      return res.status(400).json({
-        success: false,
-        message: 'Tenant context required',
-        code: 'TENANT_REQUIRED'
-      });
+      tenantId = 1; // Default tenant ID for single-tenant deployments
+      source = 'default';
+      logger.info('[TenantContext] Using default tenant (single-tenant mode)');
     }
 
     // Verify tenant exists and is active
