@@ -666,6 +666,22 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
     // Continue startup - non-fatal
   }
 
+  // v21.2: Run PostgreSQL migrations on startup
+  try {
+    console.log('🔄 Running PostgreSQL migrations...');
+    const { pool } = require('./db');
+    const { runPostgresMigrations } = require('./src/db/runPostgresMigrations');
+    const pgMigrationResult = await runPostgresMigrations(pool);
+    if (pgMigrationResult.success) {
+      console.log(`  ✅ PostgreSQL migrations complete (${pgMigrationResult.migrationsRun} files processed)`);
+    } else {
+      console.warn(`  ⚠️  PostgreSQL migration warning: ${pgMigrationResult.error}`);
+    }
+  } catch (pgMigrationError) {
+    console.error('  ⚠️  PostgreSQL migration failed:', pgMigrationError.message);
+    // Continue startup - non-fatal
+  }
+
   // v13.0: Make realtimeBus available to routes
   app.set('realtimeBus', realtimeBus);
 
