@@ -188,12 +188,15 @@ function authGuard(requiredRoles = []) {
           email: decoded.email,
           name: decoded.email.split('@')[0],
           role: decoded.role || 'viewer',
-          org_id: 'default-org',
-          site_id: null,
+          org_id: decoded.org_id || 'default-org',
+          site_id: decoded.site_id || null,
+          permissions: decoded.permissions || [], // Include permissions from JWT
           created_at: new Date()
         };
       } else {
         user = userResult.rows[0];
+        // Also copy permissions from JWT if not in database
+        user.permissions = decoded.permissions || user.permissions || [];
       }
 
       req.user = user;
