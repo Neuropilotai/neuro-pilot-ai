@@ -27,7 +27,7 @@ router.get('/locations', requirePermission('inventory:read'), async (req, res) =
     const locations = await db.all(
       `SELECT id, name, type, is_active
        FROM storage_locations
-       WHERE tenant_id = ? AND is_active = 1
+       WHERE tenant_id = ? AND is_active = true
        ORDER BY name`,
       [req.tenantId]
     );

@@ -310,7 +310,7 @@ router.get('/',
       const whereClause = whereClauses.length > 0 ? whereClauses.join(' AND ') : '1=1';
 
       // Get total count for pagination
-      const countSql = `SELECT COUNT(DISTINCT inventory_items.item_id) as count FROM ${fromClause} ${joinClause} WHERE ${whereClause} AND inventory_items.is_active = 1`;
+      const countSql = `SELECT COUNT(DISTINCT inventory_items.item_id) as count FROM ${fromClause} ${joinClause} WHERE ${whereClause} AND inventory_items.is_active = true`;
       const countResult = await db.get(countSql, params);
       const totalItems = countResult ? countResult.count : 0;
 
@@ -338,7 +338,7 @@ router.get('/',
           inventory_items.updated_at as updatedAt
         FROM ${fromClause}
         ${joinClause}
-        WHERE ${whereClause} AND inventory_items.is_active = 1
+        WHERE ${whereClause} AND inventory_items.is_active = true
         ORDER BY inventory_items.item_name ASC
         LIMIT ? OFFSET ?
       `;
@@ -346,7 +346,7 @@ router.get('/',
       const items = await db.all(itemsSql, [...params, parseInt(limit), offset]);
 
       // Get location count
-      const locationCountSql = 'SELECT COUNT(*) as count FROM storage_locations WHERE is_active = 1';
+      const locationCountSql = 'SELECT COUNT(*) as count FROM storage_locations WHERE is_active = true';
       const locationCount = await db.get(locationCountSql);
 
       const response = {
@@ -900,7 +900,7 @@ router.get('/locations',
           created_at as createdAt,
           updated_at as updatedAt
         FROM storage_locations
-        WHERE tenant_id = ? AND is_active = 1
+        WHERE tenant_id = ? AND is_active = true
         ORDER BY sequence ASC, name ASC
       `;
 
