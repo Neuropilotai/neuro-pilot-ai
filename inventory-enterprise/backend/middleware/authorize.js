@@ -165,7 +165,7 @@ function authGuard(requiredRoles = []) {
         userResult = await pool.query(`
           SELECT
             u.id, u.email, u.display_name as name, u.role, u.created_at,
-            COALESCE(ur.org_id, 'default-org') AS org_id,
+            COALESCE(ur.org_id, 1) AS org_id,
             ur.site_id
           FROM users u
           LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -183,12 +183,18 @@ function authGuard(requiredRoles = []) {
       if (userResult.rows.length === 0) {
         // User not in database - use JWT payload (for in-memory users)
         authAttempts.inc({ result: 'jwt_fallback', role: decoded.role || 'none' });
+        // Normalize org_id to integer (handles "default-org" string)
+        let orgId = decoded.org_id;
+        if (typeof orgId === 'string') {
+          const parsed = parseInt(orgId, 10);
+          orgId = isNaN(parsed) ? 1 : parsed;
+        }
         user = {
           id: decoded.id,
           email: decoded.email,
           name: decoded.email.split('@')[0],
           role: decoded.role || 'viewer',
-          org_id: decoded.org_id || 'default-org',
+          org_id: orgId || 1,
           site_id: decoded.site_id || null,
           permissions: decoded.permissions || [], // Include permissions from JWT
           created_at: new Date()
