@@ -3,20 +3,43 @@
 // 7-year retention, async queue, Prometheus metrics
 
 const { pool } = require('../db');
-const { Counter, Gauge } = require('prom-client');
+const promClient = require('prom-client');
 
-// Prometheus metrics
-const auditEventsTotal = new Counter({
-  name: 'audit_events_total',
-  help: 'Total audit events logged',
-  labelNames: ['action', 'success']
-});
+// Prometheus metrics - get or create to avoid duplicate registration errors
+const register = promClient.register;
 
-// Use Gauge for queue depth since it can go up and down
-const auditQueueDepth = new Gauge({
-  name: 'audit_queue_depth',
-  help: 'Current audit event queue depth'
-});
+let auditEventsTotal, auditQueueDepth;
+try {
+  auditEventsTotal = register.getSingleMetric('audit_events_total');
+  if (!auditEventsTotal) {
+    auditEventsTotal = new promClient.Counter({
+      name: 'audit_events_total',
+      help: 'Total audit events logged',
+      labelNames: ['action', 'success']
+    });
+  }
+} catch (e) {
+  auditEventsTotal = new promClient.Counter({
+    name: 'audit_events_total',
+    help: 'Total audit events logged',
+    labelNames: ['action', 'success']
+  });
+}
+
+try {
+  auditQueueDepth = register.getSingleMetric('audit_queue_depth');
+  if (!auditQueueDepth) {
+    auditQueueDepth = new promClient.Gauge({
+      name: 'audit_queue_depth',
+      help: 'Current audit event queue depth'
+    });
+  }
+} catch (e) {
+  auditQueueDepth = new promClient.Gauge({
+    name: 'audit_queue_depth',
+    help: 'Current audit event queue depth'
+  });
+}
 
 // Async audit queue (non-blocking writes)
 const auditQueue = [];
