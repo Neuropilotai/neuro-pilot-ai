@@ -155,9 +155,12 @@ router.post('/register', registerValidation, handleValidationErrors, async (req,
 // POST /api/auth/login
 router.post('/login', loginValidation, handleValidationErrors, async (req, res) => {
   try {
+    console.log('[AUTH] Login attempt for:', req.body.email);
     const { email, password } = req.body;
 
+    console.log('[AUTH] Calling authenticateUser...');
     const result = await authenticateUser(email, password, req);
+    console.log('[AUTH] authenticateUser result:', result.success);
 
     if (!result.success) {
       return res.status(401).json({
@@ -182,6 +185,7 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       }
     }
 
+    console.log('[AUTH] Setting cookie and sending response...');
     // Set secure cookie for refresh token
     res.cookie('refreshToken', result.tokens.refreshToken, {
       httpOnly: true,
@@ -199,14 +203,17 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
     });
 
   } catch (error) {
+    console.error('[AUTH] Login error:', error.name, error.message, error.stack);
     securityLog('login_error', 'high', {
       error: error.message,
+      errorName: error.name,
       email: req.body.email
     }, req);
 
     res.status(500).json({
       error: 'Login failed',
-      code: 'LOGIN_ERROR'
+      code: 'LOGIN_ERROR',
+      hint: error.name
     });
   }
 });
