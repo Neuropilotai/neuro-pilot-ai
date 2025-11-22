@@ -590,13 +590,16 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  console.error('Unhandled error:', err.message, err.stack);
 
   res.status(err.status || 500).json({
     success: false,
     error: process.env.NODE_ENV === 'production'
       ? 'Internal server error'
       : err.message,
+    // Include error hint for debugging (safe - no sensitive data)
+    hint: err.code || err.name || 'Unknown',
+    path: req.path,
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 });
