@@ -95,7 +95,7 @@ function privacyGuard() {
 
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Org-Id, X-Site-Id');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Org-Id, X-Site-Id, X-Tenant-Id');
     res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
 
     // Handle preflight
