@@ -102,6 +102,16 @@ async function processAuditQueue() {
   }
 }
 
+// Helper to convert org_id to integer (handles "default-org" string)
+function normalizeOrgId(orgId) {
+  if (typeof orgId === 'number' && !isNaN(orgId)) return orgId;
+  if (typeof orgId === 'string') {
+    const parsed = parseInt(orgId, 10);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return 1; // Default org_id for single-tenant or fallback
+}
+
 // Write audit log to database
 async function writeAuditLog(entry) {
   try {
@@ -116,7 +126,7 @@ async function writeAuditLog(entry) {
         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, NOW())
       `, [
         entry.action,
-        entry.org_id || 1,
+        normalizeOrgId(entry.org_id),
         entry.actor_id || entry.user_id || null,  // Support both field names
         entry.ip || entry.ip_address || null,  // Support both field names
         JSON.stringify(redactSecrets(entry.details || entry.metadata || {})),
@@ -187,7 +197,7 @@ async function queryAuditLogs(filters = {}, limit = 1000) {
     if (filters.org_id) {
       paramCount++;
       whereClauses.push(`org_id = $${paramCount}`);
-      params.push(filters.org_id);
+      params.push(normalizeOrgId(filters.org_id));
     }
 
     if (filters.action) {
@@ -236,6 +246,7 @@ async function queryAuditLogs(filters = {}, limit = 1000) {
 // Get audit statistics
 async function getAuditStats(orgId, days = 30) {
   try {
+    const normalizedOrgId = normalizeOrgId(orgId);
     const result = await pool.query(`
       SELECT
         action,
@@ -248,14 +259,14 @@ async function getAuditStats(orgId, days = 30) {
         AND created_at >= NOW() - INTERVAL '${days} days'
       GROUP BY action
       ORDER BY count DESC
-    `, [orgId]);
+    `, [normalizedOrgId]);
 
     const totalResult = await pool.query(`
       SELECT COUNT(*) AS total
       FROM audit_log
       WHERE org_id = $1
         AND created_at >= NOW() - INTERVAL '${days} days'
-    `, [orgId]);
+    `, [normalizedOrgId]);
 
     return {
       orgId,
