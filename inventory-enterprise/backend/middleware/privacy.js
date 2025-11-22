@@ -12,20 +12,18 @@ const ALLOWED_ORIGINS = [
   'https://staging.neuropilot.ai',
   'https://neuropilot.ai',
   'https://www.neuropilot.ai',
+  // Local development origins (always allowed for dev convenience)
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'http://localhost:8080',
+  'http://localhost:8083',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:8083',
   process.env.FRONTEND_URL,
   process.env.ALLOWED_ORIGIN
 ].filter(Boolean);
-
-// Add localhost for development
-if (process.env.NODE_ENV !== 'production') {
-  ALLOWED_ORIGINS.push(
-    'http://localhost:3000',
-    'http://localhost:5000',
-    'http://localhost:8080',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:5000'
-  );
-}
 
 // Forbidden query parameters (prevent accidental logging of secrets)
 const FORBIDDEN_PARAMS = [
@@ -77,7 +75,9 @@ function privacyGuard() {
 
     // CORS validation
     if (origin) {
-      const isAllowed = ALLOWED_ORIGINS.some(allowed =>
+      // Allow 'null' origin for local file:// development and cross-origin redirects
+      const isNullOrigin = origin === 'null';
+      const isAllowed = isNullOrigin || ALLOWED_ORIGINS.some(allowed =>
         allowed === origin || allowed === '*'
       );
 
@@ -89,7 +89,8 @@ function privacyGuard() {
         });
       }
 
-      res.setHeader('Access-Control-Allow-Origin', origin);
+      // For null origin (file://), use * or reflect the origin
+      res.setHeader('Access-Control-Allow-Origin', isNullOrigin ? '*' : origin);
     }
 
     res.setHeader('Access-Control-Allow-Credentials', 'true');
