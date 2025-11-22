@@ -309,8 +309,8 @@ router.get('/',
 
       const whereClause = whereClauses.length > 0 ? whereClauses.join(' AND ') : '1=1';
 
-      // Get total count for pagination
-      const countSql = `SELECT COUNT(DISTINCT inventory_items.item_id) as count FROM ${fromClause} ${joinClause} WHERE ${whereClause} AND inventory_items.is_active = true`;
+      // Get total count for pagination (inventory_items.is_active is INTEGER in PostgreSQL)
+      const countSql = `SELECT COUNT(DISTINCT inventory_items.item_id) as count FROM ${fromClause} ${joinClause} WHERE ${whereClause} AND inventory_items.is_active = 1`;
       const countResult = await db.get(countSql, params);
       const totalItems = countResult ? countResult.count : 0;
 
@@ -338,7 +338,7 @@ router.get('/',
           inventory_items.updated_at as updatedAt
         FROM ${fromClause}
         ${joinClause}
-        WHERE ${whereClause} AND inventory_items.is_active = true
+        WHERE ${whereClause} AND inventory_items.is_active = 1
         ORDER BY inventory_items.item_name ASC
         LIMIT ? OFFSET ?
       `;
