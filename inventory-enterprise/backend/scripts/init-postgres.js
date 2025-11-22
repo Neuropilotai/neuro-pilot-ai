@@ -70,7 +70,8 @@ async function initDatabase() {
           '010_fix_missing_tables.sql',
           '011_create_audit_log.sql',
           '012_fix_breadcrumbs.sql',
-          '013_menu_planning_tables.sql'
+          '013_menu_planning_tables.sql',
+          '014_fifo_and_missing_tables.sql'
         ]
       },
       {

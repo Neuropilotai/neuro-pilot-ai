@@ -3,7 +3,7 @@
 // 7-year retention, async queue, Prometheus metrics
 
 const { pool } = require('../db');
-const { Counter } = require('prom-client');
+const { Counter, Gauge } = require('prom-client');
 
 // Prometheus metrics
 const auditEventsTotal = new Counter({
@@ -12,7 +12,8 @@ const auditEventsTotal = new Counter({
   labelNames: ['action', 'success']
 });
 
-const auditQueueDepth = new Counter({
+// Use Gauge for queue depth since it can go up and down
+const auditQueueDepth = new Gauge({
   name: 'audit_queue_depth',
   help: 'Current audit event queue depth'
 });
