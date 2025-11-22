@@ -164,12 +164,12 @@ function authGuard(requiredRoles = []) {
       try {
         userResult = await pool.query(`
           SELECT
-            u.id, u.email, u.display_name as name, u.role, u.created_at,
-            COALESCE(ur.org_id, 1) AS org_id,
+            u.user_id as id, u.email, CONCAT(u.first_name, ' ', u.last_name) as name, u.role, u.created_at,
+            COALESCE(ur.org_id, u.org_id, 1) AS org_id,
             ur.site_id
           FROM users u
-          LEFT JOIN user_roles ur ON ur.user_id = u.id
-          WHERE u.id = $1 AND u.active = true
+          LEFT JOIN user_roles ur ON ur.user_id = u.user_id
+          WHERE u.user_id = $1 AND u.is_active = true
           LIMIT 1
         `, [userId]);
       } catch (dbError) {
