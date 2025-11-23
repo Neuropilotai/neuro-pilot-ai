@@ -18,7 +18,7 @@ function getAPIBase() {
     return window.NP_CONFIG.API_BASE;
   }
   // Fallback if bootstrap didn't run
-  return window.API_URL || 'https://resourceful-achievement-production.up.railway.app';
+  return window.API_URL || 'https://inventory-backend-7-agent-build.up.railway.app';
 }
 
 // Origin Helper - ensures consistent URL handling across all requests
@@ -33,7 +33,15 @@ const H = (() => {
 
 // For backwards compatibility - but prefer using getAPIBase()
 const API_BASE = null; // Will be computed dynamically
-let token = localStorage.getItem('authToken');
+
+// LYRA-FIX: Read from NP_TOKEN (new standard) with fallback to authToken (legacy)
+let token = localStorage.getItem('NP_TOKEN') || localStorage.getItem('authToken') || window.NP_TOKEN || window.authToken;
+
+// Migration: if we found legacy token, migrate it
+if (!localStorage.getItem('NP_TOKEN') && localStorage.getItem('authToken')) {
+  localStorage.setItem('NP_TOKEN', localStorage.getItem('authToken'));
+}
+
 let currentUser = null;
 let tokenExpiresAt = null;
 let currentTab = 'dashboard';
@@ -199,14 +207,11 @@ function apiUrl(path) {
 /**
  * PATCH 2: Hardened fetchAPI with zero-crash guarantee
  * Always returns null on failure, never throws, never causes "Invalid value" errors
- * V21.1 FIX: Now includes Authorization header from authHeaders()
  */
 async function fetchAPI(path, opts = {}) {
   const url = apiUrl(path);
   try {
-    // Merge auth headers with any provided headers
-    const headers = Object.assign({}, authHeaders(), opts.headers || {});
-    const res = await fetch(url, Object.assign({}, opts, { headers }));
+    const res = await fetch(url, Object.assign({ headers: { 'Accept': 'application/json' } }, opts));
     const data = await res.json().catch(() => null);
     if (data == null) throw new Error('Empty JSON');
     return data;

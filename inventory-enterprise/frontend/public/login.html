@@ -205,7 +205,7 @@
         showSuccess(`Welcome ${data.user.email}! Redirecting...`);
 
         setTimeout(() => {
-          window.location.href = 'owner-super-console-enterprise.html';
+          window.location.href = 'owner-super-console-v15.html';
         }, 1000);
 
       } catch (e) {
@@ -233,7 +233,7 @@
         const payload = JSON.parse(atob(existingToken.split('.')[1]));
         if (payload.exp && payload.exp * 1000 > Date.now()) {
           // Token still valid, redirect to ENTERPRISE console
-          window.location.href = 'owner-super-console-enterprise.html';
+          window.location.href = 'owner-super-console-v15.html';
         }
       } catch (e) {
         // Invalid token, stay on login page
