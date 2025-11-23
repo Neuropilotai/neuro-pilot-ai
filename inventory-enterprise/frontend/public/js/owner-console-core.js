@@ -211,7 +211,7 @@ function apiUrl(path) {
 async function fetchAPI(path, opts = {}) {
   const url = apiUrl(path);
   try {
-    const res = await fetch(url, Object.assign({ headers: { 'Accept': 'application/json' } }, opts));
+    const res = await fetch(url, Object.assign({ headers: authHeaders() }, opts));
     const data = await res.json().catch(() => null);
     if (data == null) throw new Error('Empty JSON');
     return data;
