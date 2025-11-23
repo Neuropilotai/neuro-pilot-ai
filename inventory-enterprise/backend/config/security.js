@@ -93,7 +93,7 @@ const securityConfig = {
   jwt: {
     secret: process.env.JWT_SECRET || 'fallback-secret-change-in-production',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-    expiresIn: '15m',
+    expiresIn: '24h', // Extended from 15m for better UX
     refreshExpiresIn: '7d',
     algorithm: 'HS256',
     issuer: 'neuro-pilot-inventory',
