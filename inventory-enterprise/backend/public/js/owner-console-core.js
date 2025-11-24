@@ -81,6 +81,9 @@ function swapText(el, state) {
 // ============================================================================
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // Re-read token from localStorage (may have been set after script load)
+  token = localStorage.getItem('NP_TOKEN') || localStorage.getItem('authToken') || window.NP_TOKEN || window.authToken;
+
   if (!token) {
     window.location.href = 'login.html';
     return;
