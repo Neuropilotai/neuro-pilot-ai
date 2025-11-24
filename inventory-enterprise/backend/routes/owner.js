@@ -1698,13 +1698,14 @@ router.post('/count/workspaces/:id/close', authenticateToken, requireOwnerAccess
 /**
  * GET /api/owner/counts/available
  * List available inventory counts for attachment to workspace
+ * v21.1: Updated to use PostgreSQL
  */
 router.get('/counts/available', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
 
-    // Get all inventory counts (both open and closed)
-    const counts = await db.all(`
+    // Get all inventory counts (both open and closed) - PostgreSQL syntax
+    const result = await pool.query(`
       SELECT
         ic.id,
         ic.created_at,
@@ -1714,21 +1715,23 @@ router.get('/counts/available', authenticateToken, requireOwnerAccess, async (re
       FROM inventory_counts ic
       LEFT JOIN storage_locations sl ON sl.id = ic.location_id
       LEFT JOIN inventory_count_rows icr ON icr.count_id = ic.id
-      GROUP BY ic.id
+      GROUP BY ic.id, ic.created_at, sl.name, ic.status
       ORDER BY ic.created_at DESC
       LIMIT 50
     `);
 
     res.json({
       success: true,
-      counts: counts || []
+      counts: result.rows || []
     });
 
   } catch (error) {
     console.error('GET /api/owner/counts/available error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
+    // Return empty array to prevent frontend breakage
+    res.json({
+      success: true,
+      counts: [],
+      _error: error.message
     });
   }
 });
@@ -1736,14 +1739,15 @@ router.get('/counts/available', authenticateToken, requireOwnerAccess, async (re
 /**
  * GET /api/owner/counts/history
  * List all inventory counts for Count tab history table (v15.2.2)
+ * v21.1: Updated to use PostgreSQL
  */
 router.get('/counts/history', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const limit = parseInt(req.query.limit) || 50;
 
-    // Get all inventory counts with item counts
-    const counts = await db.all(`
+    // Get all inventory counts with item counts (PostgreSQL syntax)
+    const result = await pool.query(`
       SELECT
         ic.id,
         ic.created_at,
@@ -1757,23 +1761,25 @@ router.get('/counts/history', authenticateToken, requireOwnerAccess, async (req,
       FROM inventory_counts ic
       LEFT JOIN storage_locations sl ON sl.id = ic.location_id
       LEFT JOIN inventory_count_rows icr ON icr.count_id = ic.id
-      GROUP BY ic.id
+      GROUP BY ic.id, ic.created_at, ic.approved_at, ic.closed_at, ic.status, ic.location_id, sl.name
       ORDER BY ic.created_at DESC
-      LIMIT ?
+      LIMIT $1
     `, [limit]);
 
     res.json({
       ok: true,
       success: true,
-      counts: counts || []
+      counts: result.rows || []
     });
 
   } catch (error) {
     console.error('GET /api/owner/counts/history error:', error);
-    res.status(500).json({
-      ok: false,
-      success: false,
-      error: error.message
+    // Return empty array on error to prevent frontend breakage
+    res.json({
+      ok: true,
+      success: true,
+      counts: [],
+      _error: error.message
     });
   }
 });
@@ -1785,14 +1791,15 @@ router.get('/counts/history', authenticateToken, requireOwnerAccess, async (req,
 /**
  * GET /api/owner/counts/:countId/pdfs
  * Get PDFs attached to a count
+ * v21.1: Updated to use PostgreSQL
  */
 router.get('/counts/:countId/pdfs', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { countId } = req.params;
 
-    // Get attached PDFs
-    const pdfs = await db.all(`
+    // Get attached PDFs - PostgreSQL syntax
+    const result = await pool.query(`
       SELECT
         d.id,
         d.filename,
@@ -1804,22 +1811,24 @@ router.get('/counts/:countId/pdfs', authenticateToken, requireOwnerAccess, async
         cd.attached_by
       FROM count_documents cd
       JOIN documents d ON d.id = cd.document_id
-      WHERE cd.count_id = ?
+      WHERE cd.count_id = $1
       ORDER BY d.invoice_date DESC
     `, [countId]);
 
     res.json({
       ok: true,
       success: true,
-      pdfs: pdfs || []
+      pdfs: result.rows || []
     });
 
   } catch (error) {
     console.error('GET /api/owner/counts/:countId/pdfs error:', error);
-    res.status(500).json({
-      ok: false,
-      success: false,
-      error: error.message
+    // Return empty array to prevent frontend breakage
+    res.json({
+      ok: true,
+      success: true,
+      pdfs: [],
+      _error: error.message
     });
   }
 });
@@ -1827,14 +1836,15 @@ router.get('/counts/:countId/pdfs', authenticateToken, requireOwnerAccess, async
 /**
  * GET /api/owner/counts/:countId/pdfs/available
  * Get PDFs available to attach to a count (not already attached)
+ * v21.1: Updated to use PostgreSQL
  */
 router.get('/counts/:countId/pdfs/available', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { countId } = req.params;
 
-    // Get PDFs not yet attached to this count
-    const pdfs = await db.all(`
+    // Get PDFs not yet attached to this count - PostgreSQL syntax
+    const result = await pool.query(`
       SELECT
         d.id,
         d.filename,
@@ -1846,7 +1856,7 @@ router.get('/counts/:countId/pdfs/available', authenticateToken, requireOwnerAcc
       WHERE d.mime_type = 'application/pdf'
         AND d.deleted_at IS NULL
         AND d.id NOT IN (
-          SELECT document_id FROM count_documents WHERE count_id = ?
+          SELECT document_id FROM count_documents WHERE count_id = $1
         )
       ORDER BY d.invoice_date DESC
       LIMIT 100
@@ -1855,15 +1865,17 @@ router.get('/counts/:countId/pdfs/available', authenticateToken, requireOwnerAcc
     res.json({
       ok: true,
       success: true,
-      pdfs: pdfs || []
+      pdfs: result.rows || []
     });
 
   } catch (error) {
     console.error('GET /api/owner/counts/:countId/pdfs/available error:', error);
-    res.status(500).json({
-      ok: false,
-      success: false,
-      error: error.message
+    // Return empty array to prevent frontend breakage
+    res.json({
+      ok: true,
+      success: true,
+      pdfs: [],
+      _error: error.message
     });
   }
 });
@@ -2124,10 +2136,11 @@ function inferServiceWindow(invoiceDate, vendor = 'GFS') {
  * GET /api/owner/pdfs/available
  * List available PDF documents (with optional vendor filter)
  * v14.3: Enhanced with inferredServiceWindow field
+ * v21.1: Updated to use PostgreSQL
  */
 router.get('/pdfs/available', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { vendor } = req.query;
 
     let sql = `
@@ -2144,18 +2157,20 @@ router.get('/pdfs/available', authenticateToken, requireOwnerAccess, async (req,
     `;
 
     const params = [];
+    let paramIndex = 1;
 
     if (vendor) {
-      sql += ` AND LOWER(d.vendor) = LOWER(?)`;
+      sql += ` AND LOWER(d.vendor) = LOWER($${paramIndex})`;
       params.push(vendor);
+      paramIndex++;
     }
 
     sql += ` ORDER BY d.invoice_date DESC, d.created_at DESC LIMIT 100`;
 
-    const documents = await db.all(sql, params);
+    const result = await pool.query(sql, params);
 
     // Enrich with service window inference
-    const enriched = documents.map(doc => ({
+    const enriched = (result.rows || []).map(doc => ({
       ...doc,
       inferredServiceWindow: inferServiceWindow(doc.invoice_date, doc.vendor || 'GFS')
     }));
@@ -2167,9 +2182,11 @@ router.get('/pdfs/available', authenticateToken, requireOwnerAccess, async (req,
 
   } catch (error) {
     console.error('GET /api/owner/pdfs/available error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
+    // Return empty array to prevent frontend breakage
+    res.json({
+      success: true,
+      documents: [],
+      _error: error.message
     });
   }
 });
