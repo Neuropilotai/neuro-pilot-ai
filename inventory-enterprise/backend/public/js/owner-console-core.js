@@ -184,7 +184,7 @@ function logout() {
  * Build auth headers - gracefully handles missing token
  */
 function authHeaders() {
-  const t = localStorage.getItem('authToken') || window.authToken;
+  const t = localStorage.getItem('NP_TOKEN') || localStorage.getItem('authToken') || window.NP_TOKEN || window.authToken;
   const h = { 'Accept': 'application/json' };
   if (t) {
     h['Authorization'] = `Bearer ${t}`;
