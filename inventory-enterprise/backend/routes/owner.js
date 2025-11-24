@@ -300,18 +300,18 @@ router.get('/dashboard/stats', authenticateToken, requireOwnerAccess, async (req
  */
 router.get('/console/locations', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
 
-    const locations = await db.all(`
-      SELECT id as location_id, name as location_name, active
+    const result = await pool.query(`
+      SELECT id as location_id, name as location_name, is_active as active
       FROM storage_locations
-      WHERE active = 1
+      WHERE is_active = true
       ORDER BY name
     `);
 
     res.json({
       success: true,
-      locations: locations || []
+      locations: result.rows || []
     });
   } catch (error) {
     console.error('GET /api/owner/console/locations error:', error);

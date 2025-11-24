@@ -162,6 +162,7 @@ function authGuard(requiredRoles = []) {
 
       let userResult = { rows: [] };
       try {
+        // Try to find user by email first (more reliable than id for in-memory users)
         userResult = await pool.query(`
           SELECT
             u.user_id as id, u.email, CONCAT(u.first_name, ' ', u.last_name) as name, u.role, u.created_at,
@@ -169,9 +170,9 @@ function authGuard(requiredRoles = []) {
             ur.site_id
           FROM users u
           LEFT JOIN user_roles ur ON ur.user_id = u.user_id
-          WHERE u.user_id = $1 AND u.is_active = true
+          WHERE u.email = $1 AND u.is_active = true
           LIMIT 1
-        `, [userId]);
+        `, [decoded.email]);
       } catch (dbError) {
         // Database tables don't exist - fall back to JWT payload (in-memory users)
         authAttempts.inc({ result: 'db_fallback', role: decoded.role || 'none' });
