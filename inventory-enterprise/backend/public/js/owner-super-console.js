@@ -4761,15 +4761,15 @@ async function loadMenu() {
       fetchAPI('/menu/weeks')
     ]);
 
-    if (!policyRes.success || !weeksRes.success) {
+    if (!policyRes?.success || !weeksRes?.success) {
       throw new Error('Failed to load menu data');
     }
 
-    // Update menu state
-    menuState.policy = policyRes.policy;
-    menuState.weeks = weeksRes.weeks;
-    menuState.currentWeek = policyRes.policy.currentWeek || 1;
-    menuState.currentDay = policyRes.policy.currentDay || null;
+    // Update menu state (v21.1.1: Add defensive checks for policy object)
+    menuState.policy = policyRes.policy || {};
+    menuState.weeks = weeksRes.weeks || [];
+    menuState.currentWeek = policyRes.policy?.currentWeek || 1;
+    menuState.currentDay = policyRes.policy?.currentDay || null;
     menuState.headcount = weeksRes.headcount || 280;
 
     // Debug: Check if recipes are present
