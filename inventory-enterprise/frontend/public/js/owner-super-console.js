@@ -2394,7 +2394,7 @@ async function loadSettings() {
 
   // Audit Info - use backend API for metrics
   try {
-    const metrics = await fetch(`${API_BASE}/metrics`).then(r => r.text());
+    const metrics = await fetch(`${getAPIBase()}/metrics`).then(r => r.text());
     const auditDiv = document.getElementById('auditInfo');
 
     // Extract audit chain hash if available in metrics
@@ -3315,12 +3315,11 @@ async function loadAIOpsStatus() {
     learningDivergenceEl.textContent = '...';
 
     // === v14.4.0: Safe fetch with fallback for AI Ops status ===
-    const base = (window.NP_CONFIG && window.NP_CONFIG.API_BASE) || window.API_URL || '';
-    const url = `${base}/api/owner/ops/status`;
+    const url = `${getAPIBase()}/api/owner/ops/status`;
     let opsStatus = null;
 
     try {
-      const r = await fetch(url, { headers: { 'Accept': 'application/json' }});
+      const r = await fetch(url, { headers: authHeaders() });
       opsStatus = await r.json().catch(() => null);
     } catch (e) {
       window.NP_LAST_API_ERROR = { ts: Date.now(), scope: 'AI_OPS', message: String(e) };
@@ -9378,10 +9377,8 @@ function generateGFSReport() {
 
 function loadGFSInvoiceStats() {
   // Load stats for the GFS Invoice Management card
-  fetch('/api/owner/pdfs?vendor=GFS&period=FY26-P02', {
-    headers: {
-      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
-    }
+  fetch(`${getAPIBase()}/api/owner/pdfs?vendor=GFS&period=FY26-P02`, {
+    headers: authHeaders()
   })
   .then(response => response.json())
   .then(data => {
