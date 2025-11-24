@@ -2392,9 +2392,9 @@ async function loadSettings() {
     </div>
   `;
 
-  // Audit Info
+  // Audit Info - use backend API for metrics
   try {
-    const metrics = await fetch('http://127.0.0.1:8083/metrics').then(r => r.text());
+    const metrics = await fetch(`${API_BASE}/metrics`).then(r => r.text());
     const auditDiv = document.getElementById('auditInfo');
 
     // Extract audit chain hash if available in metrics
