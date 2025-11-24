@@ -7,6 +7,75 @@
 const express = require('express');
 const router = express.Router();
 
+// GET /api/menu/policy - Menu policy configuration
+// v21.1: Added for frontend compatibility
+router.get('/policy', async (req, res) => {
+  try {
+    const { pool } = require('../db');
+    // Try to get current menu week
+    const result = await pool.query(`
+      SELECT cycle_week FROM menus WHERE active = true ORDER BY cycle_week DESC LIMIT 1
+    `);
+    const currentWeek = result.rows[0]?.cycle_week || 1;
+
+    res.json({
+      success: true,
+      data: {
+        enabled: true,
+        currentWeek,
+        rotationCycle: 4,
+        message: 'Menu system active'
+      }
+    });
+  } catch (error) {
+    console.error('GET /api/menu/policy error:', error);
+    res.json({
+      success: true,
+      data: {
+        enabled: false,
+        currentWeek: null,
+        message: 'Menu system initializing'
+      }
+    });
+  }
+});
+
+// GET /api/menu/weeks - Get all menu weeks overview
+// v21.1: Added for frontend compatibility
+router.get('/weeks', async (req, res) => {
+  try {
+    const { pool } = require('../db');
+
+    const result = await pool.query(`
+      SELECT
+        m.id, m.cycle_week, m.name, m.active, m.created_at,
+        COUNT(DISTINCT md.id) as day_count
+      FROM menus m
+      LEFT JOIN menu_days md ON m.id = md.menu_id
+      GROUP BY m.id, m.cycle_week, m.name, m.active, m.created_at
+      ORDER BY m.cycle_week
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        weeks: result.rows || [],
+        currentWeek: result.rows.find(w => w.active)?.cycle_week || 1
+      }
+    });
+  } catch (error) {
+    console.error('GET /api/menu/weeks error:', error);
+    res.json({
+      success: true,
+      data: {
+        weeks: [],
+        currentWeek: null,
+        message: 'Menu data unavailable'
+      }
+    });
+  }
+});
+
 // GET /api/menu - List all menus (4-week cycles)
 router.get('/', async (req, res) => {
   const { org_id } = req.user;
