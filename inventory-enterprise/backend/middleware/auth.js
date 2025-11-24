@@ -91,7 +91,7 @@ const testAccounts = [
   {
     id: 'owner-test',
     email: 'owner@neuropilot.ai',
-    password: bcrypt.hashSync('NeuroPilot2025!', 10), // Updated to match database seed
+    password: bcrypt.hashSync('owner123', 10), // Simplified password for easier login
     role: ROLES.OWNER,
     firstName: 'David',
     lastName: 'Mikulis',
