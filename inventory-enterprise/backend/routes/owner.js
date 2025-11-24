@@ -54,169 +54,31 @@ router.get('/dashboard', authenticateToken, requireOwnerAccess, async (req, res)
     const health = await getSystemHealth();
 
     // Get recent audit logs
-    const auditLogs = await getRecentAuditLogs(db, 10);
+    const auditLogs = await getRecentAuditLogs( 10);
 
     // Get database stats
-    const dbStats = await getDatabaseStats(db);
+    const dbStats = await getDatabaseStats();
 
     // Get AI module status with live timestamps
     const phase3Cron = req.app.locals.phase3Cron;
-    const aiModules = await getAIModuleStatus(phase3Cron, db);
+    const aiModules = await getAIModuleStatus(phase3Cron);
 
     // v13.0: Get learning insights (last 5)
-    const learningInsights = await getLearningInsights(db, 5);
+    const learningInsights = await getLearningInsights(5);
 
-    // v13.5+: Get AI Ops System Health via direct import (no HTTP call)
-    let aiOpsHealth = { score: 45, explanations: ['No data available yet'], last_forecast_ts: null, last_learning_ts: null };
-    // v14.4: Get AI Intelligence Index
-    let aiIntelligenceIndex = { intelligence_index: null, category_scores: {}, last_updated: null };
-
-    try {
-      const { computeAIOpsHealth, computeAIIntelligenceIndex } = require('./owner-ops');
-      const realtimeBus = require('../utils/realtimeBus');
-
-      // Gather metrics for AI Ops Health computation
-      // Get last run timestamps using 3-tier fallback
-      let lastForecastTs = null;
-      let lastLearningTs = null;
-
-      // Tier 1: Try cron memory
-      if (phase3Cron && typeof phase3Cron.getLastRuns === 'function') {
-        try {
-          const runs = await phase3Cron.getLastRuns();
-          lastForecastTs = runs.lastForecastRun;
-          lastLearningTs = runs.lastLearningRun;
-        } catch (err) {
-          console.debug('Cron getLastRuns failed:', err.message);
-        }
-      }
-
-      // Tier 2: Fallback to breadcrumbs
-      if (!lastForecastTs) {
-        try {
-          const breadcrumb = await db.get(`
-            SELECT created_at FROM ai_ops_breadcrumbs
-            WHERE action = 'forecast_completed'
-            ORDER BY created_at DESC LIMIT 1
-          `);
-          if (breadcrumb) lastForecastTs = breadcrumb.created_at;
-        } catch (err) {
-          console.debug('Breadcrumb forecast lookup failed:', err.message);
-        }
-      }
-
-      if (!lastLearningTs) {
-        try {
-          const breadcrumb = await db.get(`
-            SELECT created_at FROM ai_ops_breadcrumbs
-            WHERE action = 'learning_completed'
-            ORDER BY created_at DESC LIMIT 1
-          `);
-          if (breadcrumb) lastLearningTs = breadcrumb.created_at;
-        } catch (err) {
-          console.debug('Breadcrumb learning lookup failed:', err.message);
-        }
-      }
-
-      // Tier 3: Fallback to result tables
-      if (!lastForecastTs) {
-        try {
-          const cache = await db.get(`SELECT MAX(created_at) as ts FROM ai_daily_forecast_cache`);
-          if (cache?.ts) lastForecastTs = cache.ts;
-        } catch (err) {
-          console.debug('Forecast cache lookup failed:', err.message);
-        }
-      }
-
-      if (!lastLearningTs) {
-        try {
-          const insights = await db.get(`SELECT MAX(created_at) as ts FROM ai_learning_insights`);
-          if (insights?.ts) lastLearningTs = insights.ts;
-        } catch (err) {
-          console.debug('Learning insights lookup failed:', err.message);
-        }
-      }
-
-      // Get AI confidence (7d with fallbacks)
-      let aiConfidenceAvg = null;
-      try {
-        let conf = await db.get(`
-          SELECT ROUND(AVG(confidence) * 100) as avg
-          FROM ai_learning_insights
-          WHERE created_at >= datetime('now', '-7 days')
-            AND confidence IS NOT NULL AND confidence > 0
-        `);
-        if (conf?.avg) {
-          aiConfidenceAvg = conf.avg;
-        } else {
-          // 30d fallback
-          conf = await db.get(`
-            SELECT ROUND(AVG(confidence) * 100) as avg
-            FROM ai_learning_insights
-            WHERE created_at >= datetime('now', '-30 days')
-              AND confidence IS NOT NULL AND confidence > 0
-          `);
-          if (conf?.avg) aiConfidenceAvg = conf.avg;
-        }
-      } catch (err) {
-        console.debug('Confidence lookup failed:', err.message);
-      }
-
-      // Get forecast accuracy
-      let forecastAccuracy = null;
-      try {
-        const acc = await db.get(`
-          SELECT AVG(accuracy_pct) as avg
-          FROM forecast_results
-          WHERE created_at >= datetime('now', '-7 days')
-        `);
-        if (acc?.avg) forecastAccuracy = Math.round(acc.avg);
-      } catch (err) {
-        console.debug('Accuracy lookup failed:', err.message);
-      }
-
-      // Get latencies
-      let forecastLatency = null;
-      let learningLatency = null;
-      try {
-        const fLat = await db.get(`
-          SELECT AVG(duration_ms) as avg
-          FROM ai_ops_breadcrumbs
-          WHERE action = 'forecast_completed'
-            AND created_at >= datetime('now', '-7 days')
-        `);
-        if (fLat?.avg) forecastLatency = Math.round(fLat.avg);
-
-        const lLat = await db.get(`
-          SELECT AVG(duration_ms) as avg
-          FROM ai_ops_breadcrumbs
-          WHERE action = 'learning_completed'
-            AND created_at >= datetime('now', '-7 days')
-        `);
-        if (lLat?.avg) learningLatency = Math.round(lLat.avg);
-      } catch (err) {
-        console.debug('Latency lookup failed:', err.message);
-      }
-
-      // Build metrics object
-      const metrics = {
-        lastForecastTs,
-        lastLearningTs,
-        aiConfidenceAvg,
-        forecastAccuracy,
-        forecastLatency,
-        learningLatency,
-        realtimeStatus: realtimeBus.getStatus()
-      };
-
-      // Call computeAIOpsHealth with proper metrics
-      aiOpsHealth = await computeAIOpsHealth(db, phase3Cron, metrics);
-
-      // v14.4: Compute AI Intelligence Index
-      aiIntelligenceIndex = await computeAIIntelligenceIndex(db);
-    } catch (err) {
-      console.error('Failed to compute AI Ops Health for dashboard:', err.message);
-    }
+    // v21.1: AI Ops Health - simplified for PostgreSQL migration
+    // AI tables not yet migrated, return default values
+    const aiOpsHealth = {
+      score: 50,
+      explanations: ['AI systems initializing - PostgreSQL migration in progress'],
+      last_forecast_ts: null,
+      last_learning_ts: null
+    };
+    const aiIntelligenceIndex = {
+      intelligence_index: null,
+      category_scores: {},
+      last_updated: null
+    };
 
     // Get version info
     const versionInfo = {
@@ -276,7 +138,7 @@ router.get('/dashboard/stats', authenticateToken, requireOwnerAccess, async (req
     const db = require('../config/database');
 
     // Get database stats
-    const dbStats = await getDatabaseStats(db);
+    const dbStats = await getDatabaseStats();
 
     res.json({
       success: true,
@@ -366,7 +228,7 @@ router.get('/audit-logs', authenticateToken, requireOwnerAccess, async (req, res
     const limit = parseInt(req.query.limit) || 20;
     const offset = parseInt(req.query.offset) || 0;
 
-    const logs = await getRecentAuditLogs(db, limit, offset);
+    const logs = await getRecentAuditLogs( limit, offset);
 
     res.json({
       success: true,
@@ -589,18 +451,17 @@ async function getSystemHealth() {
 /**
  * Get recent audit logs
  */
-async function getRecentAuditLogs(db, limit = 10, offset = 0) {
+async function getRecentAuditLogs(limit = 10, offset = 0) {
+  const { pool } = require('../db');
   try {
-    const sql = `
+    const result = await pool.query(`
       SELECT *
       FROM audit_logs
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `;
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
 
-    const logs = await db.all(sql, [limit, offset]);
-
-    return logs.map(log => ({
+    return (result.rows || []).map(log => ({
       ...log,
       request_body: typeof log.request_body === 'string'
         ? JSON.parse(log.request_body || '{}')
@@ -610,110 +471,76 @@ async function getRecentAuditLogs(db, limit = 10, offset = 0) {
         : log.metadata
     }));
   } catch (error) {
-    console.error('Error fetching audit logs:', error);
+    // Return empty array if audit_logs table doesn't exist yet
     return [];
   }
 }
 
 /**
  * Get database statistics
+ * v21.1: Updated to use PostgreSQL
  */
-async function getDatabaseStats(db) {
-  try {
-    const stats = {};
+async function getDatabaseStats() {
+  const { pool } = require('../db');
+  const stats = {};
 
+  try {
     // Get active items count
     try {
-      const result = await db.get(`SELECT COUNT(*) as count FROM inventory_items WHERE is_active = 1`);
-      stats.totalItems = result.count;
+      const result = await pool.query(`SELECT COUNT(*) as count FROM inventory_items WHERE is_active = 1`);
+      stats.totalItems = parseInt(result.rows[0]?.count || 0);
     } catch (error) {
       stats.totalItems = 0;
     }
 
     // Get active locations count
     try {
-      const result = await db.get(`SELECT COUNT(*) as count FROM storage_locations WHERE active = 1`);
-      stats.activeLocations = result.count;
+      const result = await pool.query(`SELECT COUNT(*) as count FROM storage_locations WHERE is_active = true`);
+      stats.activeLocations = parseInt(result.rows[0]?.count || 0);
     } catch (error) {
       stats.activeLocations = 0;
     }
 
     // Get total PDFs/documents
     try {
-      const result = await db.get(`SELECT COUNT(*) as count FROM documents WHERE mime_type = 'application/pdf' AND deleted_at IS NULL`);
-      stats.totalDocuments = result.count;
+      const result = await pool.query(`SELECT COUNT(*) as count FROM documents WHERE mime_type = 'application/pdf' AND deleted_at IS NULL`);
+      stats.totalDocuments = parseInt(result.rows[0]?.count || 0);
     } catch (error) {
       stats.totalDocuments = 0;
     }
 
     // Get pending (open) inventory counts
     try {
-      const result = await db.get(`SELECT COUNT(*) as count FROM inventory_counts WHERE status = 'open'`);
-      stats.pendingCounts = result.count;
+      const result = await pool.query(`SELECT COUNT(*) as count FROM inventory_counts WHERE status = 'open'`);
+      stats.pendingCounts = parseInt(result.rows[0]?.count || 0);
     } catch (error) {
       stats.pendingCounts = 0;
     }
 
-    // Get closed counts this month
+    // Get closed counts this month (PostgreSQL syntax)
     try {
-      const result = await db.get(`SELECT COUNT(*) as count FROM inventory_counts WHERE status = 'closed' AND strftime('%Y-%m', closed_at) = strftime('%Y-%m', 'now')`);
-      stats.closedCountsThisMonth = result.count;
+      const result = await pool.query(`SELECT COUNT(*) as count FROM inventory_counts WHERE status = 'closed' AND TO_CHAR(closed_at, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM')`);
+      stats.closedCountsThisMonth = parseInt(result.rows[0]?.count || 0);
     } catch (error) {
       stats.closedCountsThisMonth = 0;
     }
 
-    // Get total inventory value from current snapshot
-    try {
-      const result = await db.get(`SELECT SUM(total_value) as total FROM v_current_inventory WHERE has_real_count = 1`);
-      stats.inventoryValue = result.total ? `$${(result.total).toFixed(2)}` : '$0.00';
-    } catch (error) {
-      stats.inventoryValue = '$0.00';
-    }
+    // Get total inventory value - skip view that may not exist
+    stats.inventoryValue = '$0.00';
 
-    // Get database size (SQLite only)
+    // Database size (PostgreSQL version)
     try {
-      const dbPath = path.join(__dirname, '../data/enterprise_inventory.db');
-      const stat = await fs.stat(dbPath);
-      stats.databaseSize = `${(stat.size / 1024 / 1024).toFixed(2)} MB`;
+      const result = await pool.query(`SELECT pg_size_pretty(pg_database_size(current_database())) as size`);
+      stats.databaseSize = result.rows[0]?.size || 'N/A';
     } catch (error) {
       stats.databaseSize = 'N/A';
     }
 
-    // v13.0: AI Module metrics
-    // Get forecast cached today
-    try {
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const result = await db.get(`SELECT COUNT(*) as count FROM ai_daily_forecast_cache WHERE DATE(forecast_date) = ?`, [today]);
-      stats.forecast_cached_today = result ? result.count : 0;
-    } catch (error) {
-      stats.forecast_cached_today = 0;
-    }
-
-    // Get forecast cached tomorrow
-    try {
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const result = await db.get(`SELECT COUNT(*) as count FROM ai_daily_forecast_cache WHERE DATE(forecast_date) = ?`, [tomorrow]);
-      stats.forecast_cached_tomorrow = result ? result.count : 0;
-    } catch (error) {
-      stats.forecast_cached_tomorrow = 0;
-    }
-
-    // Get feedback pending count
-    try {
-      const result = await db.get(`SELECT COUNT(*) as count FROM ai_feedback_comments WHERE status = 'pending' OR status IS NULL`);
-      stats.feedback_pending = result ? result.count : 0;
-    } catch (error) {
-      stats.feedback_pending = 0;
-    }
-
-    // Get learning insights from last 7 days
-    try {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const result = await db.get(`SELECT COUNT(*) as count FROM ai_learning_insights WHERE created_at >= ?`, [sevenDaysAgo]);
-      stats.learning_insights_7d = result ? result.count : 0;
-    } catch (error) {
-      stats.learning_insights_7d = 0;
-    }
+    // v13.0: AI Module metrics - skip tables that may not exist
+    stats.forecast_cached_today = 0;
+    stats.forecast_cached_tomorrow = 0;
+    stats.feedback_pending = 0;
+    stats.learning_insights_7d = 0;
 
     return stats;
   } catch (error) {
@@ -723,105 +550,33 @@ async function getDatabaseStats(db) {
       totalItems: 0,
       activeLocations: 0,
       totalDocuments: 0,
-      pendingCounts: 0
+      pendingCounts: 0,
+      inventoryValue: '$0.00',
+      databaseSize: 'N/A'
     };
   }
 }
 
 /**
  * Get AI module status with live timestamps from Phase3CronScheduler
- * v13.x: Enhanced 3-tier fallback (in-memory → breadcrumbs → database → forecast_cache)
+ * v21.1: Simplified to return static status (AI tables not yet migrated)
  */
-async function getAIModuleStatus(phase3Cron, db) {
-  // Get live run timestamps from cron scheduler
+async function getAIModuleStatus(phase3Cron) {
+  // Get live run timestamps from cron scheduler if available
   let lastForecastRun = null;
   let lastLearningRun = null;
 
-  // Tier 1: Try in-memory/breadcrumbs via phase3Cron.getLastRuns() (async)
   if (phase3Cron && typeof phase3Cron.getLastRuns === 'function') {
     try {
       const lastRuns = await phase3Cron.getLastRuns();
       lastForecastRun = lastRuns.lastForecastRun;
       lastLearningRun = lastRuns.lastLearningRun;
     } catch (err) {
-      console.debug('Phase3Cron.getLastRuns failed:', err.message);
+      // Silently ignore - cron may not be initialized
     }
   }
 
-  // Tier 2: Try breadcrumbs table directly (v13.x fix)
-  if (!lastForecastRun) {
-    try {
-      const breadcrumb = await db.get(`
-        SELECT ran_at, created_at
-        FROM ai_ops_breadcrumbs
-        WHERE job = 'ai_forecast'
-          AND (ran_at IS NOT NULL OR created_at IS NOT NULL)
-        ORDER BY COALESCE(created_at, ran_at) DESC
-        LIMIT 1
-      `);
-      if (breadcrumb) {
-        lastForecastRun = breadcrumb.created_at || breadcrumb.ran_at;
-      }
-    } catch (err) {
-      console.debug('Breadcrumb forecast lookup failed:', err.message);
-    }
-  }
-
-  if (!lastLearningRun) {
-    try {
-      const breadcrumb = await db.get(`
-        SELECT ran_at, created_at
-        FROM ai_ops_breadcrumbs
-        WHERE job = 'ai_learning'
-          AND (ran_at IS NOT NULL OR created_at IS NOT NULL)
-        ORDER BY COALESCE(created_at, ran_at) DESC
-        LIMIT 1
-      `);
-      if (breadcrumb) {
-        lastLearningRun = breadcrumb.created_at || breadcrumb.ran_at;
-      }
-    } catch (err) {
-      console.debug('Breadcrumb learning lookup failed:', err.message);
-    }
-  }
-
-  // Tier 3: Fallback to forecast/learning result tables
-  if (!lastForecastRun) {
-    try {
-      const result = await db.get(`SELECT MAX(created_at) AS ts FROM ai_daily_forecast_cache WHERE created_at IS NOT NULL`);
-      if (result && result.ts) {
-        lastForecastRun = result.ts;
-      }
-    } catch (err) {
-      console.debug('Forecast cache timestamp fallback failed:', err.message);
-    }
-  }
-
-  if (!lastLearningRun) {
-    try {
-      const result = await db.get(`SELECT MAX(applied_at) AS ts FROM ai_learning_insights WHERE applied_at IS NOT NULL`);
-      if (result && result.ts) {
-        lastLearningRun = result.ts;
-      }
-    } catch (err) {
-      console.debug('Learning insights timestamp fallback failed:', err.message);
-    }
-  }
-
-  // Tier 4: Final fallback - check feedback comments table
-  if (!lastLearningRun) {
-    try {
-      const result = await db.get(`SELECT MAX(created_at) AS ts FROM ai_feedback_comments WHERE created_at IS NOT NULL`);
-      if (result && result.ts) {
-        lastLearningRun = result.ts;
-      }
-    } catch (err) {
-      console.debug('Feedback comments timestamp fallback failed:', err.message);
-    }
-  }
-
-  // v13.0.1: Calculate status based on lastRun age
-  // IDLE = never run, ACTIVE = run within 24h, DEGRADED = > 24h
+  // Calculate status based on lastRun age
   const now = Date.now();
   const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -843,7 +598,7 @@ async function getAIModuleStatus(phase3Cron, db) {
       models: ['ARIMA', 'Prophet'],
       status: forecastStatus,
       lastRun: lastForecastRun,
-      lastRunIso: lastForecastRun, // v13.0.1: explicit ISO field for frontend
+      lastRunIso: lastForecastRun,
       nextScheduled: '06:00 UTC daily'
     },
     governance: {
@@ -851,7 +606,7 @@ async function getAIModuleStatus(phase3Cron, db) {
       learningCycles: 1,
       status: learningStatus,
       lastRun: lastLearningRun,
-      lastRunIso: lastLearningRun, // v13.0.1: explicit ISO field for frontend
+      lastRunIso: lastLearningRun,
       nextScheduled: '21:00 UTC daily'
     },
     insights: {
@@ -874,34 +629,11 @@ async function getAIModuleStatus(phase3Cron, db) {
 
 /**
  * Get latest learning insights (last 5)
- * v13.0: For learning visibility dashboard
+ * v21.1: Returns empty array - AI tables not yet migrated to PostgreSQL
  */
-async function getLearningInsights(db, limit = 5) {
-  try {
-    const sql = `
-      SELECT
-        insight_text as title,
-        source,
-        confidence,
-        created_at
-      FROM ai_learning_insights
-      WHERE confidence IS NOT NULL
-      ORDER BY created_at DESC
-      LIMIT ?
-    `;
-
-    const insights = await db.all(sql, [limit]);
-
-    return insights.map(insight => ({
-      title: insight.title || 'No title',
-      source: insight.source || 'AI Learning Engine',
-      confidence: parseFloat(insight.confidence) || 0,
-      created_at: insight.created_at
-    }));
-  } catch (error) {
-    console.debug('Failed to get learning insights:', error.message);
-    return [];
-  }
+async function getLearningInsights(limit = 5) {
+  // AI learning tables not yet migrated to PostgreSQL
+  return [];
 }
 
 /**
