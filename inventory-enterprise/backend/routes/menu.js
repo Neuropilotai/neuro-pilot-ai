@@ -9,6 +9,7 @@ const router = express.Router();
 
 // GET /api/menu/policy - Menu policy configuration
 // v21.1: Added for frontend compatibility
+// Frontend expects: { success, policy: { currentWeek, currentDay, enabled, ... } }
 router.get('/policy', async (req, res) => {
   try {
     const { pool } = require('../db');
@@ -18,11 +19,16 @@ router.get('/policy', async (req, res) => {
     `);
     const currentWeek = result.rows[0]?.cycle_week || 1;
 
+    // Calculate current day (1-7 based on day of week)
+    const dayOfWeek = new Date().getDay();
+    const currentDay = dayOfWeek === 0 ? 7 : dayOfWeek; // Sunday = 7
+
     res.json({
       success: true,
-      data: {
+      policy: {
         enabled: true,
         currentWeek,
+        currentDay,
         rotationCycle: 4,
         message: 'Menu system active'
       }
@@ -31,9 +37,10 @@ router.get('/policy', async (req, res) => {
     console.error('GET /api/menu/policy error:', error);
     res.json({
       success: true,
-      data: {
+      policy: {
         enabled: false,
-        currentWeek: null,
+        currentWeek: 1,
+        currentDay: 1,
         message: 'Menu system initializing'
       }
     });
@@ -42,6 +49,7 @@ router.get('/policy', async (req, res) => {
 
 // GET /api/menu/weeks - Get all menu weeks overview
 // v21.1: Added for frontend compatibility
+// Frontend expects: { success, weeks: [...], headcount }
 router.get('/weeks', async (req, res) => {
   try {
     const { pool } = require('../db');
@@ -58,20 +66,16 @@ router.get('/weeks', async (req, res) => {
 
     res.json({
       success: true,
-      data: {
-        weeks: result.rows || [],
-        currentWeek: result.rows.find(w => w.active)?.cycle_week || 1
-      }
+      weeks: result.rows || [],
+      headcount: 280
     });
   } catch (error) {
     console.error('GET /api/menu/weeks error:', error);
     res.json({
       success: true,
-      data: {
-        weeks: [],
-        currentWeek: null,
-        message: 'Menu data unavailable'
-      }
+      weeks: [],
+      headcount: 280,
+      message: 'Menu data unavailable'
     });
   }
 });
