@@ -423,6 +423,37 @@ app.use('/api/owner/counts', authenticateToken, requireOwnerDevice, countSession
 // Note: Auth handled per-route in health-v2.js (/status is public, others require OWNER/FINANCE)
 app.use('/api/health', healthRoutes);
 
+// v21.1.1 - Temporary admin endpoint to run migration 019 (documents table)
+// DELETE THIS AFTER RUNNING ONCE
+app.get('/api/admin/run-migration-019', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'OWNER' && req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Owner/Admin only' });
+  }
+
+  try {
+    const { pool } = require('./db');
+    const fs = require('fs');
+    const path = require('path');
+
+    const migrationPath = path.join(__dirname, 'migrations/postgres/019_create_documents_table.sql');
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+
+    await pool.query(sql);
+
+    res.json({
+      success: true,
+      message: 'Migration 019 completed - documents table created',
+      note: 'You can now remove this endpoint from server.js'
+    });
+  } catch (error) {
+    if (error.code === '42P07') {
+      res.json({ success: true, message: 'Table already exists' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
 // v19.0 - NeuroNexus Autonomous Foundation (Forecast + Recommendations)
 const recommendationsRoutes = require('./routes/recommendations');
 app.use('/api/forecast/recommendations', authenticateToken, requireOwnerDevice, recommendationsRoutes);
