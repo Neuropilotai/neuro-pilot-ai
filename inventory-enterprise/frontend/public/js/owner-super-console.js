@@ -2392,9 +2392,9 @@ async function loadSettings() {
     </div>
   `;
 
-  // Audit Info - use backend API for metrics
+  // Audit Info
   try {
-    const metrics = await fetch(`${getAPIBase()}/metrics`).then(r => r.text());
+    const metrics = await fetch('http://127.0.0.1:8083/metrics').then(r => r.text());
     const auditDiv = document.getElementById('auditInfo');
 
     // Extract audit chain hash if available in metrics
@@ -3315,11 +3315,12 @@ async function loadAIOpsStatus() {
     learningDivergenceEl.textContent = '...';
 
     // === v14.4.0: Safe fetch with fallback for AI Ops status ===
-    const url = `${getAPIBase()}/api/owner/ops/status`;
+    const base = (window.NP_CONFIG && window.NP_CONFIG.API_BASE) || window.API_URL || '';
+    const url = `${base}/api/owner/ops/status`;
     let opsStatus = null;
 
     try {
-      const r = await fetch(url, { headers: authHeaders() });
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' }});
       opsStatus = await r.json().catch(() => null);
     } catch (e) {
       window.NP_LAST_API_ERROR = { ts: Date.now(), scope: 'AI_OPS', message: String(e) };
@@ -4760,15 +4761,15 @@ async function loadMenu() {
       fetchAPI('/menu/weeks')
     ]);
 
-    if (!policyRes.success || !weeksRes.success) {
+    if (!policyRes?.success || !weeksRes?.success) {
       throw new Error('Failed to load menu data');
     }
 
-    // Update menu state
-    menuState.policy = policyRes.policy;
-    menuState.weeks = weeksRes.weeks;
-    menuState.currentWeek = policyRes.policy.currentWeek || 1;
-    menuState.currentDay = policyRes.policy.currentDay || null;
+    // Update menu state (v21.1.1: Add defensive checks for policy object)
+    menuState.policy = policyRes.policy || {};
+    menuState.weeks = weeksRes.weeks || [];
+    menuState.currentWeek = policyRes.policy?.currentWeek || 1;
+    menuState.currentDay = policyRes.policy?.currentDay || null;
     menuState.headcount = weeksRes.headcount || 280;
 
     // Debug: Check if recipes are present
@@ -9377,8 +9378,10 @@ function generateGFSReport() {
 
 function loadGFSInvoiceStats() {
   // Load stats for the GFS Invoice Management card
-  fetch(`${getAPIBase()}/api/owner/pdfs?vendor=GFS&period=FY26-P02`, {
-    headers: authHeaders()
+  fetch('/api/owner/pdfs?vendor=GFS&period=FY26-P02', {
+    headers: {
+      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
+    }
   })
   .then(response => response.json())
   .then(data => {
