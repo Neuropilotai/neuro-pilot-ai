@@ -17,4 +17,4 @@ cmds = [
 ]
 
 [start]
-cmd = "cd inventory-enterprise/backend && node scripts/init-postgres.js && node server-v21_1.js"
+cmd = "cd inventory-enterprise/backend && (node scripts/init-postgres.js || echo 'DB init skipped - will retry on connect') && node server-v21_1.js"

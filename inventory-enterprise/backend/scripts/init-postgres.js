@@ -28,7 +28,11 @@ function normalizeDatabaseUrl(raw) {
 const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
 const ssl = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false;
 
-const pool = new Pool({ connectionString, ssl });
+const pool = new Pool({
+  connectionString,
+  ssl,
+  connectionTimeoutMillis: 10000  // Fail fast after 10 seconds if DB unreachable
+});
 
 console.log('═══════════════════════════════════════════════════════');
 console.log('  PostgreSQL Database Initialization Script v21.1');
