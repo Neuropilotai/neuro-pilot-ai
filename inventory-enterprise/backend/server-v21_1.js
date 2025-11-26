@@ -301,62 +301,71 @@ async function rateLimitMiddleware(req, res, next) {
 // ============================================
 
 app.get('/health', async (req, res) => {
+  let dbStatus = 'unknown';
+  let dbError = null;
+
   try {
     await pool.query('SELECT 1');
-    res.json({
-      success: true,
-      version: 'v21.1',
-      database: 'connected',
-      uptime: process.uptime()
-    });
+    dbStatus = 'connected';
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      version: 'v21.1',
-      database: 'disconnected',
-      error: error.message
-    });
+    dbStatus = 'disconnected';
+    dbError = error.message;
+    console.error('[HEALTH] Database check failed:', error.message);
   }
+
+  // Always return 200 so Railway knows the server is running
+  // Use success: false only when DB is down to indicate degraded state
+  res.json({
+    success: dbStatus === 'connected',
+    version: 'v21.1',
+    database: dbStatus,
+    uptime: process.uptime(),
+    ...(dbError && { dbError })
+  });
 });
 
 // v21.1: Frontend compatibility - /api/health endpoint
 app.get('/api/health', async (req, res) => {
+  let dbStatus = 'unknown';
+  let dbError = null;
+
   try {
     await pool.query('SELECT 1');
-    res.json({
-      success: true,
-      version: 'v21.1',
-      database: 'connected',
-      uptime: process.uptime()
-    });
+    dbStatus = 'connected';
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      version: 'v21.1',
-      database: 'disconnected',
-      error: error.message
-    });
+    dbStatus = 'disconnected';
+    dbError = error.message;
   }
+
+  res.json({
+    success: dbStatus === 'connected',
+    version: 'v21.1',
+    database: dbStatus,
+    uptime: process.uptime(),
+    ...(dbError && { dbError })
+  });
 });
 
 // Backward compatibility with v20 healthcheck path
 app.get('/api/health/status', async (req, res) => {
+  let dbStatus = 'unknown';
+  let dbError = null;
+
   try {
     await pool.query('SELECT 1');
-    res.json({
-      success: true,
-      version: 'v21.1',
-      database: 'connected',
-      uptime: process.uptime()
-    });
+    dbStatus = 'connected';
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      version: 'v21.1',
-      database: 'disconnected',
-      error: error.message
-    });
+    dbStatus = 'disconnected';
+    dbError = error.message;
   }
+
+  res.json({
+    success: dbStatus === 'connected',
+    version: 'v21.1',
+    database: dbStatus,
+    uptime: process.uptime(),
+    ...(dbError && { dbError })
+  });
 });
 
 // v21.1: RBAC Bootstrap endpoint for frontend
