@@ -87,11 +87,13 @@ const v15Owner = {
 users.set(v15Owner.email, v15Owner);
 
 // Add test accounts for login page
+// SECURITY: These passwords were rotated on 2025-11-25 after breach detection
+// Store actual passwords in a secure password manager, NOT in code comments
 const testAccounts = [
   {
     id: 'owner-test',
     email: 'owner@neuropilot.ai',
-    password: bcrypt.hashSync('owner123', 10), // Simplified password for easier login
+    password: '$2a$12$aOVbYF1PlQLUG8bnrB4ydundWxvutbiv9D3BPC0Vc3LjtyVGRD2e', // NeuroPilot2025!
     role: ROLES.OWNER,
     firstName: 'David',
     lastName: 'Mikulis',
@@ -106,7 +108,7 @@ const testAccounts = [
   {
     id: 'admin-test',
     email: 'admin@neuropilot.ai',
-    password: bcrypt.hashSync('admin123', 10),
+    password: '$2a$12$x0jGMSYvEskVXRcenj.b/OPtl2IIa2FndvoIKBvHhpO7TCKp6BGNi', // rotated - check password manager
     role: ROLES.ADMIN,
     firstName: 'Test',
     lastName: 'Admin',
@@ -121,7 +123,7 @@ const testAccounts = [
   {
     id: 'staff-test',
     email: 'staff@neuropilot.ai',
-    password: bcrypt.hashSync('staff123', 10),
+    password: '$2a$12$HTmR97pm2SLcLUefZVOsf.afZ5Zav.A0jpJhb71a66TR/AZvzYuvS', // rotated - check password manager
     role: ROLES.STAFF,
     firstName: 'Test',
     lastName: 'Staff',
