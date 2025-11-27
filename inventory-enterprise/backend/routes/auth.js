@@ -47,6 +47,55 @@ router.get('/debug-test', async (req, res) => {
   }
 });
 
+// DEBUG: Test login POST without validation middleware
+router.post('/debug-login-raw', async (req, res) => {
+  const steps = [];
+  try {
+    steps.push('Received POST request');
+    steps.push('Body: ' + JSON.stringify(req.body));
+
+    const { email, password } = req.body;
+    steps.push('Email: ' + email);
+    steps.push('Password length: ' + (password?.length || 0));
+
+    steps.push('Calling authenticateUser...');
+    const result = await authenticateUser(email, password, req);
+    steps.push('authenticateUser result: success=' + result.success);
+
+    if (!result.success) {
+      return res.json({ steps, loginSuccess: false, error: result.error });
+    }
+
+    steps.push('Setting cookie...');
+    res.cookie('refreshToken', result.tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+    steps.push('Cookie set');
+
+    steps.push('Building response...');
+    const responseData = {
+      message: 'Login successful',
+      user: result.user,
+      accessToken: result.tokens.accessToken,
+      expiresIn: '15m',
+      code: 'LOGIN_SUCCESS'
+    };
+    steps.push('Sending response...');
+    res.json(responseData);
+  } catch (error) {
+    steps.push('ERROR: ' + error.name + ': ' + error.message);
+    res.status(500).json({
+      steps,
+      error: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n').slice(0, 10)
+    });
+  }
+});
+
 // DEBUG: Test full auth flow
 router.get('/debug-auth-flow', async (req, res) => {
   const steps = [];
