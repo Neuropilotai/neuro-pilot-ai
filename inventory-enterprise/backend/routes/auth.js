@@ -47,6 +47,60 @@ router.get('/debug-test', async (req, res) => {
   }
 });
 
+// DEBUG: Test full auth flow
+router.get('/debug-auth-flow', async (req, res) => {
+  const steps = [];
+  try {
+    steps.push('Starting auth flow test');
+
+    // Step 1: Get user
+    const email = 'owner@neuropilot.ai';
+    const password = 'NeuroPilot2025!';
+    steps.push('Step 1: Got email and password');
+
+    // Step 2: Mock request
+    const mockReq = { ip: req.ip, get: (h) => req.get(h) };
+    steps.push('Step 2: Created mock request');
+
+    // Step 3: Call authenticateUser
+    steps.push('Step 3: Calling authenticateUser...');
+    const result = await authenticateUser(email, password, mockReq);
+    steps.push('Step 3 complete: authenticateUser returned, success=' + result.success);
+
+    if (!result.success) {
+      return res.json({ steps, result: { success: false, error: result.error } });
+    }
+
+    // Step 4: Check result structure
+    steps.push('Step 4: Result user id=' + result.user?.id);
+    steps.push('Step 4: Result user role=' + result.user?.role);
+    steps.push('Step 4: Access token length=' + result.tokens?.accessToken?.length);
+
+    // Step 5: Try to stringify response
+    steps.push('Step 5: Attempting JSON.stringify...');
+    const responseData = {
+      message: 'Login successful',
+      user: result.user,
+      accessToken: result.tokens.accessToken,
+      expiresIn: '15m',
+      code: 'LOGIN_SUCCESS'
+    };
+    const jsonStr = JSON.stringify(responseData);
+    steps.push('Step 5 complete: JSON length=' + jsonStr.length);
+
+    // Return success
+    res.json({ steps, success: true, responseDataKeys: Object.keys(responseData) });
+  } catch (error) {
+    steps.push('ERROR: ' + error.name + ': ' + error.message);
+    res.status(500).json({
+      steps,
+      error: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n').slice(0, 10)
+    });
+  }
+});
+
 // Validation rules
 const registerValidation = [
   body('email')
