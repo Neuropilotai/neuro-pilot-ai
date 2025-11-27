@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Super Console | NeuroInnovate V21.1</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="css/owner-super.css?v=21.1.0">
+</head>
+<body>
+  <header>
+    <div class="logo">
+      🧠 NeuroPilot V21.1 • The Living Inventory Intelligence Console
+      <span id="liveBadge" class="badge badge-live">
+        LIVE 🟢
+      </span>
+      <span id="healthBadge" class="badge badge-health" onclick="checkHealth()" title="Click to refresh health status">
+        <span id="healthIcon">⏳</span> <span id="healthText">Checking...</span>
+      </span>
+      <span class="badge badge-version">
+        SUPER • data:/api/owner/dashboard
+      </span>
+      <span id="badge-shadow-mode" class="badge badge-warn u-hide">
+        Shadow Mode (no auto-apply)
+      </span>
+    </div>
+    <div class="user-info">
+      <span id="currentUser"></span>
+      <span class="token-ttl" id="tokenTTL"></span>
+      <span id="authStatus"></span>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <nav class="tabs tabs-2rows">
+    <div class="tabs-row">
+      <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
+      <div class="tab" onclick="switchTab('inventory')">📦 Inventory</div>
+      <div class="tab" onclick="switchTab('locations')">📍 Locations</div>
+      <div class="tab" onclick="switchTab('pdfs')">📄 Orders/PDFs</div>
+      <div class="tab" onclick="switchTab('count')">🔢 Count</div>
+      <div class="tab" onclick="switchTab('playground')">🎮 Playground</div>
+    </div>
+    <div class="tabs-row">
+      <div class="tab" onclick="switchTab('ai')">🤖 AI Console</div>
+      <div class="tab" onclick="switchTab('forecast')">📈 Forecast</div>
+      <div class="tab" onclick="switchTab('menu')">🍽️ Menu</div>
+      <div class="tab" onclick="switchTab('financials')">💰 Financials</div>
+      <div class="tab" onclick="switchTab('item-bank')">🏦 Item Bank</div>
+      <div class="tab" onclick="switchTab('governance')">⚛️ Governance</div>
+      <div class="tab" onclick="switchTab('intelligence')">🔮 Intelligence</div>
+      <div class="tab" onclick="switchTab('reports')">📋 Reports</div>
+      <div class="tab" onclick="switchTab('settings')">⚙️ Settings</div>
+    </div>
+  </nav>
+
+  <div class="container content">
+    <!-- Dashboard Tab -->
+    <div id="dashboard" class="tab-panel active">
+      <!-- v13.0: Cognitive Overview -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">🧠 Cognitive Overview - AI Intelligence Status</h3>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadCognitiveIntelligence()">↻ Refresh</button>
+        </div>
+        <div class="cognitive-grid">
+          <!-- v14.4: AI Intelligence Index - Featured -->
+          <div class="cognitive-main-stat">
+            <div class="cognitive-main-value" id="aiIntelligenceIndex">--</div>
+            <div class="cognitive-main-label">🧠 AI Intelligence Index</div>
+            <div class="cognitive-main-trend" id="aiIndexTrend">--</div>
+          </div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="aiConfidenceAvg">--</div>
+            <div class="cognitive-stat-label">AI Confidence</div>
+          </div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="forecastAccuracyAvg">--</div>
+            <div class="cognitive-stat-label">Forecast Accuracy</div>
+          </div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="activeModulesCount">--</div>
+            <div class="cognitive-stat-label">Active Modules</div>
+          </div>
+          <div class="cognitive-stat">
+            <div class="cognitive-stat-value" id="learningAppliedCount">--</div>
+            <div class="cognitive-stat-label">Learning (7d)</div>
+          </div>
+        </div>
+        <div id="cognitiveCharts"></div>
+      </div>
+
+      <!-- Original Stats -->
+      <div class="grid grid-4">
+        <div class="card stat-card">
+          <div class="stat-value" id="systemHealth">--</div>
+          <div class="stat-label">System Health</div>
+        </div>
+        <div class="card stat-card cursor-pointer" onclick="showForecastDetail()" title="Click to see details">
+          <div class="stat-value" id="forecastCoverage">--</div>
+          <div class="stat-label">Forecast Coverage</div>
+        </div>
+        <div class="card stat-card cursor-pointer" onclick="showStockoutDetail()" title="Click to see details">
+          <div class="stat-value" id="stockoutCount">--</div>
+          <div class="stat-label">Stockout Risk</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="lastAIRun">--</div>
+          <div class="stat-label">Last AI Training</div>
+        </div>
+      </div>
+
+      <!-- v13.0: AI Activity Feed -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📡 Live AI Activity Feed</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadActivityFeed()">↻ Refresh</button>
+        </div>
+        <div id="activityFeed"></div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Database Statistics</h3>
+          </div>
+          <div id="dbStats"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Recent Activity</h3>
+          </div>
+          <div id="recentActivity"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory Tab -->
+    <div id="inventory" class="tab-panel">
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="inventorySearch" placeholder="Search items...">
+          <button type="button" class="btn btn-primary" onclick="loadInventory()">🔍 Search</button>
+          <button type="button" class="btn btn-secondary" onclick="openSpotCheckModal()">📋 Spot Check</button>
+        </div>
+        <div id="inventoryTable"></div>
+      </div>
+
+      <!-- v15.2.0: H1 2025 PDF Intake & Reconciliation -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📥 H1 2025 PDF Intake & Reconciliation</h3>
+          <span class="badge badge-info">Physical Inventory: 2025-07-03</span>
+        </div>
+
+        <!-- PDF Intake Section -->
+        <div class="reconcile-section">
+          <h4 class="reconcile-section-title">📄 PDF Import</h4>
+          <div class="form-group">
+            <label class="form-label">Date Range</label>
+            <div class="flex-gap-1">
+              <input type="date" class="input" id="pdfImportFrom" value="2025-01-01" aria-label="PDF import start date">
+              <span class="flex-align-center">→</span>
+              <input type="date" class="input" id="pdfImportTo" value="2025-06-30" aria-label="PDF import end date">
+              <button type="button" class="btn btn-primary" id="scanPdfsBtn">🔍 Scan PDFs</button>
+            </div>
+          </div>
+          <div id="pdfImportResults" class="hidden">
+            <div class="alert alert-success">
+              <strong>✅ Import Complete:</strong>
+              <span id="pdfImportSummary"></span>
+            </div>
+            <div id="unresolvedItemsAlert" class="hidden">
+              <div class="alert alert-warning">
+                <strong>⚠️ Unresolved Items:</strong> <span id="unresolvedCount">0</span> items could not be matched.
+                <a href="#" id="downloadUnresolvedLink" class="text-primary">Download CSV</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reconciliation Section -->
+        <div class="reconcile-section">
+          <h4 class="reconcile-section-title">⚖️ Physical vs System Reconciliation</h4>
+          <div class="form-group">
+            <label class="form-label">As Of Date (Physical Count Date)</label>
+            <div class="flex-gap-1">
+              <input type="date" class="input" id="reconcileAsOfDate" value="2025-07-03" aria-label="Reconciliation as of date">
+              <button type="button" class="btn btn-success" id="runReconcileBtn">▶️ Run Reconciliation</button>
+            </div>
+          </div>
+          <div id="reconcileResults" class="hidden">
+            <div class="reconcile-summary-grid">
+              <div class="reconcile-stat">
+                <div class="reconcile-stat-value" id="reconcileItemsChecked">--</div>
+                <div class="reconcile-stat-label">Items Checked</div>
+              </div>
+              <div class="reconcile-stat">
+                <div class="reconcile-stat-value" id="reconcileVarianceValue">--</div>
+                <div class="reconcile-stat-label">Variance Value</div>
+              </div>
+              <div class="reconcile-stat reconcile-stat-over">
+                <div class="reconcile-stat-value" id="reconcileOverItems">--</div>
+                <div class="reconcile-stat-label">Over</div>
+              </div>
+              <div class="reconcile-stat reconcile-stat-short">
+                <div class="reconcile-stat-value" id="reconcileShortItems">--</div>
+                <div class="reconcile-stat-label">Short</div>
+              </div>
+            </div>
+
+            <!-- Variance Table -->
+            <div class="reconcile-table-section">
+              <div class="flex-space-between">
+                <h5>Top 20 Variances</h5>
+                <button type="button" class="btn btn-sm btn-secondary" id="downloadReconcileCSVBtn">📥 Download Full CSV</button>
+              </div>
+              <table class="table" id="varianceTable">
+                <thead>
+                  <tr>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Physical Qty</th>
+                    <th>System Qty</th>
+                    <th>Variance</th>
+                    <th>Value</th>
+                    <th>Category</th>
+                  </tr>
+                </thead>
+                <tbody id="varianceTableBody">
+                  <tr><td colspan="7" class="loading">Run reconciliation to see variances...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Refresh Section -->
+        <div class="reconcile-section hidden" id="aiRefreshSection">
+          <h4 class="reconcile-section-title">🤖 AI Refresh</h4>
+          <p class="text-light-med">After reconciliation, refresh AI stats to update dashboards.</p>
+          <div class="flex-gap-1">
+            <button type="button" class="btn btn-secondary" id="triggerAIForecastBtn">🔮 Trigger Forecast</button>
+            <button type="button" class="btn btn-secondary" id="triggerAILearningBtn">🧠 Trigger Learning</button>
+            <button type="button" class="btn btn-primary" id="refreshDashboardBtn">↻ Refresh Dashboard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Locations Tab -->
+    <div id="locations" class="tab-panel">
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Storage Locations</h3>
+            <div class="flex-gap-half">
+              <button type="button" class="btn btn-sm btn-success" onclick="openAddLocationModal()">➕ Add New</button>
+              <button type="button" class="btn btn-sm btn-primary" onclick="loadLocations()">↻ Refresh</button>
+            </div>
+          </div>
+          <div id="locationsList"></div>
+        </div>
+        <div class="card grid-col-span-2">
+          <div class="card-header">
+            <h3 class="card-title">Items at Location</h3>
+            <span id="selectedLocation"></span>
+          </div>
+          <div id="locationItems"></div>
+        </div>
+      </div>
+
+      <!-- Unassigned Items Panel -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📦 Unassigned Items</h3>
+          <div class="flex-gap-half">
+            <button type="button" class="btn btn-sm btn-success" onclick="assignSelectedItems()" id="assignSelectedBtn" disabled>📍 Assign Selected</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadUnassignedItems()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="unassignedSearch" placeholder="Search items..." oninput="debounceUnassignedSearch()">
+          <span class="text-light-med">
+            Total: <strong id="unassignedTotal">--</strong>
+          </span>
+        </div>
+        <div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>
+                  <input type="checkbox" id="selectAllUnassigned" onchange="toggleSelectAllUnassigned()" aria-label="Select all unassigned items">
+                </th>
+                <th>Item Code</th>
+                <th>Name</th>
+                <th>Unit</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="unassignedList"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="unassignedPagination"></div>
+      </div>
+    </div>
+
+    <!-- PDFs Tab -->
+    <div id="pdfs" class="tab-panel">
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" class="input toolbar-search" id="pdfSearch" placeholder="Search invoice number...">
+          <select class="select" id="pdfStatus" onchange="loadPDFs()" aria-label="PDF status filter">
+            <option value="all">All PDFs</option>
+            <option value="unprocessed">Unprocessed</option>
+            <option value="processed">Processed</option>
+          </select>
+          <button type="button" class="btn btn-primary" onclick="loadPDFs()">🔍 Search</button>
+          <button type="button" class="btn btn-success" onclick="openUploadPDFModal()">📤 Upload PDF</button>
+          <button type="button" class="btn btn-success" onclick="openIncludeOrdersModal()">✓ Include in Count</button>
+        </div>
+        <div id="pdfTable"></div>
+      </div>
+    </div>
+
+    <!-- Count Tab -->
+    <div id="count" class="tab-panel">
+      <!-- Quick Actions -->
+      <div class="grid grid-4">
+        <div class="card stat-card cursor-pointer" onclick="switchTab('inventory'); setTimeout(() => { document.getElementById('pdfImportFrom').scrollIntoView({behavior: 'smooth', block: 'center'}); }, 100);">
+          <div class="stat-value">📥</div>
+          <div class="stat-label">Import PDFs</div>
+        </div>
+        <div class="card stat-card cursor-pointer" onclick="switchTab('inventory'); setTimeout(() => { document.getElementById('reconcileAsOfDate').scrollIntoView({behavior: 'smooth', block: 'center'}); }, 100);">
+          <div class="stat-value">⚖️</div>
+          <div class="stat-label">Run Reconciliation</div>
+        </div>
+        <div class="card stat-card cursor-pointer" onclick="viewRecentReconciliations()">
+          <div class="stat-value" id="countRecentReconciles">--</div>
+          <div class="stat-label">Recent Reports</div>
+        </div>
+        <div class="card stat-card cursor-pointer" onclick="viewCountHistory()">
+          <div class="stat-value" id="countHistoryCount">--</div>
+          <div class="stat-label">Count History</div>
+        </div>
+      </div>
+
+      <!-- Reconciliation Reports -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📊 Reconciliation Reports</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadRecentReconciliations()">↻ Refresh</button>
+        </div>
+        <div id="reconciliationReportsList">
+          <div class="loading"><div class="spinner"></div> Loading reconciliation reports...</div>
+        </div>
+      </div>
+
+      <!-- Physical Count Management -->
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">🔢 Start New Physical Count</h3>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Count Date</label>
+            <input type="date" class="input" id="newCountDate" value="" aria-label="New count date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location (optional)</label>
+            <select class="select" id="countLocation" aria-label="Count location">
+              <option value="">All Locations</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Count Type</label>
+            <select class="select" id="countType" aria-label="Count type">
+              <option value="MONTHLY">Monthly</option>
+              <option value="SPOT">Spot Check</option>
+              <option value="CYCLE">Cycle Count</option>
+              <option value="OPENING">Opening Count</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea class="textarea" id="countNotes" placeholder="Count notes..."></textarea>
+          </div>
+          <button type="button" class="btn btn-primary btn-full" onclick="startNewPhysicalCount()">🎯 Start Count</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">📈 Active Count</h3>
+            <span class="badge badge-success" id="activeCountBadge">None</span>
+          </div>
+          <div id="activeCountDetails">
+            <div class="alert alert-info">
+              No active count. Start a new count to begin.
+            </div>
+          </div>
+          <div id="activeCountActions" class="hidden flex-gap-1">
+            <button type="button" class="btn btn-secondary" onclick="addItemToActiveCount()">➕ Add Item</button>
+            <button type="button" class="btn btn-success" onclick="closeActiveCount()">✓ Close Count</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Count History -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📋 Count History</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadCountHistory()">↻ Refresh</button>
+        </div>
+        <table class="table" id="countHistoryTable">
+          <thead>
+            <tr>
+              <th>Count ID</th>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Items</th>
+              <th>Location</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="countHistoryBody">
+            <tr><td colspan="7" class="loading">Click Refresh to load count history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Playground Tab (Month-End Workflow - v14.1) -->
+    <div id="playground" class="tab-panel">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🎮 Month-End Playground - Workspace Manager</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadPlayground()">↻ Refresh</button>
+        </div>
+        <div class="alert alert-info">
+          <strong>Month-End Workflow:</strong> Create workspaces, attach invoices, count inventory across locations, and generate usage reports.
+        </div>
+        <div id="playgroundPanel"></div>
+      </div>
+    </div>
+
+    <!-- AI Console Tab -->
+    <div id="ai" class="tab-panel">
+      <!-- AI Ops System Health Panel (v13.5) -->
+      <div class="card card-bordered">
+        <div class="card-header">
+          <h3 class="card-title">🚀 AI Ops System Health (v13.5 Adaptive)</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadAIOpsStatus()">↻ Refresh</button>
+        </div>
+        <div class="grid grid-4" id="aiOpsHealthGrid">
+          <div class="stat-card">
+            <div class="stat-value" id="opsHealthScore">--</div>
+            <div class="stat-label">Health Score</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsDQIScore">--</div>
+            <div class="stat-label">🧮 Data Quality (DQI)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsForecastLatency">--</div>
+            <div class="stat-label">⚙️ Forecast Latency</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="opsLearningDivergence">--</div>
+            <div class="stat-label">🧩 Learning Divergence</div>
+          </div>
+        </div>
+        <div id="aiOpsChecks"></div>
+      </div>
+
+      <!-- Cron Schedule Summary (v12.5) -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">⏰ Autonomous Cron Schedule</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_forecast')">▶️ Run Forecast Now</button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_learning')">▶️ Run Learning Now</button>
+        </div>
+        <div class="grid grid-2" id="cronSchedule">
+          <div>
+            <strong>🔮 Daily Forecast (06:00)</strong>
+            <div id="forecastLastRun" class="text-light-med-mt">Last: --</div>
+            <div id="forecastNextRun" class="text-light-med">Next: --</div>
+          </div>
+          <div>
+            <strong>🧠 Daily Learning (21:00)</strong>
+            <div id="learningLastRun" class="text-light-med-mt">Last: --</div>
+            <div id="learningNextRun" class="text-light-med">Next: --</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Learning Timeline (v12.5) -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📚 Learning Timeline (Last 10 Insights)</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningTimeline()">↻ Refresh</button>
+        </div>
+        <div id="learningTimeline"></div>
+      </div>
+
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Reorder Recommendations</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIReorder()">↻</button>
+          </div>
+          <div id="aiReorderList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Anomaly Watchlist</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIAnomalies()">↻</button>
+          </div>
+          <div id="aiAnomalyList"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">System Upgrade Advisor</h3>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIUpgrade()">↻</button>
+          </div>
+          <div id="aiUpgradeAdvice"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Owner Feedback & Training</h3>
+        </div>
+        <div class="form-group">
+          <textarea class="textarea" id="aiFeedback" placeholder="Enter feedback (e.g., 'coffee 1.5 cups/person', 'eggs 2 per person for breakfast')"></textarea>
+        </div>
+        <div class="flex-gap-1">
+          <button type="button" class="btn btn-primary" onclick="submitFeedback()">💬 Submit Feedback</button>
+          <button type="button" class="btn btn-success" onclick="trainAI()">🚀 Train Now</button>
+          <button type="button" class="btn btn-secondary" onclick="loadFeedbackHistory()">📜 History</button>
+        </div>
+        <div id="feedbackHistory"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">AI Learning Nudge</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningNudges()">↻ Refresh</button>
+        </div>
+        <div id="learningNudges"></div>
+      </div>
+    </div>
+
+    <!-- Forecast Tab -->
+    <div id="forecast" class="tab-panel">
+      <!-- v15.5.0: Shadow Mode Approval Banner (FINANCE/OWNER only) -->
+      <div id="shadowModeApprovalBanner" class="card card-warn u-hide" data-rbac-show="canApproveForecast">
+        <div class="card-header">
+          <h3 class="card-title">⚠️ Forecast Awaiting Approval (Shadow Mode)</h3>
+          <span class="badge badge-warn" id="shadowModeStatusBadge">Pending Approval</span>
+        </div>
+        <div class="grid grid-4" id="shadowModeForecastStats">
+          <div class="stat-card">
+            <div class="stat-value" id="shadowModeRunId">--</div>
+            <div class="stat-label">Run ID</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="shadowModeItemCount">--</div>
+            <div class="stat-label">Items Forecasted</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="shadowModeConfidence">--</div>
+            <div class="stat-label">Avg Confidence</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="shadowModeTotalValue">--</div>
+            <div class="stat-label">Predicted Value</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Approval Note (required) *</label>
+          <textarea class="textarea" id="shadowModeApprovalNote" placeholder="Enter reason for approval or rejection (e.g., 'Forecast aligns with expected demand patterns', 'Confidence too low for auto-apply')..." required></textarea>
+          <small class="text-light-small">Required for audit compliance. Min 10 characters.</small>
+        </div>
+        <div class="flex-gap-1">
+          <button type="button" class="btn btn-success" id="shadowModeApproveBtn" data-rbac-disable="canApproveForecast">✅ Approve Forecast</button>
+          <button type="button" class="btn btn-danger" id="shadowModeRejectBtn" data-rbac-disable="canApproveForecast">❌ Reject Forecast</button>
+          <button type="button" class="btn btn-secondary" id="shadowModeViewDetailsBtn">👁️ View Details</button>
+        </div>
+      </div>
+
+      <!-- GFS Invoice Upload Section -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📄 GFS Invoice Management</h3>
+        </div>
+        <div class="alert alert-info">
+          Upload GFS invoices to populate monthly reports with accurate category breakdowns.
+        </div>
+        <div class="flex-gap-1">
+          <button type="button" class="btn btn-success" onclick="openGFSUploadModal()">📤 Upload GFS Invoice</button>
+          <button type="button" class="btn btn-primary" onclick="viewGFSInvoiceStatus()">📊 View Invoice Status</button>
+          <button type="button" class="btn btn-secondary" onclick="generateGFSReport()">📈 Generate Report</button>
+        </div>
+        <div id="gfsInvoiceStats" class="grid grid-3 gfs-stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="gfsCurrentPeriodCount">--</div>
+            <div class="stat-label">Current Period (FY26-P02)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="gfsTotalAmount">--</div>
+            <div class="stat-label">Total Amount</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="gfsLastUpload">--</div>
+            <div class="stat-label">Last Upload</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Population Controls</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadPopulation()">↻</button>
+        </div>
+        <div class="flex-gap-1-wrap">
+          <div>
+            <label class="form-label">Total Population</label>
+            <input type="number" class="input" id="totalPopulation" aria-label="Total population count">
+          </div>
+          <div>
+            <label class="form-label">Indian Meals</label>
+            <input type="number" class="input" id="indianCount" aria-label="Indian meals count">
+          </div>
+          <button type="button" class="btn btn-primary" onclick="updatePopulation()">💾 Update</button>
+          <div class="chip" onclick="adjustPopulation(25, 0)">+25 People</div>
+          <div class="chip" onclick="adjustPopulation(-25, 0)">-25 People</div>
+          <div class="chip" onclick="adjustPopulation(0, 5)">+5 Indian</div>
+          <div class="chip" onclick="adjustPopulation(0, -5)">-5 Indian</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Stockout Alerts</h3>
+        </div>
+        <div id="stockoutAlerts"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Today's Predictions</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadDailyForecast()">↻ Refresh</button>
+        </div>
+        <div id="forecastTable"></div>
+      </div>
+    </div>
+
+    <!-- Menu Tab (v14.4.2) -->
+    <div id="menu" class="tab-panel">
+      <!-- Menu Controls -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🍽️ 4-Week Menu Calendar (280 ppl)</h3>
+          <div class="flex-gap-half">
+            <button type="button" class="btn btn-sm btn-primary" id="menuRefreshBtn">↻ Refresh</button>
+            <button type="button" class="btn btn-sm btn-success" id="menuHeadcountBtn">👥 Headcount</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="menuShoppingListBtn">🛒 Shopping List</button>
+          </div>
+        </div>
+
+        <!-- Week Selector -->
+        <div class="menu-week-selector">
+          <button type="button" class="btn btn-sm menu-week-btn active" data-week="1">Week 1</button>
+          <button type="button" class="btn btn-sm menu-week-btn" data-week="2">Week 2</button>
+          <button type="button" class="btn btn-sm menu-week-btn" data-week="3">Week 3</button>
+          <button type="button" class="btn btn-sm menu-week-btn" data-week="4">Week 4</button>
+          <span class="menu-current-week-badge" id="menuCurrentWeekBadge"></span>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="setCurrentWeekBtn" style="margin-left: 10px;">
+            📌 Set as Current Week
+          </button>
+        </div>
+
+        <!-- Week Info Banner -->
+        <div class="menu-week-info" id="menuWeekInfo">
+          <div class="menu-week-dates">
+            <span id="menuWeekDates">Loading...</span>
+          </div>
+          <div class="menu-week-headcount">
+            <strong id="menuHeadcountDisplay">280</strong> people
+          </div>
+        </div>
+
+        <!-- Calendar Grid (7 days: Wed→Tue) -->
+        <div class="menu-calendar-grid" id="menuCalendar">
+          <div class="loading"><div class="spinner"></div> Loading menu calendar...</div>
+        </div>
+      </div>
+
+      <!-- 19:30 Policy Banner -->
+      <div class="alert alert-warning menu-policy-banner" id="menuPolicyBanner">
+        ⚠️ <strong>19:30 Policy:</strong> Menu changes are locked until 19:30. Portion target: 650g/person.
+        Drift threshold: ±15%.
+      </div>
+    </div>
+
+    <!-- Financials Tab (v15.3) -->
+    <div id="financials" class="tab-panel">
+      <!-- Financial Accuracy Overview -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">💰 Financial Accuracy & Usage Intelligence (v15.3)</h3>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadFinancialData()">↻ Refresh</button>
+        </div>
+
+        <!-- Financial Accuracy Stats -->
+        <div class="grid grid-4">
+          <div class="stat-card">
+            <div class="stat-value" id="financialAccuracyValue">--</div>
+            <div class="stat-label">Financial Accuracy</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="financialTotalInvoices">--</div>
+            <div class="stat-label">Invoices (Jan-Jun 2025)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="financialTotalValue">--</div>
+            <div class="stat-label">Total Value</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="financialCategories">--</div>
+            <div class="stat-label">Categories Tracked</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Import Section -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📥 Import Financial Data</h3>
+        </div>
+
+        <div class="alert alert-info">
+          Import invoice data from H1 2025 (Jan 1 - Jun 30) to activate AI financial accuracy tracking.
+          Includes: GST (5%), QST (9.975%), category breakdowns (BAKE, BEV, MEAT, PROD, etc.)
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Date Range</label>
+          <div class="flex-gap-1">
+            <input type="date" class="input" id="financialImportFrom" value="2025-01-01" aria-label="Financial import start date">
+            <span class="flex-align-center">→</span>
+            <input type="date" class="input" id="financialImportTo" value="2025-06-30" aria-label="Financial import end date">
+            <button type="button" class="btn btn-primary" onclick="importFinancialData()">📥 Import Financial Data</button>
+          </div>
+        </div>
+
+        <div id="financialImportResults" class="hidden">
+          <div class="alert alert-success">
+            <strong>✅ Import Complete:</strong>
+            <span id="financialImportSummary"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Summary Selector -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📊 Financial Summary & Reports</h3>
+          <div class="flex-gap-half">
+            <select class="select" id="financialPeriodType" onchange="loadFinancialSummary()" aria-label="Financial summary period type">
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-primary" onclick="loadFinancialSummary()">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Summary Table -->
+        <div id="financialSummaryContainer">
+          <table class="table" id="financialSummaryTable">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Total Invoice Amount</th>
+                <th>Food & Freight Reimb.</th>
+                <th>Other Reimb.</th>
+                <th>GST (5%)</th>
+                <th>QST (9.975%)</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="financialSummaryBody">
+              <tr><td colspan="7" class="loading">Click Refresh to load financial summary...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Category Variance Breakdown -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📈 Category Variance Analysis</h3>
+        </div>
+        <div id="categoryVarianceContainer">
+          <div class="grid grid-3">
+            <div class="stat-card">
+              <div class="stat-value" id="categoryVarianceBAKE">--</div>
+              <div class="stat-label">BAKE</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="categoryVarianceMEAT">--</div>
+              <div class="stat-label">MEAT</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="categoryVariancePROD">--</div>
+              <div class="stat-label">PROD</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="categoryVarianceBEV">--</div>
+              <div class="stat-label">BEV</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="categoryVarianceMILK">--</div>
+              <div class="stat-label">MILK</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="categoryVarianceGROC">--</div>
+              <div class="stat-label">GROC</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- v15.4.0: Finance Workspace - AI Copilot -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">🤖 AI Finance Copilot (v15.4.0)</h3>
+        </div>
+        <div class="alert alert-info">
+          Ask natural language questions about your financial data. Examples: "Show top 5 vendors for 2025-H1", "Compare Q1 vs Q2", "Export monthly summary as CSV"
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Question</label>
+          <input type="text" class="input" id="financeAIQuestion" placeholder="e.g., show top 5 vendors by total for 2025-H1 and export pdf" aria-label="AI Finance Question">
+        </div>
+        <div class="flex-gap-1">
+          <button type="button" class="btn btn-primary" onclick="askFinanceAI()">🔮 Ask AI</button>
+          <button type="button" class="btn btn-secondary" onclick="showFinanceAIPreview()">👁️ Preview SQL</button>
+        </div>
+        <div id="financeAIResults" class="hidden">
+          <hr>
+          <h4>AI Response</h4>
+          <div id="financeAIContent"></div>
+        </div>
+      </div>
+
+      <!-- v15.4.0: Data Quality Panel -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🔍 Data Quality Monitor</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadFinanceDataQuality()">↻ Refresh</button>
+        </div>
+        <div id="financeDataQualityContainer">
+          <div class="loading">Click Refresh to check data quality...</div>
+        </div>
+      </div>
+
+      <!-- v15.5.0: Finance Quick-Fix Workspace (FINANCE/OWNER only) -->
+      <div class="card" data-rbac-show="canEditFinance">
+        <div class="card-header">
+          <h3 class="card-title">🛠️ Quick-Fix Workspace (v15.5.0)</h3>
+          <button type="button" class="btn btn-sm btn-primary" id="refreshQuickFixBtn">↻ Refresh</button>
+        </div>
+
+        <div class="alert alert-info">
+          Quickly identify and fix data quality issues. Items needing mapping or out of tolerance require attention.
+        </div>
+
+        <!-- Quick-Fix Counters -->
+        <div class="grid grid-2">
+          <div class="stat-card cursor-pointer" id="needsMappingCounter">
+            <div class="stat-value" id="needsMappingCount">--</div>
+            <div class="stat-label">⚠️ Needs Mapping</div>
+          </div>
+          <div class="stat-card cursor-pointer" id="outOfToleranceCounter">
+            <div class="stat-value" id="outOfToleranceCount">--</div>
+            <div class="stat-label">🚨 Out of Tolerance</div>
+          </div>
+        </div>
+
+        <!-- Needs Mapping Section -->
+        <details id="needsMappingSection">
+          <summary class="details-summary-clickable">
+            <strong>⚠️ Items Needing Category Mapping (<span id="needsMappingTotal">0</span>)</strong>
+          </summary>
+          <div class="details-content-scrollable">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Item Code</th>
+                  <th>Item Name</th>
+                  <th>Vendor</th>
+                  <th>Total Value</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="needsMappingTableBody">
+                <tr><td colspan="5" class="loading">Click Refresh to load items needing mapping...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Out of Tolerance Section -->
+        <details id="outOfToleranceSection">
+          <summary class="details-summary-clickable">
+            <strong>🚨 Items Out of Tolerance (<span id="outOfToleranceTotal">0</span>)</strong>
+          </summary>
+          <div class="details-content-scrollable">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Item Code</th>
+                  <th>Item Name</th>
+                  <th>Expected</th>
+                  <th>Actual</th>
+                  <th>Variance</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="outOfToleranceTableBody">
+                <tr><td colspan="6" class="loading">Click Refresh to load out-of-tolerance items...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Governance Tab (v15.8.0) -->
+    <div id="governance" class="tab-panel">
+      <!-- Governance Score Cards -->
+      <div class="grid grid-5">
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceScore">--</div>
+          <div class="stat-label">Governance Score</div>
+          <span class="badge" id="governanceStatusBadge">--</span>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceFinance">--</div>
+          <div class="stat-label">💰 Finance</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceHealth">--</div>
+          <div class="stat-label">🏥 Health</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceAI">--</div>
+          <div class="stat-label">🧠 AI</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="governanceMenu">--</div>
+          <div class="stat-label">📊 Menu</div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">⚛️ Quantum Governance Controls</h3>
+          <div class="flex-gap-1">
+            <button type="button" class="btn btn-primary" id="governanceRefreshBtn">↻ Refresh</button>
+            <button type="button" class="btn btn-warning" id="governanceRecomputeBtn">🔄 Recompute</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- v15.9.0: Governance Trends & Forecasts -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📈 Governance Trends & Forecasts (v15.9.0)</h3>
+          <div class="flex-gap-1">
+            <button type="button" class="btn btn-primary" id="governanceTrendsRefreshBtn">↻ Refresh Trends</button>
+            <button type="button" class="btn btn-success" id="governanceRecomputeDailyBtn" data-rbac-disable="canEditGovernance">📊 Record Daily Scores</button>
+            <button type="button" class="btn btn-warning" id="governanceRecomputeForecastBtn" data-rbac-disable="canEditGovernance">🔮 Recompute Forecasts</button>
+          </div>
+        </div>
+
+        <!-- Trend Controls -->
+        <div class="governance-trends-controls">
+          <div class="flex-gap-1">
+            <div class="form-group">
+              <label class="form-label">Period</label>
+              <select class="select" id="governanceTrendsPeriod" aria-label="Trends period">
+                <option value="7">7 days</option>
+                <option value="14">14 days</option>
+                <option value="30" selected>30 days</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pillar</label>
+              <select class="select" id="governanceTrendsPillar" aria-label="Trends pillar">
+                <option value="all" selected>All Pillars</option>
+                <option value="finance">💰 Finance</option>
+                <option value="health">🏥 Health</option>
+                <option value="ai">🧠 AI</option>
+                <option value="menu">📊 Menu</option>
+                <option value="composite">⚛️ Composite</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Forecast Horizon</label>
+              <select class="select" id="governanceTrendsForecastHorizon" aria-label="Forecast horizon">
+                <option value="7">7 days</option>
+                <option value="14" selected>14 days</option>
+                <option value="30">30 days</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trends Chart Container -->
+        <div id="governanceTrendsContainer">
+          <div class="loading"><div class="spinner"></div> Loading trends...</div>
+        </div>
+      </div>
+
+      <!-- Alerts Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🚨 Active Governance Alerts</h3>
+        </div>
+        <table class="table" id="governanceAlertsTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Message</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="governanceAlertsBody">
+            <tr><td colspan="5" class="loading">Click Refresh to load alerts...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Intelligence Tab (v16.0.0) -->
+    <div id="intelligence" class="tab-panel">
+      <!-- Intelligence Score Header -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">🔮 Governance Intelligence Dashboard</h3>
+          <div class="gi-header-actions">
+            <select id="gi-locale" class="btn btn-sm">
+              <option value="en">🇬🇧 English</option>
+              <option value="fr">🇫🇷 Français</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadIntelligence()">↻ Refresh</button>
+            <button type="button" class="btn btn-sm btn-primary u-owner-only" onclick="recomputeIntelligence()">🔄 Recompute</button>
+            <button type="button" class="btn btn-sm btn-primary u-owner-only" onclick="generateIntelligenceReport()">📄 Report</button>
+          </div>
+        </div>
+
+        <!-- Intelligence Score Cards -->
+        <div class="grid grid-5 gi-score-grid">
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-score">--</div>
+            <div class="stat-label">Intelligence Score</div>
+            <span class="badge" id="gi-score-badge">--</span>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-finance">--</div>
+            <div class="stat-label">💰 Finance</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-health">--</div>
+            <div class="stat-label">❤️ Health</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-ai">--</div>
+            <div class="stat-label">🤖 AI</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-value" id="gi-menu">--</div>
+            <div class="stat-label">🍽️ Menu</div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="gi-trend-container">
+          <h4 class="gi-trend-title">📈 7-Day Intelligence Trend</h4>
+          <svg id="gi-trend" width="100%" height="80" class="gi-trend-svg"></svg>
+        </div>
+      </div>
+
+      <!-- Insights Section -->
+      <div class="card gi-card-spaced">
+        <div class="card-header">
+          <h3 class="card-title">💡 <span id="gi-insights-title">Insights</span></h3>
+          <span class="badge" id="gi-insights-count">0</span>
+        </div>
+        <div id="gi-insights" class="card-body gi-insights-body">
+          <p class="gi-placeholder-text">Click Refresh to load insights...</p>
+        </div>
+      </div>
+
+      <!-- Active Anomalies Table -->
+      <div class="card gi-card-spaced">
+        <div class="card-header">
+          <h3 class="card-title">🚨 <span id="gi-anomalies-title">Active Anomalies</span></h3>
+          <span class="badge" id="gi-anomalies-count">0</span>
+        </div>
+        <div class="table-wrap">
+          <table class="table" aria-label="Active Anomalies">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Pillar</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Δ%</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="gi-anomalies-body">
+              <tr><td colspan="6" class="loading">Click Refresh to load anomalies...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Forecast & Trends Section (v16.1.0) -->
+      <div class="card gi-card-spaced">
+        <div class="card-header">
+          <h3 class="card-title">📈 <span id="gi-forecast-title">Forecast & Trends</span></h3>
+          <div class="gi-header-actions">
+            <label for="gi-forecast-pillar" class="gi-control-label">Pillar:</label>
+            <select id="gi-forecast-pillar" class="input gi-control-input">
+              <option value="composite">🔮 Composite</option>
+              <option value="finance">💰 Finance</option>
+              <option value="health">❤️ Health</option>
+              <option value="ai">🤖 AI</option>
+              <option value="menu">🍽️ Menu</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Forecast Controls -->
+        <div id="gi-forecast-controls" class="u-flex u-gap-8 u-items-center gi-forecast-controls">
+          <div class="gi-control-group">
+            <label for="gi-alpha" class="gi-control-label">
+              <span id="gi-alpha-label">Smoothing (α):</span>
+            </label>
+            <input type="range" id="gi-alpha" min="0.1" max="1.0" step="0.05" value="0.5"
+                   class="forecast-slider gi-alpha-slider">
+            <span id="gi-alpha-value" class="gi-alpha-value">0.5</span>
+          </div>
+
+          <div class="gi-control-group">
+            <label for="gi-forecast-window" class="gi-control-label">
+              <span id="gi-window-label">Window:</span>
+            </label>
+            <select id="gi-forecast-window" class="input gi-control-input">
+              <option value="7">7 Days</option>
+              <option value="14" selected>14 Days</option>
+              <option value="30">30 Days</option>
+            </select>
+          </div>
+
+          <div class="gi-control-group">
+            <label for="gi-forecast-horizon" class="gi-control-label">
+              <span id="gi-horizon-label">Forecast:</span>
+            </label>
+            <select id="gi-forecast-horizon" class="input gi-control-input">
+              <option value="7">7 Days</option>
+              <option value="14" selected>14 Days</option>
+              <option value="30">30 Days</option>
+            </select>
+          </div>
+
+          <button type="button" id="gi-simulate-btn" class="btn btn-sm btn-primary u-owner-only"
+                  onclick="simulateForecast()">
+            🔮 <span id="gi-simulate-label">Simulate</span>
+          </button>
+
+          <button type="button" class="btn btn-sm btn-secondary" onclick="loadForecastChart()">
+            ↻ <span id="gi-refresh-forecast-label">Refresh</span>
+          </button>
+        </div>
+
+        <!-- Forecast Chart -->
+        <div class="gi-chart-container">
+          <svg id="gi-forecast-chart" width="100%" height="300" class="gi-chart-svg">
+          </svg>
+
+          <!-- Legend -->
+          <div class="gi-legend">
+            <div class="gi-legend-item">
+              <div class="gi-legend-line-actual"></div>
+              <span id="gi-legend-actual">Actual</span>
+            </div>
+            <div class="gi-legend-item">
+              <div class="gi-legend-line-forecast"></div>
+              <span id="gi-legend-forecast">Forecast</span>
+            </div>
+            <div class="gi-legend-item">
+              <div class="gi-legend-band"></div>
+              <span id="gi-legend-confidence">Confidence Band</span>
+            </div>
+          </div>
+
+          <!-- Chart Info -->
+          <div id="gi-forecast-info" class="gi-chart-info">
+            <span id="gi-forecast-info-text">Click Refresh to load forecast chart...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reports Tab -->
+    <div id="reports" class="tab-panel">
+      <!-- GFS Monthly Reports Quick Access -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">📊 GFS Monthly Accounting Reports</h3>
+          <span class="badge btn-cognitive-refresh">181 Invoices | $2.13M</span>
+        </div>
+        <div>
+          <p>
+            Access all monthly GFS accounting reports (Jan-Sep 2025) with clickable PDF links, cost code breakdowns, and copy/paste ready format.
+          </p>
+          <button type="button" class="btn btn-white-full" onclick="openGFSReports()">
+            🚀 Open GFS Monthly Reports Dashboard
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Tiered Reporting Center</h3>
+        </div>
+        <div class="flex-gap-half-wrap">
+          <div class="chip active" id="reportTab-executive" onclick="switchReportTab('executive')">👔 Executive</div>
+          <div class="chip" id="reportTab-ops" onclick="switchReportTab('ops')">📊 Ops Manager</div>
+          <div class="chip" id="reportTab-production" onclick="switchReportTab('production')">👨‍🍳 Production</div>
+          <div class="chip" id="reportTab-purchasing" onclick="switchReportTab('purchasing')">🛒 Purchasing</div>
+          <div class="chip" id="reportTab-finance" onclick="switchReportTab('finance')">💰 Finance</div>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()">📥 Export CSV</button>
+        <div id="reportContent"></div>
+      </div>
+    </div>
+
+    <!-- Item Bank Tab (v16.2.0) -->
+    <div id="item-bank" class="tab-panel">
+      <!-- Top Finance Strip -->
+      <div class="finance-strip" id="financeStrip">
+        <div class="finance-strip-loading">Loading finance summary...</div>
+      </div>
+
+      <!-- Invoice Integrity Badge -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">💰 Invoice Integrity Status</h3>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-integrity">↻ Refresh</button>
+        </div>
+        <div class="grid grid-4">
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-badge-status">--</div>
+            <div class="stat-label">Balance Status</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-total-invoices">--</div>
+            <div class="stat-label">Total Invoices</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-imbalanced">--</div>
+            <div class="stat-label">Imbalanced</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="integrity-total-delta">$0.00</div>
+            <div class="stat-label">Total Delta</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary np-btn-revalidate" id="btn-revalidate-period">🔄 Revalidate Period</button>
+      </div>
+
+      <!-- Item Bank Management -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🏦 Item Bank Catalog</h3>
+          <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-primary" id="btn-upload-csv">📤 Upload CSV</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="btn-export-csv">📥 Export CSV</button>
+            <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-items">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- CSV Upload Area (Hidden by default) -->
+        <div class="upload-area u-hide" id="csv-upload-area">
+          <div class="upload-drop-zone" id="csv-drop-zone">
+            <p>📁 Drag & drop CSV file here or click to browse</p>
+            <input type="file" id="csv-file-input" accept=".csv" class="u-hide">
+          </div>
+          <div class="upload-progress u-hide" id="csv-upload-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" id="csv-progress-fill"></div>
+            </div>
+            <p id="csv-upload-status">Uploading...</p>
+          </div>
+        </div>
+
+        <!-- Search & Filter -->
+        <div class="filter-bar">
+          <input type="text" id="item-search" placeholder="🔍 Search by description, SKU, or UPC..." class="form-control">
+          <select id="filter-finance-code" class="form-control">
+            <option value="">All Finance Codes</option>
+            <option value="BAKE">BAKE</option>
+            <option value="BEV+ECO">BEV+ECO</option>
+            <option value="MILK">MILK</option>
+            <option value="GROC+MISC">GROC+MISC</option>
+            <option value="MEAT">MEAT</option>
+            <option value="PROD">PROD</option>
+            <option value="CLEAN">CLEAN</option>
+            <option value="PAPER">PAPER</option>
+            <option value="FREIGHT">FREIGHT</option>
+            <option value="LINEN">LINEN</option>
+            <option value="PROPANE">PROPANE</option>
+            <option value="OTHER">OTHER</option>
+          </select>
+          <select id="filter-status" class="form-control">
+            <option value="ACTIVE">Active Only</option>
+            <option value="RETIRED">Retired Only</option>
+            <option value="">All Status</option>
+          </select>
+        </div>
+
+        <!-- Item Bank Table -->
+        <div class="table-responsive">
+          <table class="table" id="item-bank-table">
+            <thead>
+              <tr>
+                <th>GFS Item #</th>
+                <th>Description</th>
+                <th>Pack Size</th>
+                <th>UOM</th>
+                <th>Finance Code</th>
+                <th>GST</th>
+                <th>QST</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="item-bank-tbody">
+              <tr>
+                <td colspan="9" class="text-center">No items loaded. Click Refresh to load items.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar">
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-prev-page" disabled>← Previous</button>
+          <span id="pagination-info">Page 1 of 1</span>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-next-page" disabled>Next →</button>
+        </div>
+      </div>
+
+      <!-- Needs Mapping Queue -->
+      <div class="card u-owner-only">
+        <div class="card-header">
+          <h3 class="card-title">⚠️ Needs Mapping Queue</h3>
+          <span class="badge" id="needs-mapping-count">--</span>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-queue">↻ Refresh</button>
+        </div>
+        <p class="card-description">
+          Invoice lines with low confidence (< 80%) or fallback mappings requiring manual review.
+        </p>
+        <div class="table-responsive">
+          <table class="table mapping-queue-table" id="mapping-queue-table">
+            <thead>
+              <tr>
+                <th>Invoice ID</th>
+                <th>Line</th>
+                <th>Description</th>
+                <th>GFS Item #</th>
+                <th>AI Suggested Code</th>
+                <th>Confidence</th>
+                <th>Strategy</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-queue-tbody">
+              <tr>
+                <td colspan="8" class="text-center">No items needing mapping. All lines are mapped with high confidence!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Item Bank Statistics -->
+      <div class="grid grid-3">
+        <div class="card stat-card">
+          <div class="stat-value" id="stat-active-items">--</div>
+          <div class="stat-label">Active Items</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="stat-needs-mapping">--</div>
+          <div class="stat-label">Needs Mapping</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value" id="stat-mapping-auto-pct">--</div>
+          <div class="stat-label">Auto-Mapped %</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="settings" class="tab-panel">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Device Binding</h3>
+          </div>
+          <div id="deviceInfo"></div>
+          <button type="button" class="btn btn-primary" onclick="rebindDevice()">🔐 Rebind Device</button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Console Preferences</h3>
+          </div>
+          <div class="form-group">
+            <label class="flex-align-center">
+              <input type="checkbox" id="warmCache">
+              <span>Warm Forecast Cache on Load</span>
+            </label>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="exportDailyCSV()">📥 Export Daily Summary CSV</button>
+        </div>
+      </div>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">System Orchestration</h3>
+          </div>
+          <button type="button" class="btn btn-success" onclick="orchestrateStart()">🚀 Start All Services</button>
+          <button type="button" class="btn btn-warning" onclick="orchestrateStop()">🛑 Stop All Services (Safe)</button>
+          <div id="orchestrationStatus"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Backup & Recovery</h3>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="createRecoveryKit()">💾 Create Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" onclick="verifyRecoveryKit()">🔍 Verify Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" onclick="dryRunRestore()">🔄 Dry-Run Restore</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Audit Chain</h3>
+        </div>
+        <div id="auditInfo"></div>
+      </div>
+
+      <!-- v15.5.0: Users Panel (OWNER only) -->
+      <div class="card u-hide" data-rbac-role="OWNER">
+        <div class="card-header">
+          <h3 class="card-title">👥 User Management (OWNER Only)</h3>
+          <div class="flex-gap-half">
+            <button type="button" class="btn btn-sm btn-success" id="openInviteUserModalBtn">➕ Invite User</button>
+            <button type="button" class="btn btn-sm btn-primary" id="refreshUsersBtn">↻ Refresh</button>
+          </div>
+        </div>
+
+        <div class="alert alert-info">
+          Manage user access, roles, and permissions. Users are invited via SSO (Google/Microsoft). Invites expire in 7 days.
+        </div>
+
+        <!-- Users Table -->
+        <table class="table" id="usersTable">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th>Locations</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="6" class="loading"><div class="spinner"></div> Loading users...</td></tr>
+          </tbody>
+        </table>
+
+        <!-- Pending Invites Section -->
+        <details>
+          <summary class="details-summary-clickable">
+            <strong>View Pending Invites (<span id="pendingInvitesCount">0</span>)</strong>
+          </summary>
+          <div class="details-content-scrollable">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Created</th>
+                  <th>Expires</th>
+                  <th>Invited By</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pendingInvitesTableBody">
+                <tr><td colspan="6" class="loading">Click to load pending invites...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+      <!-- v15.2.3: Broken Links & 404 Telemetry -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🔗 Broken Links & 404 Telemetry</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadBrokenLinks()">↻ Refresh</button>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="grid grid-3" id="brokenLinksStats">
+          <div class="stat-card">
+            <div class="stat-value" id="brokenLinks404Total">--</div>
+            <div class="stat-label">Total 404s</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="brokenLinks404Asset">--</div>
+            <div class="stat-label">Asset 404s</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="brokenLinks404Route">--</div>
+            <div class="stat-label">Route 404s</div>
+          </div>
+        </div>
+
+        <!-- Top Broken Links -->
+        <div id="brokenLinksTopList">
+          <h4>Top Broken Links (Last 24h)</h4>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Path</th>
+                <th>Type</th>
+                <th>Count</th>
+                <th>Last Seen</th>
+                <th>Top Referer</th>
+              </tr>
+            </thead>
+            <tbody id="brokenLinksTableBody">
+              <tr><td colspan="5" class="loading">Click Refresh to load broken links...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Recent 404s -->
+        <details>
+          <summary class="details-summary-clickable">
+            <strong>View Recent 404s (Last 100)</strong>
+          </summary>
+          <div id="brokenLinksRecentList" class="details-content-scrollable">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Path</th>
+                  <th>Method</th>
+                  <th>Type</th>
+                  <th>Referer</th>
+                </tr>
+              </thead>
+              <tbody id="brokenLinksRecentBody">
+                <tr><td colspan="5" class="loading">Click Refresh to load...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="pdfModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="pdfModalTitle">PDF Viewer</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closePDFModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <iframe id="pdfFrame" title="PDF document viewer"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div id="includeOrdersModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Include PDFs in Count</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeIncludeOrdersModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          Select PDFs to include in the month-end count. Only unprocessed PDFs are shown.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Count ID</label>
+          <input type="text" class="input" id="includeCountId" placeholder="Enter count ID">
+        </div>
+        <div class="checkbox-list" id="pdfCheckboxList"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeIncludeOrdersModal()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="includeSelectedPDFs()">✓ Include Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="orchestrationModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="orchestrationModalTitle">System Orchestration</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeOrchestrationModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="orchestrationSteps"></div>
+        <div id="orchestrationCurl"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeOrchestrationModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="recoveryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="recoveryModalTitle">Recovery Operation</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecoveryModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="recoveryDetails"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeRecoveryModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="recoveryInputModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="recoveryInputModalTitle">Recovery Input</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecoveryInputModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="recoveryInputForm" onsubmit="event.preventDefault(); submitRecoveryInput();">
+          <div class="form-group">
+            <label class="form-label" id="recoveryInputLabel">Path to Recovery Kit</label>
+            <input type="text" class="input" id="recoveryPath" placeholder="/path/to/recovery_kit.tar.gz.enc" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passphrase (min 12 characters)</label>
+            <input type="password" class="input" id="recoveryPassphrase" placeholder="Enter passphrase" autocomplete="current-password">
+          </div>
+          <div class="form-group hidden" id="recoveryDestGroup">
+            <label class="form-label">Destination Path (USB)</label>
+            <input type="text" class="input" id="recoveryDest" placeholder="/Volumes/USB/backup" autocomplete="off">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeRecoveryInputModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="recoveryInputSubmit" onclick="submitRecoveryInput()">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forecast Coverage Detail Modal -->
+  <div id="forecastDetailModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📈 Forecast Coverage Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeForecastDetailModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="forecastDetailContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeForecastDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stockout Risk Detail Modal -->
+  <div id="stockoutDetailModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚠️ Stockout Risk Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeStockoutDetailModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="stockoutDetailContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeStockoutDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Upload Modal -->
+  <div id="uploadPDFModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Upload PDF Invoice</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeUploadPDFModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="uploadPDFForm" onsubmit="event.preventDefault(); uploadPDF();">
+          <div class="form-group">
+            <label class="form-label">Select PDF File *</label>
+            <input type="file" class="input" id="pdfFile" accept="application/pdf" required aria-label="Select PDF file to upload">
+            <small class="text-light-small">Max size: 50MB. Only PDF files are allowed.</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="textarea" id="pdfNotes" placeholder="e.g., GFS invoice, weekly order, etc."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeUploadPDFModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="uploadPDF()">📤 Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GFS Invoice Upload Modal -->
+  <div id="gfsUploadModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Upload GFS Invoice</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeGFSUploadModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          Upload GFS invoices for October 2025 (FY26-P02). Supported formats: PDF only.
+        </div>
+        <form id="gfsUploadForm" onsubmit="event.preventDefault(); uploadGFSInvoice();">
+          <div class="form-group">
+            <label class="form-label">Select GFS Invoice PDF *</label>
+            <input type="file" class="input" id="gfsInvoiceFile" accept="application/pdf" required multiple aria-label="Select GFS invoice PDF files">
+            <small class="text-light-small">Max size: 50MB per file. You can select multiple PDFs at once.</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="gfsFiscalPeriod">Fiscal Period (auto-detected)</label>
+            <input type="text" class="input" id="gfsFiscalPeriod" value="FY26-P02 (October 2025)" disabled aria-label="Fiscal period for GFS invoice">
+            <small class="text-light-small">Period is automatically assigned based on invoice date from PDF</small>
+          </div>
+        </form>
+        <div id="gfsUploadProgress" class="hidden">
+          <div class="alert alert-info">
+            <strong>Uploading...</strong>
+            <div id="gfsUploadStatus">Processing files...</div>
+            <progress id="gfsUploadProgressBar" class="gfs-progress-bar" value="0" max="100"></progress>
+          </div>
+        </div>
+        <div id="gfsUploadResults" class="hidden">
+          <div class="alert alert-success">
+            <strong>✅ Upload Complete!</strong>
+            <div id="gfsUploadSummary"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeGFSUploadModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="gfsUploadBtn" onclick="uploadGFSInvoice()">📤 Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location Create/Edit Modal -->
+  <div id="locationModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="locationModalTitle">Add New Location</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeLocationModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="locationForm" onsubmit="event.preventDefault(); saveLocation();">
+          <input type="hidden" id="locationEditCode">
+          <div class="form-group">
+            <label class="form-label">Location ID *</label>
+            <input type="text" class="input" id="locationCode" placeholder="e.g., cooler-01" required>
+            <small class="text-light-small">Use lowercase with hyphens (e.g., "freezer-a2", "walk-in-d1")</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location Name *</label>
+            <input type="text" class="input" id="locationName" placeholder="e.g., Walk-in Freezer 1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="select" id="locationType" aria-label="Location type">
+              <option value="warehouse">Warehouse</option>
+              <option value="refrigerated">Refrigerated</option>
+              <option value="frozen">Frozen</option>
+              <option value="dry">Dry Storage</option>
+              <option value="kitchen">Kitchen</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeLocationModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveLocation()">💾 Save Location</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Item to Count Modal -->
+  <div id="addItemToCountModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Item to Count</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeAddItemToCountModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <form id="addItemToCountForm" onsubmit="event.preventDefault(); submitItemToCount();">
+          <!-- Item Search -->
+          <div class="form-group">
+            <label class="form-label">Search Item (by code or name) *</label>
+            <input type="text" class="input" id="itemSearchInput" placeholder="Type item code or name..." autocomplete="off" required>
+            <div id="itemSearchResults" class="hidden"></div>
+            <input type="hidden" id="selectedItemCode">
+            <div id="selectedItemDisplay" class="hidden">
+              <strong>Selected:</strong> <span id="selectedItemText"></span>
+              <button type="button" class="btn btn-sm btn-secondary btn-float-right" onclick="clearSelectedItem()">Clear</button>
+            </div>
+          </div>
+
+          <!-- Storage Location -->
+          <div class="form-group">
+            <label class="form-label">Storage Location</label>
+            <select class="select" id="countItemLocation" aria-label="Item count storage location">
+              <option value="">Select location...</option>
+            </select>
+          </div>
+
+          <!-- Quantity -->
+          <div class="form-group">
+            <label class="form-label">Quantity *</label>
+            <input type="number" class="input" id="countItemQuantity" placeholder="0" step="0.01" min="0" required>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="textarea" id="countItemNotes" placeholder="Any notes about this item..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeAddItemToCountModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitItemToCount()">✓ Add Item</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign Locations Modal -->
+  <div id="assignLocationsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Assign Items to Locations</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeAssignLocationsModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <strong id="assignItemsCount">0 items</strong> will be assigned to selected locations.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Select Locations (multiple) *</label>
+          <select class="select" id="assignLocationSelect" multiple size="10" aria-label="Select locations for assignment">
+            <!-- Populated dynamically -->
+          </select>
+          <small class="text-light-small">Hold Ctrl (Windows) or Cmd (Mac) to select multiple locations</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeAssignLocationsModal()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="confirmAssignLocations()">✓ Assign</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workspace Details Modal (v14.3) -->
+  <div id="workspaceModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="workspaceModalTitle">🎮 Workspace Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeWorkspaceModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="workspaceDetails">
+          <div class="loading"><div class="spinner"></div> Loading workspace...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Close</button>
+        <button type="button" class="btn btn-primary hidden" id="workspaceUsageBtn" onclick="viewWorkspaceUsage()">📊 View Usage Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recipe Drawer Modal (v14.4.2) -->
+  <div id="recipeDrawerModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="recipeDrawerTitle">Recipe Details</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecipeDrawer()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="recipeDrawerContent">
+          <div class="loading"><div class="spinner"></div> Loading recipe...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeRecipeDrawer()">Close</button>
+        <button type="button" class="btn btn-primary hidden" id="recipeEditBtn">Edit Recipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Headcount Adjustment Modal (v14.4.2) -->
+  <div id="headcountModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>👥 Adjust Headcount</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeHeadcountModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          Changing headcount will automatically scale all recipe quantities and shopping lists.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Current Headcount</label>
+          <div class="headcount-current-display">
+            <span id="headcountCurrentDisplay">280</span> people
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Headcount *</label>
+          <input type="number" class="input" id="headcountInput" placeholder="280" min="1" max="10000" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeHeadcountModal()">Cancel</button>
+        <button type="button" class="btn btn-success" onclick="updateHeadcount()">💾 Update</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shopping List Modal (v14.4.2) -->
+  <div id="shoppingListModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🛒 Shopping List</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeShoppingListModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <strong>Week <span id="shoppingWeekNum">1</span></strong> •
+          <span id="shoppingWeekDates">Loading...</span> •
+          <strong><span id="shoppingHeadcount">280</span> people</strong>
+        </div>
+        <div class="shopping-list-table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item Code</th>
+                <th>Description</th>
+                <th>Total Qty</th>
+                <th>Pack Size</th>
+                <th>Packs Needed</th>
+              </tr>
+            </thead>
+            <tbody id="shoppingListTable">
+              <tr><td colspan="5" class="loading"><div class="spinner"></div> Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="shoppingListCSV" class="hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeShoppingListModal()">Close</button>
+        <button type="button" class="btn btn-primary" onclick="downloadShoppingListCSV()">📥 Download CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Count PDF Management Modal (v15.2.3) -->
+  <div id="countPdfModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📄 Count PDF Management</h3>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeCountPdfModal()">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <strong>Count ID:</strong> <span id="countPdfModalCountId">--</span>
+        </div>
+
+        <!-- Attached PDFs Section -->
+        <div class="card">
+          <div class="card-header">
+            <h4 class="card-title">📎 Attached PDFs</h4>
+            <span class="badge badge-secondary" id="attachedPdfCount">0</span>
+          </div>
+          <div id="attachedPdfsList">
+            <div class="loading"><div class="spinner"></div> Loading...</div>
+          </div>
+        </div>
+
+        <!-- Available PDFs Section -->
+        <div class="card">
+          <div class="card-header">
+            <h4 class="card-title">📥 Available PDFs to Attach</h4>
+            <span class="badge badge-info" id="availablePdfCount">0</span>
+          </div>
+          <div id="availablePdfsList">
+            <div class="loading"><div class="spinner"></div> Loading...</div>
+          </div>
+          <button type="button" class="btn btn-success btn-full" id="attachSelectedPdfsBtn" onclick="attachSelectedPdfs()" disabled>✓ Attach Selected PDFs</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeCountPdfModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- v15.5.0: Invite User Modal -->
+  <div id="inviteUserModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>➕ Invite New User</h3>
+        <button type="button" class="btn btn-sm btn-secondary" id="closeInviteUserModalBtn">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          User will receive a one-time SSO invitation link (Google/Microsoft). Expires in 7 days.
+        </div>
+        <form id="inviteUserForm">
+          <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <input type="email" class="input" id="inviteUserEmail" placeholder="user@example.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role *</label>
+            <select class="select" id="inviteUserRole" required aria-label="User role selection">
+              <option value="">Select Role...</option>
+              <option value="READONLY">READONLY - View only</option>
+              <option value="OPS">OPS - Operations management</option>
+              <option value="FINANCE">FINANCE - Financial access</option>
+              <option value="OWNER">OWNER - Full access</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Locations (optional)</label>
+            <input type="text" class="input" id="inviteUserLocations" placeholder="Leave empty for all locations">
+            <small class="text-light-small">Comma-separated location codes (e.g., "cooler-01,freezer-a2")</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="textarea" id="inviteUserNotes" placeholder="Internal notes about this user..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelInviteUserBtn">Cancel</button>
+        <button type="button" class="btn btn-success" id="sendInviteBtn">📧 Send Invite</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- v15.5.0: Change Role Modal -->
+  <div id="changeRoleModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Change User Role</h3>
+        <button type="button" class="btn btn-sm btn-secondary" id="closeChangeRoleModalBtn">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          Changing user role will immediately affect their permissions.
+        </div>
+        <p><strong>User:</strong> <span id="changeRoleUserEmail">--</span></p>
+        <p><strong>Current Role:</strong> <span id="changeRoleCurrentRole">--</span></p>
+        <div class="form-group">
+          <label class="form-label">New Role *</label>
+          <select class="select" id="changeRoleNewRole" required aria-label="New role for user">
+            <option value="READONLY">READONLY - View only</option>
+            <option value="OPS">OPS - Operations management</option>
+            <option value="FINANCE">FINANCE - Financial access</option>
+            <option value="OWNER">OWNER - Full access</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelChangeRoleBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmChangeRoleBtn">💾 Change Role</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- v15.5.0: Export Confirmation Modal -->
+  <div id="exportConfirmModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📥 Confirm Data Export</h3>
+        <button type="button" class="btn btn-sm btn-secondary" id="closeExportConfirmModalBtn">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          <strong>⚠️ Export Guardrails</strong>
+          <p>Please review the export details below before proceeding.</p>
+        </div>
+
+        <!-- Export Details -->
+        <div class="form-group">
+          <label class="form-label">Export Type</label>
+          <div class="export-detail-value" id="exportType">--</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Date Range / Timeframe</label>
+          <div class="export-detail-value" id="exportTimeframe">--</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Estimated Rows</label>
+          <div class="export-detail-value" id="exportRowCount">--</div>
+          <small class="text-light-small">Maximum: 50,000 rows per export. Larger datasets require splitting by date range.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Estimated File Size</label>
+          <div class="export-detail-value" id="exportFileSize">--</div>
+        </div>
+
+        <!-- Rate Limit Meter -->
+        <div class="form-group">
+          <label class="form-label">Export Rate Limit</label>
+          <div class="export-rate-meter">
+            <div class="export-rate-bar" id="exportRateBar"></div>
+          </div>
+          <small class="text-light-small">
+            <span id="exportRateText">--</span>
+          </small>
+        </div>
+
+        <!-- PII Notice -->
+        <div class="alert alert-info">
+          <strong>🔒 Data Privacy Notice</strong>
+          <p>This export may contain personally identifiable information (PII) and sensitive business data. Handle with care and ensure compliance with data protection policies.</p>
+          <ul class="export-notice-list">
+            <li>Do not share exports via unsecured channels</li>
+            <li>Store exports in encrypted locations only</li>
+            <li>Delete exports when no longer needed</li>
+            <li>All exports are logged for audit purposes</li>
+          </ul>
+        </div>
+
+        <!-- Acknowledgment Checkbox -->
+        <div class="form-group">
+          <label class="flex-align-center">
+            <input type="checkbox" id="exportAcknowledgment">
+            <span>I acknowledge that I will handle this export securely and in compliance with data protection policies *</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelExportBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmExportBtn" disabled>📥 Proceed with Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Owner Floating Bubble -->
+  <div class="system-owner-bubble">
+    <div class="system-owner-content">
+      <div class="system-owner-icon">👤</div>
+      <div class="system-owner-info">
+        <div class="system-owner-label">System Owner</div>
+        <div class="system-owner-name">David Mikulis</div>
+        <div class="system-owner-email">
+          <a href="mailto:Neuro.Pilot.AI@gmail.com">Neuro.Pilot.AI@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .system-owner-bubble {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      z-index: 9999;
+      font-size: 13px;
+      animation: slideUpFade 0.5s ease-out;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .system-owner-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .system-owner-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .system-owner-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .system-owner-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.9;
+      font-weight: 600;
+    }
+
+    .system-owner-name {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .system-owner-email {
+      font-size: 12px;
+      opacity: 0.95;
+    }
+
+    .system-owner-email a {
+      color: white;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+      transition: all 0.2s ease;
+    }
+
+    .system-owner-email a:hover {
+      border-bottom-color: white;
+      opacity: 1;
+    }
+
+    @keyframes slideUpFade {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .system-owner-bubble {
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        transform: none;
+        font-size: 11px;
+      }
+
+      .system-owner-name {
+        font-size: 12px;
+      }
+
+      .system-owner-email {
+        font-size: 10px;
+      }
+    }
+  </style>
+
+  <!-- Production Bootstrap - Live Railway API -->
+  <script>
+    (function bootstrapNPConfig() {
+      try {
+        const PRESET_API = 'https://inventory-backend-7-agent-build.up.railway.app';
+        if (!localStorage.getItem('NP_API_URL')) {
+          localStorage.setItem('NP_API_URL', PRESET_API);
+        }
+        window.NP_CONFIG = {
+          API_BASE: localStorage.getItem('NP_API_URL') || PRESET_API
+        };
+      } catch (e) {
+        console.warn('Bootstrap failed:', e);
+        window.NP_CONFIG = { API_BASE: 'https://inventory-backend-7-agent-build.up.railway.app' };
+      }
+    })();
+  </script>
+
+  <!-- v15.5.0: RBAC Client -->
+  <script src="js/rbac-client.js?v=21.1.0"></script>
+
+  <!-- v14.3: Shared Console Core (Zero Drift) -->
+  <script src="js/owner-console-core.js?v=21.1.0"></script>
+
+  <script src="js/owner-super-console.js?v=21.1.0"></script>
+</body>
+</html>

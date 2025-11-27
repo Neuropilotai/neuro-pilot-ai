@@ -185,7 +185,7 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       }
     }
 
-    console.log('[AUTH] Setting cookie and sending response...');
+    console.log('[AUTH] Setting cookie...');
     // Set secure cookie for refresh token
     res.cookie('refreshToken', result.tokens.refreshToken, {
       httpOnly: true,
@@ -194,26 +194,40 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    res.json({
+    console.log('[AUTH] Building response object...');
+    const responseData = {
       message: 'Login successful',
       user: result.user,
       accessToken: result.tokens.accessToken,
       expiresIn: '15m',
       code: 'LOGIN_SUCCESS'
-    });
+    };
+
+    console.log('[AUTH] Sending JSON response...');
+    res.json(responseData);
+    console.log('[AUTH] Response sent successfully');
 
   } catch (error) {
-    console.error('[AUTH] Login error:', error.name, error.message, error.stack);
-    securityLog('login_error', 'high', {
-      error: error.message,
-      errorName: error.name,
-      email: req.body.email
-    }, req);
+    console.error('[AUTH] Login error details:');
+    console.error('[AUTH] Error name:', error.name);
+    console.error('[AUTH] Error message:', error.message);
+    console.error('[AUTH] Error stack:', error.stack);
+
+    try {
+      securityLog('login_error', 'high', {
+        error: error.message,
+        errorName: error.name,
+        email: req.body.email
+      }, req);
+    } catch (logError) {
+      console.error('[AUTH] Failed to log security event:', logError.message);
+    }
 
     res.status(500).json({
-      error: 'Login failed',
+      error: 'Internal server error',
       code: 'LOGIN_ERROR',
-      hint: error.name
+      hint: error.name,
+      path: req.path
     });
   }
 });
