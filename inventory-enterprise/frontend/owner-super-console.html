@@ -6,7 +6,7 @@
   <title>Owner Super Console | NeuroInnovate Inventory v3.2.0</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="stylesheet" href="/css/owner-super.css?v=15.7.1">
-  <meta name="np-api-url" content="https://inventory-backend-7-agent-build.up.railway.app">
+  <meta name="np-api-url" content="https://resourceful-achievement-production.up.railway.app">
   <script>
     // NeuroPilot frontend bootstrap v2: normalize API base, harden fetch, and provide safe fallbacks
     (function () {
@@ -14,7 +14,7 @@
         // 1) Resolve API base (priority: meta tag -> window.API_URL -> localStorage -> fallback)
         var meta = document.querySelector('meta[name="np-api-url"]');
         var candidate = (meta && meta.content ? meta.content : (window.API_URL || localStorage.getItem('NP_API_URL') || '')).trim();
-        var fallback = 'https://inventory-backend-7-agent-build.up.railway.app';
+        var fallback = 'https://resourceful-achievement-production.up.railway.app';
         var base = (/^https?:\/\//i.test(candidate) ? candidate : fallback).replace(/\/+$/, '');
 
         // Expose globals for legacy code
