@@ -93,7 +93,7 @@ const testAccounts = [
   {
     id: 'owner-test',
     email: 'owner@neuropilot.ai',
-    password: '$2a$12$aOVbYF1PlQLUG8bnrB4ydundWxvutbiv9D3BPC0Vc3LjtyVGRD2e', // NeuroPilot2025!
+    password: '$2a$12$/pRgSEBx/RYsvt8EBGKpMu/HiOUq2BhznLBB4j/Pustf.rVtwyGvW', // NeuroPilot2025!
     role: ROLES.OWNER,
     firstName: 'David',
     lastName: 'Mikulis',
