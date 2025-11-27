@@ -27,7 +27,7 @@
       const storedUrl = localStorage.getItem('NP_API_URL');
 
       // Primary production URL
-      const DEFAULT_URL = 'https://inventory-backend-7-agent-build.up.railway.app';
+      const DEFAULT_URL = 'https://resourceful-achievement-production.up.railway.app';
 
       this.apiBase = metaUrl || storedUrl || DEFAULT_URL;
 
