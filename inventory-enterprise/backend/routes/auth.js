@@ -14,157 +14,6 @@ const { auditLog, securityLog } = require('../config/logger');
 
 const router = express.Router();
 
-// DEBUG: Test endpoint to verify bcrypt is working
-router.get('/debug-test', async (req, res) => {
-  try {
-    const bcryptjs = require('bcryptjs');
-    const testPassword = 'NeuroPilot2025!';
-    const testHash = '$2a$12$/pRgSEBx/RYsvt8EBGKpMu/HiOUq2BhznLBB4j/Pustf.rVtwyGvW';
-
-    console.log('[DEBUG] Testing bcrypt...');
-    const match = bcryptjs.compareSync(testPassword, testHash);
-    console.log('[DEBUG] Bcrypt match result:', match);
-
-    // Test user lookup
-    const ownerUser = users.get('owner@neuropilot.ai');
-    console.log('[DEBUG] Owner user found:', !!ownerUser);
-    console.log('[DEBUG] Owner role:', ownerUser?.role);
-
-    res.json({
-      bcryptMatch: match,
-      userFound: !!ownerUser,
-      userRole: ownerUser?.role,
-      nodeVersion: process.version,
-      env: process.env.NODE_ENV
-    });
-  } catch (error) {
-    console.error('[DEBUG] Error:', error.name, error.message, error.stack);
-    res.status(500).json({
-      error: error.name,
-      message: error.message,
-      stack: error.stack?.split('\n').slice(0, 5)
-    });
-  }
-});
-
-// DEBUG: Ultra simple POST echo test
-router.post('/debug-echo', (req, res) => {
-  try {
-    res.json({
-      received: true,
-      body: req.body,
-      bodyType: typeof req.body,
-      hasEmail: !!req.body?.email,
-      hasPassword: !!req.body?.password
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.name, message: error.message });
-  }
-});
-
-// DEBUG: Test login POST without validation middleware
-router.post('/debug-login-raw', async (req, res) => {
-  const steps = [];
-  try {
-    steps.push('Received POST request');
-    steps.push('Body: ' + JSON.stringify(req.body));
-
-    const { email, password } = req.body;
-    steps.push('Email: ' + email);
-    steps.push('Password length: ' + (password?.length || 0));
-
-    steps.push('Calling authenticateUser...');
-    const result = await authenticateUser(email, password, req);
-    steps.push('authenticateUser result: success=' + result.success);
-
-    if (!result.success) {
-      return res.json({ steps, loginSuccess: false, error: result.error });
-    }
-
-    steps.push('Setting cookie...');
-    res.cookie('refreshToken', result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-    steps.push('Cookie set');
-
-    steps.push('Building response...');
-    const responseData = {
-      message: 'Login successful',
-      user: result.user,
-      accessToken: result.tokens.accessToken,
-      expiresIn: '15m',
-      code: 'LOGIN_SUCCESS'
-    };
-    steps.push('Sending response...');
-    res.json(responseData);
-  } catch (error) {
-    steps.push('ERROR: ' + error.name + ': ' + error.message);
-    res.status(500).json({
-      steps,
-      error: error.name,
-      message: error.message,
-      stack: error.stack?.split('\n').slice(0, 10)
-    });
-  }
-});
-
-// DEBUG: Test full auth flow
-router.get('/debug-auth-flow', async (req, res) => {
-  const steps = [];
-  try {
-    steps.push('Starting auth flow test');
-
-    // Step 1: Get user
-    const email = 'owner@neuropilot.ai';
-    const password = 'NeuroPilot2025!';
-    steps.push('Step 1: Got email and password');
-
-    // Step 2: Mock request
-    const mockReq = { ip: req.ip, get: (h) => req.get(h) };
-    steps.push('Step 2: Created mock request');
-
-    // Step 3: Call authenticateUser
-    steps.push('Step 3: Calling authenticateUser...');
-    const result = await authenticateUser(email, password, mockReq);
-    steps.push('Step 3 complete: authenticateUser returned, success=' + result.success);
-
-    if (!result.success) {
-      return res.json({ steps, result: { success: false, error: result.error } });
-    }
-
-    // Step 4: Check result structure
-    steps.push('Step 4: Result user id=' + result.user?.id);
-    steps.push('Step 4: Result user role=' + result.user?.role);
-    steps.push('Step 4: Access token length=' + result.tokens?.accessToken?.length);
-
-    // Step 5: Try to stringify response
-    steps.push('Step 5: Attempting JSON.stringify...');
-    const responseData = {
-      message: 'Login successful',
-      user: result.user,
-      accessToken: result.tokens.accessToken,
-      expiresIn: '15m',
-      code: 'LOGIN_SUCCESS'
-    };
-    const jsonStr = JSON.stringify(responseData);
-    steps.push('Step 5 complete: JSON length=' + jsonStr.length);
-
-    // Return success
-    res.json({ steps, success: true, responseDataKeys: Object.keys(responseData) });
-  } catch (error) {
-    steps.push('ERROR: ' + error.name + ': ' + error.message);
-    res.status(500).json({
-      steps,
-      error: error.name,
-      message: error.message,
-      stack: error.stack?.split('\n').slice(0, 10)
-    });
-  }
-});
-
 // Validation rules
 const registerValidation = [
   body('email')
@@ -306,12 +155,8 @@ router.post('/register', registerValidation, handleValidationErrors, async (req,
 // POST /api/auth/login
 router.post('/login', loginValidation, handleValidationErrors, async (req, res) => {
   try {
-    console.log('[AUTH] Login attempt for:', req.body.email);
     const { email, password } = req.body;
-
-    console.log('[AUTH] Calling authenticateUser...');
     const result = await authenticateUser(email, password, req);
-    console.log('[AUTH] authenticateUser result:', result.success);
 
     if (!result.success) {
       return res.status(401).json({
@@ -324,19 +169,12 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
     if (result.user.id === 'admin-1' || result.user.role === 'admin') {
       try {
         const { bindOwnerDevice } = require('../middleware/deviceBinding');
-        const bindResult = bindOwnerDevice(req);
-
-        if (bindResult.success) {
-          console.log('✅ Owner device bound:', bindResult.fingerprint.substring(0, 16) + '...');
-        } else {
-          console.log('ℹ️ Device binding skipped:', bindResult.message);
-        }
+        bindOwnerDevice(req);
       } catch (bindError) {
-        console.warn('⚠️ Device binding error:', bindError.message);
+        console.warn('Device binding error:', bindError.message);
       }
     }
 
-    console.log('[AUTH] Setting cookie...');
     // Set secure cookie for refresh token
     res.cookie('refreshToken', result.tokens.refreshToken, {
       httpOnly: true,
@@ -345,40 +183,24 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    console.log('[AUTH] Building response object...');
-    const responseData = {
+    res.json({
       message: 'Login successful',
       user: result.user,
       accessToken: result.tokens.accessToken,
       expiresIn: '15m',
       code: 'LOGIN_SUCCESS'
-    };
-
-    console.log('[AUTH] Sending JSON response...');
-    res.json(responseData);
-    console.log('[AUTH] Response sent successfully');
+    });
 
   } catch (error) {
-    console.error('[AUTH] Login error details:');
-    console.error('[AUTH] Error name:', error.name);
-    console.error('[AUTH] Error message:', error.message);
-    console.error('[AUTH] Error stack:', error.stack);
-
-    try {
-      securityLog('login_error', 'high', {
-        error: error.message,
-        errorName: error.name,
-        email: req.body.email
-      }, req);
-    } catch (logError) {
-      console.error('[AUTH] Failed to log security event:', logError.message);
-    }
+    console.error('[AUTH] Login error:', error.message);
+    securityLog('login_error', 'high', {
+      error: error.message,
+      email: req.body.email
+    }, req);
 
     res.status(500).json({
       error: 'Internal server error',
-      code: 'LOGIN_ERROR',
-      hint: error.name,
-      path: req.path
+      code: 'LOGIN_ERROR'
     });
   }
 });
