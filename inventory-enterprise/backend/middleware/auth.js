@@ -493,6 +493,18 @@ const logout = (refreshToken) => {
   return { success: true };
 };
 
+// Reset account lockout (admin function)
+const resetLockout = (email) => {
+  const user = users.get(email);
+  if (!user) {
+    return { success: false, error: 'User not found' };
+  }
+  user.failedAttempts = 0;
+  user.lockedUntil = null;
+  logger.info('Account lockout reset', { email });
+  return { success: true, message: `Lockout reset for ${email}` };
+};
+
 module.exports = {
   ROLES,
   PERMISSIONS,
@@ -504,5 +516,6 @@ module.exports = {
   refreshAccessToken,
   logout,
   users, // Export for user management
-  generateTokens
+  generateTokens,
+  resetLockout
 };

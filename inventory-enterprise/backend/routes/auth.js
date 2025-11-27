@@ -1,18 +1,33 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const { 
-  authenticateUser, 
-  refreshAccessToken, 
-  logout, 
+const {
+  authenticateUser,
+  refreshAccessToken,
+  logout,
   validatePassword,
   users,
   authenticateToken,
-  ROLES
+  ROLES,
+  resetLockout
 } = require('../middleware/auth');
 const { auditLog, securityLog } = require('../config/logger');
 
 const router = express.Router();
+
+// Emergency lockout reset endpoint (protected by secret key)
+// Usage: POST /api/auth/reset-lockout with { email, secret }
+router.post('/reset-lockout', (req, res) => {
+  const { email, secret } = req.body;
+  const RESET_SECRET = process.env.LOCKOUT_RESET_SECRET || 'np-emergency-reset-2025';
+
+  if (secret !== RESET_SECRET) {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  const result = resetLockout(email);
+  res.json(result);
+});
 
 // Validation rules
 const registerValidation = [
