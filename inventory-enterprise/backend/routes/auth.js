@@ -47,6 +47,21 @@ router.get('/debug-test', async (req, res) => {
   }
 });
 
+// DEBUG: Ultra simple POST echo test
+router.post('/debug-echo', (req, res) => {
+  try {
+    res.json({
+      received: true,
+      body: req.body,
+      bodyType: typeof req.body,
+      hasEmail: !!req.body?.email,
+      hasPassword: !!req.body?.password
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.name, message: error.message });
+  }
+});
+
 // DEBUG: Test login POST without validation middleware
 router.post('/debug-login-raw', async (req, res) => {
   const steps = [];
