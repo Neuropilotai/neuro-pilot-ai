@@ -14,6 +14,39 @@ const { auditLog, securityLog } = require('../config/logger');
 
 const router = express.Router();
 
+// DEBUG: Test endpoint to verify bcrypt is working
+router.get('/debug-test', async (req, res) => {
+  try {
+    const bcryptjs = require('bcryptjs');
+    const testPassword = 'NeuroPilot2025!';
+    const testHash = '$2a$12$/pRgSEBx/RYsvt8EBGKpMu/HiOUq2BhznLBB4j/Pustf.rVtwyGvW';
+
+    console.log('[DEBUG] Testing bcrypt...');
+    const match = bcryptjs.compareSync(testPassword, testHash);
+    console.log('[DEBUG] Bcrypt match result:', match);
+
+    // Test user lookup
+    const ownerUser = users.get('owner@neuropilot.ai');
+    console.log('[DEBUG] Owner user found:', !!ownerUser);
+    console.log('[DEBUG] Owner role:', ownerUser?.role);
+
+    res.json({
+      bcryptMatch: match,
+      userFound: !!ownerUser,
+      userRole: ownerUser?.role,
+      nodeVersion: process.version,
+      env: process.env.NODE_ENV
+    });
+  } catch (error) {
+    console.error('[DEBUG] Error:', error.name, error.message, error.stack);
+    res.status(500).json({
+      error: error.name,
+      message: error.message,
+      stack: error.stack?.split('\n').slice(0, 5)
+    });
+  }
+});
+
 // Validation rules
 const registerValidation = [
   body('email')
