@@ -301,19 +301,26 @@ router.get(
   async (req, res) => {
     try {
       const days = Math.min(parseInt(req.query.days) || 30, 90);
-      const requestedPillars = req.query.pillars
-        ? req.query.pillars.split(',').map(p => p.trim().toLowerCase())
-        : ['composite', 'finance', 'health', 'ai', 'menu'];
+
+      // v22.1: Support both 'pillar' and 'pillars' query params, and 'all' value
+      const pillarParam = req.query.pillars || req.query.pillar || 'all';
+      const validPillars = ['composite', 'finance', 'health', 'ai', 'menu'];
+
+      let requestedPillars;
+      if (pillarParam.toLowerCase() === 'all') {
+        requestedPillars = validPillars;
+      } else {
+        requestedPillars = pillarParam.split(',').map(p => p.trim().toLowerCase());
+      }
 
       // Validate pillar names
-      const validPillars = ['composite', 'finance', 'health', 'ai', 'menu'];
       const pillars = requestedPillars.filter(p => validPillars.includes(p));
 
       if (pillars.length === 0) {
         return res.status(400).json({
           success: false,
           error: 'Invalid pillars',
-          message: `Valid pillars: ${validPillars.join(', ')}`
+          message: `Valid pillars: ${validPillars.join(', ')} or 'all'`
         });
       }
 
