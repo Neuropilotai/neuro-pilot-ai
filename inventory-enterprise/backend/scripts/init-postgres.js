@@ -34,6 +34,112 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000  // Fail fast after 10 seconds if DB unreachable
 });
 
+/**
+ * Split SQL into individual statements, properly handling:
+ * - Dollar-quoted strings (DO $$ ... $$, $tag$ ... $tag$)
+ * - Single-quoted strings with escaped quotes
+ * - SQL comments (-- single line and block comments)
+ */
+function splitSqlStatements(sql) {
+  const statements = [];
+  let current = '';
+  let i = 0;
+
+  while (i < sql.length) {
+    const char = sql[i];
+    const remaining = sql.slice(i);
+
+    // Handle single-line comments (--)
+    if (remaining.startsWith('--')) {
+      const endOfLine = sql.indexOf('\n', i);
+      if (endOfLine === -1) {
+        current += sql.slice(i);
+        break;
+      }
+      current += sql.slice(i, endOfLine + 1);
+      i = endOfLine + 1;
+      continue;
+    }
+
+    // Handle multi-line comments (/* */)
+    if (remaining.startsWith('/*')) {
+      const endComment = sql.indexOf('*/', i + 2);
+      if (endComment === -1) {
+        current += sql.slice(i);
+        break;
+      }
+      current += sql.slice(i, endComment + 2);
+      i = endComment + 2;
+      continue;
+    }
+
+    // Handle dollar-quoted strings ($$ or $tag$)
+    if (char === '$') {
+      const dollarMatch = remaining.match(/^(\$[a-zA-Z0-9_]*\$)/);
+      if (dollarMatch) {
+        const delimiter = dollarMatch[1];
+        const endDelimiter = sql.indexOf(delimiter, i + delimiter.length);
+        if (endDelimiter === -1) {
+          // Unterminated - take rest of string
+          current += sql.slice(i);
+          break;
+        }
+        current += sql.slice(i, endDelimiter + delimiter.length);
+        i = endDelimiter + delimiter.length;
+        continue;
+      }
+    }
+
+    // Handle single-quoted strings
+    if (char === "'") {
+      current += char;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === "'" && sql[i + 1] === "'") {
+          // Escaped quote
+          current += "''";
+          i += 2;
+        } else if (sql[i] === "'") {
+          current += "'";
+          i++;
+          break;
+        } else {
+          current += sql[i];
+          i++;
+        }
+      }
+      continue;
+    }
+
+    // Handle statement terminator
+    if (char === ';') {
+      current += char;
+      const trimmed = current.trim();
+      // Only add non-empty statements that contain actual SQL (not just comments)
+      // Remove all comment lines and check if anything remains
+      const withoutComments = trimmed.replace(/--[^\n]*\n?/g, '').trim();
+      if (trimmed && withoutComments.length > 0) {
+        statements.push(trimmed);
+      }
+      current = '';
+      i++;
+      continue;
+    }
+
+    current += char;
+    i++;
+  }
+
+  // Handle final statement without semicolon
+  const trimmed = current.trim();
+  const withoutComments = trimmed.replace(/--[^\n]*\n?/g, '').trim();
+  if (trimmed && withoutComments.length > 0) {
+    statements.push(trimmed);
+  }
+
+  return statements.filter(s => s.length > 0);
+}
+
 console.log('═══════════════════════════════════════════════════════');
 console.log('  PostgreSQL Database Initialization Script v21.1');
 console.log('═══════════════════════════════════════════════════════');
@@ -120,11 +226,8 @@ async function initDatabase() {
         const sql = fs.readFileSync(filepath, 'utf8');
 
         try {
-          // Split SQL into individual statements to handle partial migrations
-          const statements = sql
-            .split(';')
-            .map(s => s.trim())
-            .filter(s => s.length > 0 && !s.startsWith('--'));
+          // Split SQL into individual statements, respecting dollar-quoted strings (DO $$ ... $$)
+          const statements = splitSqlStatements(sql);
 
           let successCount = 0;
           let skipCount = 0;
