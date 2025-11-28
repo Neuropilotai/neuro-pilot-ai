@@ -169,12 +169,9 @@ router.post('/register', registerValidation, handleValidationErrors, async (req,
 
 // POST /api/auth/login
 router.post('/login', loginValidation, handleValidationErrors, async (req, res) => {
-  console.log('[LOGIN DEBUG] Login request received for:', req.body.email);
   try {
     const { email, password } = req.body;
-    console.log('[LOGIN DEBUG] Calling authenticateUser...');
     const result = await authenticateUser(email, password, req);
-    console.log('[LOGIN DEBUG] authenticateUser returned, success:', result.success);
 
     if (!result.success) {
       return res.status(401).json({
@@ -182,8 +179,6 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
         code: 'LOGIN_FAILED'
       });
     }
-
-    console.log('[LOGIN DEBUG] Authentication successful, user:', result.user.id);
 
     // Auto-bind device for owner accounts (admin-1 / neuropilotai@gmail.com)
     if (result.user.id === 'admin-1' || result.user.role === 'admin') {
@@ -195,7 +190,6 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       }
     }
 
-    console.log('[LOGIN DEBUG] Setting refresh token cookie...');
     // Set secure cookie for refresh token
     res.cookie('refreshToken', result.tokens.refreshToken, {
       httpOnly: true,
@@ -204,7 +198,6 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    console.log('[LOGIN DEBUG] Sending response...');
     res.json({
       message: 'Login successful',
       user: result.user,
@@ -212,7 +205,6 @@ router.post('/login', loginValidation, handleValidationErrors, async (req, res) 
       expiresIn: '15m',
       code: 'LOGIN_SUCCESS'
     });
-    console.log('[LOGIN DEBUG] Response sent successfully');
 
   } catch (error) {
     console.error('[AUTH] Login error:', error.message);
