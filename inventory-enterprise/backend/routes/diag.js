@@ -361,4 +361,109 @@ router.post('/seed', async (req, res) => {
   }
 });
 
+/**
+ * GET /diag/test-jwt
+ * Test JWT token generation to debug SyntaxError
+ */
+router.get('/test-jwt', async (req, res) => {
+  try {
+    const jwt = require('jsonwebtoken');
+    const { jwt: jwtConfig } = require('../config/security');
+
+    console.log('[DIAG] JWT config:', JSON.stringify({
+      hasSecret: !!jwtConfig.secret,
+      secretLength: jwtConfig.secret?.length,
+      secretType: typeof jwtConfig.secret,
+      expiresIn: jwtConfig.expiresIn,
+      algorithm: jwtConfig.algorithm,
+      issuer: jwtConfig.issuer,
+      audience: jwtConfig.audience
+    }));
+
+    const payload = {
+      id: 'test-user',
+      email: 'test@example.com',
+      role: 'owner'
+    };
+
+    console.log('[DIAG] Creating test token...');
+
+    const token = jwt.sign(payload, jwtConfig.secret, {
+      expiresIn: jwtConfig.expiresIn,
+      issuer: jwtConfig.issuer,
+      audience: jwtConfig.audience,
+      algorithm: jwtConfig.algorithm
+    });
+
+    console.log('[DIAG] Token created successfully, length:', token.length);
+
+    return res.json({
+      success: true,
+      tokenLength: token.length,
+      tokenPrefix: token.substring(0, 50) + '...',
+      jwtConfig: {
+        hasSecret: !!jwtConfig.secret,
+        secretLength: jwtConfig.secret?.length,
+        expiresIn: jwtConfig.expiresIn,
+        algorithm: jwtConfig.algorithm
+      }
+    });
+  } catch (error) {
+    console.error('[DIAG] JWT test failed:', error.name, error.message, error.stack);
+    return res.status(500).json({
+      success: false,
+      errorName: error.name,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+/**
+ * POST /diag/test-login
+ * Test the full login flow with debug output
+ */
+router.post('/test-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const { authenticateUser } = require('../middleware/auth');
+
+    console.log('[DIAG] Testing login for:', email);
+
+    const result = await authenticateUser(email, password, req);
+
+    console.log('[DIAG] Login result:', {
+      success: result.success,
+      hasUser: !!result.user,
+      hasTokens: !!result.tokens,
+      error: result.error
+    });
+
+    if (result.success) {
+      return res.json({
+        success: true,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          role: result.user.role
+        },
+        tokenLength: result.tokens?.accessToken?.length
+      });
+    } else {
+      return res.json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('[DIAG] Test login failed:', error.name, error.message, error.stack);
+    return res.status(500).json({
+      success: false,
+      errorName: error.name,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 module.exports = router;
