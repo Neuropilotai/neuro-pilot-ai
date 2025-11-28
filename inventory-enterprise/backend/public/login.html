@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="np-api-url" content="https://inventory-backend-7-agent-build.up.railway.app">
+  <meta name="np-api-url" content="">
   <title>NeuroInnovate Inventory Login V21.1</title>
   <link rel="icon" href="favicon.ico">
   <style>
@@ -164,7 +164,7 @@
   </div>
 
   <script>
-    const API_BASE = document.querySelector('meta[name="np-api-url"]').content;
+    const API_BASE = document.querySelector('meta[name="np-api-url"]').content || window.location.origin;
     const form = document.getElementById('loginForm');
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');

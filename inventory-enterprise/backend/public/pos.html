@@ -357,7 +357,7 @@
 // ============================================
 const state = {
   config: {
-    apiUrl: localStorage.getItem('NP_API_URL') || 'https://inventory-backend-7-agent-build.up.railway.app',
+    apiUrl: localStorage.getItem('NP_API_URL') || window.location.origin,
     token: localStorage.getItem('NP_TOKEN'),
     user: JSON.parse(localStorage.getItem('NP_USER') || 'null'),
     orgId: localStorage.getItem('NP_ORG_ID'),
