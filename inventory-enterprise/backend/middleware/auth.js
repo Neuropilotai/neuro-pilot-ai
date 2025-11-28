@@ -141,6 +141,14 @@ testAccounts.forEach(user => users.set(user.email, user));
 
 // JWT token generation
 const generateTokens = (user) => {
+  console.log('[AUTH DEBUG] generateTokens called for user:', user.id, user.email);
+  console.log('[AUTH DEBUG] jwtConfig:', JSON.stringify({
+    hasSecret: !!jwtConfig.secret,
+    secretLength: jwtConfig.secret?.length,
+    expiresIn: jwtConfig.expiresIn,
+    algorithm: jwtConfig.algorithm
+  }));
+
   const payload = {
     id: user.id,
     email: user.email,
@@ -150,12 +158,15 @@ const generateTokens = (user) => {
     permissions: PERMISSIONS[user.role] || []
   };
 
+  console.log('[AUTH DEBUG] JWT payload created');
+
   const accessToken = jwt.sign(payload, jwtConfig.secret, {
     expiresIn: jwtConfig.expiresIn,
     issuer: jwtConfig.issuer,
     audience: jwtConfig.audience,
     algorithm: jwtConfig.algorithm
   });
+  console.log('[AUTH DEBUG] Access token generated, length:', accessToken.length);
 
   const refreshToken = jwt.sign(
     { id: user.id, tokenType: 'refresh' },
@@ -167,6 +178,7 @@ const generateTokens = (user) => {
       algorithm: jwtConfig.algorithm
     }
   );
+  console.log('[AUTH DEBUG] Refresh token generated, length:', refreshToken.length);
 
   // Store refresh token
   refreshTokens.set(refreshToken, {
@@ -175,6 +187,7 @@ const generateTokens = (user) => {
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
   });
 
+  console.log('[AUTH DEBUG] Tokens stored, returning tokens');
   return { accessToken, refreshToken };
 };
 
@@ -430,7 +443,15 @@ const authenticateUser = async (email, password, req) => {
     });
   }
 
-  const tokens = generateTokens(user);
+  console.log('[AUTH DEBUG] About to generate tokens for user:', user.id);
+  let tokens;
+  try {
+    tokens = generateTokens(user);
+    console.log('[AUTH DEBUG] Tokens generated successfully');
+  } catch (tokenError) {
+    console.error('[AUTH DEBUG] Token generation failed:', tokenError.name, tokenError.message);
+    throw tokenError;
+  }
 
   logger.info('Successful login', {
     userId: user.id,
@@ -439,6 +460,7 @@ const authenticateUser = async (email, password, req) => {
     ip: req.ip
   });
 
+  console.log('[AUTH DEBUG] Returning success result');
   return {
     success: true,
     user: {
