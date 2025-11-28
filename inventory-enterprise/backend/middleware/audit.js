@@ -144,7 +144,7 @@ async function writeAuditLog(entry) {
     try {
       await client.query(`
         INSERT INTO audit_log (
-          action, org_id, actor_id, ip,
+          action, org_id, actor_id, ip_address,
           details, success, latency_ms, created_at
         )
         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, NOW())

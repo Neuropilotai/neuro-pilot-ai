@@ -192,7 +192,7 @@ async function computeAIOpsHealth(database, phase3Cron, metrics) {
   try {
     const learningRows = await database.get(`
       SELECT COUNT(*) as cnt FROM ai_learning_insights
-      WHERE created_at >= datetime('now', '-7 days')
+      WHERE created_at >= NOW() - INTERVAL '7 days'
     `);
     if (learningRows && learningRows.cnt > 0) {
       pipelineChecks++;
@@ -206,7 +206,7 @@ async function computeAIOpsHealth(database, phase3Cron, metrics) {
   try {
     const breadcrumbs = await database.get(`
       SELECT COUNT(*) as cnt FROM ai_ops_breadcrumbs
-      WHERE created_at >= datetime('now', '-72 hours')
+      WHERE created_at >= NOW() - INTERVAL '72 hours'
     `);
     if (breadcrumbs && breadcrumbs.cnt > 0) {
       pipelineChecks++;
@@ -221,7 +221,7 @@ async function computeAIOpsHealth(database, phase3Cron, metrics) {
     const pdfs = await database.get(`
       SELECT COUNT(*) as cnt FROM documents
       WHERE invoice_date IS NOT NULL
-        AND created_at >= datetime('now', '-14 days')
+        AND created_at >= NOW() - INTERVAL '14 days'
     `);
     if (pdfs && pdfs.cnt > 0) {
       pipelineChecks++;
@@ -359,7 +359,7 @@ async function computeDataQualityIndex(database) {
         SELECT COUNT(*) as variance_count
         FROM invoice_line_items
         WHERE ABS((quantity_received - quantity_ordered) / NULLIF(quantity_ordered, 0)) > 0.10
-          AND created_at >= datetime('now', '-30 days')
+          AND created_at >= NOW() - INTERVAL '30 days'
       `);
 
       if (variances && variances.variance_count > 0) {
@@ -377,7 +377,7 @@ async function computeDataQualityIndex(database) {
         SELECT COUNT(*) - COUNT(DISTINCT invoice_number) as duplicate_count
         FROM invoices
         WHERE invoice_number IS NOT NULL
-          AND created_at >= datetime('now', '-90 days')
+          AND created_at >= NOW() - INTERVAL '90 days'
       `);
 
       if (duplicates && duplicates.duplicate_count > 0) {
@@ -638,7 +638,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       let confResult = await db.get(`
         SELECT ROUND(AVG(confidence),2) as avg_confidence, COUNT(*) as cnt
         FROM ai_learning_insights
-        WHERE created_at >= datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '7 days'
           AND confidence IS NOT NULL
           AND confidence > 0
       `);
@@ -651,7 +651,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
         confResult = await db.get(`
           SELECT ROUND(AVG(confidence),2) as avg_confidence, COUNT(*) as cnt
           FROM ai_learning_insights
-          WHERE created_at >= datetime('now', '-30 days')
+          WHERE created_at >= NOW() - INTERVAL '30 days'
             AND confidence IS NOT NULL
             AND confidence > 0
         `);
@@ -689,7 +689,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
           AVG(mape) as avg_mape,
           COUNT(*) as cnt
         FROM forecast_results
-        WHERE created_at >= datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '7 days'
       `);
 
       if (accResult && accResult.cnt > 0) {
@@ -709,7 +709,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
             AVG(mape) as avg_mape,
             COUNT(*) as cnt
           FROM forecast_results
-          WHERE created_at >= datetime('now', '-30 days')
+          WHERE created_at >= NOW() - INTERVAL '30 days'
         `);
 
         if (fallbackResult && fallbackResult.cnt > 0) {
@@ -735,7 +735,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       const anomalyResult = await db.get(`
         SELECT COUNT(*) as anomaly_count
         FROM ai_anomaly_log
-        WHERE created_at >= datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '7 days'
           AND anomaly_type = 'financial_deviation'
           AND resolved_at IS NULL
       `);
@@ -823,7 +823,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
         FROM ai_ops_breadcrumbs
         WHERE action = 'forecast_completed'
           AND created_at IS NOT NULL
-          AND created_at >= datetime('now', '-7 days')
+          AND created_at >= NOW() - INTERVAL '7 days'
       `);
       predictiveHealth.forecast_latency_avg = (forecastLatency?.avg_latency && forecastLatency.run_count > 0)
         ? Math.round(forecastLatency.avg_latency)
@@ -835,7 +835,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
         FROM ai_ops_breadcrumbs
         WHERE action = 'learning_completed'
           AND created_at IS NOT NULL
-          AND created_at >= datetime('now', '-7 days')
+          AND created_at >= NOW() - INTERVAL '7 days'
       `);
       predictiveHealth.learning_latency_avg = (learningLatency?.avg_latency && learningLatency.run_count > 0)
         ? Math.round(learningLatency.avg_latency)
@@ -845,14 +845,14 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       const mapeCurrent = await db.get(`
         SELECT AVG(mape) as avg_mape
         FROM forecast_results
-        WHERE created_at >= datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '7 days'
       `);
 
       const mapePrevious = await db.get(`
         SELECT AVG(mape) as avg_mape
         FROM forecast_results
-        WHERE created_at >= datetime('now', '-14 days')
-          AND created_at < datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '14 days'
+          AND created_at < NOW() - INTERVAL '7 days'
       `);
 
       if (mapeCurrent?.avg_mape != null && mapePrevious?.avg_mape != null) {
@@ -988,7 +988,7 @@ router.get('/metrics', authenticateToken, requireOwner, async (req, res) => {
         COUNT(*) as total_forecasts,
         MAX(created_at) as last_forecast
       FROM ai_daily_forecast_cache
-      WHERE created_at >= datetime('now', '-7 days')
+      WHERE created_at >= NOW() - INTERVAL '7 days'
     `);
 
     // Get learning metrics
@@ -997,7 +997,7 @@ router.get('/metrics', authenticateToken, requireOwner, async (req, res) => {
         COUNT(*) as total_insights,
         MAX(created_at) as last_learning
       FROM ai_learning_insights
-      WHERE created_at >= datetime('now', '-7 days')
+      WHERE created_at >= NOW() - INTERVAL '7 days'
       AND source_tag = 'autonomy_2025'
     `);
 
@@ -1199,7 +1199,7 @@ async function performSelfHeal(database) {
     try {
       await database.run(`
         INSERT INTO ai_ops_breadcrumbs (action, metadata, created_at)
-        VALUES ('self_heal_verify', '{"test": true}', datetime('now'))
+        VALUES ('self_heal_verify', '{"test": true}', NOW())
       `);
       actions.push({ type: 'verify_logging', status: 'ok' });
       repaired++;
@@ -1232,7 +1232,7 @@ async function performSelfHeal(database) {
     try {
       await database.run(`
         INSERT INTO ai_ops_breadcrumbs (action, metadata, created_at)
-        VALUES ('self_heal_completed', ?, datetime('now'))
+        VALUES ('self_heal_completed', ?, NOW())
       `, [JSON.stringify({ actions: actions.length, repaired, warnings: warnings.length })]);
     } catch (err) {
       logger.debug('Self-heal: Could not log to breadcrumbs:', err.message);
@@ -1273,7 +1273,7 @@ router.get('/cognitive-intelligence', authenticateToken, requireOwner, async (re
           AVG(confidence) as avg_confidence,
           COUNT(*) as insight_count
         FROM ai_learning_insights
-        WHERE created_at >= datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '7 days'
           AND confidence IS NOT NULL
         GROUP BY DATE(created_at)
         ORDER BY date ASC
@@ -1292,7 +1292,7 @@ router.get('/cognitive-intelligence', authenticateToken, requireOwner, async (re
           AVG(mape) as avg_mape,
           COUNT(*) as forecast_count
         FROM forecast_results
-        WHERE created_at >= datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '7 days'
         GROUP BY DATE(created_at)
         ORDER BY date ASC
       `);
@@ -1445,7 +1445,7 @@ router.get('/activity-feed', authenticateToken, requireOwner, async (req, res) =
           title as description,
           confidence
         FROM ai_learning_insights
-        WHERE detected_at >= datetime('now', '-24 hours')
+        WHERE detected_at >= NOW() - INTERVAL '24 hours'
         ORDER BY detected_at DESC
         LIMIT 10
       `);
@@ -1469,7 +1469,7 @@ router.get('/activity-feed', authenticateToken, requireOwner, async (req, res) =
           created_at as timestamp,
           date as description
         FROM ai_daily_forecast_cache
-        WHERE created_at >= datetime('now', '-24 hours')
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
         ORDER BY created_at DESC
         LIMIT 10
       `);
@@ -1548,7 +1548,7 @@ async function computeAIIntelligenceIndex(database) {
         created_at,
         applied_at
       FROM ai_learning_insights
-      WHERE created_at >= datetime('now', '-7 days')
+      WHERE created_at >= NOW() - INTERVAL '7 days'
         AND confidence IS NOT NULL
         AND confidence > 0
       ORDER BY created_at DESC
@@ -1644,8 +1644,8 @@ async function computeAIIntelligenceIndex(database) {
       const previousInsights = await database.all(`
         SELECT confidence, impact_score
         FROM ai_learning_insights
-        WHERE created_at >= datetime('now', '-14 days')
-          AND created_at < datetime('now', '-7 days')
+        WHERE created_at >= NOW() - INTERVAL '14 days'
+          AND created_at < NOW() - INTERVAL '7 days'
           AND confidence IS NOT NULL
       `);
 
