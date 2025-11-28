@@ -429,6 +429,102 @@ app.post('/api/admin/migrate', async (req, res) => {
   }
 });
 
+// Database migration RESET endpoint - clears tracking and re-runs all migrations
+app.post('/api/admin/migrate-reset', async (req, res) => {
+  const { secret } = req.body;
+
+  // Secret key protection
+  if (secret !== process.env.MIGRATION_SECRET && secret !== 'migrate-now-2024') {
+    return res.status(403).json({ success: false, error: 'Invalid secret' });
+  }
+
+  try {
+    const fs = require('fs');
+    const path = require('path');
+
+    console.log('🔄 Starting migration reset...');
+
+    // Step 1: Clear migration tracking
+    await pool.query('DELETE FROM schema_migrations');
+    console.log('✅ Cleared migration tracking table');
+
+    // Step 2: Get all migration files from both directories
+    const migrationDirs = [
+      path.join(__dirname, 'migrations', 'postgres'),
+      path.join(__dirname, 'migrations')
+    ];
+
+    const allMigrations = [];
+
+    for (const dir of migrationDirs) {
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir)
+          .filter(f => f.endsWith('.sql'))
+          .sort();
+
+        for (const file of files) {
+          // Skip duplicates
+          if (!allMigrations.find(m => m.name === file)) {
+            allMigrations.push({
+              name: file,
+              path: path.join(dir, file)
+            });
+          }
+        }
+      }
+    }
+
+    console.log(`📁 Found ${allMigrations.length} migration files`);
+
+    // Step 3: Run each migration
+    const results = [];
+
+    for (const migration of allMigrations) {
+      const sql = fs.readFileSync(migration.path, 'utf8');
+
+      try {
+        await pool.query(sql);
+
+        // Record as applied
+        await pool.query(
+          'INSERT INTO schema_migrations (migration_name, applied_at) VALUES ($1, NOW()) ON CONFLICT (migration_name) DO NOTHING',
+          [migration.name]
+        );
+
+        results.push({ file: migration.name, status: 'success' });
+        console.log(`✅ ${migration.name}`);
+      } catch (error) {
+        if (error.message.includes('already exists') || error.code === '42P07' || error.code === '42710') {
+          // Record as applied even if objects exist
+          await pool.query(
+            'INSERT INTO schema_migrations (migration_name, applied_at) VALUES ($1, NOW()) ON CONFLICT (migration_name) DO NOTHING',
+            [migration.name]
+          );
+          results.push({ file: migration.name, status: 'skipped', reason: 'objects exist' });
+          console.log(`⏭️  ${migration.name} (objects exist)`);
+        } else {
+          results.push({ file: migration.name, status: 'error', error: error.message.split('\n')[0] });
+          console.log(`❌ ${migration.name}: ${error.message.split('\n')[0]}`);
+        }
+      }
+    }
+
+    const successful = results.filter(r => r.status === 'success' || r.status === 'skipped').length;
+    const failed = results.filter(r => r.status === 'error').length;
+
+    console.log(`\n✅ Migration reset complete: ${successful} applied, ${failed} failed`);
+
+    res.json({
+      success: true,
+      message: `Migration reset complete: ${successful} applied, ${failed} failed`,
+      migrations: results
+    });
+  } catch (error) {
+    console.error('Migration reset error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/', (req, res) => {
   res.json({
     name: 'NeuroInnovate Inventory Enterprise API',

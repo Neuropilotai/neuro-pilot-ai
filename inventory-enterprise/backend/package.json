@@ -25,6 +25,7 @@
     "lint": "eslint .",
     "backup": "node utils/backup.js",
     "migrate": "node migrations/run.js",
+    "migrate:reset": "node scripts/reset-migrations.js",
     "migrate:all": "npm run migrate:aiops && npm run migrate:generative",
     "migrate:aiops": "sqlite3 database.db < migrations/004_ai_ops_tables.sql",
     "migrate:generative": "sqlite3 database.db < migrations/005_generative_intelligence_tables.sql",
