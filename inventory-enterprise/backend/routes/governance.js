@@ -20,6 +20,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../security/rbac');
 const GovernanceService = require('../src/governance/GovernanceService');
 const db = require('../config/database');
+const { pool } = require('../db'); // v22.1: PostgreSQL pool for trends queries
 const metricsExporter = require('../utils/metricsExporter');
 const { logger } = require('../config/logger');
 
@@ -316,18 +317,26 @@ router.get(
         });
       }
 
-      // Query governance_daily for each pillar
+      // Query governance_daily for each pillar (using PostgreSQL pool)
       const trends = {};
       const summary = {};
 
       for (const pillar of pillars) {
-        const rows = await db.all(`
-          SELECT as_of as date, score
-          FROM governance_daily
-          WHERE pillar = $1
-            AND as_of >= CURRENT_DATE - INTERVAL '${days} days'
-          ORDER BY as_of ASC
-        `, [pillar]);
+        let rows = [];
+        try {
+          const result = await pool.query(`
+            SELECT as_of as date, score
+            FROM governance_daily
+            WHERE pillar = $1
+              AND as_of >= CURRENT_DATE - INTERVAL '${days} days'
+            ORDER BY as_of ASC
+          `, [pillar]);
+          rows = result.rows;
+        } catch (dbErr) {
+          // Table might not exist yet - return empty data
+          logger.warn(`[Governance API] governance_daily query failed for ${pillar}:`, dbErr.message);
+          rows = [];
+        }
 
         trends[pillar] = rows.map(r => ({
           date: r.date,
