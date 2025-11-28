@@ -90,7 +90,4 @@ CREATE TABLE IF NOT EXISTS ai_governance_reports (
 CREATE INDEX IF NOT EXISTS idx_ai_governance_week ON ai_governance_reports(week_start DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_governance_tenant ON ai_governance_reports(tenant_id);
 
--- Insert initial migration record
-INSERT INTO migration_history (version, description, executed_at)
-VALUES ('007', 'Phase 3 Autonomous Learning Layer', CURRENT_TIMESTAMP)
-ON CONFLICT (version) DO NOTHING;
+-- Migration record is handled by init-postgres.js via schema_migrations table

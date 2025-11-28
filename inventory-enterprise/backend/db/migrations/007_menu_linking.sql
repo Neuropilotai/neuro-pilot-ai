@@ -14,9 +14,14 @@ CREATE TABLE IF NOT EXISTS menus (
   UNIQUE(org_id, cycle_week, day_of_week, service)
 );
 
-CREATE INDEX idx_menus_org ON menus(org_id);
-CREATE INDEX idx_menus_cycle ON menus(org_id, cycle_week);
-CREATE INDEX idx_menus_week_day ON menus(cycle_week, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_menus_org ON menus(org_id);
+CREATE INDEX IF NOT EXISTS idx_menus_cycle ON menus(org_id, cycle_week);
+-- Note: day_of_week may not exist if 013_menu_planning_tables.sql ran first with different schema
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'menus' AND column_name = 'day_of_week') THEN
+    CREATE INDEX IF NOT EXISTS idx_menus_week_day ON menus(cycle_week, day_of_week);
+  END IF;
+END $$;
 
 -- Menu Recipes (recipes assigned to menu slots)
 CREATE TABLE IF NOT EXISTS menu_recipes (
@@ -29,8 +34,15 @@ CREATE TABLE IF NOT EXISTS menu_recipes (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_menu_recipes_menu ON menu_recipes(menu_id);
-CREATE INDEX idx_menu_recipes_recipe ON menu_recipes(recipe_code);
+-- Note: menu_id/recipe_code columns may differ if 013_menu_planning_tables.sql ran first
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'menu_recipes' AND column_name = 'menu_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_menu_recipes_menu ON menu_recipes(menu_id);
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'menu_recipes' AND column_name = 'recipe_code') THEN
+    CREATE INDEX IF NOT EXISTS idx_menu_recipes_recipe ON menu_recipes(recipe_code);
+  END IF;
+END $$;
 
 -- Population (daily headcount)
 CREATE TABLE IF NOT EXISTS population (
@@ -47,7 +59,7 @@ CREATE TABLE IF NOT EXISTS population (
   UNIQUE(org_id, site_id, date)
 );
 
-CREATE INDEX idx_population_org ON population(org_id);
-CREATE INDEX idx_population_site ON population(site_id);
-CREATE INDEX idx_population_date ON population(date DESC);
-CREATE INDEX idx_population_org_date ON population(org_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_population_org ON population(org_id);
+CREATE INDEX IF NOT EXISTS idx_population_site ON population(site_id);
+CREATE INDEX IF NOT EXISTS idx_population_date ON population(date DESC);
+CREATE INDEX IF NOT EXISTS idx_population_org_date ON population(org_id, date DESC);
