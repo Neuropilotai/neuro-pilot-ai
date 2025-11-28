@@ -300,6 +300,15 @@ router.get(
   requireRole([ROLES.OWNER, ROLES.FINANCE, ROLES.OPS]),
   async (req, res) => {
     try {
+      // v22.1: Debug - verify pool is available
+      if (!pool) {
+        logger.error('[Governance API] PostgreSQL pool not available');
+        return res.status(500).json({
+          success: false,
+          error: 'Database pool not initialized'
+        });
+      }
+
       const days = Math.min(parseInt(req.query.days) || 30, 90);
 
       // v22.1: Support both 'pillar' and 'pillars' query params, and 'all' value
@@ -401,11 +410,16 @@ router.get(
       });
 
     } catch (error) {
-      logger.error('[Governance API] Error fetching trends:', error);
+      logger.error('[Governance API] Error fetching trends:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       res.status(500).json({
         success: false,
         error: 'Failed to fetch governance trends',
-        message: error.message
+        message: error.message,
+        stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
       });
     }
   }
