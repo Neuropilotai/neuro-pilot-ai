@@ -40,14 +40,23 @@ const ROLE_HIERARCHY = {
  */
 function hasRole(user, requiredRoles) {
   if (!user || !user.roles) {
+    // v22.1: Also check single role field (from auth middleware)
+    if (user && user.role) {
+      const userRole = user.role.toUpperCase();
+      return requiredRoles.some(role => role.toUpperCase() === userRole);
+    }
     return false;
   }
 
   // User can have multiple roles
   const userRoles = Array.isArray(user.roles) ? user.roles : [user.roles];
 
+  // v22.1: Case-insensitive role comparison (auth uses lowercase, rbac uses uppercase)
+  const normalizedUserRoles = userRoles.map(r => r.toUpperCase());
+  const normalizedRequiredRoles = requiredRoles.map(r => r.toUpperCase());
+
   // Check if user has any of the required roles
-  return requiredRoles.some(role => userRoles.includes(role));
+  return normalizedRequiredRoles.some(role => normalizedUserRoles.includes(role));
 }
 
 /**
@@ -59,15 +68,23 @@ function hasRole(user, requiredRoles) {
  */
 function hasRoleLevel(user, minimumRole) {
   if (!user || !user.roles) {
+    // v22.1: Also check single role field (from auth middleware)
+    if (user && user.role) {
+      const userRole = user.role.toUpperCase();
+      const userLevel = ROLE_HIERARCHY[userRole] || 0;
+      const minLevel = ROLE_HIERARCHY[minimumRole.toUpperCase()] || 0;
+      return userLevel >= minLevel;
+    }
     return false;
   }
 
   const userRoles = Array.isArray(user.roles) ? user.roles : [user.roles];
-  const minLevel = ROLE_HIERARCHY[minimumRole] || 0;
+  const minLevel = ROLE_HIERARCHY[minimumRole.toUpperCase()] || 0;
 
   // Check if any user role meets or exceeds the minimum level
+  // v22.1: Case-insensitive role comparison
   return userRoles.some(role => {
-    const userLevel = ROLE_HIERARCHY[role] || 0;
+    const userLevel = ROLE_HIERARCHY[role.toUpperCase()] || 0;
     return userLevel >= minLevel;
   });
 }
