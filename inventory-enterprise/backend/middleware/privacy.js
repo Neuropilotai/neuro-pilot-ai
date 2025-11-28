@@ -6,9 +6,14 @@ const { pool } = require('../db');
 
 // CORS Allowlist (Production-safe origins)
 const ALLOWED_ORIGINS = [
+  // Production backends
+  'https://resourceful-achievement-production.up.railway.app',
   'https://inventory-backend-7-agent-build.up.railway.app',
   'https://inventory-frontend-v21-7-agent-build.up.railway.app',
+  // Vercel frontends
   'https://neuropilot-inventory.vercel.app',
+  'https://neuropilot-inventory-david-mikulis-projects-73b27c6d.vercel.app',
+  // Custom domains
   'https://staging.neuropilot.ai',
   'https://neuropilot.ai',
   'https://www.neuropilot.ai',
@@ -24,6 +29,9 @@ const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL,
   process.env.ALLOWED_ORIGIN
 ].filter(Boolean);
+
+// Also allow Vercel preview deployments (pattern match)
+const VERCEL_PREVIEW_PATTERN = /^https:\/\/neuropilot-inventory-[a-z0-9]+-david-mikulis-projects-[a-z0-9]+\.vercel\.app$/;
 
 // Forbidden query parameters (prevent accidental logging of secrets)
 const FORBIDDEN_PARAMS = [
@@ -77,9 +85,11 @@ function privacyGuard() {
     if (origin) {
       // Allow 'null' origin for local file:// development and cross-origin redirects
       const isNullOrigin = origin === 'null';
-      const isAllowed = isNullOrigin || ALLOWED_ORIGINS.some(allowed =>
+      const isInAllowList = ALLOWED_ORIGINS.some(allowed =>
         allowed === origin || allowed === '*'
       );
+      const isVercelPreview = VERCEL_PREVIEW_PATTERN.test(origin);
+      const isAllowed = isNullOrigin || isInAllowList || isVercelPreview;
 
       if (!isAllowed) {
         console.warn(`[PRIVACY] Blocked CORS request from unauthorized origin: ${origin}`);
