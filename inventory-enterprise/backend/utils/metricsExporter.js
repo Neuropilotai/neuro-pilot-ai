@@ -756,6 +756,106 @@ class MetricsExporter {
     });
 
     // ========================================================================
+    // v22.1: ENHANCED CRON JOB METRICS
+    // ========================================================================
+
+    this.cronJobRunsTotal = new promClient.Counter({
+      name: 'cron_job_runs_total',
+      help: 'Total cron job executions',
+      labelNames: ['job', 'status']
+    });
+
+    this.cronJobErrorsTotal = new promClient.Counter({
+      name: 'cron_job_errors_total',
+      help: 'Total cron job errors',
+      labelNames: ['job', 'error_type']
+    });
+
+    this.cronJobTimeoutsTotal = new promClient.Counter({
+      name: 'cron_job_timeouts_total',
+      help: 'Total cron job timeouts',
+      labelNames: ['job']
+    });
+
+    this.cronJobRetriesTotal = new promClient.Counter({
+      name: 'cron_job_retries_total',
+      help: 'Total cron job retry attempts',
+      labelNames: ['job']
+    });
+
+    this.cronJobDurationSeconds = new promClient.Histogram({
+      name: 'cron_job_duration_seconds',
+      help: 'Cron job execution duration in seconds',
+      labelNames: ['job', 'status'],
+      buckets: [0.5, 1, 2, 5, 10, 30, 60, 120, 300]
+    });
+
+    this.cronJobSuccessRateGauge = new promClient.Gauge({
+      name: 'cron_job_success_rate',
+      help: 'Cron job success rate (0-100)',
+      labelNames: ['job']
+    });
+
+    this.cronJobLastRunTimestamp = new promClient.Gauge({
+      name: 'cron_job_last_run_timestamp',
+      help: 'Timestamp of last cron job run',
+      labelNames: ['job']
+    });
+
+    this.cronJobActiveGauge = new promClient.Gauge({
+      name: 'cron_job_active',
+      help: 'Currently active cron jobs (1=running, 0=idle)',
+      labelNames: ['job']
+    });
+
+    // ========================================================================
+    // v22.1: CIRCUIT BREAKER METRICS
+    // ========================================================================
+
+    this.circuitBreakerStateGauge = new promClient.Gauge({
+      name: 'circuit_breaker_state',
+      help: 'Circuit breaker state (0=closed, 1=open, 2=half-open)',
+      labelNames: ['job']
+    });
+
+    this.circuitBreakerTripsTotal = new promClient.Counter({
+      name: 'circuit_breaker_trips_total',
+      help: 'Total circuit breaker trips (closed->open)',
+      labelNames: ['job']
+    });
+
+    this.circuitBreakerResetsTotal = new promClient.Counter({
+      name: 'circuit_breaker_resets_total',
+      help: 'Total circuit breaker resets (manual or auto)',
+      labelNames: ['job', 'reset_type']
+    });
+
+    this.circuitBreakerFailureCountGauge = new promClient.Gauge({
+      name: 'circuit_breaker_failure_count',
+      help: 'Current consecutive failure count per job',
+      labelNames: ['job']
+    });
+
+    // ========================================================================
+    // v22.1: SCHEDULER HEALTH METRICS
+    // ========================================================================
+
+    this.schedulerHealthGauge = new promClient.Gauge({
+      name: 'scheduler_health_status',
+      help: 'Scheduler health status (1=healthy, 0=unhealthy)'
+    });
+
+    this.schedulerActiveJobsGauge = new promClient.Gauge({
+      name: 'scheduler_active_jobs_count',
+      help: 'Number of currently active jobs'
+    });
+
+    this.schedulerShuttingDownGauge = new promClient.Gauge({
+      name: 'scheduler_shutting_down',
+      help: 'Scheduler shutdown in progress (1=yes, 0=no)'
+    });
+
+    // ========================================================================
     // DATABASE RETRY METRICS (v13.0.2-2025-10-19)
     // ========================================================================
 
@@ -1125,6 +1225,27 @@ class MetricsExporter {
     this.register.registerMetric(this.ownerConsoleAccessDeniedTotal);
     this.register.registerMetric(this.phase3CronExecutionTotal);
     this.register.registerMetric(this.phase3CronDuration);
+
+    // Register v22.1 enhanced cron job metrics
+    this.register.registerMetric(this.cronJobRunsTotal);
+    this.register.registerMetric(this.cronJobErrorsTotal);
+    this.register.registerMetric(this.cronJobTimeoutsTotal);
+    this.register.registerMetric(this.cronJobRetriesTotal);
+    this.register.registerMetric(this.cronJobDurationSeconds);
+    this.register.registerMetric(this.cronJobSuccessRateGauge);
+    this.register.registerMetric(this.cronJobLastRunTimestamp);
+    this.register.registerMetric(this.cronJobActiveGauge);
+
+    // Register v22.1 circuit breaker metrics
+    this.register.registerMetric(this.circuitBreakerStateGauge);
+    this.register.registerMetric(this.circuitBreakerTripsTotal);
+    this.register.registerMetric(this.circuitBreakerResetsTotal);
+    this.register.registerMetric(this.circuitBreakerFailureCountGauge);
+
+    // Register v22.1 scheduler health metrics
+    this.register.registerMetric(this.schedulerHealthGauge);
+    this.register.registerMetric(this.schedulerActiveJobsGauge);
+    this.register.registerMetric(this.schedulerShuttingDownGauge);
 
     // Register Database Retry metrics (v13.0.2)
     this.register.registerMetric(this.dbRetryAttempts);
@@ -1674,6 +1795,169 @@ class MetricsExporter {
     this.phase3CronExecutionTotal.labels(job, status).inc();
     if (duration) {
       this.phase3CronDuration.labels(job).observe(duration);
+    }
+  }
+
+  // ========================================================================
+  // v22.1: ENHANCED CRON JOB RECORDING METHODS
+  // ========================================================================
+
+  /**
+   * Record cron job run
+   * @param {string} job - Job name
+   * @param {string} status - 'success', 'failure', 'timeout', 'skipped'
+   * @param {number} durationSec - Duration in seconds
+   */
+  recordCronJobRun(job, status, durationSec) {
+    this.cronJobRunsTotal.labels(job, status).inc();
+    if (durationSec != null) {
+      this.cronJobDurationSeconds.labels(job, status).observe(durationSec);
+    }
+    this.cronJobLastRunTimestamp.labels(job).set(Date.now() / 1000);
+  }
+
+  /**
+   * Record cron job error
+   * @param {string} job - Job name
+   * @param {string} errorType - 'exception', 'timeout', 'circuit_breaker'
+   */
+  recordCronJobError(job, errorType) {
+    this.cronJobErrorsTotal.labels(job, errorType).inc();
+  }
+
+  /**
+   * Record cron job timeout
+   * @param {string} job - Job name
+   */
+  recordCronJobTimeout(job) {
+    this.cronJobTimeoutsTotal.labels(job).inc();
+  }
+
+  /**
+   * Record cron job retry
+   * @param {string} job - Job name
+   */
+  recordCronJobRetry(job) {
+    this.cronJobRetriesTotal.labels(job).inc();
+  }
+
+  /**
+   * Set cron job success rate
+   * @param {string} job - Job name
+   * @param {number} rate - Success rate 0-100
+   */
+  setCronJobSuccessRate(job, rate) {
+    this.cronJobSuccessRateGauge.labels(job).set(rate);
+  }
+
+  /**
+   * Set cron job active state
+   * @param {string} job - Job name
+   * @param {boolean} active - Whether job is currently running
+   */
+  setCronJobActive(job, active) {
+    this.cronJobActiveGauge.labels(job).set(active ? 1 : 0);
+  }
+
+  // ========================================================================
+  // v22.1: CIRCUIT BREAKER RECORDING METHODS
+  // ========================================================================
+
+  /**
+   * Set circuit breaker state
+   * @param {string} job - Job name
+   * @param {string} state - 'closed', 'open', 'half-open'
+   */
+  setCircuitBreakerState(job, state) {
+    const stateMap = { closed: 0, open: 1, 'half-open': 2 };
+    this.circuitBreakerStateGauge.labels(job).set(stateMap[state] ?? 0);
+  }
+
+  /**
+   * Record circuit breaker trip
+   * @param {string} job - Job name
+   */
+  recordCircuitBreakerTrip(job) {
+    this.circuitBreakerTripsTotal.labels(job).inc();
+  }
+
+  /**
+   * Record circuit breaker reset
+   * @param {string} job - Job name
+   * @param {string} resetType - 'manual' or 'auto'
+   */
+  recordCircuitBreakerReset(job, resetType = 'auto') {
+    this.circuitBreakerResetsTotal.labels(job, resetType).inc();
+  }
+
+  /**
+   * Set circuit breaker failure count
+   * @param {string} job - Job name
+   * @param {number} count - Consecutive failure count
+   */
+  setCircuitBreakerFailureCount(job, count) {
+    this.circuitBreakerFailureCountGauge.labels(job).set(count);
+  }
+
+  // ========================================================================
+  // v22.1: SCHEDULER HEALTH RECORDING METHODS
+  // ========================================================================
+
+  /**
+   * Set scheduler health status
+   * @param {boolean} healthy - Whether scheduler is healthy
+   */
+  setSchedulerHealth(healthy) {
+    this.schedulerHealthGauge.set(healthy ? 1 : 0);
+  }
+
+  /**
+   * Set active jobs count
+   * @param {number} count - Number of active jobs
+   */
+  setSchedulerActiveJobs(count) {
+    this.schedulerActiveJobsGauge.set(count);
+  }
+
+  /**
+   * Set scheduler shutting down state
+   * @param {boolean} shuttingDown - Whether shutdown is in progress
+   */
+  setSchedulerShuttingDown(shuttingDown) {
+    this.schedulerShuttingDownGauge.set(shuttingDown ? 1 : 0);
+  }
+
+  /**
+   * Update all scheduler metrics at once (convenience method)
+   * @param {Object} status - Scheduler status object from getWatchdogStatus()
+   */
+  updateSchedulerMetrics(status) {
+    this.setSchedulerHealth(status.isRunning && !status.isShuttingDown);
+    this.setSchedulerActiveJobs(status.activeJobCount || 0);
+    this.setSchedulerShuttingDown(status.isShuttingDown || false);
+
+    // Update per-job active states
+    const activeJobs = status.activeJobs || [];
+    const allJobs = ['ai_forecast', 'ai_learning', 'governance_score', 'self_heal'];
+    allJobs.forEach(job => {
+      this.setCronJobActive(job, activeJobs.includes(job));
+    });
+
+    // Update job metrics from jobMetrics
+    if (status.jobMetrics) {
+      for (const [job, metrics] of Object.entries(status.jobMetrics)) {
+        if (metrics.successRate != null) {
+          this.setCronJobSuccessRate(job, metrics.successRate);
+        }
+      }
+    }
+
+    // Update circuit breaker states
+    if (status.circuitBreakers) {
+      for (const [job, breaker] of Object.entries(status.circuitBreakers)) {
+        this.setCircuitBreakerState(job, breaker.state);
+        this.setCircuitBreakerFailureCount(job, breaker.failureCount || 0);
+      }
     }
   }
 

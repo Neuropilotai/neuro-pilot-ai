@@ -266,6 +266,136 @@ router.post(
 );
 
 // ============================================================================
+// GET /api/governance/trends
+// ============================================================================
+/**
+ * Get governance trends for sparkline charts
+ *
+ * Query params:
+ * - days: Number of days (default 30, max 90)
+ * - pillars: Comma-separated pillar names (default all)
+ *
+ * RBAC: OWNER | FINANCE | OPS
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "days": 30,
+ *   "trends": {
+ *     "composite": [{ "date": "2025-01-15", "score": 91.2 }, ...],
+ *     "finance": [...],
+ *     "health": [...],
+ *     "ai": [...],
+ *     "menu": [...]
+ *   },
+ *   "summary": {
+ *     "composite": { "current": 91.2, "avg": 89.5, "min": 85.0, "max": 94.0, "trend": "up" }
+ *   }
+ * }
+ */
+router.get(
+  '/trends',
+  authenticateToken,
+  requireRole([ROLES.OWNER, ROLES.FINANCE, ROLES.OPS]),
+  async (req, res) => {
+    try {
+      const days = Math.min(parseInt(req.query.days) || 30, 90);
+      const requestedPillars = req.query.pillars
+        ? req.query.pillars.split(',').map(p => p.trim().toLowerCase())
+        : ['composite', 'finance', 'health', 'ai', 'menu'];
+
+      // Validate pillar names
+      const validPillars = ['composite', 'finance', 'health', 'ai', 'menu'];
+      const pillars = requestedPillars.filter(p => validPillars.includes(p));
+
+      if (pillars.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid pillars',
+          message: `Valid pillars: ${validPillars.join(', ')}`
+        });
+      }
+
+      // Query governance_daily for each pillar
+      const trends = {};
+      const summary = {};
+
+      for (const pillar of pillars) {
+        const rows = await db.all(`
+          SELECT as_of as date, score
+          FROM governance_daily
+          WHERE pillar = $1
+            AND as_of >= CURRENT_DATE - INTERVAL '${days} days'
+          ORDER BY as_of ASC
+        `, [pillar]);
+
+        trends[pillar] = rows.map(r => ({
+          date: r.date,
+          score: Math.round(r.score * 10) / 10
+        }));
+
+        // Calculate summary stats
+        if (rows.length > 0) {
+          const scores = rows.map(r => r.score);
+          const current = scores[scores.length - 1];
+          const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+          const min = Math.min(...scores);
+          const max = Math.max(...scores);
+
+          // Determine trend (compare last 7 days avg to previous 7 days)
+          let trend = 'stable';
+          if (rows.length >= 14) {
+            const recent = scores.slice(-7);
+            const previous = scores.slice(-14, -7);
+            const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+            const previousAvg = previous.reduce((a, b) => a + b, 0) / previous.length;
+            const delta = recentAvg - previousAvg;
+
+            if (delta > 2) trend = 'up';
+            else if (delta < -2) trend = 'down';
+          }
+
+          summary[pillar] = {
+            current: Math.round(current * 10) / 10,
+            avg: Math.round(avg * 10) / 10,
+            min: Math.round(min * 10) / 10,
+            max: Math.round(max * 10) / 10,
+            trend,
+            dataPoints: rows.length
+          };
+        } else {
+          summary[pillar] = {
+            current: null,
+            avg: null,
+            min: null,
+            max: null,
+            trend: 'no_data',
+            dataPoints: 0
+          };
+        }
+      }
+
+      res.json({
+        success: true,
+        days,
+        pillars,
+        trends,
+        summary,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      logger.error('[Governance API] Error fetching trends:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch governance trends',
+        message: error.message
+      });
+    }
+  }
+);
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 

@@ -17,6 +17,127 @@ const { requireOwner } = require('../middleware/requireOwner');
 const realtimeBus = require('../utils/realtimeBus');
 const { logger } = require('../config/logger');
 
+// v22.1: Audit logging for Owner Ops
+const { auditLog, enqueueAudit } = require('../middleware/audit');
+
+// v22.1: Prometheus metrics exporter
+let metricsExporter = null;
+try {
+  metricsExporter = require('../utils/metricsExporter');
+} catch (err) {
+  console.warn('[OwnerOps] MetricsExporter not available:', err.message);
+}
+
+// v22.1: Granular permissions for Owner Ops actions
+const OWNER_OPS_PERMISSIONS = {
+  // Read-only operations
+  VIEW_STATUS: ['OWNER', 'FINANCE', 'OPS'],
+  VIEW_METRICS: ['OWNER', 'FINANCE'],
+  VIEW_LOGS: ['OWNER'],
+
+  // Job operations
+  TRIGGER_FORECAST: ['OWNER', 'OPS'],
+  TRIGGER_LEARNING: ['OWNER'],
+  TRIGGER_GOVERNANCE: ['OWNER', 'FINANCE'],
+  TRIGGER_SELF_HEAL: ['OWNER'],
+
+  // Admin operations
+  RESET_CIRCUIT_BREAKER: ['OWNER'],
+  VIEW_AUDIT_LOGS: ['OWNER'],
+  EXPORT_AUDIT: ['OWNER']
+};
+
+// v22.1: Job permission mapping
+const JOB_PERMISSIONS = {
+  ai_forecast: 'TRIGGER_FORECAST',
+  ai_learning: 'TRIGGER_LEARNING',
+  governance_score: 'TRIGGER_GOVERNANCE',
+  self_heal: 'TRIGGER_SELF_HEAL'
+};
+
+/**
+ * v22.1: Check if user has Owner Ops permission
+ */
+function hasOwnerOpsPermission(user, permission) {
+  if (!user || !user.roles) return false;
+  const allowedRoles = OWNER_OPS_PERMISSIONS[permission] || ['OWNER'];
+  const userRoles = Array.isArray(user.roles) ? user.roles : [user.roles];
+  return userRoles.some(role => allowedRoles.includes(role));
+}
+
+/**
+ * v22.1: Middleware to require specific Owner Ops permission
+ */
+function requireOwnerOpsPermission(permission) {
+  return (req, res, next) => {
+    if (!hasOwnerOpsPermission(req.user, permission)) {
+      // Audit the denied access
+      enqueueAudit({
+        action: 'OWNER_OPS_ACCESS_DENIED',
+        org_id: req.user?.org_id || 1,
+        actor_id: req.user?.id,
+        ip: req.ip,
+        success: false,
+        details: {
+          permission,
+          requiredRoles: OWNER_OPS_PERMISSIONS[permission],
+          userRoles: req.user?.roles,
+          path: req.path,
+          method: req.method
+        }
+      });
+
+      return res.status(403).json({
+        success: false,
+        error: 'Insufficient permissions',
+        requiredPermission: permission,
+        allowedRoles: OWNER_OPS_PERMISSIONS[permission]
+      });
+    }
+    next();
+  };
+}
+
+/**
+ * v22.1: Audit wrapper for sensitive Owner Ops actions
+ */
+function auditOwnerOpsAction(action) {
+  return (req, res, next) => {
+    const startTime = Date.now();
+
+    // Capture the original json method to intercept response
+    const originalJson = res.json.bind(res);
+    res.json = function(body) {
+      const latencyMs = Date.now() - startTime;
+      const success = res.statusCode >= 200 && res.statusCode < 400;
+
+      enqueueAudit({
+        action: `OWNER_OPS_${action}`,
+        org_id: req.user?.org_id || 1,
+        actor_id: req.user?.id,
+        ip: req.ip,
+        success,
+        latency_ms: latencyMs,
+        details: {
+          method: req.method,
+          path: req.path,
+          params: req.params,
+          query: req.query,
+          user_email: req.user?.email,
+          status: res.statusCode,
+          response_success: body?.success,
+          job: req.params?.job,
+          error: body?.error
+        }
+      });
+
+      return originalJson(body);
+    };
+
+    next();
+  };
+}
+
 // v14.4.2: Prometheus metrics for auto-heal
 const client = require('prom-client');
 const aiAutoHealCounter = new client.Counter({
@@ -975,6 +1096,109 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
 });
 
 /**
+ * GET /api/owner/ops/ai-status
+ * Lightweight AI status endpoint for dashboard cards
+ * v22: Optimized for quick polling with minimal database queries
+ */
+router.get('/ai-status', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+
+    // Get scheduler status
+    let schedulerStatus = {
+      enabled: false,
+      status: 'disabled',
+      activeJobs: [],
+      lastForecastRun: null,
+      lastLearningRun: null,
+      lastGovernanceRun: null
+    };
+
+    if (phase3Cron) {
+      const watchdog = phase3Cron.getWatchdogStatus();
+      const lastRuns = await phase3Cron.getLastRuns();
+
+      schedulerStatus = {
+        enabled: true,
+        status: watchdog.status,
+        isShuttingDown: watchdog.isShuttingDown,
+        activeJobs: watchdog.activeJobs || [],
+        activeJobCount: watchdog.activeJobCount || 0,
+        lastForecastRun: lastRuns.lastForecastRun,
+        lastLearningRun: lastRuns.lastLearningRun,
+        lastGovernanceRun: lastRuns.lastGovernanceRun
+      };
+    }
+
+    // Calculate time since last runs
+    const now = Date.now();
+    let forecastAge = null;
+    let learningAge = null;
+    let governanceAge = null;
+
+    if (schedulerStatus.lastForecastRun) {
+      forecastAge = Math.round((now - new Date(schedulerStatus.lastForecastRun).getTime()) / 1000 / 60); // minutes
+    }
+    if (schedulerStatus.lastLearningRun) {
+      learningAge = Math.round((now - new Date(schedulerStatus.lastLearningRun).getTime()) / 1000 / 60); // minutes
+    }
+    if (schedulerStatus.lastGovernanceRun) {
+      governanceAge = Math.round((now - new Date(schedulerStatus.lastGovernanceRun).getTime()) / 1000 / 60); // minutes
+    }
+
+    // Determine overall health color
+    let healthColor = 'green';
+    if (!schedulerStatus.enabled) {
+      healthColor = 'gray';
+    } else if (schedulerStatus.isShuttingDown) {
+      healthColor = 'yellow';
+    } else if (forecastAge !== null && forecastAge > 1440) { // > 24 hours
+      healthColor = 'red';
+    } else if (forecastAge !== null && forecastAge > 720) { // > 12 hours
+      healthColor = 'yellow';
+    }
+
+    res.json({
+      success: true,
+      scheduler: schedulerStatus,
+      timing: {
+        forecastAgeMinutes: forecastAge,
+        learningAgeMinutes: learningAge,
+        governanceAgeMinutes: governanceAge,
+        forecastAgeHuman: forecastAge !== null ? formatAge(forecastAge) : 'Never',
+        learningAgeHuman: learningAge !== null ? formatAge(learningAge) : 'Never',
+        governanceAgeHuman: governanceAge !== null ? formatAge(governanceAge) : 'Never'
+      },
+      health: {
+        color: healthColor,
+        status: schedulerStatus.isShuttingDown ? 'Shutting down' :
+                schedulerStatus.activeJobCount > 0 ? `Running ${schedulerStatus.activeJobs.join(', ')}` :
+                schedulerStatus.enabled ? 'Idle' : 'Disabled'
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('AI status check failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get AI status',
+      message: error.message
+    });
+  }
+});
+
+// Helper to format age in human-readable form
+function formatAge(minutes) {
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/**
  * GET /api/owner/ops/metrics
  * Get AI Ops metrics for Prometheus/monitoring
  */
@@ -1039,6 +1263,35 @@ router.get('/metrics', authenticateToken, requireOwner, async (req, res) => {
       metrics.push(`ai_learning_last_timestamp_seconds ${lastLearningTs}`);
     }
 
+    // v22.1: Add cron job and circuit breaker metrics from Prometheus exporter
+    if (metricsExporter) {
+      try {
+        const prometheusMetrics = await metricsExporter.getMetrics();
+        // Extract only cron job and circuit breaker metrics
+        const relevantMetrics = prometheusMetrics
+          .split('\n')
+          .filter(line =>
+            line.startsWith('cron_job_') ||
+            line.startsWith('circuit_breaker_') ||
+            line.startsWith('scheduler_') ||
+            (line.startsWith('# ') && (
+              line.includes('cron_job_') ||
+              line.includes('circuit_breaker_') ||
+              line.includes('scheduler_')
+            ))
+          )
+          .join('\n');
+
+        if (relevantMetrics) {
+          metrics.push('');
+          metrics.push('# v22.1 Cron Job and Circuit Breaker Metrics');
+          metrics.push(relevantMetrics);
+        }
+      } catch (exportErr) {
+        logger.warn('Failed to get Prometheus metrics:', exportErr.message);
+      }
+    }
+
     res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.send(metrics.join('\n') + '\n');
 
@@ -1049,48 +1302,124 @@ router.get('/metrics', authenticateToken, requireOwner, async (req, res) => {
 });
 
 /**
- * v14.4: Simple rate limiter for job triggers
- * Prevents abuse of manual job triggers
- * Limit: 10 triggers per minute per IP
+ * v22.1: Enhanced rate limiter per action type
+ * Different limits for different action categories
  */
-const triggerRateLimit = {};
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const RATE_LIMIT_MAX = 10; // 10 triggers per window
+const rateLimitStore = {};
 
-function checkRateLimit(ip) {
+const RATE_LIMIT_CONFIG = {
+  // Job triggers: 10 per minute per IP
+  TRIGGER_JOB: { window: 60000, max: 10 },
+
+  // Heavy operations: 5 per minute
+  EXPORT_AUDIT: { window: 60000, max: 5 },
+  RESET_CIRCUIT_BREAKER: { window: 60000, max: 5 },
+
+  // Read operations: 60 per minute (more lenient)
+  VIEW_AUDIT_LOGS: { window: 60000, max: 60 },
+  VIEW_STATUS: { window: 60000, max: 60 },
+
+  // Default: 30 per minute
+  DEFAULT: { window: 60000, max: 30 }
+};
+
+/**
+ * v22.1: Check rate limit for specific action
+ * @param {string} ip - Client IP
+ * @param {string} action - Action type (e.g., 'TRIGGER_JOB')
+ * @returns {{ allowed: boolean, resetIn?: number, remaining?: number }}
+ */
+function checkRateLimitForAction(ip, action = 'DEFAULT') {
+  const config = RATE_LIMIT_CONFIG[action] || RATE_LIMIT_CONFIG.DEFAULT;
+  const key = `${ip}:${action}`;
   const now = Date.now();
 
-  if (!triggerRateLimit[ip]) {
-    triggerRateLimit[ip] = { count: 1, window: now };
-    return { allowed: true };
+  if (!rateLimitStore[key]) {
+    rateLimitStore[key] = { count: 1, window: now };
+    return { allowed: true, remaining: config.max - 1 };
   }
 
-  const entry = triggerRateLimit[ip];
+  const entry = rateLimitStore[key];
 
   // Reset window if expired
-  if (now - entry.window > RATE_LIMIT_WINDOW) {
+  if (now - entry.window > config.window) {
     entry.count = 1;
     entry.window = now;
-    return { allowed: true };
+    return { allowed: true, remaining: config.max - 1 };
   }
 
   // Check limit
-  if (entry.count >= RATE_LIMIT_MAX) {
-    const resetIn = Math.ceil((RATE_LIMIT_WINDOW - (now - entry.window)) / 1000);
-    return { allowed: false, resetIn };
+  if (entry.count >= config.max) {
+    const resetIn = Math.ceil((config.window - (now - entry.window)) / 1000);
+
+    // Audit rate limit hit
+    enqueueAudit({
+      action: 'OWNER_OPS_RATE_LIMITED',
+      ip,
+      success: false,
+      details: {
+        action,
+        limit: config.max,
+        window: config.window,
+        resetIn
+      }
+    });
+
+    return { allowed: false, resetIn, remaining: 0 };
   }
 
   entry.count++;
-  return { allowed: true };
+  return { allowed: true, remaining: config.max - entry.count };
 }
+
+// v14.4: Legacy rate limit function (for backwards compatibility)
+function checkRateLimit(ip) {
+  return checkRateLimitForAction(ip, 'TRIGGER_JOB');
+}
+
+// v22.1: Periodic cleanup of stale rate limit entries (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  const maxWindow = Math.max(...Object.values(RATE_LIMIT_CONFIG).map(c => c.window));
+
+  for (const key of Object.keys(rateLimitStore)) {
+    if (now - rateLimitStore[key].window > maxWindow * 2) {
+      delete rateLimitStore[key];
+    }
+  }
+}, 300000);
 
 /**
  * POST /api/owner/ops/trigger/:job
  * Manually trigger a cron job (for testing/debugging)
  * Rate limited: 10 triggers/minute per IP
+ *
+ * v22.1: Uses granular RBAC - different jobs require different permissions
+ * Allowed jobs: ai_forecast, ai_learning, governance_score, self_heal
  */
-router.post('/trigger/:job', authenticateToken, requireOwner, async (req, res) => {
+router.post('/trigger/:job', authenticateToken, requireOwner, auditOwnerOpsAction('TRIGGER_JOB'), async (req, res) => {
   const { job } = req.params;
+
+  // v22: Validate job name
+  const allowedJobs = ['ai_forecast', 'ai_learning', 'governance_score', 'self_heal'];
+  if (!allowedJobs.includes(job)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid job name',
+      message: `Allowed jobs: ${allowedJobs.join(', ')}`
+    });
+  }
+
+  // v22.1: Check granular permission for the specific job
+  const requiredPermission = JOB_PERMISSIONS[job];
+  if (requiredPermission && !hasOwnerOpsPermission(req.user, requiredPermission)) {
+    return res.status(403).json({
+      success: false,
+      error: `Insufficient permissions to trigger ${job}`,
+      requiredPermission,
+      allowedRoles: OWNER_OPS_PERMISSIONS[requiredPermission]
+    });
+  }
 
   // v14.4: Rate limiting
   const rateLimitCheck = checkRateLimit(req.ip);
@@ -1124,14 +1453,46 @@ router.post('/trigger/:job', authenticateToken, requireOwner, async (req, res) =
     }
 
     // Get phase3 cron scheduler from app locals
-    if (!req.app.locals.phase3Cron) {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
       return res.status(503).json({
         success: false,
-        error: 'Cron scheduler not available'
+        error: 'Cron scheduler not available',
+        hint: 'Scheduler may not be enabled. Check SCHEDULER_ENABLED and AUTO_RETRAIN_ENABLED env vars.'
       });
     }
 
-    const result = await req.app.locals.phase3Cron.triggerJob(job);
+    // v22: Check shutdown state before triggering
+    const watchdog = phase3Cron.getWatchdogStatus();
+    if (watchdog.isShuttingDown) {
+      return res.status(503).json({
+        success: false,
+        error: 'Scheduler is shutting down',
+        message: 'Cannot trigger jobs during shutdown'
+      });
+    }
+
+    // v22: Check if job is already running
+    if (watchdog.activeJobs && watchdog.activeJobs.includes(job)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Job already running',
+        job,
+        activeJobs: watchdog.activeJobs
+      });
+    }
+
+    const result = await phase3Cron.triggerJob(job);
+
+    // v22: Handle skipped jobs
+    if (result.skipped) {
+      return res.status(409).json({
+        success: false,
+        error: result.error || 'Job was skipped',
+        reason: result.reason,
+        job
+      });
+    }
 
     res.json({
       success: result.success,
@@ -1145,6 +1506,472 @@ router.post('/trigger/:job', authenticateToken, requireOwner, async (req, res) =
     res.status(500).json({
       success: false,
       error: 'Failed to trigger job',
+      message: error.message
+    });
+  }
+});
+
+// === v22: Job Metrics Endpoint ===
+/**
+ * GET /api/owner/ops/job-metrics
+ *
+ * Returns detailed metrics for all cron jobs:
+ * - Run counts, error counts, success rates
+ * - Average durations, last run timestamps
+ * - Last error messages for troubleshooting
+ *
+ * Useful for monitoring dashboards and alerting
+ */
+router.get('/job-metrics', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    const watchdog = phase3Cron.getWatchdogStatus();
+    const metrics = watchdog.jobMetrics || {};
+    const lastRuns = await phase3Cron.getLastRuns();
+
+    // Compute aggregate stats
+    let totalRuns = 0;
+    let totalErrors = 0;
+    let avgSuccessRate = 0;
+    const jobCount = Object.keys(metrics).length;
+
+    for (const [, jobData] of Object.entries(metrics)) {
+      totalRuns += jobData.runCount || 0;
+      totalErrors += jobData.errorCount || 0;
+      avgSuccessRate += jobData.successRate || 100;
+    }
+
+    if (jobCount > 0) {
+      avgSuccessRate = Math.round(avgSuccessRate / jobCount);
+    }
+
+    res.json({
+      success: true,
+      scheduler: {
+        isRunning: watchdog.isRunning,
+        isShuttingDown: watchdog.isShuttingDown,
+        activeJobs: watchdog.activeJobs,
+        activeJobCount: watchdog.activeJobCount
+      },
+      aggregate: {
+        totalJobs: jobCount,
+        totalRuns,
+        totalErrors,
+        avgSuccessRate: `${avgSuccessRate}%`,
+        overallHealth: totalErrors === 0 ? 'healthy' : (totalErrors < 3 ? 'warning' : 'critical')
+      },
+      jobs: Object.entries(metrics).map(([name, data]) => ({
+        name,
+        runCount: data.runCount,
+        errorCount: data.errorCount,
+        successRate: `${data.successRate || 100}%`,
+        avgDuration: `${data.avgDuration || 0}ms`,
+        lastRun: data.lastRun,
+        lastDuration: data.lastDuration ? `${data.lastDuration}ms` : null,
+        lastAttempts: data.lastAttempts || 1,
+        lastError: data.lastError || null,
+        health: data.errorCount === 0 ? 'healthy' : (data.errorCount < 3 ? 'warning' : 'critical'),
+        // v22.1: Timeout and retry stats
+        timeoutCount: data.timeoutCount || 0,
+        timeoutRate: `${data.timeoutRate || 0}%`,
+        retryCount: data.retryCount || 0,
+        avgRetries: data.avgRetries || 0,
+        config: data.config || null
+      })),
+      lastRuns,
+      circuitBreakers: watchdog.circuitBreakers || {},
+      // v22.1: Include retry state for jobs currently retrying
+      retryState: phase3Cron.getRetryState ? phase3Cron.getRetryState() : {},
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Job metrics fetch failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch job metrics',
+      message: error.message
+    });
+  }
+});
+
+// === v22: Circuit Breaker Reset Endpoint ===
+/**
+ * POST /api/owner/ops/reset-circuit-breaker/:job
+ *
+ * Manually reset the circuit breaker for a job that has been tripped.
+ * Use this after fixing the underlying issue that caused the failures.
+ *
+ * v22.1: OWNER only, with audit logging
+ */
+router.post('/reset-circuit-breaker/:job', authenticateToken, requireOwner, requireOwnerOpsPermission('RESET_CIRCUIT_BREAKER'), auditOwnerOpsAction('RESET_CIRCUIT_BREAKER'), async (req, res) => {
+  const { job } = req.params;
+
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    const result = phase3Cron.resetCircuitBreaker(job);
+
+    if (result.success) {
+      // Log the reset action
+      await db.query(`
+        INSERT INTO ai_ops_breadcrumbs (action, created_at, duration_ms, metadata)
+        VALUES ('circuit_breaker_reset', NOW(), 0, $1)
+      `, [JSON.stringify({ job, resetBy: req.user?.email || 'unknown' })]);
+
+      res.json({
+        success: true,
+        message: `Circuit breaker for '${job}' has been reset`,
+        job,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: result.error,
+        job
+      });
+    }
+  } catch (error) {
+    logger.error('Circuit breaker reset failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset circuit breaker',
+      message: error.message
+    });
+  }
+});
+
+// === v22.1: Bulk Circuit Breaker Reset ===
+/**
+ * POST /api/owner/ops/reset-all-circuit-breakers
+ *
+ * Reset all open circuit breakers at once.
+ * Use with caution - only when you've fixed all underlying issues.
+ */
+router.post('/reset-all-circuit-breakers', authenticateToken, requireOwner, requireOwnerOpsPermission('RESET_CIRCUIT_BREAKER'), auditOwnerOpsAction('RESET_ALL_CIRCUIT_BREAKERS'), async (req, res) => {
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    const circuitBreakers = phase3Cron.getCircuitBreakerStatus();
+    const openBreakers = Object.entries(circuitBreakers)
+      .filter(([, cb]) => cb.state === 'open' || cb.state === 'half-open')
+      .map(([job]) => job);
+
+    if (openBreakers.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No open circuit breakers to reset',
+        resetCount: 0
+      });
+    }
+
+    const results = [];
+    for (const job of openBreakers) {
+      const result = phase3Cron.resetCircuitBreaker(job);
+      results.push({ job, success: result.success });
+    }
+
+    // Log bulk reset
+    await db.query(`
+      INSERT INTO ai_ops_breadcrumbs (action, created_at, duration_ms, metadata)
+      VALUES ('circuit_breaker_bulk_reset', NOW(), 0, $1)
+    `, [JSON.stringify({ jobs: openBreakers, resetBy: req.user?.email || 'unknown' })]);
+
+    res.json({
+      success: true,
+      message: `Reset ${results.filter(r => r.success).length} circuit breakers`,
+      resetCount: results.filter(r => r.success).length,
+      results,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Bulk circuit breaker reset failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset circuit breakers',
+      message: error.message
+    });
+  }
+});
+
+// === v22.1: Job Configuration Endpoint ===
+/**
+ * GET /api/owner/ops/job-config
+ *
+ * Get current job configuration (timeouts, retries, schedules)
+ */
+router.get('/job-config', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    // Get job configuration from scheduler
+    const jobConfig = phase3Cron.jobConfig || {};
+    const jobs = Object.entries(jobConfig).filter(([name]) => name !== 'default');
+
+    res.json({
+      success: true,
+      defaultConfig: jobConfig.default || {},
+      jobs: jobs.map(([name, config]) => ({
+        name,
+        timeoutMs: config.timeoutMs,
+        timeoutFormatted: `${Math.round(config.timeoutMs / 1000)}s`,
+        maxRetries: config.maxRetries,
+        retryDelayMs: config.retryDelayMs,
+        retryBackoffMultiplier: config.retryBackoffMultiplier
+      })),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Job config fetch failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch job configuration',
+      message: error.message
+    });
+  }
+});
+
+// === v22.1: Update Job Configuration ===
+/**
+ * PATCH /api/owner/ops/job-config/:job
+ *
+ * Update timeout/retry configuration for a specific job.
+ * Changes are temporary (not persisted across restarts).
+ */
+router.patch('/job-config/:job', authenticateToken, requireOwner, requireOwnerOpsPermission('RESET_CIRCUIT_BREAKER'), auditOwnerOpsAction('UPDATE_JOB_CONFIG'), async (req, res) => {
+  const { job } = req.params;
+  const { timeoutMs, maxRetries, retryDelayMs, retryBackoffMultiplier } = req.body;
+
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    // Validate job exists
+    if (!phase3Cron.jobConfig[job] && job !== 'default') {
+      return res.status(404).json({
+        success: false,
+        error: `Job '${job}' not found`
+      });
+    }
+
+    // Validate values
+    if (timeoutMs !== undefined && (typeof timeoutMs !== 'number' || timeoutMs < 1000 || timeoutMs > 600000)) {
+      return res.status(400).json({
+        success: false,
+        error: 'timeoutMs must be between 1000 and 600000 (1s - 10min)'
+      });
+    }
+
+    if (maxRetries !== undefined && (typeof maxRetries !== 'number' || maxRetries < 0 || maxRetries > 10)) {
+      return res.status(400).json({
+        success: false,
+        error: 'maxRetries must be between 0 and 10'
+      });
+    }
+
+    // Update configuration
+    const currentConfig = phase3Cron.jobConfig[job] || { ...phase3Cron.jobConfig.default };
+    const updatedConfig = {
+      ...currentConfig,
+      ...(timeoutMs !== undefined && { timeoutMs }),
+      ...(maxRetries !== undefined && { maxRetries }),
+      ...(retryDelayMs !== undefined && { retryDelayMs }),
+      ...(retryBackoffMultiplier !== undefined && { retryBackoffMultiplier })
+    };
+
+    phase3Cron.jobConfig[job] = updatedConfig;
+
+    // Log config change
+    await db.query(`
+      INSERT INTO ai_ops_breadcrumbs (action, created_at, duration_ms, metadata)
+      VALUES ('job_config_update', NOW(), 0, $1)
+    `, [JSON.stringify({ job, changes: req.body, updatedBy: req.user?.email || 'unknown' })]);
+
+    res.json({
+      success: true,
+      message: `Configuration updated for job '${job}'`,
+      job,
+      config: updatedConfig,
+      note: 'Changes are temporary and will reset on server restart',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Job config update failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update job configuration',
+      message: error.message
+    });
+  }
+});
+
+// === v22.1: Job Pause/Resume ===
+/**
+ * POST /api/owner/ops/pause-job/:job
+ *
+ * Pause a specific job (it won't run until resumed).
+ * Useful for maintenance or debugging.
+ */
+router.post('/pause-job/:job', authenticateToken, requireOwner, requireOwnerOpsPermission('TRIGGER_SELF_HEAL'), auditOwnerOpsAction('PAUSE_JOB'), async (req, res) => {
+  const { job } = req.params;
+
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    // Initialize paused jobs set if not exists
+    if (!phase3Cron.pausedJobs) {
+      phase3Cron.pausedJobs = new Set();
+    }
+
+    if (phase3Cron.pausedJobs.has(job)) {
+      return res.json({
+        success: true,
+        message: `Job '${job}' is already paused`,
+        job,
+        paused: true
+      });
+    }
+
+    phase3Cron.pausedJobs.add(job);
+
+    // Log pause action
+    await db.query(`
+      INSERT INTO ai_ops_breadcrumbs (action, created_at, duration_ms, metadata)
+      VALUES ('job_paused', NOW(), 0, $1)
+    `, [JSON.stringify({ job, pausedBy: req.user?.email || 'unknown' })]);
+
+    res.json({
+      success: true,
+      message: `Job '${job}' has been paused`,
+      job,
+      paused: true,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Job pause failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to pause job',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/owner/ops/resume-job/:job
+ *
+ * Resume a paused job.
+ */
+router.post('/resume-job/:job', authenticateToken, requireOwner, requireOwnerOpsPermission('TRIGGER_SELF_HEAL'), auditOwnerOpsAction('RESUME_JOB'), async (req, res) => {
+  const { job } = req.params;
+
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    if (!phase3Cron.pausedJobs || !phase3Cron.pausedJobs.has(job)) {
+      return res.json({
+        success: true,
+        message: `Job '${job}' is not paused`,
+        job,
+        paused: false
+      });
+    }
+
+    phase3Cron.pausedJobs.delete(job);
+
+    // Log resume action
+    await db.query(`
+      INSERT INTO ai_ops_breadcrumbs (action, created_at, duration_ms, metadata)
+      VALUES ('job_resumed', NOW(), 0, $1)
+    `, [JSON.stringify({ job, resumedBy: req.user?.email || 'unknown' })]);
+
+    res.json({
+      success: true,
+      message: `Job '${job}' has been resumed`,
+      job,
+      paused: false,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Job resume failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to resume job',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/ops/paused-jobs
+ *
+ * Get list of all paused jobs.
+ */
+router.get('/paused-jobs', authenticateToken, requireOwner, async (req, res) => {
+  try {
+    const phase3Cron = req.app.locals.phase3Cron || req.app.get('phase3Cron');
+    if (!phase3Cron) {
+      return res.status(503).json({
+        success: false,
+        error: 'Cron scheduler not available'
+      });
+    }
+
+    const pausedJobs = phase3Cron.pausedJobs ? Array.from(phase3Cron.pausedJobs) : [];
+
+    res.json({
+      success: true,
+      pausedJobs,
+      count: pausedJobs.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Paused jobs fetch failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch paused jobs',
       message: error.message
     });
   }
@@ -1757,7 +2584,209 @@ router.get('/broken-links/stats', authenticateToken, requireOwner, async (req, r
   }
 });
 
+// ============================================================================
+// v22.1: AUDIT LOG ENDPOINTS
+// ============================================================================
+
+const { queryAuditLogs, getAuditStats, exportUserAuditTrail } = require('../middleware/audit');
+
+/**
+ * GET /api/owner/ops/audit-logs
+ * View Owner Ops audit logs with filtering
+ *
+ * Query params:
+ * - action: Filter by action (e.g., OWNER_OPS_TRIGGER_JOB)
+ * - user_id: Filter by actor ID
+ * - start_date: Start date (ISO format)
+ * - end_date: End date (ISO format)
+ * - limit: Max results (default 100, max 1000)
+ *
+ * v22.1: OWNER only
+ */
+router.get('/audit-logs', authenticateToken, requireOwner, requireOwnerOpsPermission('VIEW_AUDIT_LOGS'), async (req, res) => {
+  try {
+    const filters = {
+      org_id: req.user?.org_id || 1
+    };
+
+    // Apply optional filters
+    if (req.query.action) {
+      filters.action = req.query.action;
+    }
+    if (req.query.user_id) {
+      filters.actor_id = parseInt(req.query.user_id);
+    }
+    if (req.query.start_date) {
+      filters.start_date = req.query.start_date;
+    }
+    if (req.query.end_date) {
+      filters.end_date = req.query.end_date;
+    }
+
+    const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
+
+    const logs = await queryAuditLogs(filters, limit);
+
+    // Filter to Owner Ops actions only
+    const ownerOpsLogs = logs.filter(log =>
+      log.action.startsWith('OWNER_OPS_') ||
+      log.action === 'OWNER_OPS_ACCESS_DENIED'
+    );
+
+    res.json({
+      success: true,
+      logs: ownerOpsLogs.map(log => ({
+        id: log.id,
+        action: log.action,
+        actor_id: log.actor_id,
+        ip: log.ip,
+        success: log.success,
+        latency_ms: log.latency_ms,
+        created_at: log.created_at,
+        details: log.details
+      })),
+      count: ownerOpsLogs.length,
+      filters,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Audit log fetch failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch audit logs',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/ops/audit-stats
+ * Get audit statistics for Owner Ops actions
+ *
+ * Query params:
+ * - days: Number of days to analyze (default 30, max 90)
+ *
+ * v22.1: OWNER only
+ */
+router.get('/audit-stats', authenticateToken, requireOwner, requireOwnerOpsPermission('VIEW_AUDIT_LOGS'), async (req, res) => {
+  try {
+    const days = Math.min(parseInt(req.query.days) || 30, 90);
+    const orgId = req.user?.org_id || 1;
+
+    const stats = await getAuditStats(orgId, days);
+
+    // Filter to Owner Ops actions
+    const ownerOpsStats = stats.byAction.filter(s =>
+      s.action.startsWith('OWNER_OPS_') ||
+      s.action === 'OWNER_OPS_ACCESS_DENIED'
+    );
+
+    // Calculate aggregate metrics
+    const totalEvents = ownerOpsStats.reduce((sum, s) => sum + s.count, 0);
+    const totalSuccess = ownerOpsStats.reduce((sum, s) => sum + s.successCount, 0);
+    const totalFailure = ownerOpsStats.reduce((sum, s) => sum + s.failureCount, 0);
+    const avgLatency = ownerOpsStats.length > 0
+      ? ownerOpsStats.reduce((sum, s) => sum + (s.avgLatency * s.count), 0) / totalEvents
+      : 0;
+
+    res.json({
+      success: true,
+      periodDays: days,
+      aggregate: {
+        totalEvents,
+        totalSuccess,
+        totalFailure,
+        successRate: totalEvents > 0 ? Math.round((totalSuccess / totalEvents) * 100) : 100,
+        avgLatency: Math.round(avgLatency)
+      },
+      byAction: ownerOpsStats,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Audit stats fetch failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch audit stats',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/owner/ops/audit-export
+ * Export audit trail for compliance (CSV format)
+ *
+ * Query params:
+ * - days: Number of days (default 90)
+ * - format: 'json' or 'csv' (default json)
+ *
+ * v22.1: OWNER only
+ */
+router.get('/audit-export', authenticateToken, requireOwner, requireOwnerOpsPermission('EXPORT_AUDIT'), auditOwnerOpsAction('EXPORT_AUDIT'), async (req, res) => {
+  try {
+    const days = Math.min(parseInt(req.query.days) || 90, 365);
+    const format = req.query.format || 'json';
+    const orgId = req.user?.org_id || 1;
+
+    const filters = {
+      org_id: orgId,
+      start_date: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    };
+
+    const logs = await queryAuditLogs(filters, 10000);
+
+    // Filter to Owner Ops actions
+    const ownerOpsLogs = logs.filter(log =>
+      log.action.startsWith('OWNER_OPS_') ||
+      log.action === 'OWNER_OPS_ACCESS_DENIED'
+    );
+
+    if (format === 'csv') {
+      // Generate CSV
+      const headers = ['id', 'action', 'actor_id', 'ip', 'success', 'latency_ms', 'created_at', 'user_email', 'path'];
+      const rows = ownerOpsLogs.map(log => [
+        log.id,
+        log.action,
+        log.actor_id || '',
+        log.ip || '',
+        log.success,
+        log.latency_ms || '',
+        log.created_at,
+        log.details?.user_email || '',
+        log.details?.path || ''
+      ]);
+
+      const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="owner-ops-audit-${new Date().toISOString().split('T')[0]}.csv"`);
+      return res.send(csv);
+    }
+
+    res.json({
+      success: true,
+      export: {
+        periodDays: days,
+        exportedAt: new Date().toISOString(),
+        recordCount: ownerOpsLogs.length
+      },
+      logs: ownerOpsLogs
+    });
+
+  } catch (error) {
+    logger.error('Audit export failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to export audit logs',
+      message: error.message
+    });
+  }
+});
+
 // Export router and helper functions for reuse
 module.exports = router;
 module.exports.computeAIOpsHealth = computeAIOpsHealth;
 module.exports.computeAIIntelligenceIndex = computeAIIntelligenceIndex;
+module.exports.OWNER_OPS_PERMISSIONS = OWNER_OPS_PERMISSIONS;

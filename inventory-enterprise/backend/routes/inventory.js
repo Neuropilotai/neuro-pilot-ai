@@ -1434,4 +1434,195 @@ function generateValueReport(data) {
   };
 }
 
+// ============================================================================
+// v22: QUICK COUNT ENDPOINT
+// ============================================================================
+
+/**
+ * POST /api/inventory/quick-count
+ * Simplified single-item count update with automatic variance tracking
+ *
+ * Request body:
+ * {
+ *   itemCode: string,      // Required: Item code to count
+ *   countedQty: number,    // Required: New counted quantity
+ *   notes: string,         // Optional: Notes about the count
+ *   location: string       // Optional: Location where count was taken
+ * }
+ *
+ * Response:
+ * {
+ *   success: boolean,
+ *   item: { code, name, oldQty, newQty, variance },
+ *   countId: string,       // Reference ID for audit trail
+ *   timestamp: string
+ * }
+ */
+router.post('/quick-count',
+  [
+    body('itemCode').notEmpty().withMessage('Item code is required'),
+    body('countedQty').isNumeric().withMessage('Counted quantity must be a number')
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { itemCode, countedQty, notes, location } = req.body;
+    const userId = req.user?.id || req.user?.email || 'system';
+    const tenantId = req.tenant?.tenantId || 1;
+
+    try {
+      // Get current item
+      const item = await db.get(
+        `SELECT item_id, item_code, item_name, current_quantity, unit, category
+         FROM inventory_items
+         WHERE item_code = ?`,
+        [itemCode]
+      );
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          error: 'Item not found',
+          itemCode
+        });
+      }
+
+      const oldQty = parseFloat(item.current_quantity) || 0;
+      const newQty = parseFloat(countedQty);
+      const variance = newQty - oldQty;
+      const variancePct = oldQty > 0 ? ((variance / oldQty) * 100).toFixed(2) : null;
+
+      // Generate count reference ID
+      const countId = `QC-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+      // Update item quantity
+      await db.run(
+        `UPDATE inventory_items
+         SET current_quantity = ?,
+             last_count_date = CURRENT_DATE,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE item_code = ?`,
+        [newQty, itemCode]
+      );
+
+      // Log to audit trail (if audit_log table exists)
+      try {
+        await global.db.query(
+          `INSERT INTO audit_log (action, org_id, actor_id, ip_address, details, success, created_at)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, NOW())`,
+          [
+            'QUICK_COUNT',
+            tenantId,
+            userId,
+            req.ip || null,
+            JSON.stringify({
+              countId,
+              itemCode,
+              itemName: item.item_name,
+              oldQty,
+              newQty,
+              variance,
+              variancePct,
+              location: location || null,
+              notes: notes || null,
+              unit: item.unit
+            }),
+            true
+          ]
+        );
+      } catch (auditErr) {
+        // Don't fail the count if audit logging fails
+        console.warn('[QUICK_COUNT] Audit log failed:', auditErr.message);
+      }
+
+      // Return success response
+      res.json({
+        success: true,
+        countId,
+        item: {
+          code: item.item_code,
+          name: item.item_name,
+          unit: item.unit,
+          category: item.category,
+          oldQty,
+          newQty,
+          variance,
+          variancePct: variancePct ? `${variancePct}%` : 'N/A'
+        },
+        timestamp: new Date().toISOString(),
+        message: variance === 0
+          ? 'Count confirmed - no variance'
+          : `Quantity adjusted by ${variance > 0 ? '+' : ''}${variance} ${item.unit || 'units'}`
+      });
+
+    } catch (error) {
+      console.error('[QUICK_COUNT] Error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update count',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/inventory/quick-count/history
+ * Get recent quick count history for an item
+ */
+router.get('/quick-count/history/:itemCode', async (req, res) => {
+  const { itemCode } = req.params;
+  const tenantId = req.tenant?.tenantId || 1;
+
+  try {
+    // Query audit log for recent quick counts
+    const result = await global.db.query(
+      `SELECT
+         details->>'countId' AS count_id,
+         details->>'oldQty' AS old_qty,
+         details->>'newQty' AS new_qty,
+         details->>'variance' AS variance,
+         details->>'notes' AS notes,
+         actor_id AS counted_by,
+         created_at
+       FROM audit_log
+       WHERE action = 'QUICK_COUNT'
+         AND org_id = $1
+         AND details->>'itemCode' = $2
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      [tenantId, itemCode]
+    );
+
+    res.json({
+      success: true,
+      itemCode,
+      history: result.rows.map(row => ({
+        countId: row.count_id,
+        oldQty: parseFloat(row.old_qty),
+        newQty: parseFloat(row.new_qty),
+        variance: parseFloat(row.variance),
+        notes: row.notes,
+        countedBy: row.counted_by,
+        timestamp: row.created_at
+      }))
+    });
+
+  } catch (error) {
+    console.error('[QUICK_COUNT] History error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch count history',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

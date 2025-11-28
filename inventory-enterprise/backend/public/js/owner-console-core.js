@@ -225,6 +225,123 @@ async function fetchAPI(path, opts = {}) {
   }
 }
 
+/**
+ * v22: Enhanced API helper with loading state and toast notifications
+ * @param {string} path - API endpoint path
+ * @param {object} options - Fetch options
+ * @param {object} uiOptions - UI feedback options
+ * @param {string} uiOptions.loadingEl - ID of element to show loading state
+ * @param {string} uiOptions.loadingText - Text to show during loading
+ * @param {boolean} uiOptions.showSuccessToast - Show toast on success
+ * @param {string} uiOptions.successMessage - Success toast message
+ * @param {boolean} uiOptions.showErrorToast - Show toast on error (default: true)
+ * @returns {Promise<{data: any, error: string|null, success: boolean}>}
+ */
+async function fetchAPIWithUI(path, options = {}, uiOptions = {}) {
+  const {
+    loadingEl,
+    loadingText = 'Loading...',
+    showSuccessToast = false,
+    successMessage = 'Operation completed',
+    showErrorToast = true
+  } = uiOptions;
+
+  // Show loading state
+  let originalContent = '';
+  const loadingElement = loadingEl ? document.getElementById(loadingEl) : null;
+  if (loadingElement) {
+    originalContent = loadingElement.innerHTML;
+    loadingElement.innerHTML = `<div class="loading-state"><span class="spinner-sm"></span> ${loadingText}</div>`;
+    loadingElement.classList.add('is-loading');
+  }
+
+  try {
+    const data = await fetchAPI(path, options);
+
+    // Restore element state
+    if (loadingElement) {
+      loadingElement.classList.remove('is-loading');
+    }
+
+    // Check for API-level errors
+    if (data && data.success === false) {
+      const errorMsg = data.error || data.message || 'Operation failed';
+      if (showErrorToast) {
+        showToast(errorMsg, 'error');
+      }
+      return { data, error: errorMsg, success: false };
+    }
+
+    // Success
+    if (showSuccessToast && data) {
+      showToast(successMessage, 'success');
+    }
+
+    return { data, error: null, success: true };
+
+  } catch (error) {
+    // Restore element state
+    if (loadingElement) {
+      loadingElement.classList.remove('is-loading');
+    }
+
+    const errorMsg = error.message || 'Network error';
+    if (showErrorToast) {
+      showToast(errorMsg, 'error');
+    }
+
+    return { data: null, error: errorMsg, success: false };
+  }
+}
+
+/**
+ * v22: Show toast notification
+ * @param {string} message - Message to display
+ * @param {string} type - 'success', 'error', 'warning', 'info'
+ * @param {number} duration - Duration in ms (default: 3000)
+ */
+function showToast(message, type = 'info', duration = 3000) {
+  // Remove existing toasts
+  const existingToast = document.querySelector('.np-toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = `np-toast np-toast-${type}`;
+
+  const icons = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️'
+  };
+
+  toast.innerHTML = `
+    <span class="np-toast-icon">${icons[type] || icons.info}</span>
+    <span class="np-toast-message">${message}</span>
+    <button class="np-toast-close" onclick="this.parentElement.remove()">×</button>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Trigger animation
+  requestAnimationFrame(() => {
+    toast.classList.add('np-toast-show');
+  });
+
+  // Auto-remove
+  setTimeout(() => {
+    toast.classList.remove('np-toast-show');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// Export to global scope
+window.fetchAPIWithUI = fetchAPIWithUI;
+window.showToast = showToast;
+
 // ============================================================================
 // HEALTH & STATUS MONITORING
 // ============================================================================
