@@ -920,33 +920,27 @@ async function rateLimitMiddleware(req, res, next) {
 // ============================================
 
 // v22.1: Liveness probe - is the process alive?
-// Returns 200 IMMEDIATELY if server is running (Railway liveness)
-// DB check is async with 3-second timeout - never blocks health response
-app.get('/health', (req, res) => {
-  // Immediately respond to prove the server is alive
-  // This is critical for Railway healthcheck success
+// Returns 200 IMMEDIATELY - Railway healthcheck must pass for deployment
+// DB status included but doesn't block response
+app.get('/health', async (req, res) => {
   const startTime = Date.now();
 
-  // Quick async DB check with timeout - don't await it blocking the response
-  const dbCheckPromise = Promise.race([
-    pool.query('SELECT 1').then(() => 'connected').catch(() => 'disconnected'),
-    new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))
-  ]);
+  // Get database status (with built-in timeout, never throws)
+  const db = require('./db');
+  const dbHealth = await db.healthCheck(3000); // 3 second timeout
 
-  dbCheckPromise.then(dbStatus => {
-    if (dbStatus !== 'connected') {
-      console.log(`[HEALTH] Database status: ${dbStatus}`);
-    }
-  });
-
-  // Always return 200 immediately
+  // Always return 200 - server is alive
   res.status(200).json({
-    success: true,
-    status: 'alive',
+    status: 'ok',
     version: 'v21.1',
-    uptime: process.uptime(),
+    uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
-    responseTimeMs: Date.now() - startTime
+    responseTimeMs: Date.now() - startTime,
+    database: {
+      status: dbHealth.status,
+      latencyMs: dbHealth.latencyMs,
+      ...(dbHealth.error && { error: dbHealth.error })
+    }
   });
 });
 
