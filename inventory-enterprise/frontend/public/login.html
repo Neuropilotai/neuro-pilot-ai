@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="np-api-url" content="https://resourceful-achievement-production.up.railway.app">
-  <title>NeuroInnovate Inventory Enterprise Login v21.1</title>
-  <link rel="icon" href="favicon.ico">
+  <title>NeuroPilot Inventory Enterprise Login v21.1</title>
+  <link rel="icon" href="favicon.svg">
   <style>
     * {
       margin: 0;
@@ -25,7 +24,7 @@
       background: white;
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      max-width: 500px;
+      max-width: 440px;
       width: 100%;
       padding: 40px;
     }
@@ -34,7 +33,7 @@
       margin-bottom: 30px;
     }
     .logo h1 {
-      font-size: 32px;
+      font-size: 28px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -45,8 +44,18 @@
       color: #666;
       font-size: 14px;
     }
+    .version-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
     .form-group {
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     label {
       display: block;
@@ -55,20 +64,19 @@
       color: #333;
       font-size: 14px;
     }
-    textarea {
+    input[type="email"],
+    input[type="password"] {
       width: 100%;
-      padding: 12px;
+      padding: 14px 16px;
       border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      resize: vertical;
-      min-height: 120px;
-      transition: border-color 0.2s;
+      border-radius: 10px;
+      font-size: 15px;
+      transition: all 0.2s;
     }
-    textarea:focus {
+    input:focus {
       outline: none;
       border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
     .btn {
       width: 100%;
@@ -76,7 +84,7 @@
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
@@ -89,128 +97,211 @@
     .btn:active {
       transform: translateY(0);
     }
-    .help-text {
-      margin-top: 20px;
-      padding: 16px;
-      background: #f5f5f5;
-      border-radius: 8px;
+    .btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .alert {
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+    .alert-error {
+      background: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+    .alert-success {
+      background: #dcfce7;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
       font-size: 13px;
       color: #666;
     }
-    .help-text strong {
-      color: #333;
-      display: block;
-      margin-bottom: 8px;
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
     }
-    .help-text code {
-      background: #e0e0e0;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-      display: block;
-      margin-top: 8px;
-      word-break: break-all;
+    .status-dot.connected {
+      background: #22c55e;
+      animation: pulse 2s infinite;
     }
-    .error {
-      background: #fee;
-      color: #c33;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      display: none;
-      font-size: 14px;
+    .status-dot.disconnected {
+      background: #ef4444;
     }
-    .success {
-      background: #efe;
-      color: #3a3;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      display: none;
-      font-size: 14px;
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .footer-links {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+    }
+    .footer-links a {
+      color: #667eea;
+      text-decoration: none;
+    }
+    .footer-links a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
   <div class="login-container">
     <div class="logo">
-      <h1>📦 NeuroInnovate</h1>
-      <p>Inventory Management Enterprise v21.1</p>
+      <h1>📦 NeuroPilot</h1>
+      <p>Inventory Management Enterprise</p>
+      <span class="version-badge">V21.1</span>
     </div>
 
-    <div id="error" class="error"></div>
-    <div id="success" class="success"></div>
+    <div id="error" class="alert alert-error"></div>
+    <div id="success" class="alert alert-success"></div>
 
     <form id="loginForm">
       <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" value="neuro.pilot.ai@gmail.com" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="Enter your email" required autocomplete="email">
       </div>
 
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" value="Admin123!@#" required style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+        <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
       </div>
 
-      <button type="submit" class="btn">Login to Console</button>
+      <button type="submit" class="btn" id="loginBtn">
+        Sign In
+      </button>
     </form>
 
-    <div class="help-text">
-      <strong>Production Account:</strong>
-      Owner: neuro.pilot.ai@gmail.com / Admin123!@#
+    <div class="status-indicator">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Checking connection...</span>
+    </div>
+
+    <div class="footer-links">
+      <a href="/health" target="_blank">System Health</a>
     </div>
   </div>
 
+  <!-- Load config and API client -->
+  <script src="js/config.js"></script>
+  <script src="js/api-client.js"></script>
+
   <script>
-    const API_BASE = document.querySelector('meta[name="np-api-url"]').content;
     const form = document.getElementById('loginForm');
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
 
+    // Check backend connectivity on load
+    async function checkBackendStatus() {
+      try {
+        const health = await API.getHealth();
+        statusDot.classList.add('connected');
+        statusDot.classList.remove('disconnected');
+        statusText.textContent = `Connected to ${CONFIG.API_BASE_URL.replace('https://', '').split('.')[0]}`;
+      } catch (error) {
+        statusDot.classList.add('disconnected');
+        statusDot.classList.remove('connected');
+        statusText.textContent = 'Backend unavailable';
+        console.error('Backend health check failed:', error);
+      }
+    }
+
+    // Check if already logged in
+    function checkExistingSession() {
+      if (!CONFIG.isTokenExpired()) {
+        const user = CONFIG.getUser();
+        if (user) {
+          redirectToDashboard(user.role);
+        }
+      }
+    }
+
+    // Redirect based on role
+    function redirectToDashboard(role) {
+      const roleLower = (role || 'staff').toLowerCase();
+
+      switch (roleLower) {
+        case 'owner':
+        case 'admin':
+          window.location.href = 'owner-super-console-v15.html';
+          break;
+        case 'manager':
+          window.location.href = 'owner-super-console-v15.html';
+          break;
+        case 'staff':
+          window.location.href = 'pos.html';
+          break;
+        default:
+          window.location.href = 'owner-super-console-v15.html';
+      }
+    }
+
+    // Handle login form submission
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
       const email = emailInput.value.trim();
-      const password = passwordInput.value.trim();
+      const password = passwordInput.value;
 
       if (!email || !password) {
         showError('Please enter both email and password.');
         return;
       }
 
+      // Disable button and show loading
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="spinner"></span>Signing in...';
+      hideAlerts();
+
       try {
-        // Call v21.1 login API
-        const response = await fetch(`${API_BASE}/api/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        });
+        const data = await API.login(email, password);
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          showError(data.error || data.message || 'Login failed. Please check your credentials.');
-          return;
-        }
-
-        // Store the token (V21.1 API format - Enterprise Console keys)
-        localStorage.setItem('NP_TOKEN', data.accessToken);
-        localStorage.setItem('NP_USER', JSON.stringify(data.user));
-
-        // Show success and redirect to ENTERPRISE console
-        showSuccess(`Welcome ${data.user.email}! Redirecting...`);
+        showSuccess(`Welcome back, ${data.user.email}! Redirecting...`);
 
         setTimeout(() => {
-          window.location.href = 'owner-super-console-v15.html';
-        }, 1000);
+          redirectToDashboard(data.user.role);
+        }, 800);
 
-      } catch (e) {
-        showError('Failed to connect to API. Please check your connection.');
-        console.error('Login error:', e);
+      } catch (error) {
+        console.error('Login error:', error);
+        showError(error.message || 'Login failed. Please check your credentials.');
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = 'Sign In';
       }
     });
 
@@ -226,19 +317,14 @@
       errorDiv.style.display = 'none';
     }
 
-    // Check if already logged in
-    const existingToken = localStorage.getItem('NP_TOKEN');
-    if (existingToken) {
-      try {
-        const payload = JSON.parse(atob(existingToken.split('.')[1]));
-        if (payload.exp && payload.exp * 1000 > Date.now()) {
-          // Token still valid, redirect to ENTERPRISE console
-          window.location.href = 'owner-super-console-v15.html';
-        }
-      } catch (e) {
-        // Invalid token, stay on login page
-      }
+    function hideAlerts() {
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
     }
+
+    // Initialize
+    checkBackendStatus();
+    checkExistingSession();
   </script>
 </body>
 </html>
