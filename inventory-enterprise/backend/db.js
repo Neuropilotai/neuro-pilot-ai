@@ -477,14 +477,29 @@ const sqliteCompat = {
 // GRACEFUL SHUTDOWN
 // ============================================
 
+let isShuttingDown = false;
+
+/**
+ * Gracefully shutdown the database pool
+ * IDEMPOTENT: Safe to call multiple times
+ */
 async function shutdown() {
+  // Prevent double shutdown
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
+
   if (pool) {
     console.log('[DB] Closing database pool...');
     try {
       await pool.end();
       console.log('[DB] Database pool closed');
     } catch (err) {
-      console.error('[DB] Error closing pool:', err.message);
+      // Ignore "pool already ended" errors
+      if (!err.message.includes('end on pool more than once')) {
+        console.error('[DB] Error closing pool:', err.message);
+      }
     }
   }
 }

@@ -1652,6 +1652,10 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 // Graceful shutdown
+// NOTE: db.js also registers SIGTERM/SIGINT handlers for pool.end()
+// We use db.shutdown() here which is idempotent (safe to call multiple times)
+const db = require('./db');
+
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
 
@@ -1663,8 +1667,8 @@ process.on('SIGTERM', async () => {
   server.close(async () => {
     console.log('HTTP server closed');
 
-    await pool.end();
-    console.log('Database pool closed');
+    // Use db.shutdown() which is idempotent
+    await db.shutdown();
 
     process.exit(0);
   });
@@ -1687,8 +1691,8 @@ process.on('SIGINT', async () => {
   server.close(async () => {
     console.log('HTTP server closed');
 
-    await pool.end();
-    console.log('Database pool closed');
+    // Use db.shutdown() which is idempotent
+    await db.shutdown();
 
     process.exit(0);
   });
