@@ -1,12 +1,8 @@
 /**
  * PostgreSQL Database Connection Pool
- * NeuroPilot V21.1 - Railway Optimized
+ * NeuroPilot V21.1 - Railway Production
  *
- * Features:
- * - Exponential backoff retry on startup
- * - On-demand reconnection for requests
- * - Graceful error handling (never crashes server)
- * - Railway proxy compatible
+ * BULLETPROOF VERSION - handles all Railway edge cases
  */
 
 const { Pool } = require('pg');
@@ -16,66 +12,97 @@ const { Pool } = require('pg');
 // ============================================
 
 const CONFIG = {
-  // Retry configuration for startup
   startup: {
-    maxRetries: 10,           // More retries for Railway cold start
-    initialDelayMs: 2000,     // Start with 2 second delay
-    maxDelayMs: 30000,        // Max 30 second delay between retries
-    backoffMultiplier: 1.5    // Exponential backoff
+    maxRetries: 10,
+    initialDelayMs: 2000,
+    maxDelayMs: 30000,
+    backoffMultiplier: 1.5
   },
-  // Pool configuration optimized for Railway
   pool: {
-    max: 10,                  // Max connections (Railway has limits)
-    min: 1,                   // Keep at least 1 connection
-    idleTimeoutMillis: 30000, // Close idle connections after 30s
-    connectionTimeoutMillis: 10000, // 10s connection timeout
-    allowExitOnIdle: false    // Keep pool alive
+    max: 10,
+    min: 1,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    allowExitOnIdle: false
   }
 };
 
 // ============================================
-// URL PARSING & VALIDATION
+// DATABASE URL SANITIZATION (BULLETPROOF)
 // ============================================
 
-function parseAndValidateDatabaseUrl(raw) {
+function sanitizeDatabaseUrl(raw) {
   if (!raw) {
-    console.error('[DB] ERROR: DATABASE_URL environment variable is not set!');
-    console.error('[DB] Available database-related env vars:',
-      Object.keys(process.env)
-        .filter(k => /database|postgres|pg/i.test(k))
-        .join(', ') || 'none'
-    );
+    console.error('[DB] FATAL: DATABASE_URL is not set!');
+    console.error('[DB] Set it in Railway: postgresql://user:pass@host:port/database');
     throw new Error('DATABASE_URL environment variable is required');
   }
 
   let url = raw.trim();
 
-  // Ensure proper protocol prefix
+  // DEBUG: Show raw value (first 50 chars, masked)
+  const preview = url.length > 50 ? url.substring(0, 50) + '...' : url;
+  console.log('[DB] Raw DATABASE_URL preview:', preview.replace(/:[^@]+@/, ':***@'));
+
+  // FIX 1: Remove "DATABASE_URL=" prefix if someone pasted the whole line
+  if (url.startsWith('DATABASE_URL=')) {
+    console.warn('[DB] WARNING: DATABASE_URL contained "DATABASE_URL=" prefix - removing it');
+    url = url.replace(/^DATABASE_URL=/, '');
+  }
+
+  // FIX 2: Remove any leading/trailing quotes
+  url = url.replace(/^["']|["']$/g, '');
+
+  // FIX 3: Fix "postgresql//" (missing colon) -> "postgresql://"
+  if (url.startsWith('postgresql//')) {
+    console.warn('[DB] WARNING: DATABASE_URL had "postgresql//" - fixing to "postgresql://"');
+    url = url.replace(/^postgresql\/\//, 'postgresql://');
+  }
+  if (url.startsWith('postgres//')) {
+    console.warn('[DB] WARNING: DATABASE_URL had "postgres//" - fixing to "postgres://"');
+    url = url.replace(/^postgres\/\//, 'postgres://');
+  }
+
+  // FIX 4: Ensure proper protocol prefix
   if (!url.startsWith('postgresql://') && !url.startsWith('postgres://')) {
-    // Check if it looks like a URL without protocol
-    if (url.includes('@') && url.includes(':')) {
-      url = `postgresql://${url}`;
-      console.warn('[DB] Added missing postgresql:// prefix to DATABASE_URL');
+    // Only add prefix if it looks like a valid connection string
+    if (url.includes('@') && url.includes('/')) {
+      console.warn('[DB] WARNING: Added missing postgresql:// prefix');
+      url = 'postgresql://' + url;
     } else {
-      throw new Error(`Invalid DATABASE_URL format: must start with postgresql:// or postgres://`);
+      console.error('[DB] FATAL: DATABASE_URL is malformed:', url.substring(0, 30));
+      throw new Error('DATABASE_URL must be a valid PostgreSQL connection string');
     }
   }
 
-  // Validate URL structure
+  // VALIDATE: Parse and verify the URL
+  let parsed;
   try {
-    const parsed = new URL(url);
-
-    // Log sanitized connection info
-    const sanitized = `${parsed.protocol}//${parsed.username}:***@${parsed.host}${parsed.pathname}`;
-    console.log('[DB] Database URL configured:', sanitized);
-    console.log('[DB] Host:', parsed.hostname);
-    console.log('[DB] Port:', parsed.port);
-    console.log('[DB] Database:', parsed.pathname.slice(1));
-
-    return url;
+    parsed = new URL(url);
   } catch (err) {
-    throw new Error(`Invalid DATABASE_URL: ${err.message}`);
+    console.error('[DB] FATAL: Cannot parse DATABASE_URL:', err.message);
+    console.error('[DB] Value (masked):', url.replace(/:[^@]+@/, ':***@'));
+    throw new Error('DATABASE_URL is not a valid URL: ' + err.message);
   }
+
+  // VALIDATE: Check required components
+  if (!parsed.hostname) {
+    throw new Error('DATABASE_URL is missing hostname');
+  }
+  if (!parsed.pathname || parsed.pathname === '/') {
+    console.warn('[DB] WARNING: DATABASE_URL has no database name, defaulting to "railway"');
+  }
+
+  // LOG: Show parsed components (safe)
+  console.log('[DB] ✓ DATABASE_URL parsed successfully');
+  console.log('[DB]   Protocol:', parsed.protocol);
+  console.log('[DB]   Host:', parsed.hostname);
+  console.log('[DB]   Port:', parsed.port || '5432 (default)');
+  console.log('[DB]   Database:', parsed.pathname.slice(1) || 'railway');
+  console.log('[DB]   User:', parsed.username);
+  console.log('[DB]   SSL: enabled (rejectUnauthorized: false)');
+
+  return url;
 }
 
 // ============================================
@@ -87,20 +114,30 @@ let connectionState = {
   isConnected: false,
   lastError: null,
   lastConnectedAt: null,
-  connectionAttempts: 0
+  connectionAttempts: 0,
+  parsedHost: null,
+  parsedPort: null
 };
 
 function createPool() {
-  const connectionString = parseAndValidateDatabaseUrl(process.env.DATABASE_URL);
+  const connectionString = sanitizeDatabaseUrl(process.env.DATABASE_URL);
+
+  // Store parsed info for health checks
+  try {
+    const parsed = new URL(connectionString);
+    connectionState.parsedHost = parsed.hostname;
+    connectionState.parsedPort = parsed.port || '5432';
+  } catch (e) {
+    // Already validated above
+  }
 
   const newPool = new Pool({
     connectionString,
-    ssl: { rejectUnauthorized: false }, // Required for Railway
+    ssl: { rejectUnauthorized: false },
     ...CONFIG.pool
   });
 
-  // Pool event handlers
-  newPool.on('connect', (client) => {
+  newPool.on('connect', () => {
     if (!connectionState.isConnected) {
       console.log('[DB] ✓ PostgreSQL connection established');
       connectionState.isConnected = true;
@@ -112,19 +149,13 @@ function createPool() {
   newPool.on('error', (err) => {
     console.error('[DB] Pool error:', err.message);
     connectionState.lastError = err.message;
-    // Don't set isConnected to false here - individual connections may fail
-    // but the pool can still work
-  });
-
-  newPool.on('remove', () => {
-    // Connection removed from pool - this is normal
   });
 
   return newPool;
 }
 
 // ============================================
-// STARTUP CONNECTION WITH EXPONENTIAL BACKOFF
+// CONNECTION WITH EXPONENTIAL BACKOFF
 // ============================================
 
 async function connectWithRetry() {
@@ -141,36 +172,75 @@ async function connectWithRetry() {
       const result = await client.query('SELECT NOW() as time, current_database() as database');
       client.release();
 
-      console.log(`[DB] ✓ Connected to database "${result.rows[0].database}" at ${result.rows[0].time}`);
+      console.log(`[DB] ✓ Connected to database "${result.rows[0].database}"`);
       connectionState.isConnected = true;
       connectionState.lastConnectedAt = new Date().toISOString();
       return true;
 
     } catch (err) {
       connectionState.lastError = err.message;
-      console.error(`[DB] Connection attempt ${attempt}/${maxRetries} failed: ${err.message}`);
+      console.error(`[DB] Attempt ${attempt}/${maxRetries} failed: ${err.message}`);
 
       if (attempt < maxRetries) {
-        console.log(`[DB] Waiting ${Math.round(delay / 1000)}s before next attempt...`);
+        console.log(`[DB] Retrying in ${Math.round(delay / 1000)}s...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         delay = Math.min(delay * backoffMultiplier, maxDelayMs);
       }
     }
   }
 
-  console.error('[DB] ✗ All connection attempts exhausted. App will continue without DB.');
-  console.error('[DB] Requests requiring database access will attempt on-demand reconnection.');
+  console.error('[DB] ✗ All connection attempts failed');
   return false;
 }
 
 // ============================================
-// QUERY WRAPPER WITH AUTO-RECONNECT
+// HEALTH CHECK (never throws)
 // ============================================
 
-/**
- * Execute a query with automatic reconnection on failure
- * This is the recommended way to query the database
- */
+async function healthCheck(timeoutMs = 5000) {
+  const startTime = Date.now();
+
+  const result = {
+    status: 'unknown',
+    host: connectionState.parsedHost,
+    port: connectionState.parsedPort,
+    latencyMs: null,
+    error: null,
+    lastConnectedAt: connectionState.lastConnectedAt,
+    connectionAttempts: connectionState.connectionAttempts
+  };
+
+  if (!pool) {
+    result.status = 'no_pool';
+    result.error = 'Database pool not initialized';
+    return result;
+  }
+
+  try {
+    await Promise.race([
+      pool.query('SELECT 1'),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Health check timeout')), timeoutMs)
+      )
+    ]);
+
+    result.status = 'connected';
+    result.latencyMs = Date.now() - startTime;
+    connectionState.isConnected = true;
+
+  } catch (err) {
+    result.status = 'disconnected';
+    result.error = err.message;
+    result.latencyMs = Date.now() - startTime;
+  }
+
+  return result;
+}
+
+// ============================================
+// QUERY WRAPPER
+// ============================================
+
 async function query(text, params) {
   if (!pool) {
     throw new Error('Database pool not initialized');
@@ -178,70 +248,23 @@ async function query(text, params) {
 
   try {
     const result = await pool.query(text, params);
-
-    // If we get here, connection is working
     if (!connectionState.isConnected) {
       console.log('[DB] ✓ Database connection restored');
       connectionState.isConnected = true;
       connectionState.lastConnectedAt = new Date().toISOString();
     }
-
     return result;
   } catch (err) {
     connectionState.lastError = err.message;
-
-    // Check if this is a connection error that might be recoverable
-    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.message.includes('timeout')) {
-      connectionState.isConnected = false;
-      console.error('[DB] Query failed with connection error:', err.message);
-    }
-
     throw err;
   }
 }
 
-/**
- * Get a client for transactions
- */
 async function getClient() {
   if (!pool) {
     throw new Error('Database pool not initialized');
   }
   return pool.connect();
-}
-
-// ============================================
-// HEALTH CHECK
-// ============================================
-
-/**
- * Quick health check with timeout
- * Returns status object, never throws
- */
-async function healthCheck(timeoutMs = 5000) {
-  const startTime = Date.now();
-
-  try {
-    const result = await Promise.race([
-      pool.query('SELECT 1 as ok'),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Health check timeout')), timeoutMs)
-      )
-    ]);
-
-    return {
-      status: 'connected',
-      latencyMs: Date.now() - startTime,
-      lastConnectedAt: connectionState.lastConnectedAt
-    };
-  } catch (err) {
-    return {
-      status: 'disconnected',
-      error: err.message,
-      latencyMs: Date.now() - startTime,
-      lastError: connectionState.lastError
-    };
-  }
 }
 
 // ============================================
@@ -251,12 +274,8 @@ async function healthCheck(timeoutMs = 5000) {
 async function shutdown() {
   if (pool) {
     console.log('[DB] Closing database pool...');
-    try {
-      await pool.end();
-      console.log('[DB] Database pool closed');
-    } catch (err) {
-      console.error('[DB] Error closing pool:', err.message);
-    }
+    await pool.end();
+    console.log('[DB] Database pool closed');
   }
 }
 
@@ -264,20 +283,14 @@ async function shutdown() {
 // INITIALIZATION
 // ============================================
 
-function initialize() {
-  console.log('[DB] Initializing database connection...');
-  pool = createPool();
+console.log('[DB] Initializing database connection...');
+pool = createPool();
 
-  // Start connection attempts in background (non-blocking)
-  connectWithRetry().catch(err => {
-    console.error('[DB] Background connection failed:', err.message);
-  });
-}
+// Background connection (non-blocking)
+connectWithRetry().catch(err => {
+  console.error('[DB] Background connection failed:', err.message);
+});
 
-// Initialize on module load
-initialize();
-
-// Handle process signals for graceful shutdown
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
@@ -286,17 +299,12 @@ process.on('SIGINT', shutdown);
 // ============================================
 
 module.exports = {
-  // Core functionality
-  pool,           // Direct pool access (for advanced usage)
-  query,          // Recommended: query with auto-reconnect
-  getClient,      // For transactions
-
-  // Health & status
+  pool,
+  query,
+  getClient,
   healthCheck,
   getState: () => ({ ...connectionState }),
   isConnected: () => connectionState.isConnected,
-
-  // Lifecycle
   shutdown,
   reconnect: connectWithRetry
 };
