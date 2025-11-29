@@ -1484,46 +1484,71 @@ app.post('/api/privacy/do-not-sell', authGuard(['staff', 'manager', 'admin', 'ow
 // ============================================
 
 console.log('[STARTUP] Loading routes...');
+
+// Safe route loader - logs errors but doesn't crash the server
+function safeRequire(path, name) {
+  try {
+    console.log(`[STARTUP] Loading ${name}...`);
+    const route = require(path);
+    console.log(`[STARTUP] ✓ ${name} loaded`);
+    return route;
+  } catch (err) {
+    console.error(`[STARTUP] ✗ Failed to load ${name}: ${err.message}`);
+    console.error(`[STARTUP]   Stack: ${err.stack?.split('\n')[1] || 'N/A'}`);
+    // Return a placeholder router that returns 503 for all requests
+    const express = require('express');
+    const placeholder = express.Router();
+    placeholder.all('*', (req, res) => {
+      res.status(503).json({
+        error: 'Service temporarily unavailable',
+        route: name,
+        reason: err.message
+      });
+    });
+    return placeholder;
+  }
+}
+
 // Auth routes (no auth guard for login/register, but audit login attempts)
-console.log('[STARTUP] Loading auth route...');
-app.use('/api/auth', auditLog('AUTH'), require('./routes/auth'));
-console.log('[STARTUP] Auth route loaded');
+app.use('/api/auth', auditLog('AUTH'), safeRequire('./routes/auth', 'auth'));
 
 // User profile routes (requires authentication)
-app.use('/api/me', authGuard(['staff', 'manager', 'admin', 'owner']), auditLog('USER_PROFILE'), require('./routes/me'));
+app.use('/api/me', authGuard(['staff', 'manager', 'admin', 'owner']), auditLog('USER_PROFILE'), safeRequire('./routes/me', 'me'));
 
 // All routes require authentication (staff role minimum) + audit logging
 // All routes now use PostgreSQL
 // FIXED: Re-enabled inventory route, registered as both /api/items and /api/inventory for compatibility
-const inventoryRouter = require('./routes/inventory');
-const inventoryReconcileRouter = require('./routes/inventory-reconcile');
+const inventoryRouter = safeRequire('./routes/inventory', 'inventory');
+const inventoryReconcileRouter = safeRequire('./routes/inventory-reconcile', 'inventory-reconcile');
 app.use('/api/items', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), inventoryRouter);
 app.use('/api/inventory', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY'), inventoryRouter);
 app.use('/api/inventory', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY_RECONCILE'), inventoryReconcileRouter);
 
-app.use('/api/vendors', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR'), require('./routes/vendors'));
-app.use('/api/recipes', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('RECIPE'), require('./routes/recipes'));
-app.use('/api/menu', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('MENU'), require('./routes/menu'));
-app.use('/api/population', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POPULATION'), require('./routes/population'));
-app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('WASTE'), require('./routes/waste'));
-app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), require('./routes/pdfs'));
-app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS'), require('./routes/locations'));
+app.use('/api/vendors', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR'), safeRequire('./routes/vendors', 'vendors'));
+app.use('/api/recipes', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('RECIPE'), safeRequire('./routes/recipes', 'recipes'));
+app.use('/api/menu', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('MENU'), safeRequire('./routes/menu', 'menu'));
+app.use('/api/population', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POPULATION'), safeRequire('./routes/population', 'population'));
+app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('WASTE'), safeRequire('./routes/waste', 'waste'));
+app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), safeRequire('./routes/pdfs', 'pdfs'));
+app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS'), safeRequire('./routes/locations', 'locations'));
 
 // V21.1 Owner Console Routes - Full Feature Restoration
-app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), require('./routes/owner-ops'));
-app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), require('./routes/owner'));
-app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), require('./routes/governance'));
+app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
+app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
+app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), safeRequire('./routes/governance', 'governance'));
 
 // Diagnostic routes (temporary - for deployment validation)
-app.use('/diag', require('./routes/diag'));
+app.use('/diag', safeRequire('./routes/diag', 'diag'));
 
 // POS routes (commissary point of sale) + audit logging
-app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), require('./routes/pos.catalog'));
-app.use('/api/pos/registers', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REGISTER'), require('./routes/pos.registers'));
-app.use('/api/pos/orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_ORDER'), require('./routes/pos.orders'));
-app.use('/api/pos/payments', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, validatePayment(), auditLog('POS_PAYMENT'), require('./routes/pos.payments'));
-app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REPORT'), require('./routes/pos.reports'));
-app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), require('./routes/pdfs.pos'));
+app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), safeRequire('./routes/pos.catalog', 'pos.catalog'));
+app.use('/api/pos/registers', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REGISTER'), safeRequire('./routes/pos.registers', 'pos.registers'));
+app.use('/api/pos/orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_ORDER'), safeRequire('./routes/pos.orders', 'pos.orders'));
+app.use('/api/pos/payments', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, validatePayment(), auditLog('POS_PAYMENT'), safeRequire('./routes/pos.payments', 'pos.payments'));
+app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REPORT'), safeRequire('./routes/pos.reports', 'pos.reports'));
+app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), safeRequire('./routes/pdfs.pos', 'pdfs.pos'));
+
+console.log('[STARTUP] ✓ All routes registered');
 
 // ============================================
 // STATIC FILES & ERROR HANDLERS
