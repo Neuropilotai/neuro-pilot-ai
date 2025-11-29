@@ -25,14 +25,17 @@ function normalizeDatabaseUrl(raw) {
 
 // Initialize connection pool with normalized URL
 const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
-const ssl = process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false;
+
+// Log connection info for debugging (mask password)
+const maskedUrl = connectionString.replace(/:([^@]+)@/, ':***@');
+console.log('[DB] Connecting to:', maskedUrl);
 
 const pool = new Pool({
   connectionString,
-  ssl,
+  ssl: { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000
+  connectionTimeoutMillis: 30000
 });
 
 // Handle pool errors
