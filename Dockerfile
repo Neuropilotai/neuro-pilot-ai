@@ -26,8 +26,8 @@ COPY inventory-enterprise/backend/ ./
 # Copy frontend static files
 COPY inventory-enterprise/frontend/public/ ./public/
 
-# Railway provides PORT dynamically, expose common default
-EXPOSE 3001
+# Railway provides PORT dynamically (usually 8080), expose for documentation
+EXPOSE 8080
 
 # Don't run as root for security
 RUN addgroup --system --gid 1001 nodejs \
@@ -35,9 +35,8 @@ RUN addgroup --system --gid 1001 nodejs \
     && chown -R appuser:nodejs /app
 USER appuser
 
-# Railway healthcheck - start period gives time for DB connection
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-3001}/health || exit 1
+# NOTE: Removed Docker HEALTHCHECK - Railway handles healthchecks via /health endpoint
+# Docker HEALTHCHECK can conflict with Railway's platform healthcheck logic
 
 # Start the application
 # init-postgres.js runs migrations, then starts server

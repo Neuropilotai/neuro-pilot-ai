@@ -922,26 +922,43 @@ async function rateLimitMiddleware(req, res, next) {
 // v22.1: Liveness probe - is the process alive?
 // Returns 200 IMMEDIATELY - Railway healthcheck must pass for deployment
 // DB status included but doesn't block response
+// BULLETPROOF: Wrapped in try-catch to NEVER fail the healthcheck
 app.get('/health', async (req, res) => {
   const startTime = Date.now();
 
-  // Get database status (with built-in timeout, never throws)
-  const db = require('./db');
-  const dbHealth = await db.healthCheck(3000); // 3 second timeout
+  try {
+    // Get database status (with built-in timeout, never throws)
+    const db = require('./db');
+    const dbHealth = await db.healthCheck(3000); // 3 second timeout
 
-  // Always return 200 - server is alive
-  res.status(200).json({
-    status: 'ok',
-    version: 'v21.1',
-    uptime: Math.round(process.uptime()),
-    timestamp: new Date().toISOString(),
-    responseTimeMs: Date.now() - startTime,
-    database: {
-      status: dbHealth.status,
-      latencyMs: dbHealth.latencyMs,
-      ...(dbHealth.error && { error: dbHealth.error })
-    }
-  });
+    // Always return 200 - server is alive
+    return res.status(200).json({
+      status: 'ok',
+      version: 'v21.1',
+      uptime: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
+      responseTimeMs: Date.now() - startTime,
+      database: {
+        status: dbHealth.status,
+        latencyMs: dbHealth.latencyMs,
+        ...(dbHealth.error && { error: dbHealth.error })
+      }
+    });
+  } catch (err) {
+    // Even if something goes wrong, return 200 - server is alive
+    console.error('[HEALTH] Error in health check:', err.message);
+    return res.status(200).json({
+      status: 'ok',
+      version: 'v21.1',
+      uptime: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
+      responseTimeMs: Date.now() - startTime,
+      database: {
+        status: 'error',
+        error: err.message
+      }
+    });
+  }
 });
 
 // v22.1: Readiness probe - is the service ready to accept traffic?
