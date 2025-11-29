@@ -920,28 +920,33 @@ async function rateLimitMiddleware(req, res, next) {
 // ============================================
 
 // v22.1: Liveness probe - is the process alive?
-// Returns 200 if server is running (Kubernetes liveness)
-app.get('/health', async (req, res) => {
-  let dbStatus = 'unknown';
-  let dbError = null;
+// Returns 200 IMMEDIATELY if server is running (Railway liveness)
+// DB check is async with 3-second timeout - never blocks health response
+app.get('/health', (req, res) => {
+  // Immediately respond to prove the server is alive
+  // This is critical for Railway healthcheck success
+  const startTime = Date.now();
 
-  try {
-    await pool.query('SELECT 1');
-    dbStatus = 'connected';
-  } catch (error) {
-    dbStatus = 'disconnected';
-    dbError = error.message;
-    console.error('[HEALTH] Database check failed:', error.message);
-  }
+  // Quick async DB check with timeout - don't await it blocking the response
+  const dbCheckPromise = Promise.race([
+    pool.query('SELECT 1').then(() => 'connected').catch(() => 'disconnected'),
+    new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))
+  ]);
 
-  // Always return 200 so Railway knows the server is running
-  // Use success: false only when DB is down to indicate degraded state
-  res.json({
-    success: dbStatus === 'connected',
+  dbCheckPromise.then(dbStatus => {
+    if (dbStatus !== 'connected') {
+      console.log(`[HEALTH] Database status: ${dbStatus}`);
+    }
+  });
+
+  // Always return 200 immediately
+  res.status(200).json({
+    success: true,
+    status: 'alive',
     version: 'v21.1',
-    database: dbStatus,
     uptime: process.uptime(),
-    ...(dbError && { dbError })
+    timestamp: new Date().toISOString(),
+    responseTimeMs: Date.now() - startTime
   });
 });
 
