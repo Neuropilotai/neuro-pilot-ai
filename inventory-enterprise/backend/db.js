@@ -2,7 +2,20 @@
  * PostgreSQL Database Connection Pool
  * NeuroPilot V21.1 - Railway Production
  *
- * BULLETPROOF VERSION - handles all Railway edge cases
+ * UNIFIED DB LAYER - PostgreSQL only, no SQLite dependencies
+ *
+ * Provides:
+ * - pool: Raw pg.Pool for direct access
+ * - query(text, params): Parameterized query helper
+ * - transaction(fn): Transaction wrapper with auto-commit/rollback
+ * - healthCheck(timeoutMs): Non-throwing health check
+ * - SQLite-compatible API (get, all, run) for legacy services
+ *
+ * Environment variables:
+ * - DATABASE_URL: PostgreSQL connection string (required)
+ * - DB_LOG_QUERIES: Set to 'true' to log all queries (optional)
+ * - DB_POOL_MAX: Max pool connections (default: 10)
+ * - DB_POOL_MIN: Min pool connections (default: 1)
  */
 
 const { Pool } = require('pg');
@@ -19,11 +32,14 @@ const CONFIG = {
     backoffMultiplier: 1.5
   },
   pool: {
-    max: 10,
-    min: 1,
+    max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+    min: parseInt(process.env.DB_POOL_MIN, 10) || 1,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     allowExitOnIdle: false
+  },
+  logging: {
+    queries: process.env.DB_LOG_QUERIES === 'true'
   }
 };
 
@@ -102,11 +118,11 @@ function sanitizeDatabaseUrl(raw) {
   console.log('[DB]   User:', parsed.username);
   console.log('[DB]   SSL: enabled (rejectUnauthorized: false)');
 
-  return url;
+  return { url, parsed };
 }
 
 // ============================================
-// POOL INITIALIZATION
+// CONNECTION STATE
 // ============================================
 
 let pool = null;
@@ -116,23 +132,24 @@ let connectionState = {
   lastConnectedAt: null,
   connectionAttempts: 0,
   parsedHost: null,
-  parsedPort: null
+  parsedPort: null,
+  parsedDatabase: null
 };
 
-function createPool() {
-  const connectionString = sanitizeDatabaseUrl(process.env.DATABASE_URL);
+// ============================================
+// POOL INITIALIZATION
+// ============================================
 
-  // Store parsed info for health checks
-  try {
-    const parsed = new URL(connectionString);
-    connectionState.parsedHost = parsed.hostname;
-    connectionState.parsedPort = parsed.port || '5432';
-  } catch (e) {
-    // Already validated above
-  }
+function createPool() {
+  const { url, parsed } = sanitizeDatabaseUrl(process.env.DATABASE_URL);
+
+  // Store parsed info for health checks and diagnostics
+  connectionState.parsedHost = parsed.hostname;
+  connectionState.parsedPort = parsed.port || '5432';
+  connectionState.parsedDatabase = parsed.pathname.slice(1) || 'railway';
 
   const newPool = new Pool({
-    connectionString,
+    connectionString: url,
     ssl: { rejectUnauthorized: false },
     ...CONFIG.pool
   });
@@ -149,6 +166,7 @@ function createPool() {
   newPool.on('error', (err) => {
     console.error('[DB] Pool error:', err.message);
     connectionState.lastError = err.message;
+    connectionState.isConnected = false;
   });
 
   return newPool;
@@ -169,7 +187,7 @@ async function connectWithRetry() {
       console.log(`[DB] Connection attempt ${attempt}/${maxRetries}...`);
 
       const client = await pool.connect();
-      const result = await client.query('SELECT NOW() as time, current_database() as database');
+      const result = await client.query('SELECT NOW() as time, current_database() as database, version() as version');
       client.release();
 
       console.log(`[DB] ✓ Connected to database "${result.rows[0].database}"`);
@@ -194,9 +212,120 @@ async function connectWithRetry() {
 }
 
 // ============================================
+// QUERY HELPER (Primary API)
+// ============================================
+
+/**
+ * Execute a parameterized query
+ * @param {string} text - SQL query with $1, $2, etc. placeholders
+ * @param {Array} params - Query parameters
+ * @returns {Promise<pg.QueryResult>}
+ */
+async function query(text, params = []) {
+  if (!pool) {
+    throw new Error('Database pool not initialized');
+  }
+
+  const start = Date.now();
+
+  try {
+    const result = await pool.query(text, params);
+
+    // Optional query logging
+    if (CONFIG.logging.queries) {
+      const duration = Date.now() - start;
+      console.log(`[DB] Query (${duration}ms): ${text.substring(0, 80)}...`);
+    }
+
+    // Track connection state
+    if (!connectionState.isConnected) {
+      console.log('[DB] ✓ Database connection restored');
+      connectionState.isConnected = true;
+      connectionState.lastConnectedAt = new Date().toISOString();
+    }
+
+    return result;
+  } catch (err) {
+    connectionState.lastError = err.message;
+    console.error('[DB] Query error:', err.message);
+    console.error('[DB] Query:', text.substring(0, 100));
+    throw err;
+  }
+}
+
+// ============================================
+// TRANSACTION HELPER
+// ============================================
+
+/**
+ * Execute a function within a transaction
+ * Automatically commits on success, rolls back on error
+ *
+ * @param {Function} fn - Async function receiving a client
+ * @returns {Promise<any>} Result of fn
+ *
+ * @example
+ * const result = await db.transaction(async (client) => {
+ *   await client.query('INSERT INTO users...');
+ *   await client.query('INSERT INTO audit_log...');
+ *   return { success: true };
+ * });
+ */
+async function transaction(fn) {
+  if (!pool) {
+    throw new Error('Database pool not initialized');
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const result = await fn(client);
+
+    await client.query('COMMIT');
+
+    if (!connectionState.isConnected) {
+      connectionState.isConnected = true;
+      connectionState.lastConnectedAt = new Date().toISOString();
+    }
+
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    connectionState.lastError = err.message;
+    console.error('[DB] Transaction rolled back:', err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ============================================
+// GET CLIENT (for manual transactions)
+// ============================================
+
+/**
+ * Get a client from the pool for manual transaction control
+ * IMPORTANT: Always release the client when done
+ * @returns {Promise<pg.PoolClient>}
+ */
+async function getClient() {
+  if (!pool) {
+    throw new Error('Database pool not initialized');
+  }
+  return pool.connect();
+}
+
+// ============================================
 // HEALTH CHECK (never throws)
 // ============================================
 
+/**
+ * Non-throwing health check
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<Object>} Health status object
+ */
 async function healthCheck(timeoutMs = 5000) {
   const startTime = Date.now();
 
@@ -204,10 +333,12 @@ async function healthCheck(timeoutMs = 5000) {
     status: 'unknown',
     host: connectionState.parsedHost,
     port: connectionState.parsedPort,
+    database: connectionState.parsedDatabase,
     latencyMs: null,
     error: null,
     lastConnectedAt: connectionState.lastConnectedAt,
-    connectionAttempts: connectionState.connectionAttempts
+    connectionAttempts: connectionState.connectionAttempts,
+    poolStats: null
   };
 
   if (!pool) {
@@ -215,6 +346,13 @@ async function healthCheck(timeoutMs = 5000) {
     result.error = 'Database pool not initialized';
     return result;
   }
+
+  // Add pool stats
+  result.poolStats = {
+    total: pool.totalCount,
+    idle: pool.idleCount,
+    waiting: pool.waitingCount
+  };
 
   try {
     await Promise.race([
@@ -232,40 +370,108 @@ async function healthCheck(timeoutMs = 5000) {
     result.status = 'disconnected';
     result.error = err.message;
     result.latencyMs = Date.now() - startTime;
+    connectionState.isConnected = false;
   }
 
   return result;
 }
 
 // ============================================
-// QUERY WRAPPER
+// SQLITE-COMPATIBLE API (Legacy Support)
 // ============================================
 
-async function query(text, params) {
-  if (!pool) {
-    throw new Error('Database pool not initialized');
+/**
+ * Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
+ * @param {string} sql - SQL query with ? placeholders
+ * @returns {string} SQL with $1, $2, etc. placeholders
+ */
+function convertPlaceholders(sql) {
+  // If already has PostgreSQL placeholders, return as-is
+  if (/\$\d+/.test(sql)) {
+    return sql;
   }
 
-  try {
-    const result = await pool.query(text, params);
-    if (!connectionState.isConnected) {
-      console.log('[DB] ✓ Database connection restored');
-      connectionState.isConnected = true;
-      connectionState.lastConnectedAt = new Date().toISOString();
+  // Convert ? to $1, $2, etc.
+  let index = 0;
+  return sql.replace(/\?/g, () => `$${++index}`);
+}
+
+/**
+ * SQLite-compatible adapter for legacy services
+ * Provides get(), all(), run() methods that work with PostgreSQL
+ *
+ * Features:
+ * - Automatically converts SQLite ? placeholders to PostgreSQL $1, $2, etc.
+ * - Returns single row for get(), array for all()
+ * - Returns { lastID, changes } for run()
+ */
+const sqliteCompat = {
+  /**
+   * Get a single row (like SQLite db.get())
+   * @param {string} sql - SQL query (supports both ? and $1 placeholders)
+   * @param {Array} params - Query parameters
+   * @returns {Promise<Object|undefined>} Single row or undefined
+   */
+  async get(sql, params = []) {
+    try {
+      const pgSql = convertPlaceholders(sql);
+      const result = await query(pgSql, params);
+      return result.rows[0];
+    } catch (err) {
+      console.error('[DB] get() error:', err.message);
+      throw err;
     }
-    return result;
-  } catch (err) {
-    connectionState.lastError = err.message;
-    throw err;
-  }
-}
+  },
 
-async function getClient() {
-  if (!pool) {
-    throw new Error('Database pool not initialized');
+  /**
+   * Get all rows (like SQLite db.all())
+   * @param {string} sql - SQL query (supports both ? and $1 placeholders)
+   * @param {Array} params - Query parameters
+   * @returns {Promise<Array>} Array of rows
+   */
+  async all(sql, params = []) {
+    try {
+      const pgSql = convertPlaceholders(sql);
+      const result = await query(pgSql, params);
+      return result.rows;
+    } catch (err) {
+      console.error('[DB] all() error:', err.message);
+      throw err;
+    }
+  },
+
+  /**
+   * Run a mutation (like SQLite db.run())
+   * @param {string} sql - SQL query (supports both ? and $1 placeholders)
+   * @param {Array} params - Query parameters
+   * @returns {Promise<Object>} { lastID, changes }
+   */
+  async run(sql, params = []) {
+    try {
+      const pgSql = convertPlaceholders(sql);
+      const result = await query(pgSql, params);
+      return {
+        lastID: result.rows[0]?.id || null,
+        changes: result.rowCount
+      };
+    } catch (err) {
+      console.error('[DB] run() error:', err.message);
+      throw err;
+    }
+  },
+
+  /**
+   * Execute raw query (same as query(), no placeholder conversion)
+   */
+  query: query,
+
+  /**
+   * Check if database is available
+   */
+  isAvailable() {
+    return connectionState.isConnected;
   }
-  return pool.connect();
-}
+};
 
 // ============================================
 // GRACEFUL SHUTDOWN
@@ -274,8 +480,12 @@ async function getClient() {
 async function shutdown() {
   if (pool) {
     console.log('[DB] Closing database pool...');
-    await pool.end();
-    console.log('[DB] Database pool closed');
+    try {
+      await pool.end();
+      console.log('[DB] Database pool closed');
+    } catch (err) {
+      console.error('[DB] Error closing pool:', err.message);
+    }
   }
 }
 
@@ -283,7 +493,7 @@ async function shutdown() {
 // INITIALIZATION
 // ============================================
 
-console.log('[DB] Initializing database connection...');
+console.log('[DB] Initializing PostgreSQL connection...');
 pool = createPool();
 
 // Background connection (non-blocking)
@@ -291,6 +501,7 @@ connectWithRetry().catch(err => {
   console.error('[DB] Background connection failed:', err.message);
 });
 
+// Graceful shutdown handlers
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
@@ -299,12 +510,37 @@ process.on('SIGINT', shutdown);
 // ============================================
 
 module.exports = {
+  // Primary PostgreSQL API
   pool,
   query,
+  transaction,
   getClient,
   healthCheck,
+
+  // Connection state
   getState: () => ({ ...connectionState }),
   isConnected: () => connectionState.isConnected,
+
+  // Lifecycle
   shutdown,
-  reconnect: connectWithRetry
+  reconnect: connectWithRetry,
+
+  // SQLite-compatible adapter for legacy services
+  // Usage: const db = require('./db').sqliteCompat;
+  sqliteCompat,
+
+  // Aliases for direct SQLite-style usage
+  // Usage: const { get, all, run } = require('./db');
+  get: sqliteCompat.get,
+  all: sqliteCompat.all,
+  run: sqliteCompat.run
+};
+
+// Also export pool as global.db for legacy routes that use global.db.query()
+global.db = {
+  query,
+  pool,
+  transaction,
+  getClient,
+  ...sqliteCompat
 };
