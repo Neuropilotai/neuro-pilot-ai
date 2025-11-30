@@ -1,4 +1,11 @@
 /**
+ * @deprecated DEPRECATED IN V21.1 - SQLite-only, not mounted in production
+ *
+ * This module uses SQLite (sqlite3) which is not available in the
+ * Railway PostgreSQL production environment. AI forecasting will be
+ * re-implemented with PostgreSQL in Phase 4.
+ *
+ * Original description:
  * AI Intelligence Layer API Routes
  * Forecasting, reorder optimization, and anomaly detection endpoints
  */

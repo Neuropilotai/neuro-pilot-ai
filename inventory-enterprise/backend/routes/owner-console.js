@@ -1,8 +1,14 @@
 /**
+ * @deprecated DEPRECATED IN V21.1 - SQLite-only, not mounted in production
+ *
+ * This module uses SQLite (sqlite3) which is not available in the
+ * Railway PostgreSQL production environment. Use /api/owner routes instead.
+ *
+ * Original description:
  * Owner Command Center (OCC) Routes
  * End-to-end console for inventory operations, PDF management, AI control
  *
- * @version 3.1.0
+ * @version 3.1.0 (DEPRECATED)
  * @author NeuroInnovate AI Team
  */
 

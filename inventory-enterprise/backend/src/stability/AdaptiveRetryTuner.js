@@ -1,4 +1,11 @@
 /**
+ * @deprecated DEPRECATED IN V21.1 - SQLite-only, not used in production
+ *
+ * This module uses SQLite (better-sqlite3) which is not available in the
+ * Railway PostgreSQL production environment. Will be re-implemented with
+ * PostgreSQL in a future version.
+ *
+ * Original description:
  * Adaptive Retry Tuner - Learns optimal DB retry parameters from telemetry
  *
  * Analyzes stability_observations to detect patterns:
@@ -7,7 +14,7 @@
  * - Consistent success with low attempts → reduce delay (faster response)
  * - P95 duration spikes → increase base delay
  *
- * @version 16.3.0
+ * @version 16.3.0 (DEPRECATED)
  * @author NeuroInnovate AI Team
  */
 

@@ -1,4 +1,10 @@
 /**
+ * @deprecated DEPRECATED IN V21.1 - Uses SQLite DB helpers, not fully compatible
+ *
+ * This module was designed for SQLite compatibility layer and may not work
+ * correctly with PostgreSQL-only mode. Use /api/governance routes instead.
+ *
+ * Original description:
  * Live Governance Dashboard Routes (v16.4.0)
  * Real-time composite + pillar scores with sparklines
  *
@@ -6,6 +12,8 @@
  * - GET /api/governance/live/status - Latest scores for all pillars
  * - GET /api/governance/live/sparklines - Time series data for sparklines
  * - GET /api/governance/live/events - SSE stream for real-time updates (optional)
+ *
+ * @version 16.4.0 (DEPRECATED)
  */
 
 'use strict';

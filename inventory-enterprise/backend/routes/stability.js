@@ -1,4 +1,11 @@
 /**
+ * @deprecated DEPRECATED IN V21.1 - NOT MOUNTED IN PRODUCTION
+ *
+ * This module uses SQLite (better-sqlite3) which is not available in the
+ * Railway PostgreSQL production environment. The Predictive Stability Layer
+ * will be re-implemented with PostgreSQL in a future version.
+ *
+ * Original description:
  * Stability Controller API Routes
  * Provides RBAC-protected endpoints for Predictive Stability Layer
  *
@@ -11,7 +18,7 @@
  * - PUT    /api/stability/policy       - Update policy (owner only)
  * - GET    /api/stability/health       - Stability health score (governance integration)
  *
- * @version 16.3.0
+ * @version 16.3.0 (DEPRECATED)
  * @author NeuroInnovate AI Team
  */
 

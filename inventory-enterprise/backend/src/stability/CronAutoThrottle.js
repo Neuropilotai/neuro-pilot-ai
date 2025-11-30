@@ -1,4 +1,11 @@
 /**
+ * @deprecated DEPRECATED IN V21.1 - SQLite-only, not used in production
+ *
+ * This module uses SQLite (better-sqlite3) which is not available in the
+ * Railway PostgreSQL production environment. Will be re-implemented with
+ * PostgreSQL in a future version.
+ *
+ * Original description:
  * Cron Auto-Throttle Controller
  * Dynamically adjusts cron job frequency based on system load and DB contention
  *
@@ -8,7 +15,7 @@
  * - Provides throttle recommendations for Phase 3/4 cron schedulers
  * - Integrates with existing watchdog mutex pattern
  *
- * @version 16.3.0
+ * @version 16.3.0 (DEPRECATED)
  * @author NeuroInnovate AI Team
  */
 
