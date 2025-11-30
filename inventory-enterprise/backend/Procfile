@@ -1,4 +1,5 @@
 # V21.1 Backend - Railway Procfile
 # Using server-v21_1.js with PostgreSQL database
+# Runs init-postgres.js to apply migrations before starting server
 
-web: node server-v21_1.js
+web: node scripts/init-postgres.js && node server-v21_1.js
