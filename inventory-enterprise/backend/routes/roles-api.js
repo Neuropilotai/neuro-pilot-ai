@@ -37,11 +37,11 @@ router.get('/',
     const includeSystem = req.query.include_system !== false;
 
     try {
-      let whereClause = 'WHERE tenant_id = ?';
+      let whereClause = 'WHERE tenant_id = $1';
       const params = [tenantId];
 
       if (!includeSystem) {
-        whereClause += ' AND is_system = 0';
+        whereClause += ' AND is_system = false';
       }
 
       const rolesResult = await db.query(`
@@ -103,7 +103,7 @@ router.post('/',
     try {
       // Check if role name already exists in this tenant
       const existingRole = await db.query(
-        'SELECT role_id FROM roles WHERE tenant_id = ? AND name = ?',
+        'SELECT role_id FROM roles WHERE tenant_id = $1 AND name = $2',
         [tenantId, name]
       );
 
@@ -117,7 +117,7 @@ router.post('/',
       // Create role
       const roleResult = await db.query(`
         INSERT INTO roles (tenant_id, name, description, is_system)
-        VALUES (?, ?, ?, 0)
+        VALUES ($1, $2, $3, false)
         RETURNING role_id, name, description, is_system, created_at
       `, [tenantId, name, description]);
 
@@ -125,15 +125,16 @@ router.post('/',
 
       // Assign permissions if provided
       if (permissions.length > 0) {
-        // Verify all permissions exist
+        // Verify all permissions exist (build $1, $2, ... placeholders)
+        const permissionPlaceholders = permissions.map((_, i) => `$${i + 1}`).join(',');
         const permissionCheck = await db.query(
-          `SELECT permission_id FROM permissions WHERE permission_id IN (${permissions.map(() => '?').join(',')})`,
+          `SELECT permission_id FROM permissions WHERE permission_id IN (${permissionPlaceholders})`,
           permissions
         );
 
         if (permissionCheck.rows.length !== permissions.length) {
           // Rollback role creation
-          await db.query('DELETE FROM roles WHERE role_id = ?', [newRole.role_id]);
+          await db.query('DELETE FROM roles WHERE role_id = $1', [newRole.role_id]);
           return res.status(400).json({
             error: 'One or more invalid permission IDs',
             code: 'INVALID_PERMISSION_IDS'
@@ -143,7 +144,7 @@ router.post('/',
         // Insert role-permission mappings
         const insertPromises = permissions.map(permissionId =>
           db.query(
-            'INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)',
+            'INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)',
             [newRole.role_id, permissionId]
           )
         );
@@ -200,7 +201,7 @@ router.get('/:id',
           created_at,
           updated_at
         FROM roles
-        WHERE role_id = ? AND tenant_id = ?
+        WHERE role_id = $1 AND tenant_id = $2
       `, [id, tenantId]);
 
       if (roleResult.rows.length === 0) {
@@ -223,13 +224,13 @@ router.get('/:id',
           p.action
         FROM role_permissions rp
         JOIN permissions p ON rp.permission_id = p.permission_id
-        WHERE rp.role_id = ?
+        WHERE rp.role_id = $1
         ORDER BY p.category, p.name
       `, [id]);
 
       // Get user count
       const userCountResult = await db.query(
-        'SELECT COUNT(*) as count FROM tenant_users WHERE role_id = ?',
+        'SELECT COUNT(*) as count FROM tenant_users WHERE role_id = $1',
         [id]
       );
 
@@ -283,7 +284,7 @@ router.put('/:id',
     try {
       // Get existing role
       const existingRole = await db.query(
-        'SELECT role_id, name, is_system FROM roles WHERE role_id = ? AND tenant_id = ?',
+        'SELECT role_id, name, is_system FROM roles WHERE role_id = $1 AND tenant_id = $2',
         [id, tenantId]
       );
 
@@ -305,7 +306,7 @@ router.put('/:id',
       // If name is being changed, check for conflicts
       if (name && name !== existingRole.rows[0].name) {
         const nameConflict = await db.query(
-          'SELECT role_id FROM roles WHERE tenant_id = ? AND name = ? AND role_id != ?',
+          'SELECT role_id FROM roles WHERE tenant_id = $1 AND name = $2 AND role_id != $3',
           [tenantId, name, id]
         );
 
@@ -317,17 +318,18 @@ router.put('/:id',
         }
       }
 
-      // Build update query
+      // Build update query with PostgreSQL $n placeholders
       const updates = [];
       const params = [];
+      let paramIndex = 1;
 
       if (name) {
-        updates.push('name = ?');
+        updates.push(`name = $${paramIndex++}`);
         params.push(name);
       }
 
       if (description !== undefined) {
-        updates.push('description = ?');
+        updates.push(`description = $${paramIndex++}`);
         params.push(description);
       }
 
@@ -338,18 +340,18 @@ router.put('/:id',
         });
       }
 
-      updates.push('updated_at = datetime(\'now\')');
+      updates.push('updated_at = NOW()');
       params.push(id, tenantId);
 
       await db.query(`
         UPDATE roles
         SET ${updates.join(', ')}
-        WHERE role_id = ? AND tenant_id = ?
+        WHERE role_id = $${paramIndex++} AND tenant_id = $${paramIndex}
       `, params);
 
       // Fetch updated role
       const updatedRole = await db.query(
-        'SELECT * FROM roles WHERE role_id = ?',
+        'SELECT * FROM roles WHERE role_id = $1',
         [id]
       );
 
@@ -394,7 +396,7 @@ router.delete('/:id',
     try {
       // Get role
       const roleResult = await db.query(
-        'SELECT role_id, name, is_system FROM roles WHERE role_id = ? AND tenant_id = ?',
+        'SELECT role_id, name, is_system FROM roles WHERE role_id = $1 AND tenant_id = $2',
         [id, tenantId]
       );
 
@@ -415,23 +417,23 @@ router.delete('/:id',
 
       // Check if role has active users
       const userCount = await db.query(
-        'SELECT COUNT(*) as count FROM tenant_users WHERE role_id = ?',
+        'SELECT COUNT(*) as count FROM tenant_users WHERE role_id = $1',
         [id]
       );
 
-      if (userCount.rows[0].count > 0) {
+      if (parseInt(userCount.rows[0].count, 10) > 0) {
         return res.status(400).json({
           error: 'Cannot delete role with active users',
           code: 'ROLE_HAS_USERS',
-          user_count: userCount.rows[0].count
+          user_count: parseInt(userCount.rows[0].count, 10)
         });
       }
 
       // Delete role permissions first
-      await db.query('DELETE FROM role_permissions WHERE role_id = ?', [id]);
+      await db.query('DELETE FROM role_permissions WHERE role_id = $1', [id]);
 
       // Delete role
-      await db.query('DELETE FROM roles WHERE role_id = ?', [id]);
+      await db.query('DELETE FROM roles WHERE role_id = $1', [id]);
 
       console.log(`✅ Deleted role: ${id}`);
 
@@ -473,7 +475,7 @@ router.get('/:id/permissions',
     try {
       // Verify role exists and belongs to tenant
       const role = await db.query(
-        'SELECT role_id FROM roles WHERE role_id = ? AND tenant_id = ?',
+        'SELECT role_id FROM roles WHERE role_id = $1 AND tenant_id = $2',
         [id, tenantId]
       );
 
@@ -495,7 +497,7 @@ router.get('/:id/permissions',
           p.action
         FROM role_permissions rp
         JOIN permissions p ON rp.permission_id = p.permission_id
-        WHERE rp.role_id = ?
+        WHERE rp.role_id = $1
         ORDER BY p.category, p.name
       `, [id]);
 
@@ -544,7 +546,7 @@ router.put('/:id/permissions',
     try {
       // Verify role exists and belongs to tenant
       const role = await db.query(
-        'SELECT role_id, is_system FROM roles WHERE role_id = ? AND tenant_id = ?',
+        'SELECT role_id, is_system FROM roles WHERE role_id = $1 AND tenant_id = $2',
         [id, tenantId]
       );
 
@@ -565,8 +567,9 @@ router.put('/:id/permissions',
 
       // Verify all permissions exist
       if (permissions.length > 0) {
+        const permissionPlaceholders = permissions.map((_, i) => `$${i + 1}`).join(',');
         const permissionCheck = await db.query(
-          `SELECT permission_id FROM permissions WHERE permission_id IN (${permissions.map(() => '?').join(',')})`,
+          `SELECT permission_id FROM permissions WHERE permission_id IN (${permissionPlaceholders})`,
           permissions
         );
 
@@ -579,13 +582,13 @@ router.put('/:id/permissions',
       }
 
       // Delete existing permissions
-      await db.query('DELETE FROM role_permissions WHERE role_id = ?', [id]);
+      await db.query('DELETE FROM role_permissions WHERE role_id = $1', [id]);
 
       // Insert new permissions
       if (permissions.length > 0) {
         const insertPromises = permissions.map(permissionId =>
           db.query(
-            'INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)',
+            'INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)',
             [id, permissionId]
           )
         );
@@ -637,7 +640,7 @@ router.get('/permissions',
       const params = [];
 
       if (category) {
-        whereClause = 'WHERE category = ?';
+        whereClause = 'WHERE category = $1';
         params.push(category);
       }
 

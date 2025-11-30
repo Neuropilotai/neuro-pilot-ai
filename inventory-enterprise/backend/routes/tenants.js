@@ -51,13 +51,14 @@ router.get('/',
       let whereClause = '';
       const params = [];
 
+      let paramIndex = 1;
       if (status) {
-        whereClause = 'WHERE status = ?';
+        whereClause = `WHERE status = $${paramIndex++}`;
         params.push(status);
       }
 
       if (search) {
-        whereClause += (whereClause ? ' AND ' : 'WHERE ') + 'name LIKE ?';
+        whereClause += (whereClause ? ' AND ' : 'WHERE ') + `name LIKE $${paramIndex++}`;
         params.push(`%${search}%`);
       }
 
@@ -66,7 +67,7 @@ router.get('/',
         `SELECT COUNT(*) as total FROM tenants ${whereClause}`,
         params
       );
-      const total = countResult.rows[0].total;
+      const total = parseInt(countResult.rows[0].total, 10);
 
       // Get tenants
       const tenantsResult = await db.query(`
@@ -81,7 +82,7 @@ router.get('/',
         FROM tenants
         ${whereClause}
         ORDER BY created_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `, [...params, limit, offset]);
 
       res.json({
@@ -136,7 +137,7 @@ router.post('/',
     try {
       // Check if tenant name already exists
       const existingTenant = await db.query(
-        'SELECT tenant_id FROM tenants WHERE name = ?',
+        'SELECT tenant_id FROM tenants WHERE name = $1',
         [name]
       );
 
@@ -150,7 +151,7 @@ router.post('/',
       // Create tenant
       const result = await db.query(`
         INSERT INTO tenants (name, status, settings)
-        VALUES (?, ?, ?)
+        VALUES ($1, $2, $3)
         RETURNING tenant_id, name, status, settings, created_at
       `, [name, status, JSON.stringify(settings)]);
 
@@ -208,7 +209,7 @@ router.get('/:id',
           created_at,
           updated_at
         FROM tenants
-        WHERE tenant_id = ?
+        WHERE tenant_id = $1
       `, [id]);
 
       if (result.rows.length === 0) {
@@ -222,13 +223,13 @@ router.get('/:id',
 
       // Get user count
       const userCountResult = await db.query(
-        'SELECT COUNT(*) as count FROM tenant_users WHERE tenant_id = ?',
+        'SELECT COUNT(*) as count FROM tenant_users WHERE tenant_id = $1',
         [id]
       );
 
       // Get role count
       const roleCountResult = await db.query(
-        'SELECT COUNT(*) as count FROM roles WHERE tenant_id = ?',
+        'SELECT COUNT(*) as count FROM roles WHERE tenant_id = $1',
         [id]
       );
 
@@ -284,7 +285,7 @@ router.put('/:id',
     try {
       // Check if tenant exists
       const existingTenant = await db.query(
-        'SELECT tenant_id, name, status, settings FROM tenants WHERE tenant_id = ?',
+        'SELECT tenant_id, name, status, settings FROM tenants WHERE tenant_id = $1',
         [id]
       );
 
@@ -306,7 +307,7 @@ router.put('/:id',
       // If name is being changed, check for conflicts
       if (name && name !== existingTenant.rows[0].name) {
         const nameConflict = await db.query(
-          'SELECT tenant_id FROM tenants WHERE name = ? AND tenant_id != ?',
+          'SELECT tenant_id FROM tenants WHERE name = $1 AND tenant_id != $2',
           [name, id]
         );
 
@@ -318,17 +319,18 @@ router.put('/:id',
         }
       }
 
-      // Build update query
+      // Build update query with PostgreSQL $n placeholders
       const updates = [];
       const params = [];
+      let paramIndex = 1;
 
       if (name) {
-        updates.push('name = ?');
+        updates.push(`name = $${paramIndex++}`);
         params.push(name);
       }
 
       if (status) {
-        updates.push('status = ?');
+        updates.push(`status = $${paramIndex++}`);
         params.push(status);
       }
 
@@ -338,23 +340,23 @@ router.put('/:id',
           ? JSON.parse(existingTenant.rows[0].settings)
           : existingTenant.rows[0].settings;
         const mergedSettings = { ...existingSettings, ...settings };
-        updates.push('settings = ?');
+        updates.push(`settings = $${paramIndex++}`);
         params.push(JSON.stringify(mergedSettings));
       }
 
-      updates.push('updated_at = datetime(\'now\')');
+      updates.push('updated_at = NOW()');
 
       params.push(id);
 
       await db.query(`
         UPDATE tenants
         SET ${updates.join(', ')}
-        WHERE tenant_id = ?
+        WHERE tenant_id = $${paramIndex}
       `, params);
 
       // Fetch updated tenant
       const updatedTenant = await db.query(
-        'SELECT * FROM tenants WHERE tenant_id = ?',
+        'SELECT * FROM tenants WHERE tenant_id = $1',
         [id]
       );
 
@@ -411,7 +413,7 @@ router.delete('/:id',
 
       // Check if tenant exists
       const existingTenant = await db.query(
-        'SELECT tenant_id, name, status FROM tenants WHERE tenant_id = ?',
+        'SELECT tenant_id, name, status FROM tenants WHERE tenant_id = $1',
         [id]
       );
 
@@ -425,15 +427,15 @@ router.delete('/:id',
       // Soft delete: set status to inactive
       await db.query(`
         UPDATE tenants
-        SET status = 'inactive', updated_at = datetime('now')
-        WHERE tenant_id = ?
+        SET status = 'inactive', updated_at = NOW()
+        WHERE tenant_id = $1
       `, [id]);
 
       // Deactivate all tenant users
       await db.query(`
         UPDATE tenant_users
         SET status = 'inactive'
-        WHERE tenant_id = ?
+        WHERE tenant_id = $1
       `, [id]);
 
       console.log(`✅ Deactivated tenant: ${id}`);
@@ -486,7 +488,7 @@ router.get('/:id/users',
 
     try {
       // Check if tenant exists
-      const tenant = await db.query('SELECT tenant_id FROM tenants WHERE tenant_id = ?', [id]);
+      const tenant = await db.query('SELECT tenant_id FROM tenants WHERE tenant_id = $1', [id]);
       if (tenant.rows.length === 0) {
         return res.status(404).json({
           error: 'Tenant not found',
@@ -494,12 +496,13 @@ router.get('/:id/users',
         });
       }
 
-      // Build query
-      let whereClause = 'WHERE tu.tenant_id = ?';
+      // Build query with PostgreSQL $n placeholders
+      let paramIndex = 1;
+      let whereClause = `WHERE tu.tenant_id = $${paramIndex++}`;
       const params = [id];
 
       if (status) {
-        whereClause += ' AND tu.status = ?';
+        whereClause += ` AND tu.status = $${paramIndex++}`;
         params.push(status);
       }
 
@@ -508,7 +511,7 @@ router.get('/:id/users',
         `SELECT COUNT(*) as total FROM tenant_users tu ${whereClause}`,
         params
       );
-      const total = countResult.rows[0].total;
+      const total = parseInt(countResult.rows[0].total, 10);
 
       // Get users
       const usersResult = await db.query(`
@@ -526,7 +529,7 @@ router.get('/:id/users',
         LEFT JOIN roles r ON tu.role_id = r.role_id
         ${whereClause}
         ORDER BY tu.joined_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT $${paramIndex++} OFFSET $${paramIndex++}
       `, [...params, limit, offset]);
 
       res.json({
@@ -579,7 +582,7 @@ router.post('/:id/users',
 
     try {
       // Verify tenant exists
-      const tenant = await db.query('SELECT tenant_id FROM tenants WHERE tenant_id = ?', [tenantId]);
+      const tenant = await db.query('SELECT tenant_id FROM tenants WHERE tenant_id = $1', [tenantId]);
       if (tenant.rows.length === 0) {
         return res.status(404).json({
           error: 'Tenant not found',
@@ -588,7 +591,7 @@ router.post('/:id/users',
       }
 
       // Verify user exists
-      const user = await db.query('SELECT user_id FROM users WHERE user_id = ?', [user_id]);
+      const user = await db.query('SELECT user_id FROM users WHERE user_id = $1', [user_id]);
       if (user.rows.length === 0) {
         return res.status(404).json({
           error: 'User not found',
@@ -598,7 +601,7 @@ router.post('/:id/users',
 
       // Verify role exists and belongs to tenant
       const role = await db.query(
-        'SELECT role_id FROM roles WHERE role_id = ? AND tenant_id = ?',
+        'SELECT role_id FROM roles WHERE role_id = $1 AND tenant_id = $2',
         [role_id, tenantId]
       );
       if (role.rows.length === 0) {
@@ -610,7 +613,7 @@ router.post('/:id/users',
 
       // Check if user is already in tenant
       const existing = await db.query(
-        'SELECT tenant_user_id FROM tenant_users WHERE tenant_id = ? AND user_id = ?',
+        'SELECT tenant_user_id FROM tenant_users WHERE tenant_id = $1 AND user_id = $2',
         [tenantId, user_id]
       );
 
@@ -624,7 +627,7 @@ router.post('/:id/users',
       // Add user to tenant
       await db.query(`
         INSERT INTO tenant_users (tenant_id, user_id, role_id, status)
-        VALUES (?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4)
       `, [tenantId, user_id, role_id, status]);
 
       console.log(`✅ Added user ${user_id} to tenant ${tenantId} with role ${role_id}`);
@@ -670,7 +673,7 @@ router.delete('/:id/users/:userId',
     try {
       // Check if user is in tenant
       const existing = await db.query(
-        'SELECT tenant_user_id FROM tenant_users WHERE tenant_id = ? AND user_id = ?',
+        'SELECT tenant_user_id FROM tenant_users WHERE tenant_id = $1 AND user_id = $2',
         [tenantId, userId]
       );
 
@@ -683,7 +686,7 @@ router.delete('/:id/users/:userId',
 
       // Remove user from tenant
       await db.query(
-        'DELETE FROM tenant_users WHERE tenant_id = ? AND user_id = ?',
+        'DELETE FROM tenant_users WHERE tenant_id = $1 AND user_id = $2',
         [tenantId, userId]
       );
 
