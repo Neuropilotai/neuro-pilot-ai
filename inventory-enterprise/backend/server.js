@@ -10,6 +10,16 @@ const inventoryCountsRoutes = require('./routes/inventory-counts-api'); // v3.0.
 const userRoutes = require('./routes/users');
 const aiFeedbackRoutes = require('./routes/ai-feedback-api');
 
+// v21.1 - Missing route imports (locations, vendors, population, POS)
+const locationsRoutes = require('./routes/locations');
+const vendorsRoutes = require('./routes/vendors');
+const populationRoutes = require('./routes/population');
+const posCatalogRoutes = require('./routes/pos.catalog');
+const posOrdersRoutes = require('./routes/pos.orders');
+const posRegistersRoutes = require('./routes/pos.registers');
+const posPaymentsRoutes = require('./routes/pos.payments');
+const posReportsRoutes = require('./routes/pos.reports');
+
 // PASS G v2.4.0 - Multi-Tenancy & RBAC
 const webhooksRoutes = require('./routes/webhooks_2025-10-07');
 
@@ -345,6 +355,19 @@ app.use('/api/ai', authenticateToken, resolveTenant, aiFeedbackRoutes);
 
 // PASS G v2.4.0 - Webhook Management
 app.use('/api/webhooks', authenticateToken, resolveTenant, webhooksRoutes);
+
+// v21.1 - Locations, Vendors, Population, POS routes
+app.use('/api/locations', authenticateToken, locationsRoutes);
+app.use('/api/vendors', authenticateToken, vendorsRoutes);
+app.use('/api/population', authenticateToken, populationRoutes);
+app.use('/api/pos/catalog', authenticateToken, posCatalogRoutes);
+app.use('/api/pos/orders', authenticateToken, posOrdersRoutes);
+app.use('/api/pos/registers', authenticateToken, posRegistersRoutes);
+app.use('/api/pos/payments', authenticateToken, posPaymentsRoutes);
+app.use('/api/pos/reports', authenticateToken, posReportsRoutes);
+
+// v21.1 - Alias /api/items to /api/inventory for frontend compatibility
+app.use('/api/items', authenticateToken, resolveTenant, inventoryRoutes);
 
 // PASS H v2.4.1 - Admin Management APIs
 app.use('/api/tenants', authenticateToken, resolveTenant, tenantsRoutes);

@@ -2469,7 +2469,7 @@ async function computeAIIntelligenceIndex(database) {
     let trendPct = null;
     try {
       const previousInsights = await database.all(`
-        SELECT confidence, impact_score
+        SELECT confidence, impact
         FROM ai_learning_insights
         WHERE created_at >= NOW() - INTERVAL '14 days'
           AND created_at < NOW() - INTERVAL '7 days'
