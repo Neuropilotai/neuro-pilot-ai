@@ -1532,6 +1532,9 @@ app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLim
 app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), safeRequire('./routes/pdfs', 'pdfs'));
 app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS'), safeRequire('./routes/locations', 'locations'));
 
+// V22.2: Vendor Orders with Google Drive PDF Integration
+app.use('/api/vendor-orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR_ORDERS'), safeRequire('./routes/vendor-orders', 'vendor-orders'));
+
 // V21.1 Owner Console Routes - Full Feature Restoration
 app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
 app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
