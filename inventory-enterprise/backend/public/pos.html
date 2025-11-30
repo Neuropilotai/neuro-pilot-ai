@@ -119,14 +119,6 @@
           <span class="hidden dark:inline">☀️</span>
         </button>
 
-        <!-- Settings Gear -->
-        <button id="np-gear" class="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" aria-label="Settings" title="Settings">
-          <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V22a2 2 0 0 1-4 0v-.07a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.07a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 4.02 3l.06.06a1.65 1.65 0 0 0 1.82.33H6a1.65 1.65 0 0 0 1-1.51V2a2 2 0 0 1 4 0v.07c0 .66.39 1.25 1 1.51.27.13.58.2.9.2.32 0 .62-.07.9-.2a1.65 1.65 0 0 0 1.51-1V2a2 2 0 1 1 4 0v.07c0 .66.39 1.25 1 1.51.64.31 1.4.2 1.95-.35l.06-.06A2 2 0 1 1 22 6.02l-.06.06c-.55.55-.66 1.31-.35 1.95.26.61.85 1 1.51 1H24a2 2 0 0 1 0 4h-.07c-.66 0-1.25.39-1.51 1Z"/>
-          </svg>
-        </button>
-
         <div class="text-right">
           <div class="text-sm font-semibold text-gray-900 dark:text-white" id="userEmail"></div>
           <div class="text-xs text-gray-500 dark:text-gray-400" id="roleDisplay"></div>
@@ -351,13 +343,17 @@
 <!-- Toast Container -->
 <div id="toastContainer" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
 
+<!-- v21.1: Config and Unified API Client -->
+<script src="js/config.js?v=21.1.2"></script>
+<script src="js/api-unified.js?v=21.1.2"></script>
+
 <script>
 // ============================================
 // GLOBAL STATE
 // ============================================
 const state = {
   config: {
-    apiUrl: localStorage.getItem('NP_API_URL') || window.location.origin,
+    apiUrl: CONFIG?.API_BASE_URL || localStorage.getItem('NP_API_URL') || 'https://inventory-backend-production.up.railway.app',
     token: localStorage.getItem('NP_TOKEN'),
     user: JSON.parse(localStorage.getItem('NP_USER') || 'null'),
     orgId: localStorage.getItem('NP_ORG_ID'),
@@ -383,6 +379,7 @@ async function api(endpoint, options = {}) {
     ...(state.config.token && { 'Authorization': `Bearer ${state.config.token}` }),
     ...(state.config.orgId && { 'x-org-id': state.config.orgId }),
     ...(state.config.siteId && { 'x-site-id': state.config.siteId }),
+    'X-Tenant-Id': '1', // Default tenant for single-tenant mode
     ...options.headers,
   };
 
@@ -1105,54 +1102,74 @@ if (state.config.token) {
 updateQueueUI();
 </script>
 
-<!-- SVG viewBox Sanitizer (defensive against third-party scripts) -->
 <script>
-(function svgViewBoxSanitizer(){
-  function isNumericViewBox(v){
-    if(typeof v !== 'string') return false;
+(function () {
+  // Normalize any incoming viewBox on SVG *before* the browser validates it.
+  const NUM = n => {
+    const x = parseFloat(n);
+    return Number.isFinite(x) ? x : 0;
+  };
+  const sanitizeVB = (v) => {
+    if (typeof v !== 'string') return '0 0 100 20';
     const parts = v.trim().split(/\s+/);
-    if(parts.length !== 4) return false;
-    return parts.every(p => /^[+-]?(\d+(\.\d+)?)$/.test(p));
-  }
-  function normalize(el){
-    try{
-      const vb = el.getAttribute('viewBox');
-      if(!vb || isNumericViewBox(vb)) return;
-      // Fallback by measured box or defaults
-      const w = parseFloat(el.getAttribute('width')) || el.clientWidth || 100;
-      const h = parseFloat(el.getAttribute('height')) || el.clientHeight || 24;
-      el.setAttribute('viewBox', `0 0 ${Math.max(1, Math.round(w))} ${Math.max(1, Math.round(h))}`);
-      // move sizing to CSS if needed
-      if(el.hasAttribute('width')) el.removeAttribute('width');
-      if(el.hasAttribute('height')) el.removeAttribute('height');
-      el.style.width = el.style.width || '100%';
-      el.style.height = el.style.height || `${h}px`;
-    }catch(e){}
-  }
-  function sweep(root=document){
-    root.querySelectorAll('svg[viewBox]').forEach(normalize);
-    root.querySelectorAll('svg:not([viewBox])').forEach(el=>{
-      // Set a safe default
-      const w = el.clientWidth || 100, h = el.clientHeight || 24;
-      el.setAttribute('viewBox', `0 0 ${Math.max(1, w)} ${Math.max(1, h)}`);
-    });
-  }
-  // Initial sweep
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', ()=>sweep());
-  } else { sweep(); }
-  // Mutation observer for third-party injections
-  const mo = new MutationObserver((muts)=>{
-    for(const m of muts){
-      m.addedNodes && m.addedNodes.forEach(n=>{
-        if(n.nodeType===1){
-          if(n.tagName==='svg' || n.querySelector?.('svg')) sweep(n);
+    let x = NUM(parts[0]), y = NUM(parts[1]);
+    let w = parseFloat(parts[2]); if (!Number.isFinite(w) || w <= 0) w = 100;
+    let h = parseFloat(parts[3]); if (!Number.isFinite(h) || h <= 0) h = 20;
+    return `${x} ${y} ${w} ${h}`;
+  };
+
+  // Monkey-patch setAttribute for SVG elements
+  const origSetAttr = SVGElement && SVGElement.prototype && SVGElement.prototype.setAttribute;
+  if (origSetAttr) {
+    SVGElement.prototype.setAttribute = function(name, value) {
+      if (name === 'viewBox') {
+        try {
+          // If authors used % or px in viewBox, move them to width/height when possible
+          if (typeof value === 'string' && /%|px/i.test(value)) {
+            const parts = value.trim().split(/\s+/);
+            if (parts[2] && /%|px/i.test(parts[2])) this.setAttribute('width', parts[2]);
+            if (parts[3] && /%|px/i.test(parts[3])) this.setAttribute('height', parts[3]);
+          }
+          value = sanitizeVB(String(value || ''));
+        } catch (e) {
+          value = '0 0 100 20';
         }
       }
-    });
+      return origSetAttr.call(this, name, value);
+    };
   }
+
+  // Sweep existing DOM quickly (in case some SVGs already present)
+  const sweep = (root) => {
+    (root.querySelectorAll ? root.querySelectorAll('svg[viewBox]') : []).forEach(svg => {
+      const vb = svg.getAttribute('viewBox');
+      const safe = sanitizeVB(vb || '');
+      if (vb !== safe) svg.setAttribute('viewBox', safe);
+    });
+  };
+  if (document && document.documentElement) sweep(document);
+
+  // Observe future DOM mutations (cookie banners, lazy icons, etc.)
+  const mo = new MutationObserver(muts => {
+    for (const m of muts) {
+      if (m.type === 'childList') {
+        m.addedNodes.forEach(node => {
+          if (node.nodeType !== 1) return;
+          if (node.tagName === 'svg') {
+            const vb = node.getAttribute('viewBox');
+            node.setAttribute('viewBox', sanitizeVB(vb || ''));
+          } else {
+            sweep(node);
+          }
+        });
+      }
+      if (m.type === 'attributes' && m.target.tagName === 'svg' && m.attributeName === 'viewBox') {
+        const vb = m.target.getAttribute('viewBox');
+        m.target.setAttribute('viewBox', sanitizeVB(vb || ''));
+      }
+    }
   });
-  mo.observe(document.documentElement, {childList:true, subtree:true});
+  mo.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['viewBox'] });
 })();
 </script>
 
