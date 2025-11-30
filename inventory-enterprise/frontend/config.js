@@ -2,7 +2,7 @@
 // This file is automatically updated during deployment
 const API_CONFIG = {
     // Backend API URL - will be replaced during Railway build
-    BASE_URL: window.RAILWAY_BACKEND_URL || 'https://resourceful-achievement-production.up.railway.app',
+    BASE_URL: window.RAILWAY_BACKEND_URL || 'https://inventory-backend-production.up.railway.app',
 
     // API endpoints
     endpoints: {

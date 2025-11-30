@@ -2308,7 +2308,7 @@
   <script>
     (function bootstrapNPConfig() {
       try {
-        const PRESET_API = 'https://resourceful-achievement-production.up.railway.app';
+        const PRESET_API = 'https://inventory-backend-production.up.railway.app';
         if (!localStorage.getItem('NP_API_URL')) {
           localStorage.setItem('NP_API_URL', PRESET_API);
         }
@@ -2317,17 +2317,20 @@
         };
       } catch (e) {
         console.warn('Bootstrap failed:', e);
-        window.NP_CONFIG = { API_BASE: 'https://resourceful-achievement-production.up.railway.app' };
+        window.NP_CONFIG = { API_BASE: 'https://inventory-backend-production.up.railway.app' };
       }
     })();
   </script>
 
+  <!-- v21.1: Centralized Config -->
+  <script src="js/config.js?v=21.1.2"></script>
+
   <!-- v15.5.0: RBAC Client -->
-  <script src="js/rbac-client.js?v=21.1.1"></script>
+  <script src="js/rbac-client.js?v=21.1.2"></script>
 
   <!-- v14.3: Shared Console Core (Zero Drift) -->
-  <script src="js/owner-console-core.js?v=21.1.1"></script>
+  <script src="js/owner-console-core.js?v=21.1.2"></script>
 
-  <script src="js/owner-super-console.js?v=21.1.1"></script>
+  <script src="js/owner-super-console.js?v=21.1.2"></script>
 </body>
 </html>

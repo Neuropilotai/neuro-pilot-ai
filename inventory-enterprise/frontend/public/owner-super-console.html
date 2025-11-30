@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="np-api-url" content="https://resourceful-achievement-production.up.railway.app">
+  <meta name="np-api-url" content="https://inventory-backend-production.up.railway.app">
   <title>Owner Super Console | NeuroInnovate Inventory v20.1.0</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="stylesheet" href="../css/styles.css?v=20.1.0">
@@ -15,7 +15,7 @@
   try {
     // 0) Resolve API base from meta / window / localStorage
     var meta = document.querySelector('meta[name="np-api-url"]');
-    var fallback = 'https://resourceful-achievement-production.up.railway.app';
+    var fallback = 'https://inventory-backend-production.up.railway.app';
     var candidate = (meta && meta.content ? meta.content : (window.API_URL || localStorage.getItem('NP_API_URL') || '')).trim();
     var API_BASE = (/^https?:\/\//i.test(candidate) ? candidate : fallback).replace(/\/+$/, '');
 

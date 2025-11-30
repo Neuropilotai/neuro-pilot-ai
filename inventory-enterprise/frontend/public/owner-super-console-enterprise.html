@@ -25,7 +25,7 @@
   <script>
     (function bootstrapNPConfig() {
       try {
-        const PRESET_API = 'https://resourceful-achievement-production.up.railway.app';
+        const PRESET_API = 'https://inventory-backend-production.up.railway.app';
         if (!localStorage.getItem('NP_API_URL')) {
           localStorage.setItem('NP_API_URL', PRESET_API);
         }
@@ -696,7 +696,7 @@
     // ==========================================
     const APP = {
       config: {
-        apiUrl: localStorage.getItem('NP_API_URL') || 'https://resourceful-achievement-production.up.railway.app',
+        apiUrl: localStorage.getItem('NP_API_URL') || 'https://inventory-backend-production.up.railway.app',
         token: localStorage.getItem('NP_TOKEN'),
         user: JSON.parse(localStorage.getItem('NP_USER') || 'null'),
         orgId: localStorage.getItem('NP_ORG_ID'),

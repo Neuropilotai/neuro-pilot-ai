@@ -26,8 +26,8 @@
       const metaUrl = meta?.content?.trim();
       const storedUrl = localStorage.getItem('NP_API_URL');
 
-      // Primary production URL
-      const DEFAULT_URL = 'https://resourceful-achievement-production.up.railway.app';
+      // Primary production URL - Railway inventory-backend service
+      const DEFAULT_URL = 'https://inventory-backend-production.up.railway.app';
 
       this.apiBase = metaUrl || storedUrl || DEFAULT_URL;
 

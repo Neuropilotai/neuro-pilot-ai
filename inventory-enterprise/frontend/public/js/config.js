@@ -11,8 +11,10 @@ const CONFIG = {
 
   // Railway Backend URL - UPDATE THIS when backend URL changes
   // Current: inventory-backend service on Railway
+  // Also check localStorage for NP_API_URL (from api-unified.js) for consistency
   API_BASE_URL: window.RAILWAY_BACKEND_URL ||
                 localStorage.getItem('API_BASE_URL') ||
+                localStorage.getItem('NP_API_URL') ||
                 'https://inventory-backend-production.up.railway.app',
 
   // API Endpoints
