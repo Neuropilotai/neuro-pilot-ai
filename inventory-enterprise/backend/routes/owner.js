@@ -502,56 +502,31 @@ router.post('/compliance-scan', authenticateToken, requireOwnerAccess, async (re
 
 /**
  * POST /api/owner/backup-database
- * Create database backup
+ * Create database backup (PostgreSQL only - V21.1+)
  */
 router.post('/backup-database', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const backupType = req.body.type || 'sqlite'; // 'sqlite' or 'postgres'
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFile = `/tmp/postgres-backup-${timestamp}.sql`;
 
-    if (backupType === 'postgres' && process.env.PG_ENABLED === 'true') {
-      // PostgreSQL backup
-      const backupFile = `/tmp/postgres-backup-${timestamp}.sql`;
-
-      exec('bash scripts/postgres-backup.sh', (error, stdout, stderr) => {
-        if (error) {
-          console.error('Backup error:', error);
-          return res.status(500).json({
-            success: false,
-            error: 'Backup failed',
-            details: stderr
-          });
-        }
-
-        res.json({
-          success: true,
-          message: 'PostgreSQL backup completed',
-          file: backupFile,
-          size: stdout
+    // PostgreSQL backup via pg_dump script
+    exec('bash scripts/postgres-backup.sh', (error, stdout, stderr) => {
+      if (error) {
+        console.error('Backup error:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Backup failed',
+          details: stderr
         });
-      });
-
-    } else {
-      // SQLite backup
-      const dbPath = path.join(__dirname, '../data/enterprise_inventory.db');
-      const backupPath = path.join(__dirname, `../data/backups/backup-${timestamp}.db`);
-
-      // Create backups directory if it doesn't exist
-      await fs.mkdir(path.join(__dirname, '../data/backups'), { recursive: true });
-
-      // Copy database file
-      await fs.copyFile(dbPath, backupPath);
-
-      const stats = await fs.stat(backupPath);
+      }
 
       res.json({
         success: true,
-        message: 'SQLite backup completed',
-        file: backupPath,
-        size: `${(stats.size / 1024 / 1024).toFixed(2)} MB`,
-        timestamp
+        message: 'PostgreSQL backup completed',
+        file: backupFile,
+        size: stdout
       });
-    }
+    });
 
   } catch (error) {
     res.status(500).json({
@@ -563,39 +538,35 @@ router.post('/backup-database', authenticateToken, requireOwnerAccess, async (re
 
 /**
  * GET /api/owner/database-mode
- * Get current database mode (SQLite or PostgreSQL)
+ * Get current database mode (PostgreSQL only - V21.1+)
  */
 router.get('/database-mode', authenticateToken, requireOwnerAccess, (req, res) => {
-  const mode = process.env.PG_ENABLED === 'true' ? 'PostgreSQL' : 'SQLite';
   const redisEnabled = process.env.REDIS_ENABLED === 'true';
 
   res.json({
     success: true,
-    database: mode,
+    database: 'PostgreSQL',
     redis: redisEnabled,
     config: {
-      PG_ENABLED: process.env.PG_ENABLED,
+      DATABASE_MODE: 'PostgreSQL (Railway)',
       REDIS_ENABLED: process.env.REDIS_ENABLED,
       AI_FORECAST_ENABLED: process.env.AI_FORECAST_ENABLED,
       REQUIRE_2FA_FOR_ADMINS: process.env.REQUIRE_2FA_FOR_ADMINS
-    }
+    },
+    note: 'SQLite mode deprecated in V21.1. System is PostgreSQL-only.'
   });
 });
 
 /**
  * POST /api/owner/toggle-database
- * Toggle between SQLite and PostgreSQL (requires restart)
+ * DEPRECATED: Database mode is now PostgreSQL-only
  */
 router.post('/toggle-database', authenticateToken, requireOwnerAccess, (req, res) => {
-  const currentMode = process.env.PG_ENABLED === 'true' ? 'PostgreSQL' : 'SQLite';
-  const newMode = currentMode === 'PostgreSQL' ? 'SQLite' : 'PostgreSQL';
-
-  res.json({
-    success: true,
-    message: 'Database mode change requires server restart',
-    currentMode,
-    newMode,
-    instructions: `Set PG_ENABLED=${newMode === 'PostgreSQL' ? 'true' : 'false'} and restart server`
+  res.status(400).json({
+    success: false,
+    error: 'Database toggle disabled',
+    message: 'System is now PostgreSQL-only (V21.1+). SQLite mode has been deprecated.',
+    currentMode: 'PostgreSQL'
   });
 });
 
