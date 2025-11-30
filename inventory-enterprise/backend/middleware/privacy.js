@@ -10,19 +10,23 @@ const ALLOWED_ORIGINS = [
   'https://resourceful-achievement-production.up.railway.app',
   'https://inventory-backend-7-agent-build.up.railway.app',
   'https://inventory-frontend-v21-7-agent-build.up.railway.app',
+  'https://inventory-backend-enterprise.up.railway.app',
   // Vercel frontends
   'https://neuropilot-inventory.vercel.app',
   'https://neuropilot-inventory-david-mikulis-projects-73b27c6d.vercel.app',
+  'https://neuropilot-frontend.vercel.app',
   // Custom domains
   'https://staging.neuropilot.ai',
   'https://neuropilot.ai',
   'https://www.neuropilot.ai',
   // Local development origins (always allowed for dev convenience)
   'http://localhost:3000',
+  'http://localhost:5173',
   'http://localhost:5000',
   'http://localhost:8080',
   'http://localhost:8083',
   'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
   'http://127.0.0.1:5000',
   'http://127.0.0.1:8080',
   'http://127.0.0.1:8083',
@@ -31,7 +35,7 @@ const ALLOWED_ORIGINS = [
 ].filter(Boolean);
 
 // Also allow Vercel preview deployments (pattern match)
-const VERCEL_PREVIEW_PATTERN = /^https:\/\/neuropilot-inventory-[a-z0-9]+-david-mikulis-projects-[a-z0-9]+\.vercel\.app$/;
+const VERCEL_PREVIEW_PATTERN = /^https:\/\/neuropilot-(inventory|frontend)-[a-z0-9]+-david-mikulis-projects-[a-z0-9]+\.vercel\.app$/;
 
 // Forbidden query parameters (prevent accidental logging of secrets)
 const FORBIDDEN_PARAMS = [
