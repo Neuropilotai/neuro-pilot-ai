@@ -182,7 +182,8 @@ async function initDatabase() {
           '012_fix_breadcrumbs.sql',
           '013_menu_planning_tables.sql',
           '014_fifo_and_missing_tables.sql',
-          '015_inventory_foundation.sql'
+          '015_inventory_foundation.sql',
+          '016_fix_storage_locations.sql'
         ]
       },
       {
