@@ -11,6 +11,7 @@ const ALLOWED_ORIGINS = [
   'https://inventory-backend-7-agent-build.up.railway.app',
   'https://inventory-frontend-v21-7-agent-build.up.railway.app',
   'https://inventory-backend-enterprise.up.railway.app',
+  'https://inventory-backend-production-3a2c.up.railway.app',
   // Vercel frontends
   'https://neuropilot-inventory.vercel.app',
   'https://neuropilot-inventory-david-mikulis-projects-73b27c6d.vercel.app',
