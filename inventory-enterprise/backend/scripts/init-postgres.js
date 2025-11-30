@@ -183,7 +183,11 @@ async function initDatabase() {
           '013_menu_planning_tables.sql',
           '014_fifo_and_missing_tables.sql',
           '015_inventory_foundation.sql',
-          '016_fix_storage_locations.sql'
+          '016_fix_storage_locations.sql',
+          '017_seed_menu_data.sql',
+          '018_owner_console_tables.sql',
+          '019_create_documents_table.sql',
+          '020_vendor_orders_tables.sql'
         ]
       },
       {

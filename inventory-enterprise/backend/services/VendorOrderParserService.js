@@ -1,0 +1,611 @@
+/**
+ * Vendor Order Parser Service
+ * NeuroPilot AI Enterprise V22.2
+ *
+ * Integrates with existing OCR/PDF infrastructure to parse vendor order PDFs.
+ * Supports multiple vendor formats (Sysco, GFS, US Foods, etc.)
+ *
+ * @version 22.2
+ * @author NeuroPilot AI Team
+ */
+
+const fs = require('fs').promises;
+const path = require('path');
+const crypto = require('crypto');
+const { pool } = require('../db');
+const ordersStorage = require('../config/ordersStorage');
+
+// Import existing OCR engine
+let ocrEngine = null;
+try {
+  ocrEngine = require('./ocr/TesseractOCR');
+} catch (err) {
+  console.warn('[VendorOrderParser] OCR engine not available:', err.message);
+}
+
+// Import GFS parser for GFS-specific invoices
+let gfsParser = null;
+try {
+  gfsParser = require('../src/finance/GFSInvoiceParserV2');
+} catch (err) {
+  console.warn('[VendorOrderParser] GFS parser not available:', err.message);
+}
+
+// ============================================
+// CONFIGURATION
+// ============================================
+
+const PARSER_CONFIG = {
+  tempDir: process.env.ORDER_TEMP_DIR || '/tmp/neuropilot-orders',
+  timeout: parseInt(process.env.ORDER_PARSE_TIMEOUT_MS) || 60000,
+  maxFileSize: parseInt(process.env.ORDER_MAX_FILE_SIZE) || 50 * 1024 * 1024, // 50MB
+  supportedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/tiff']
+};
+
+// ============================================
+// VENDOR ORDER PARSER SERVICE
+// ============================================
+
+class VendorOrderParserService {
+  constructor(options = {}) {
+    this.config = { ...PARSER_CONFIG, ...options };
+    this.initialized = false;
+  }
+
+  /**
+   * Initialize parser service
+   */
+  async initialize() {
+    if (this.initialized) return;
+
+    try {
+      // Create temp directory if it doesn't exist
+      await fs.mkdir(this.config.tempDir, { recursive: true });
+
+      // Initialize OCR engine if available
+      if (ocrEngine && ocrEngine.initialize) {
+        await ocrEngine.initialize();
+      }
+
+      this.initialized = true;
+      console.log('[VendorOrderParser] Initialized successfully');
+    } catch (error) {
+      console.error('[VendorOrderParser] Initialization failed:', error.message);
+    }
+  }
+
+  /**
+   * Parse a vendor order PDF from Google Drive
+   *
+   * @param {string} orderId - UUID of the vendor_order record
+   * @param {string} pdfFileId - Google Drive file ID
+   * @param {Object} options - Parsing options
+   * @returns {Promise<Object>} Parsing result
+   */
+  async parseOrderFromGoogleDrive(orderId, pdfFileId, options = {}) {
+    const startTime = Date.now();
+
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const result = {
+      orderId,
+      pdfFileId,
+      success: false,
+      ocrConfidence: 0,
+      ocrEngine: 'none',
+      parseDurationMs: 0,
+      linesFound: 0,
+      errors: [],
+      warnings: []
+    };
+
+    try {
+      // For now, we can't directly download from Google Drive without OAuth
+      // In production, this would use the Google Drive API with service account
+      // For this implementation, we'll support local file parsing
+
+      result.warnings.push(
+        'Direct Google Drive parsing requires OAuth setup. ' +
+        'Currently supports local file parsing via /parse-local endpoint.'
+      );
+
+      result.success = false;
+      result.parseDurationMs = Date.now() - startTime;
+
+      return result;
+
+    } catch (error) {
+      result.errors.push(error.message);
+      result.parseDurationMs = Date.now() - startTime;
+      return result;
+    }
+  }
+
+  /**
+   * Parse a vendor order from local file path
+   *
+   * @param {string} orderId - UUID of the vendor_order record
+   * @param {string} filePath - Local file path
+   * @param {Object} options - Parsing options
+   * @returns {Promise<Object>} Parsing result
+   */
+  async parseOrderFromFile(orderId, filePath, options = {}) {
+    const startTime = Date.now();
+
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    const result = {
+      orderId,
+      filePath,
+      success: false,
+      ocrConfidence: 0,
+      ocrEngine: 'none',
+      parseDurationMs: 0,
+      header: null,
+      linesFound: 0,
+      lines: [],
+      errors: [],
+      warnings: []
+    };
+
+    try {
+      // Verify file exists
+      await fs.access(filePath);
+      const stats = await fs.stat(filePath);
+
+      // Check file size
+      if (stats.size > this.config.maxFileSize) {
+        throw new Error(`File too large: ${stats.size} bytes (max: ${this.config.maxFileSize})`);
+      }
+
+      // Determine file type
+      const ext = path.extname(filePath).toLowerCase();
+      const isPDF = ext === '.pdf';
+      const isImage = ['.jpg', '.jpeg', '.png', '.tiff', '.tif'].includes(ext);
+
+      if (!isPDF && !isImage) {
+        throw new Error(`Unsupported file type: ${ext}`);
+      }
+
+      // Extract text using OCR
+      let ocrResult;
+
+      if (isPDF) {
+        ocrResult = await this.extractTextFromPDF(filePath);
+      } else {
+        ocrResult = await this.extractTextFromImage(filePath);
+      }
+
+      result.ocrConfidence = ocrResult.confidence;
+      result.ocrEngine = ocrResult.engine;
+
+      if (!ocrResult.text || ocrResult.text.length < 50) {
+        result.warnings.push('OCR extracted very little text. PDF may be image-based or corrupted.');
+      }
+
+      // Parse the extracted text
+      const parsed = await this.parseInvoiceText(ocrResult.text, options);
+
+      result.header = parsed.header;
+      result.lines = parsed.lines;
+      result.linesFound = parsed.lines.length;
+
+      // Store results in database
+      await this.saveParseResults(orderId, result, ocrResult.text);
+
+      result.success = true;
+      result.parseDurationMs = Date.now() - startTime;
+
+      console.log('[VendorOrderParser] Parse complete:', {
+        orderId,
+        linesFound: result.linesFound,
+        confidence: result.ocrConfidence,
+        duration: result.parseDurationMs
+      });
+
+      return result;
+
+    } catch (error) {
+      console.error('[VendorOrderParser] Parse error:', error);
+      result.errors.push(error.message);
+      result.parseDurationMs = Date.now() - startTime;
+
+      // Update order status to error
+      try {
+        await pool.query(`
+          UPDATE vendor_orders
+          SET status = 'error', error_message = $2, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [orderId, error.message]);
+      } catch (dbError) {
+        console.error('[VendorOrderParser] Failed to update error status:', dbError);
+      }
+
+      return result;
+    }
+  }
+
+  /**
+   * Extract text from PDF file
+   */
+  async extractTextFromPDF(filePath) {
+    if (ocrEngine && ocrEngine.extractTextFromPDF) {
+      return await ocrEngine.extractTextFromPDF(filePath);
+    }
+
+    return {
+      text: '',
+      confidence: 0,
+      engine: 'none',
+      error: 'OCR engine not available'
+    };
+  }
+
+  /**
+   * Extract text from image file
+   */
+  async extractTextFromImage(filePath) {
+    if (ocrEngine && ocrEngine.extractText) {
+      return await ocrEngine.extractText(filePath);
+    }
+
+    return {
+      text: '',
+      confidence: 0,
+      engine: 'none',
+      error: 'OCR engine not available'
+    };
+  }
+
+  /**
+   * Parse invoice text into structured data
+   * Supports multiple vendor formats
+   */
+  async parseInvoiceText(text, options = {}) {
+    const result = {
+      header: {
+        orderNumber: null,
+        orderDate: null,
+        deliveryDate: null,
+        vendorName: null,
+        vendorCode: null,
+        subtotal: 0,
+        tax: 0,
+        total: 0
+      },
+      lines: []
+    };
+
+    if (!text) return result;
+
+    // Detect vendor from text
+    const vendor = this.detectVendor(text);
+
+    // Use vendor-specific parser if available
+    if (vendor === 'gfs' && gfsParser) {
+      return await this.parseGFSInvoice(text);
+    }
+
+    // Generic invoice parsing
+    result.header = this.parseGenericHeader(text);
+    result.lines = this.parseGenericLineItems(text);
+
+    return result;
+  }
+
+  /**
+   * Detect vendor from invoice text
+   */
+  detectVendor(text) {
+    const textLower = text.toLowerCase();
+
+    if (textLower.includes('gordon food service') || textLower.includes('gfs')) {
+      return 'gfs';
+    }
+    if (textLower.includes('sysco')) {
+      return 'sysco';
+    }
+    if (textLower.includes('us foods') || textLower.includes('usfoods')) {
+      return 'usfoods';
+    }
+    if (textLower.includes('performance food') || textLower.includes('pfg')) {
+      return 'pfg';
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Parse GFS-specific invoice format
+   */
+  async parseGFSInvoice(text) {
+    try {
+      if (gfsParser) {
+        const parser = new gfsParser();
+        const parsed = await parser.parseInvoice({
+          extracted_text: text,
+          text: text,
+          line_items: []
+        });
+
+        return {
+          header: {
+            orderNumber: parsed.header?.invoiceNumber,
+            orderDate: parsed.header?.invoiceDate,
+            deliveryDate: null,
+            vendorName: 'Gordon Food Service',
+            vendorCode: 'GFS',
+            subtotal: (parsed.header?.subtotalCents || 0) / 100,
+            tax: ((parsed.header?.gstCents || 0) + (parsed.header?.qstCents || 0)) / 100,
+            total: (parsed.header?.totalCents || 0) / 100
+          },
+          lines: (parsed.lineItems || []).map((item, idx) => ({
+            lineNumber: idx + 1,
+            vendorSku: item.productCode,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: (item.unitPriceCents || 0) / 100,
+            extendedPrice: (item.lineTotalCents || 0) / 100,
+            categoryCode: item.category,
+            brand: item.brand
+          }))
+        };
+      }
+    } catch (error) {
+      console.warn('[VendorOrderParser] GFS parsing failed, using generic parser:', error.message);
+    }
+
+    // Fallback to generic parsing
+    return {
+      header: this.parseGenericHeader(text),
+      lines: this.parseGenericLineItems(text)
+    };
+  }
+
+  /**
+   * Parse generic invoice header
+   */
+  parseGenericHeader(text) {
+    const header = {
+      orderNumber: null,
+      orderDate: null,
+      deliveryDate: null,
+      vendorName: null,
+      vendorCode: null,
+      subtotal: 0,
+      tax: 0,
+      total: 0
+    };
+
+    // Extract order/invoice number
+    const orderMatch = text.match(/(?:order|invoice|inv|doc)[\s#:]+([A-Z0-9\-]+)/i);
+    if (orderMatch) {
+      header.orderNumber = orderMatch[1].trim();
+    }
+
+    // Extract date
+    const dateMatch = text.match(/(?:date|dated)[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i) ||
+                     text.match(/(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      header.orderDate = this.parseDate(dateMatch[1]);
+    }
+
+    // Extract vendor
+    const vendorMatch = text.match(/(?:vendor|from|bill from|sold by)[:\s]+([^\n]+)/i);
+    if (vendorMatch) {
+      header.vendorName = vendorMatch[1].trim().substring(0, 100);
+    } else {
+      // Use first non-empty line as vendor
+      const lines = text.split('\n').filter(l => l.trim().length > 0);
+      if (lines.length > 0) {
+        header.vendorName = lines[0].trim().substring(0, 100);
+      }
+    }
+
+    // Extract totals
+    const totalMatch = text.match(/(?:total|amount due|grand total)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
+    if (totalMatch) {
+      header.total = parseFloat(totalMatch[1].replace(/,/g, ''));
+    }
+
+    const taxMatch = text.match(/(?:tax|sales tax|gst|hst)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
+    if (taxMatch) {
+      header.tax = parseFloat(taxMatch[1].replace(/,/g, ''));
+    }
+
+    const subtotalMatch = text.match(/(?:subtotal|sub-total|sub total)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
+    if (subtotalMatch) {
+      header.subtotal = parseFloat(subtotalMatch[1].replace(/,/g, ''));
+    }
+
+    return header;
+  }
+
+  /**
+   * Parse generic line items from text
+   */
+  parseGenericLineItems(text) {
+    const lines = [];
+    if (!text) return lines;
+
+    const textLines = text.split('\n');
+    let lineNumber = 0;
+
+    for (const line of textLines) {
+      // Look for lines with amounts (price patterns)
+      const amountMatch = line.match(/\$?[\s]*([\d,]+\.\d{2})\s*$/);
+
+      if (amountMatch) {
+        const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+
+        // Extract description (everything before the amount)
+        const description = line.substring(0, line.lastIndexOf(amountMatch[0])).trim();
+
+        if (description.length > 3 && amount > 0) {
+          // Try to extract quantity and unit price
+          const qtyMatch = description.match(/(\d+(?:\.\d+)?)\s*(?:x|@|ea|cs|pk|lb|kg)/i);
+          const priceMatch = description.match(/@\s*\$?([\d,]+\.\d{2})/);
+
+          lines.push({
+            lineNumber: ++lineNumber,
+            vendorSku: null,
+            description: description.substring(0, 255),
+            quantity: qtyMatch ? parseFloat(qtyMatch[1]) : 1,
+            unit: 'EACH',
+            unitPrice: priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : amount,
+            extendedPrice: amount,
+            categoryCode: null,
+            brand: null,
+            rawText: line.trim()
+          });
+        }
+      }
+    }
+
+    return lines;
+  }
+
+  /**
+   * Parse date string to YYYY-MM-DD format
+   */
+  parseDate(dateStr) {
+    if (!dateStr) return null;
+
+    const formats = [
+      /(\d{4})-(\d{2})-(\d{2})/,
+      /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
+      /(\d{1,2})-(\d{1,2})-(\d{4})/,
+      /(\d{1,2})\/(\d{1,2})\/(\d{2})/
+    ];
+
+    for (const format of formats) {
+      const match = dateStr.match(format);
+      if (match) {
+        if (format.source.startsWith('(\\d{4})')) {
+          return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+        } else {
+          const month = match[1].padStart(2, '0');
+          const day = match[2].padStart(2, '0');
+          let year = match[3];
+          if (year.length === 2) {
+            year = parseInt(year) > 50 ? `19${year}` : `20${year}`;
+          }
+          return `${year}-${month}-${day}`;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Save parse results to database
+   */
+  async saveParseResults(orderId, parseResult, rawText) {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Update order header
+      await client.query(`
+        UPDATE vendor_orders
+        SET
+          order_number = COALESCE(order_number, $2),
+          order_date = COALESCE(order_date, $3::DATE),
+          vendor_name = COALESCE(vendor_name, $4),
+          subtotal_cents = COALESCE($5, subtotal_cents),
+          tax_cents = COALESCE($6, tax_cents),
+          total_cents = COALESCE($7, total_cents),
+          total_lines = $8,
+          status = 'parsed',
+          ocr_confidence = $9,
+          ocr_engine = $10,
+          parse_duration_ms = $11,
+          parsed_at = CURRENT_TIMESTAMP,
+          error_message = NULL,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [
+        orderId,
+        parseResult.header?.orderNumber,
+        parseResult.header?.orderDate,
+        parseResult.header?.vendorName,
+        parseResult.header?.subtotal ? Math.round(parseResult.header.subtotal * 100) : null,
+        parseResult.header?.tax ? Math.round(parseResult.header.tax * 100) : null,
+        parseResult.header?.total ? Math.round(parseResult.header.total * 100) : null,
+        parseResult.linesFound,
+        parseResult.ocrConfidence,
+        parseResult.ocrEngine,
+        parseResult.parseDurationMs
+      ]);
+
+      // Get org_id from order
+      const orderResult = await client.query(
+        'SELECT org_id FROM vendor_orders WHERE id = $1',
+        [orderId]
+      );
+      const orgId = orderResult.rows[0]?.org_id || 1;
+
+      // Delete existing line items
+      await client.query(
+        'DELETE FROM vendor_order_lines WHERE order_id = $1',
+        [orderId]
+      );
+
+      // Insert new line items
+      for (const line of parseResult.lines) {
+        await client.query(`
+          INSERT INTO vendor_order_lines (
+            order_id, org_id, line_number, vendor_sku, description,
+            ordered_qty, unit, unit_price_cents, extended_price_cents,
+            category_code, brand, raw_text
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `, [
+          orderId,
+          orgId,
+          line.lineNumber,
+          line.vendorSku,
+          line.description,
+          line.quantity,
+          line.unit,
+          line.unitPrice ? Math.round(line.unitPrice * 100) : 0,
+          line.extendedPrice ? Math.round(line.extendedPrice * 100) : 0,
+          line.categoryCode,
+          line.brand,
+          line.rawText
+        ]);
+      }
+
+      await client.query('COMMIT');
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Compute SHA256 hash of file
+   */
+  async computeFileHash(filePath) {
+    const buffer = await fs.readFile(filePath);
+    return crypto.createHash('sha256').update(buffer).digest('hex');
+  }
+}
+
+// ============================================
+// SINGLETON INSTANCE
+// ============================================
+
+const parserService = new VendorOrderParserService();
+
+module.exports = parserService;
+module.exports.VendorOrderParserService = VendorOrderParserService;
