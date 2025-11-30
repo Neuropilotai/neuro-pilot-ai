@@ -7,9 +7,17 @@
 const express = require('express');
 const router = express.Router();
 
+/**
+ * Helper: Get org_id from request with fallback
+ * Supports: tenant middleware, JWT claims, or default
+ */
+function getOrgId(req) {
+  return req.tenant?.tenantId || req.user?.org_id || req.user?.tenant_id || 'default';
+}
+
 // GET /api/vendors - List all vendors with pricing stats
 router.get('/', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
 
   try {
     const result = await global.db.query(`
@@ -34,7 +42,7 @@ router.get('/', async (req, res) => {
 
 // GET /api/vendors/:id - Get vendor details
 router.get('/:id', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { id } = req.params;
 
   try {
@@ -56,7 +64,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/vendors - Create new vendor
 router.post('/', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { name, contact_name, contact_email, contact_phone, address, city, state, zip, country, payment_terms, lead_time_days, notes, preferred } = req.body;
 
   if (!name) {
@@ -86,7 +94,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/vendors/:id - Update vendor
 router.put('/:id', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { id } = req.params;
   const { name, contact_name, contact_email, contact_phone, address, city, state, zip, country, payment_terms, lead_time_days, notes, preferred, active } = req.body;
 
@@ -125,7 +133,7 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/vendors/:id - Soft delete vendor
 router.delete('/:id', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { id } = req.params;
 
   try {
@@ -147,7 +155,7 @@ router.delete('/:id', async (req, res) => {
 
 // GET /api/vendors/:id/prices - Get all prices for a vendor
 router.get('/:id/prices', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { id } = req.params;
 
   try {
@@ -168,7 +176,8 @@ router.get('/:id/prices', async (req, res) => {
 
 // POST /api/vendors/prices/import - Bulk import vendor prices from CSV
 router.post('/prices/import', async (req, res) => {
-  const { org_id, user_id } = req.user;
+  const org_id = getOrgId(req);
+  const user_id = req.user?.id || req.user?.userId || req.user?.user_id || 'system';
   const { rows } = req.body;
 
   if (!rows || !Array.isArray(rows)) {
@@ -255,7 +264,7 @@ router.post('/prices/import', async (req, res) => {
 
 // GET /api/vendors/prices/lookup - Lookup current price for a SKU using helper function
 router.get('/prices/lookup', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { sku, date } = req.query;
 
   if (!sku) {
@@ -282,7 +291,7 @@ router.get('/prices/lookup', async (req, res) => {
 
 // POST /api/vendors/:id/set-preferred - Set vendor as preferred
 router.post('/:id/set-preferred', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { id } = req.params;
 
   try {

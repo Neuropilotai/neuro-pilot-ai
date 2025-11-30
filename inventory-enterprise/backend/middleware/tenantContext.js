@@ -7,7 +7,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-const db = require('../config/database');
+const { pool } = require('../db');  // Use PostgreSQL pool directly
 const { logger } = require('../config/logger');
 const rbacEngine = require('../src/security/rbac');
 const metricsExporter = require('../utils/metricsExporter');
@@ -75,7 +75,7 @@ async function resolveTenant(req, res, next) {
 
     // Default to 'default' tenant if none resolved (single-tenant mode)
     if (!tenantId) {
-      tenantId = 1; // Default tenant ID for single-tenant deployments
+      tenantId = 'default'; // Default tenant ID for single-tenant deployments
       source = 'default';
       logger.info('[TenantContext] Using default tenant (single-tenant mode)');
     }
@@ -230,16 +230,20 @@ function scopeQuery(req, res, next) {
  */
 async function verifyTenantAccess(userId, tenantId) {
   try {
-    const query = `
+    const result = await pool.query(`
       SELECT COUNT(*) as count
       FROM tenant_users
-      WHERE user_id = ? AND tenant_id = ? AND status = 'active'
-    `;
+      WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
+    `, [userId, tenantId]);
 
-    const result = await db.get(query, [userId, tenantId]);
-    return result?.count > 0;
+    return parseInt(result.rows[0]?.count || 0) > 0;
   } catch (error) {
     logger.error('[TenantContext] Error verifying tenant access:', error);
+    // If table doesn't exist, allow access (single-tenant mode)
+    if (error.code === '42P01') {
+      logger.info('[TenantContext] tenant_users table not found - allowing access (single-tenant mode)');
+      return true;
+    }
     return false;
   }
 }
@@ -268,15 +272,14 @@ function extractSubdomain(host) {
  */
 async function getTenantBySubdomain(subdomain) {
   try {
-    const query = `
+    const result = await pool.query(`
       SELECT tenant_id
       FROM tenants
-      WHERE json_extract(settings, '$.subdomain') = ? AND status = 'active'
+      WHERE settings->>'subdomain' = $1 AND status = 'active'
       LIMIT 1
-    `;
+    `, [subdomain]);
 
-    const result = await db.get(query, [subdomain]);
-    return result?.tenant_id || null;
+    return result.rows[0]?.tenant_id || null;
   } catch (error) {
     logger.error('[TenantContext] Error getting tenant by subdomain:', error);
     return null;
@@ -292,15 +295,14 @@ async function getTenantByApiKey(apiKey) {
     const crypto = require('crypto');
     const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
 
-    const query = `
+    const result = await pool.query(`
       SELECT tenant_id
       FROM tenants
-      WHERE json_extract(settings, '$.api_key_hash') = ? AND status = 'active'
+      WHERE settings->>'api_key_hash' = $1 AND status = 'active'
       LIMIT 1
-    `;
+    `, [hashedKey]);
 
-    const result = await db.get(query, [hashedKey]);
-    return result?.tenant_id || null;
+    return result.rows[0]?.tenant_id || null;
   } catch (error) {
     logger.error('[TenantContext] Error getting tenant by API key:', error);
     return null;
@@ -312,18 +314,25 @@ async function getTenantByApiKey(apiKey) {
  */
 async function getTenantStatus(tenantId) {
   try {
-    const query = `
+    const result = await pool.query(`
       SELECT tenant_id, name, status, settings
       FROM tenants
-      WHERE tenant_id = ?
+      WHERE tenant_id = $1
       LIMIT 1
-    `;
+    `, [tenantId]);
 
-    const row = await db.get(query, [tenantId]);
+    const row = result.rows[0];
 
     if (!row) {
-      logger.debug(`[TenantContext] Tenant ${tenantId} not found in database`);
-      return null;
+      // For single-tenant mode or when tenants table doesn't exist,
+      // return a default active tenant
+      logger.debug(`[TenantContext] Tenant ${tenantId} not found - using default`);
+      return {
+        tenantId: tenantId,
+        name: 'Default Tenant',
+        status: 'active',
+        settings: {}
+      };
     }
 
     logger.debug(`[TenantContext] Found tenant ${tenantId}: ${row.name} (${row.status})`);
@@ -332,9 +341,19 @@ async function getTenantStatus(tenantId) {
       tenantId: row.tenant_id,
       name: row.name,
       status: row.status,
-      settings: typeof row.settings === 'string' ? JSON.parse(row.settings) : row.settings
+      settings: typeof row.settings === 'string' ? JSON.parse(row.settings) : (row.settings || {})
     };
   } catch (error) {
+    // If tenants table doesn't exist (42P01), allow access in single-tenant mode
+    if (error.code === '42P01') {
+      logger.info('[TenantContext] tenants table not found - using single-tenant mode');
+      return {
+        tenantId: tenantId,
+        name: 'Default Tenant',
+        status: 'active',
+        settings: {}
+      };
+    }
     logger.error('[TenantContext] Error getting tenant status:', error);
     return null;
   }

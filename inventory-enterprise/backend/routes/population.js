@@ -7,9 +7,17 @@
 const express = require('express');
 const router = express.Router();
 
+/**
+ * Helper: Get org_id from request with fallback
+ * Supports: tenant middleware, JWT claims, or default
+ */
+function getOrgId(req) {
+  return req.tenant?.tenantId || req.user?.org_id || req.user?.tenant_id || 'default';
+}
+
 // GET /api/population - Get population data with date range filters
 router.get('/', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { from, to, site_id } = req.query;
 
   try {
@@ -48,7 +56,7 @@ router.get('/', async (req, res) => {
 
 // GET /api/population/:date - Get population for specific date
 router.get('/:date', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { date } = req.params;
   const { site_id } = req.query;
 
@@ -76,7 +84,7 @@ router.get('/:date', async (req, res) => {
 
 // POST /api/population - Create or update population entry
 router.post('/', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { site_id, date, breakfast, lunch, dinner, notes } = req.body;
 
   if (!date) {
@@ -105,7 +113,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/population/:id - Update population entry by ID
 router.put('/:id', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { id } = req.params;
   const { breakfast, lunch, dinner, notes } = req.body;
 
@@ -134,7 +142,7 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/population/:id - Delete population entry
 router.delete('/:id', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { id } = req.params;
 
   try {
@@ -156,7 +164,7 @@ router.delete('/:id', async (req, res) => {
 
 // POST /api/population/bulk - Bulk upsert population data
 router.post('/bulk', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { entries } = req.body;
 
   if (!entries || !Array.isArray(entries)) {
@@ -216,7 +224,7 @@ router.post('/bulk', async (req, res) => {
 
 // GET /api/population/summary - Get aggregate statistics
 router.get('/summary', async (req, res) => {
-  const { org_id } = req.user;
+  const org_id = getOrgId(req);
   const { from, to, site_id } = req.query;
 
   try {
