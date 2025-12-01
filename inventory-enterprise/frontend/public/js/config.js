@@ -9,13 +9,18 @@ const CONFIG = {
   // API Configuration
   // ============================================
 
-  // Railway Backend URL - UPDATE THIS when backend URL changes
-  // Current: inventory-backend service on Railway
-  // Also check localStorage for NP_API_URL (from api-unified.js) for consistency
-  API_BASE_URL: window.RAILWAY_BACKEND_URL ||
-                localStorage.getItem('API_BASE_URL') ||
-                localStorage.getItem('NP_API_URL') ||
-                'https://inventory-backend-production.up.railway.app',
+  // V22.2: Use same-origin (empty string) when served from backend
+  // This eliminates all CORS issues for the admin console
+  API_BASE_URL: (function() {
+    // If served from the backend itself, use relative URLs (same-origin)
+    const currentHost = window.location.hostname;
+    if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1') {
+      return ''; // Same-origin - no CORS issues
+    }
+    // External origin (e.g., Vercel frontend) - use full URL
+    return window.RAILWAY_BACKEND_URL ||
+           'https://inventory-backend-production-3a2c.up.railway.app';
+  })(),
 
   // API Endpoints
   endpoints: {

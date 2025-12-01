@@ -21,18 +21,22 @@
     }
 
     init() {
-      // Read BASE URL from meta tag, localStorage, or fallback
-      const meta = document.querySelector('meta[name="np-api-url"]');
-      const metaUrl = meta?.content?.trim();
-      const storedUrl = localStorage.getItem('NP_API_URL');
+      // V22.2: Use same-origin (empty string) when served from backend
+      // This eliminates all CORS issues for the admin console
+      const currentHost = window.location.hostname;
 
-      // Primary production URL - Railway inventory-backend service
-      const DEFAULT_URL = 'https://inventory-backend-production.up.railway.app';
+      if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1') {
+        // Same-origin - no CORS issues, use relative URLs
+        this.apiBase = '';
+      } else {
+        // External origin - read from meta tag or use default
+        const meta = document.querySelector('meta[name="np-api-url"]');
+        const metaUrl = meta?.content?.trim();
+        this.apiBase = metaUrl || 'https://inventory-backend-production-3a2c.up.railway.app';
+      }
 
-      this.apiBase = metaUrl || storedUrl || DEFAULT_URL;
-
-      // Persist for future use
-      localStorage.setItem('NP_API_URL', this.apiBase);
+      // Clear any stale localStorage URL that might cause issues
+      localStorage.removeItem('NP_API_URL');
 
       // Make globally accessible
       window.NP_CONFIG = window.NP_CONFIG || {};

@@ -1,8 +1,14 @@
 // API Configuration
 // This file is automatically updated during deployment
 const API_CONFIG = {
-    // Backend API URL - will be replaced during Railway build
-    BASE_URL: window.RAILWAY_BACKEND_URL || 'https://inventory-backend-production.up.railway.app',
+    // Backend API URL - V22.2: Use same-origin when served from backend
+    BASE_URL: (function() {
+        const currentHost = window.location.hostname;
+        if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1') {
+            return ''; // Same-origin - no CORS issues
+        }
+        return window.RAILWAY_BACKEND_URL || 'https://inventory-backend-production-3a2c.up.railway.app';
+    })(),
 
     // API endpoints
     endpoints: {
