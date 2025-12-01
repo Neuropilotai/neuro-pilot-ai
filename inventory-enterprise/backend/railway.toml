@@ -1,6 +1,7 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install --production=false"
+# V22.2: Force rebuild to pick up public/ file changes
+buildCommand = "npm install --production=false && echo 'Build timestamp:' $(date)"
 
 [deploy]
 startCommand = "npm run start:postgres"
