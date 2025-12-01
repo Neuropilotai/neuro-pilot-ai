@@ -28,11 +28,15 @@ router.get('/', async (req, res) => {
     const orgId = req.user.org_id || 'default-org';
     const siteId = req.user.site_id || null;
 
+    console.log('[POS-Catalog] Query params:', { orgId, siteId, search: params.search, limit: params.limit, offset: params.offset });
+
     // Get sellable items
     const itemsResult = await global.db.query(
       `SELECT * FROM get_sellable_items($1, $2, $3, $4, $5)`,
       [orgId, siteId, params.search || null, params.limit, params.offset]
     );
+
+    console.log('[POS-Catalog] Items query returned:', itemsResult.rows?.length || 0, 'rows');
 
     // Get sellable recipes
     const recipesResult = await global.db.query(
