@@ -18,7 +18,7 @@ function getAPIBase() {
     return window.NP_CONFIG.API_BASE;
   }
   // Fallback if bootstrap didn't run
-  return window.API_URL || 'https://inventory-backend-production.up.railway.app';
+  return window.API_URL || 'https://inventory-backend-production-3a2c.up.railway.app';
 }
 
 // Origin Helper - ensures consistent URL handling across all requests

@@ -27,7 +27,7 @@
       const storedUrl = localStorage.getItem('NP_API_URL');
 
       // Primary production URL - Railway inventory-backend service
-      const DEFAULT_URL = 'https://inventory-backend-production.up.railway.app';
+      const DEFAULT_URL = 'https://inventory-backend-production-3a2c.up.railway.app';
 
       this.apiBase = metaUrl || storedUrl || DEFAULT_URL;
 

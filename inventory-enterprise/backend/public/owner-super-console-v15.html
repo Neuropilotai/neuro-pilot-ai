@@ -2308,7 +2308,7 @@
   <script>
     (function bootstrapNPConfig() {
       try {
-        const PRESET_API = 'https://inventory-backend-production.up.railway.app';
+        const PRESET_API = 'https://inventory-backend-production-3a2c.up.railway.app';
         if (!localStorage.getItem('NP_API_URL')) {
           localStorage.setItem('NP_API_URL', PRESET_API);
         }
@@ -2317,7 +2317,7 @@
         };
       } catch (e) {
         console.warn('Bootstrap failed:', e);
-        window.NP_CONFIG = { API_BASE: 'https://inventory-backend-production.up.railway.app' };
+        window.NP_CONFIG = { API_BASE: 'https://inventory-backend-production-3a2c.up.railway.app' };
       }
     })();
   </script>
