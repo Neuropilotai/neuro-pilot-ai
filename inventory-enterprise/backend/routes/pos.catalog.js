@@ -1,6 +1,7 @@
 /**
  * POS Catalog Route
  * Provides sellable items, recipes, and quick tiles for POS frontend
+ * v21.1.6 - Fixed site_id null handling
  */
 
 const express = require('express');
