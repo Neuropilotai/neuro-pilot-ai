@@ -350,7 +350,6 @@ router.get('/health', async (req, res) => {
   }
 });
 
-module.exports = {
-  router,
-  initializeForecastService
-};
+// Export only the router for app.use() compatibility
+// initializeForecastService is not needed in production (ForecastService initializes lazily)
+module.exports = router;
