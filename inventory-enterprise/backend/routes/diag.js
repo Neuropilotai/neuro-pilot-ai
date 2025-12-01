@@ -556,4 +556,63 @@ router.get('/backup', async (req, res) => {
   return res.json(result);
 });
 
+/**
+ * GET /diag/test-pos-catalog
+ * Test the exact query that POS catalog uses with global.db
+ * This helps diagnose why the route returns 0 items
+ */
+router.get('/test-pos-catalog', async (req, res) => {
+  const orgId = req.query.org_id || 'default-org';
+  const siteId = req.query.site_id || null;
+  const search = req.query.search || null;
+  const limit = parseInt(req.query.limit) || 100;
+  const offset = parseInt(req.query.offset) || 0;
+
+  try {
+    // Test with pool.query (how diag routes do it)
+    const poolResult = await pool.query(
+      `SELECT * FROM get_sellable_items($1, $2, $3, $4, $5)`,
+      [orgId, siteId, search, limit, offset]
+    );
+
+    // Test with global.db.query (how pos.catalog does it)
+    let globalDbResult = null;
+    let globalDbError = null;
+    try {
+      if (global.db && typeof global.db.query === 'function') {
+        globalDbResult = await global.db.query(
+          `SELECT * FROM get_sellable_items($1, $2, $3, $4, $5)`,
+          [orgId, siteId, search, limit, offset]
+        );
+      }
+    } catch (err) {
+      globalDbError = err.message;
+    }
+
+    return res.json({
+      ok: true,
+      params: { orgId, siteId, search, limit, offset },
+      poolQuery: {
+        rowCount: poolResult.rowCount,
+        firstRow: poolResult.rows[0] || null
+      },
+      globalDbQuery: globalDbResult ? {
+        rowCount: globalDbResult.rowCount,
+        rowsLength: globalDbResult.rows?.length,
+        firstRow: globalDbResult.rows?.[0] || null
+      } : {
+        error: globalDbError || 'global.db.query not available',
+        globalDbExists: !!global.db,
+        globalDbHasQuery: typeof global.db?.query === 'function'
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error.message,
+      code: error.code
+    });
+  }
+});
+
 module.exports = router;
