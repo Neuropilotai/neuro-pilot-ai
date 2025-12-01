@@ -12,10 +12,47 @@ const auth = require('../middleware/auth');
 const i18n = require('../middleware/i18n');
 const { logger } = require('../config/logger');
 
-// Import modules
-const feedbackIngestor = require('../src/ai/feedback/ingest');
-const autoTrainer = require('../src/ai/autotrainer/AutoTrainer');
-const rlAgent = require('../src/ai/rl/RLAgent');
+// Lazy-load AI modules to prevent startup blocking
+// These modules are loaded on first request instead of at module import time
+let feedbackIngestor = null;
+let autoTrainer = null;
+let rlAgent = null;
+
+function getFeedbackIngestor() {
+  if (!feedbackIngestor) {
+    try {
+      feedbackIngestor = require('../src/ai/feedback/ingest');
+    } catch (err) {
+      logger.error('[AI-Feedback] Failed to load feedbackIngestor:', err.message);
+      feedbackIngestor = { ingestBatch: async () => ({ success: 0, failed: 0 }), getAccuracyMetrics: async () => null, getAccuracyTimeSeries: async () => [] };
+    }
+  }
+  return feedbackIngestor;
+}
+
+function getAutoTrainer() {
+  if (!autoTrainer) {
+    try {
+      autoTrainer = require('../src/ai/autotrainer/AutoTrainer');
+    } catch (err) {
+      logger.error('[AI-Feedback] Failed to load autoTrainer:', err.message);
+      autoTrainer = { runDriftDetection: async () => ({}), triggerRetrain: async () => ({ success: false }), getJobsForItem: async () => [], getJob: async () => null };
+    }
+  }
+  return autoTrainer;
+}
+
+function getRLAgent() {
+  if (!rlAgent) {
+    try {
+      rlAgent = require('../src/ai/rl/RLAgent');
+    } catch (err) {
+      logger.error('[AI-Feedback] Failed to load rlAgent:', err.message);
+      rlAgent = { tunePolicy: async () => ({ success: false }), getPolicy: async () => null, getPolicyHistory: async () => [] };
+    }
+  }
+  return rlAgent;
+}
 
 /**
  * @route   POST /api/ai/feedback/ingest
@@ -45,7 +82,7 @@ router.post('/ingest',
 
       logger.info(`[API] Feedback ingest requested by ${req.user.username}: ${feedbackData.length} records`);
 
-      const result = await feedbackIngestor.ingestBatch(feedbackData);
+      const result = await getFeedbackIngestor().ingestBatch(feedbackData);
 
       res.json({
         message: req.t('feedback_ingested_successfully'),
@@ -85,8 +122,8 @@ router.get('/:itemCode/metrics',
       const { itemCode } = req.params;
       const window = parseInt(req.query.window) || 28;
 
-      const metrics = await feedbackIngestor.getAccuracyMetrics(itemCode, window);
-      const timeSeries = await feedbackIngestor.getAccuracyTimeSeries(itemCode, window);
+      const metrics = await getFeedbackIngestor().getAccuracyMetrics(itemCode, window);
+      const timeSeries = await getFeedbackIngestor().getAccuracyTimeSeries(itemCode, window);
 
       res.json({
         item_code: itemCode,
@@ -117,7 +154,7 @@ router.post('/retrain/drift',
       logger.info(`[API] Drift detection triggered by ${req.user.username}`);
 
       // Run drift detection in background (don't wait for completion)
-      autoTrainer.runDriftDetection()
+      getAutoTrainer().runDriftDetection()
         .then(result => {
           logger.info('[API] Drift detection complete:', result);
         })
@@ -164,7 +201,7 @@ router.post('/retrain/:itemCode',
 
       logger.info(`[API] Manual retrain requested for ${itemCode} by ${req.user.username}`);
 
-      const result = await autoTrainer.triggerRetrain({
+      const result = await getAutoTrainer().triggerRetrain({
         itemCode,
         trigger: 'manual',
         reason: `Manual trigger by ${req.user.username}`
@@ -218,7 +255,7 @@ router.post('/tune/:itemCode',
 
       logger.info(`[API] Policy tuning requested for ${itemCode} by ${req.user.username}`);
 
-      const result = await rlAgent.tunePolicy(itemCode);
+      const result = await getRLAgent().tunePolicy(itemCode);
 
       if (result.success) {
         res.json({
@@ -269,14 +306,14 @@ router.get('/policy/:itemCode',
 
       const { itemCode } = req.params;
 
-      const policy = await rlAgent.getPolicy(itemCode);
+      const policy = await getRLAgent().getPolicy(itemCode);
       if (!policy) {
         return res.status(404).json({
           error: req.t('policy_not_found')
         });
       }
 
-      const history = await rlAgent.getPolicyHistory(itemCode, 5);
+      const history = await getRLAgent().getPolicyHistory(itemCode, 5);
 
       res.json({
         item_code: itemCode,
@@ -317,7 +354,7 @@ router.get('/autotrain/jobs/:itemCode',
       const { itemCode } = req.params;
       const limit = parseInt(req.query.limit) || 10;
 
-      const jobs = await autoTrainer.getJobsForItem(itemCode, limit);
+      const jobs = await getAutoTrainer().getJobsForItem(itemCode, limit);
 
       res.json({
         item_code: itemCode,
@@ -355,7 +392,7 @@ router.get('/autotrain/job/:jobId',
 
       const { jobId } = req.params;
 
-      const job = await autoTrainer.getJob(jobId);
+      const job = await getAutoTrainer().getJob(jobId);
       if (!job) {
         return res.status(404).json({
           error: req.t('job_not_found')
