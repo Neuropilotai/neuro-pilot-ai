@@ -163,10 +163,16 @@ function authGuard(requiredRoles = []) {
       let userResult = { rows: [] };
       try {
         // Try to find user by email first (more reliable than id for in-memory users)
+        // V21.1.7: Map legacy integer org_id (1) to 'default-org' slug for database functions
         userResult = await pool.query(`
           SELECT
             u.user_id as id, u.email, CONCAT(u.first_name, ' ', u.last_name) as name, u.role, u.created_at,
-            COALESCE(ur.org_id, u.org_id::VARCHAR, 'default-org') AS org_id,
+            CASE
+              WHEN ur.org_id IS NOT NULL THEN ur.org_id
+              WHEN u.org_id = 1 THEN 'default-org'
+              WHEN u.org_id IS NOT NULL THEN u.org_id::VARCHAR
+              ELSE 'default-org'
+            END AS org_id,
             ur.site_id
           FROM users u
           LEFT JOIN user_roles ur ON ur.user_id = u.user_id
