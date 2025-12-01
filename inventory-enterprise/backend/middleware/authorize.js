@@ -184,18 +184,14 @@ function authGuard(requiredRoles = []) {
       if (userResult.rows.length === 0) {
         // User not in database - use JWT payload (for in-memory users)
         authAttempts.inc({ result: 'jwt_fallback', role: decoded.role || 'none' });
-        // Normalize org_id to integer (handles "default-org" string)
-        let orgId = decoded.org_id;
-        if (typeof orgId === 'string') {
-          const parsed = parseInt(orgId, 10);
-          orgId = isNaN(parsed) ? 1 : parsed;
-        }
+        // V21.1.6: Keep org_id as string slug (don't convert to integer)
+        // The database functions expect TEXT slugs like 'default-org', not integers
         user = {
           id: decoded.id,
           email: decoded.email,
           name: decoded.email.split('@')[0],
           role: decoded.role || 'viewer',
-          org_id: orgId || 1,
+          org_id: decoded.org_id || 'default-org',  // Keep as slug, not integer
           site_id: decoded.site_id || null,
           permissions: decoded.permissions || [], // Include permissions from JWT
           created_at: new Date()
