@@ -12,13 +12,17 @@
 // ============================================================================
 
 // v14.4.0: Get API base from NP_CONFIG set by bootstrap script
-// This is a getter function, not a constant, so it uses NP_CONFIG set at runtime
+// V22.2: Updated fallback to use same-origin logic
 function getAPIBase() {
-  if (window.NP_CONFIG && window.NP_CONFIG.API_BASE) {
+  if (window.NP_CONFIG && window.NP_CONFIG.API_BASE !== undefined) {
     return window.NP_CONFIG.API_BASE;
   }
-  // Fallback if bootstrap didn't run
-  return window.API_URL || 'https://inventory-backend-production.up.railway.app';
+  // Fallback if bootstrap didn't run - use same-origin logic
+  const currentHost = window.location.hostname;
+  if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1') {
+    return ''; // Same-origin - no CORS issues
+  }
+  return window.API_URL || 'https://inventory-backend-production-3a2c.up.railway.app';
 }
 
 // Origin Helper - ensures consistent URL handling across all requests
