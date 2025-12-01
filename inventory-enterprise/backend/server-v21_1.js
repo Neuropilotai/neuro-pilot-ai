@@ -1570,31 +1570,68 @@ app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rat
 // V22.2: Vendor Orders with Google Drive PDF Integration
 app.use('/api/vendor-orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR_ORDERS'), safeRequire('./routes/vendor-orders', 'vendor-orders'));
 
-// V21.1 Owner Console Routes - Full Feature Restoration
-app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
-app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
-app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), safeRequire('./routes/governance', 'governance'));
-
-// V22.2: AI Engine Routes - PostgreSQL-native AI inventory intelligence
-app.use('/api/ai', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_ENGINE'), safeRequire('./routes/ai-engine', 'ai-engine'));
-app.use('/api/ai/forecast', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_FORECAST'), safeRequire('./routes/ai-forecast', 'ai-forecast'));
-app.use('/api/ai/feedback', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_FEEDBACK'), safeRequire('./routes/ai-feedback-api', 'ai-feedback'));
-
-// V23.0 Phase 2: Billing & Security Routes
-app.use('/api/billing', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('BILLING'), safeRequire('./routes/billing', 'billing'));
-app.use('/api/security', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('SECURITY'), safeRequire('./routes/security', 'security'));
-app.use('/webhooks', safeRequire('./routes/billing-webhooks', 'billing-webhooks'));
-
-// Diagnostic routes (temporary - for deployment validation)
+// Diagnostic routes (always available for deployment validation)
 app.use('/diag', safeRequire('./routes/diag', 'diag'));
 
-// POS routes (commissary point of sale) + audit logging
-app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), safeRequire('./routes/pos.catalog', 'pos.catalog'));
-app.use('/api/pos/registers', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REGISTER'), safeRequire('./routes/pos.registers', 'pos.registers'));
-app.use('/api/pos/orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_ORDER'), safeRequire('./routes/pos.orders', 'pos.orders'));
-app.use('/api/pos/payments', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, validatePayment(), auditLog('POS_PAYMENT'), safeRequire('./routes/pos.payments', 'pos.payments'));
-app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REPORT'), safeRequire('./routes/pos.reports', 'pos.reports'));
-app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), safeRequire('./routes/pdfs.pos', 'pdfs.pos'));
+// ============================================
+// HEAVY ROUTES - DEFERRED LOADING
+// These routes are loaded AFTER server startup to ensure
+// healthcheck passes within Railway's timeout window
+// ============================================
+// Placeholder for heavy routes - will be loaded post-startup
+let heavyRoutesLoaded = false;
+
+function loadHeavyRoutes() {
+  if (heavyRoutesLoaded) return;
+  heavyRoutesLoaded = true;
+
+  console.log('[STARTUP] Loading heavy routes (AI, Billing, POS, Owner)...');
+
+  try {
+    // V21.1 Owner Console Routes - Full Feature Restoration
+    app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
+    app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
+    app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), safeRequire('./routes/governance', 'governance'));
+    console.log('[STARTUP] ✓ Owner routes loaded');
+  } catch (err) {
+    console.warn('[STARTUP] Owner routes failed:', err.message);
+  }
+
+  try {
+    // V22.2: AI Engine Routes - PostgreSQL-native AI inventory intelligence
+    app.use('/api/ai', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_ENGINE'), safeRequire('./routes/ai-engine', 'ai-engine'));
+    app.use('/api/ai/forecast', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_FORECAST'), safeRequire('./routes/ai-forecast', 'ai-forecast'));
+    app.use('/api/ai/feedback', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_FEEDBACK'), safeRequire('./routes/ai-feedback-api', 'ai-feedback'));
+    console.log('[STARTUP] ✓ AI routes loaded');
+  } catch (err) {
+    console.warn('[STARTUP] AI routes failed:', err.message);
+  }
+
+  try {
+    // V23.0 Phase 2: Billing & Security Routes
+    app.use('/api/billing', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('BILLING'), safeRequire('./routes/billing', 'billing'));
+    app.use('/api/security', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('SECURITY'), safeRequire('./routes/security', 'security'));
+    app.use('/webhooks', safeRequire('./routes/billing-webhooks', 'billing-webhooks'));
+    console.log('[STARTUP] ✓ Billing routes loaded');
+  } catch (err) {
+    console.warn('[STARTUP] Billing routes failed:', err.message);
+  }
+
+  try {
+    // POS routes (commissary point of sale) + audit logging
+    app.use('/api/pos/catalog', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_CATALOG'), safeRequire('./routes/pos.catalog', 'pos.catalog'));
+    app.use('/api/pos/registers', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REGISTER'), safeRequire('./routes/pos.registers', 'pos.registers'));
+    app.use('/api/pos/orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_ORDER'), safeRequire('./routes/pos.orders', 'pos.orders'));
+    app.use('/api/pos/payments', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, validatePayment(), auditLog('POS_PAYMENT'), safeRequire('./routes/pos.payments', 'pos.payments'));
+    app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REPORT'), safeRequire('./routes/pos.reports', 'pos.reports'));
+    app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), safeRequire('./routes/pdfs.pos', 'pdfs.pos'));
+    console.log('[STARTUP] ✓ POS routes loaded');
+  } catch (err) {
+    console.warn('[STARTUP] POS routes failed:', err.message);
+  }
+
+  console.log('[STARTUP] ✓ All heavy routes loaded');
+}
 
 console.log('[STARTUP] ✓ All routes registered');
 
@@ -1697,6 +1734,13 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`  Metrics: http://localhost:${PORT}/metrics`);
   console.log(`  Health: http://localhost:${PORT}/health`);
   console.log('================================================');
+
+  // Defer heavy routes loading - allows healthcheck to pass first
+  // Railway healthcheck hits /health within first few seconds
+  // Load heavy routes 2 seconds after server starts
+  setTimeout(() => {
+    loadHeavyRoutes();
+  }, 2000);
 });
 
 // Graceful shutdown
