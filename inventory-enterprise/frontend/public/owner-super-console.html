@@ -3,21 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="np-api-url" content="https://inventory-backend-production.up.railway.app">
+  <meta name="np-api-url" content="">
   <title>Owner Super Console | NeuroInnovate Inventory v20.1.0</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="stylesheet" href="../css/styles.css?v=20.1.0">
 
-  <!-- NeuroPilot fetch bootstrap v2.2 – robust normalization -->
+  <!-- NeuroPilot fetch bootstrap v2.2 – V22.2: Same-origin for Railway -->
   <script>
-/* NeuroPilot fetch bootstrap v2.2 – robust normalization */
+/* NeuroPilot fetch bootstrap v2.2 – V22.2: Same-origin for Railway */
 (function () {
   try {
-    // 0) Resolve API base from meta / window / localStorage
-    var meta = document.querySelector('meta[name="np-api-url"]');
-    var fallback = 'https://inventory-backend-production.up.railway.app';
-    var candidate = (meta && meta.content ? meta.content : (window.API_URL || localStorage.getItem('NP_API_URL') || '')).trim();
-    var API_BASE = (/^https?:\/\//i.test(candidate) ? candidate : fallback).replace(/\/+$/, '');
+    // V22.2: Use same-origin (empty string) when served from backend
+    var currentHost = window.location.hostname;
+    var API_BASE;
+
+    if (currentHost.indexOf('railway.app') !== -1 || currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      // Same-origin - no CORS issues, use relative URLs
+      API_BASE = '';
+    } else {
+      // External origin - use full URL
+      API_BASE = 'https://inventory-backend-production-3a2c.up.railway.app';
+    }
+
+    // Clear any stale localStorage URL
+    localStorage.removeItem('NP_API_URL');
 
     // Expose
     window.NP_CONFIG = window.NP_CONFIG || {};
