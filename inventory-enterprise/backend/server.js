@@ -33,6 +33,9 @@ const adminUsersRoutes = require('./routes/admin-users');
 // PASS P v2.8.0 - Next Generation Features
 const aiForecastRoutes = require('./routes/ai-forecast');
 const twoFARoutes = require('./routes/2fa');
+
+// V22.1 - NeuroPilot AI Engine (PostgreSQL-native)
+const aiEngineRoutes = require('./routes/ai-engine');
 const ownerRoutes = require('./routes/owner');
 const ownerAIRoutes = require('./routes/owner-ai'); // Owner AI Widgets
 const ownerAILearningRoutes = require('./routes/owner-ai-learning'); // Phase 3: Autonomous Learning
@@ -381,6 +384,9 @@ app.use('/api/admin', authenticateToken, adminUsersRoutes);
 // PASS P v2.8.0 - Next Generation APIs
 app.use('/api/ai/forecast', authenticateToken, resolveTenant, aiForecastRoutes.router);
 app.use('/api/2fa', authenticateToken, twoFARoutes.router);
+
+// V22.1 - NeuroPilot AI Engine (PostgreSQL-native inventory intelligence)
+app.use('/api/ai', authenticateToken, resolveTenant, aiEngineRoutes);
 
 // ============================================================================
 // OWNER ROUTES - DEVICE BINDING ENFORCED (MacBook Pro Only)

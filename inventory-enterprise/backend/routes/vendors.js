@@ -15,8 +15,31 @@ function getOrgId(req) {
   return req.tenant?.tenantId || req.user?.org_id || req.user?.tenant_id || 'default';
 }
 
+/**
+ * Helper: Check database availability and return diagnostic error
+ */
+function checkDbAvailable(res) {
+  if (!global.db || typeof global.db.query !== 'function') {
+    console.error('[vendors] Database not available - global.db:', typeof global.db);
+    res.status(503).json({
+      success: false,
+      error: 'Database unavailable',
+      code: 'DB_UNAVAILABLE',
+      diagnostic: {
+        globalDbExists: !!global.db,
+        queryFunctionExists: typeof global.db?.query === 'function',
+        hint: 'Check DATABASE_URL environment variable and database connection'
+      }
+    });
+    return false;
+  }
+  return true;
+}
+
 // GET /api/vendors - List all vendors with pricing stats
 router.get('/', async (req, res) => {
+  if (!checkDbAvailable(res)) return;
+
   const org_id = getOrgId(req);
 
   try {
@@ -36,7 +59,17 @@ router.get('/', async (req, res) => {
     res.json({ success: true, data: result.rows, count: result.rows.length });
   } catch (error) {
     console.error('GET /api/vendors error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      code: error.code || 'DB_ERROR',
+      diagnostic: {
+        errorName: error.name,
+        hint: error.code === 'ECONNREFUSED' ? 'Database connection refused - check if PostgreSQL is running' :
+              error.code === '42P01' ? 'Table does not exist - run migrations' :
+              'Check Railway logs for more details'
+      }
+    });
   }
 });
 

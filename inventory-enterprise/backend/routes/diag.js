@@ -14,6 +14,21 @@ const { pool } = require('../db');
  * Returns: { ok: boolean, timestamp: ISO8601, database: "connected" }
  */
 router.get('/db', async (req, res) => {
+  // First check if pool exists
+  if (!pool) {
+    return res.status(503).json({
+      ok: false,
+      database: 'no_pool',
+      error: 'Database pool not initialized',
+      diagnostic: {
+        poolExists: false,
+        globalDbExists: !!global.db,
+        databaseUrlSet: !!process.env.DATABASE_URL,
+        hint: 'Check if DATABASE_URL environment variable is set correctly'
+      }
+    });
+  }
+
   try {
     const { rows } = await pool.query('SELECT 1 AS ok, NOW() AS ts');
 
@@ -32,7 +47,18 @@ router.get('/db', async (req, res) => {
       ok: false,
       database: 'disconnected',
       error: error.message,
-      code: error.code
+      code: error.code,
+      diagnostic: {
+        errorName: error.name,
+        poolExists: !!pool,
+        poolTotal: pool?.totalCount,
+        poolIdle: pool?.idleCount,
+        databaseUrlSet: !!process.env.DATABASE_URL,
+        hint: error.code === 'ECONNREFUSED' ? 'Database connection refused' :
+              error.code === 'ENOTFOUND' ? 'Database host not found' :
+              error.code === '28P01' ? 'Authentication failed' :
+              'Check Railway logs'
+      }
     });
   }
 });
