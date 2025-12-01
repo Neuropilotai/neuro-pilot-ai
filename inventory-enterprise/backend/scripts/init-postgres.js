@@ -13,15 +13,25 @@ const { Pool } = require('pg');
 
 /**
  * Normalize DATABASE_URL to prevent schemeless URLs from being treated as Unix sockets
+ * Also strips any accidental "DATABASE_URL=" prefix that might get included
  */
 function normalizeDatabaseUrl(raw) {
   if (!raw) {
     throw new Error('Missing DATABASE_URL environment variable');
   }
+
+  // Strip accidental "DATABASE_URL=" prefix (Railway env var misconfiguration)
+  if (raw.startsWith('DATABASE_URL=')) {
+    raw = raw.substring('DATABASE_URL='.length);
+    console.warn('[INIT] Stripped accidental DATABASE_URL= prefix from connection string');
+  }
+
+  // Add scheme if missing
   if (!/^postgres(ql)?:\/\//i.test(raw)) {
     raw = `postgresql://${String(raw).replace(/^\/\//, '')}`;
     console.warn('[INIT] Added missing postgresql:// scheme to DATABASE_URL');
   }
+
   return raw;
 }
 
@@ -188,7 +198,14 @@ async function initDatabase() {
           '018_owner_console_tables.sql',
           '019_create_documents_table.sql',
           '020_vendor_orders_tables.sql',
-          '021_population_table.sql'
+          '021_population_table.sql',
+          '022_ai_missing_tables.sql',
+          // Phase 2: Enterprise Architecture
+          '023_multi_tenant_foundation.sql',
+          '024_ai_predictive_engine.sql',
+          '025_vendor_ai_parser.sql',
+          '026_stripe_billing.sql',
+          '027_soc2_security.sql'
         ]
       },
       {

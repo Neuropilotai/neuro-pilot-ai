@@ -753,21 +753,47 @@ console.log('[STARTUP] Configuring middleware...');
 app.use(privacyGuard());
 console.log('[STARTUP] Privacy guard configured');
 
-// Security headers
+// ============================================
+// SECURITY HEADERS - V22.4 Enterprise Hardened
+// ============================================
+// CSP_STRICT_MODE=true removes CDN dependencies (requires bundled assets)
+const cspStrictMode = process.env.CSP_STRICT_MODE === 'true';
+
+// Allowed CDNs (only if not in strict mode)
+const cdnSources = cspStrictMode ? [] : [
+  'https://cdn.tailwindcss.com',
+  'https://cdn.jsdelivr.net'
+];
+
+// Allowed connect sources based on environment
+const connectSources = [
+  "'self'",
+  'https://api.neuropilot.dev',
+  'https://app.neuropilot.dev',
+  ...(cspStrictMode ? [] : [
+    'https://cdn.jsdelivr.net',
+    'https://*.railway.app',
+    'https://*.up.railway.app',
+    'https://*.neuropilot.dev',
+    'https://neuropilot.dev'
+  ])
+];
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdn.jsdelivr.net"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.tailwindcss.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", ...cdnSources],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", ...cdnSources],
       scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers (onclick, etc.)
       imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net", "data:"],
-      connectSrc: ["'self'", "https://cdn.jsdelivr.net", "https://*.railway.app", "https://*.up.railway.app"],
+      fontSrc: ["'self'", ...cdnSources, "data:"],
+      connectSrc: connectSources,
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
+      framesSrc: ["'self'", "https://drive.google.com"], // Allow Google Drive embeds for PDF preview
       upgradeInsecureRequests: [],
     }
   },
@@ -775,8 +801,17 @@ app.use(helmet({
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true
-  }
+  },
+  // Additional security headers
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+  originAgentCluster: true,
+  dnsPrefetchControl: { allow: false },
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' }
 }));
+
+console.log('[CSP] Mode:', cspStrictMode ? 'STRICT (no CDNs)' : 'STANDARD');
 
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
@@ -1539,6 +1574,16 @@ app.use('/api/vendor-orders', authGuard(['staff', 'manager', 'admin', 'owner']),
 app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
 app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
 app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), safeRequire('./routes/governance', 'governance'));
+
+// V22.2: AI Engine Routes - PostgreSQL-native AI inventory intelligence
+app.use('/api/ai', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_ENGINE'), safeRequire('./routes/ai-engine', 'ai-engine'));
+app.use('/api/ai/forecast', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_FORECAST'), safeRequire('./routes/ai-forecast', 'ai-forecast'));
+app.use('/api/ai/feedback', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('AI_FEEDBACK'), safeRequire('./routes/ai-feedback-api', 'ai-feedback'));
+
+// V23.0 Phase 2: Billing & Security Routes
+app.use('/api/billing', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('BILLING'), safeRequire('./routes/billing', 'billing'));
+app.use('/api/security', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('SECURITY'), safeRequire('./routes/security', 'security'));
+app.use('/webhooks', safeRequire('./routes/billing-webhooks', 'billing-webhooks'));
 
 // Diagnostic routes (temporary - for deployment validation)
 app.use('/diag', safeRequire('./routes/diag', 'diag'));
