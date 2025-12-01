@@ -187,7 +187,8 @@ async function initDatabase() {
           '017_seed_menu_data.sql',
           '018_owner_console_tables.sql',
           '019_create_documents_table.sql',
-          '020_vendor_orders_tables.sql'
+          '020_vendor_orders_tables.sql',
+          '021_population_table.sql'
         ]
       },
       {

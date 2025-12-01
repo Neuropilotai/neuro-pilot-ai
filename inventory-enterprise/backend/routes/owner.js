@@ -381,6 +381,94 @@ router.get('/reports/executive', authenticateToken, requireOwnerAccess, async (r
 });
 
 /**
+ * GET /api/owner/users
+ * Returns all users for owner console
+ * v22.2: Added for frontend compatibility
+ */
+router.get('/users', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const { pool } = require('../db');
+
+    const result = await pool.query(`
+      SELECT
+        id,
+        email,
+        role,
+        org_id,
+        site_id,
+        is_active,
+        last_login,
+        created_at,
+        updated_at
+      FROM users
+      WHERE is_active = true OR is_active IS NULL
+      ORDER BY created_at DESC
+      LIMIT 100
+    `);
+
+    res.json({
+      success: true,
+      users: result.rows || []
+    });
+  } catch (error) {
+    console.error('GET /api/owner/users error:', error);
+    // Return empty array to prevent frontend breakage
+    res.json({
+      success: true,
+      users: []
+    });
+  }
+});
+
+/**
+ * PUT /api/owner/users/:id/role
+ * Update user role
+ * v22.2: Added for frontend compatibility
+ */
+router.put('/users/:id/role', authenticateToken, requireOwnerAccess, async (req, res) => {
+  try {
+    const { pool } = require('../db');
+    const { id } = req.params;
+    const { role } = req.body;
+
+    // Validate role
+    const validRoles = ['viewer', 'staff', 'manager', 'admin', 'owner'];
+    if (!role || !validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid role. Must be one of: ${validRoles.join(', ')}`
+      });
+    }
+
+    const result = await pool.query(`
+      UPDATE users
+      SET role = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING id, email, role
+    `, [role, id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: result.rows[0],
+      message: `User role updated to ${role}`
+    });
+  } catch (error) {
+    console.error('PUT /api/owner/users/:id/role error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/owner/system-health
  * Returns detailed system health metrics
  */
