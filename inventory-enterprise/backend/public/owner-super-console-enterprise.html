@@ -21,16 +21,22 @@
   <!-- Tabler Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
-  <!-- Production Bootstrap - Live API Only -->
+  <!-- Production Bootstrap - V22.2: Same-origin for Railway -->
   <script>
     (function bootstrapNPConfig() {
       try {
-        const PRESET_API = 'https://inventory-backend-production-3a2c.up.railway.app';
-        if (!localStorage.getItem('NP_API_URL')) {
-          localStorage.setItem('NP_API_URL', PRESET_API);
+        const currentHost = window.location.hostname;
+        let API_BASE;
+        if (currentHost.includes('railway.app') || currentHost === 'localhost' || currentHost === '127.0.0.1') {
+          API_BASE = '';
+        } else {
+          API_BASE = 'https://inventory-backend-production-3a2c.up.railway.app';
         }
+        localStorage.removeItem('NP_API_URL');
+        window.NP_CONFIG = { API_BASE: API_BASE };
       } catch (e) {
         console.warn('Bootstrap failed:', e);
+        window.NP_CONFIG = { API_BASE: '' };
       }
     })();
   </script>
@@ -696,7 +702,8 @@
     // ==========================================
     const APP = {
       config: {
-        apiUrl: localStorage.getItem('NP_API_URL') || 'https://inventory-backend-production-3a2c.up.railway.app',
+        // V22.2: Use same-origin detection
+        apiUrl: (window.NP_CONFIG && window.NP_CONFIG.API_BASE !== undefined) ? window.NP_CONFIG.API_BASE : '',
         token: localStorage.getItem('NP_TOKEN'),
         user: JSON.parse(localStorage.getItem('NP_USER') || 'null'),
         orgId: localStorage.getItem('NP_ORG_ID'),
