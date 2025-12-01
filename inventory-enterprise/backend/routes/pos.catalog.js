@@ -24,8 +24,8 @@ router.get('/', async (req, res) => {
     // Validate query params
     const params = catalogQuerySchema.parse(req.query);
 
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
+    const orgId = req.user.org_id || 'default-org';
+    const siteId = req.user.site_id || null;
 
     // Get sellable items
     const itemsResult = await global.db.query(
@@ -107,8 +107,8 @@ router.get('/', async (req, res) => {
  */
 router.get('/quick', async (req, res) => {
   try {
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
+    const orgId = req.user.org_id || 'default-org';
+    const siteId = req.user.site_id || null;
 
     // Get quick tiles from settings or defaults
     const settingsResult = await global.db.query(
@@ -186,8 +186,8 @@ router.put('/quick', async (req, res) => {
 
     const data = updateSchema.parse(req.body);
 
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
+    const orgId = req.user.org_id || 'default-org';
+    const siteId = req.user.site_id || null;
 
     // Upsert quick tiles settings
     await global.db.query(
