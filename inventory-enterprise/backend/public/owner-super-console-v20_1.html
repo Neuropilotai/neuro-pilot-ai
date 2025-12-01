@@ -453,12 +453,12 @@
 
   <script>
     // =========================================
-    // CONFIGURATION - V22.2: Same-origin for Railway
+    // CONFIGURATION - V22.3: Canonical domain - api.neuropilot.dev
     // =========================================
     const DEFAULT_API_URL = (function() {
       const host = window.location.hostname;
-      if (host.includes('railway.app') || host === 'localhost' || host === '127.0.0.1') return '';
-      return 'https://inventory-backend-production-3a2c.up.railway.app';
+      if (host.includes('railway.app') || host === 'localhost' || host === '127.0.0.1' || host === 'api.neuropilot.dev') return '';
+      return 'https://api.neuropilot.dev';
     })();
     const CONFIG = {
       apiUrl: (window.NP_CONFIG && window.NP_CONFIG.API_BASE !== undefined) ? window.NP_CONFIG.API_BASE : DEFAULT_API_URL,

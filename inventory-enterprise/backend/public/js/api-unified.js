@@ -21,18 +21,17 @@
     }
 
     init() {
-      // V22.2: Use same-origin (empty string) when served from backend
-      // This eliminates all CORS issues for the admin console
+      // V22.3: Canonical API URL - api.neuropilot.dev
       const currentHost = window.location.hostname;
 
-      if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1') {
+      if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1' || currentHost === 'api.neuropilot.dev') {
         // Same-origin - no CORS issues, use relative URLs
         this.apiBase = '';
       } else {
-        // External origin - read from meta tag or use default
+        // External origin - read from meta tag or use canonical domain
         const meta = document.querySelector('meta[name="np-api-url"]');
         const metaUrl = meta?.content?.trim();
-        this.apiBase = metaUrl || 'https://inventory-backend-production-3a2c.up.railway.app';
+        this.apiBase = metaUrl || 'https://api.neuropilot.dev';
       }
 
       // Clear any stale localStorage URL that might cause issues

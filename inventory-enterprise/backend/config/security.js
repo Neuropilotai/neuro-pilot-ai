@@ -63,20 +63,28 @@ const securityConfig = {
   }),
 
   // CORS configuration
+  // V22.3: Canonical domains - neuropilot.dev
   cors: {
     origin: function (origin, callback) {
       const allowedOrigins = [
+        // Canonical production domains
+        'https://api.neuropilot.dev',
+        'https://app.neuropilot.dev',
+        'https://neuropilot.dev',
+        'https://www.neuropilot.dev',
+        // Legacy Railway/Vercel (migration period)
+        'https://inventory-backend-production-3a2c.up.railway.app',
+        'https://neuropilot-frontend.vercel.app',
+        // Local development
         'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:5500',
-        'http://localhost:8080',
-        'https://inventory.neuro-pilot.ai',
-        'https://app.neuro-pilot.ai'
+        'http://localhost:8080'
       ];
-      
+
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
-      
+
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
@@ -86,7 +94,7 @@ const securityConfig = {
     credentials: true,
     optionsSuccessStatus: 200,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Org-Id', 'X-Site-Id', 'X-Tenant-Id']
   },
 
   // JWT configuration

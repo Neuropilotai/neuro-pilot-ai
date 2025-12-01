@@ -1,6 +1,6 @@
 /**
  * Orders Storage Configuration
- * NeuroPilot AI Enterprise V22.2
+ * NeuroPilot AI Enterprise V22.3
  *
  * Handles Google Drive PDF integration for vendor orders.
  * All vendor order PDFs are stored in Google Drive and referenced by file ID.
@@ -11,8 +11,9 @@
  * - GDRIVE_ORDERS_PROCESSED_ID: Subfolder for processed PDFs (optional)
  * - GDRIVE_ORDERS_ERRORS_ID: Subfolder for error PDFs (optional)
  * - GDRIVE_ORDERS_ARCHIVE_ID: Subfolder for archived PDFs (optional)
+ * - GDRIVE_STRICT_MODE: Set to 'true' to require GDRIVE_ORDERS_ROOT_ID in production
  *
- * @version 22.2
+ * @version 22.3
  * @author NeuroPilot AI Team
  */
 
@@ -53,11 +54,12 @@ const CONFIG = {
 };
 
 // ============================================
-// VALIDATION
+// VALIDATION - V22.3 PRODUCTION HARDENED
 // ============================================
 
 /**
  * Validate that required configuration is present
+ * V22.3: Enhanced validation with strict production mode
  * @returns {Object} Validation result with warnings/errors
  */
 function validateConfig() {
@@ -67,13 +69,24 @@ function validateConfig() {
     errors: []
   };
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const strictMode = process.env.GDRIVE_STRICT_MODE === 'true';
+
   // In production, root folder ID should be explicitly set
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction) {
     if (!process.env.GDRIVE_ORDERS_ROOT_ID) {
-      result.warnings.push(
-        'GDRIVE_ORDERS_ROOT_ID not set in production - using default folder ID. ' +
-        'Set this to your organization\'s Google Drive folder for security.'
-      );
+      if (strictMode) {
+        result.errors.push(
+          'FATAL: GDRIVE_ORDERS_ROOT_ID is REQUIRED in production with strict mode. ' +
+          'Set this environment variable to your organization\'s Google Drive folder ID.'
+        );
+        result.valid = false;
+      } else {
+        result.warnings.push(
+          'WARNING: GDRIVE_ORDERS_ROOT_ID not set in production - using default folder ID. ' +
+          'Set GDRIVE_STRICT_MODE=true to enforce this requirement.'
+        );
+      }
     }
   }
 
@@ -82,6 +95,14 @@ function validateConfig() {
   if (CONFIG.rootFolderId && !folderIdPattern.test(CONFIG.rootFolderId)) {
     result.errors.push(`Invalid GDRIVE_ORDERS_ROOT_ID format: ${CONFIG.rootFolderId}`);
     result.valid = false;
+  }
+
+  // Validate folder ID length (Google Drive IDs are typically 28-44 chars)
+  if (CONFIG.rootFolderId && (CONFIG.rootFolderId.length < 20 || CONFIG.rootFolderId.length > 50)) {
+    result.warnings.push(
+      `GDRIVE_ORDERS_ROOT_ID length (${CONFIG.rootFolderId.length}) is unusual. ` +
+      'Google Drive folder IDs are typically 28-44 characters.'
+    );
   }
 
   return result;

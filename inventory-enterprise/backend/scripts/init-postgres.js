@@ -220,7 +220,8 @@ async function initDatabase() {
           '010_quotas_rbac_hardening.sql',
           '011_pos_core.sql',
           '012_pos_inventory.sql',
-          '013_rbac_enforcement.sql'
+          '013_rbac_enforcement.sql',
+          '028_fix_pos_catalog_function.sql'
         ]
       }
     ];

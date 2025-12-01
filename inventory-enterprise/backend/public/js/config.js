@@ -9,18 +9,20 @@ const CONFIG = {
   // API Configuration
   // ============================================
 
-  // Railway Backend URL
-  // V22.2: Use same-origin (empty string) when served from backend
-  // This eliminates all CORS issues for the admin console
+  // V22.3: Canonical API URL - api.neuropilot.dev
+  // Same-origin detection for Railway/localhost, otherwise use canonical domain
   API_BASE_URL: (function() {
-    // If served from the backend itself, use relative URLs (same-origin)
     const currentHost = window.location.hostname;
+    // Same-origin: Railway backend or local development
     if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1') {
       return ''; // Same-origin - no CORS issues
     }
-    // External origin (e.g., Vercel frontend) - use full URL
-    return window.RAILWAY_BACKEND_URL ||
-           'https://inventory-backend-production-3a2c.up.railway.app';
+    // Same-origin: Custom domain pointing to backend
+    if (currentHost === 'api.neuropilot.dev') {
+      return ''; // Same-origin
+    }
+    // Cross-origin: Use canonical API domain
+    return window.NP_API_URL || 'https://api.neuropilot.dev';
   })(),
 
   // API Endpoints

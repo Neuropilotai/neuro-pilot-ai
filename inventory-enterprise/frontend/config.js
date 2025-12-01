@@ -1,13 +1,13 @@
 // API Configuration
 // This file is automatically updated during deployment
 const API_CONFIG = {
-    // Backend API URL - V22.2: Use same-origin when served from backend
+    // Backend API URL - V22.3: Canonical domain - api.neuropilot.dev
     BASE_URL: (function() {
         const currentHost = window.location.hostname;
-        if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1') {
+        if (currentHost.includes('railway.app') || currentHost.includes('localhost') || currentHost === '127.0.0.1' || currentHost === 'api.neuropilot.dev') {
             return ''; // Same-origin - no CORS issues
         }
-        return window.RAILWAY_BACKEND_URL || 'https://inventory-backend-production-3a2c.up.railway.app';
+        return window.NP_API_URL || 'https://api.neuropilot.dev';
     })(),
 
     // API endpoints

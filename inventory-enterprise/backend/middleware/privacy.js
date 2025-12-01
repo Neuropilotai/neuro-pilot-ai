@@ -1,26 +1,38 @@
 // Privacy & Input Sanitization Middleware
-// Neuro.Pilot.AI V21.1 - GDPR/CCPA compliance, CORS enforcement, input validation
-// NO PLACEHOLDERS - Production-ready
+// NeuroPilot AI V22.4 - Enterprise Hardened
+// GDPR/CCPA compliance, CORS enforcement, input validation
 
 const { pool } = require('../db');
 
-// CORS Allowlist (Production-safe origins)
-const ALLOWED_ORIGINS = [
-  // Production backends
-  'https://resourceful-achievement-production.up.railway.app',
-  'https://inventory-backend-7-agent-build.up.railway.app',
-  'https://inventory-frontend-v21-7-agent-build.up.railway.app',
-  'https://inventory-backend-enterprise.up.railway.app',
+// ============================================
+// CORS CONFIGURATION - V22.4 Enterprise Hardened
+// ============================================
+// Environment-driven CORS for production security
+// Set CORS_STRICT_MODE=true to lock down to only canonical domains
+
+const isProduction = process.env.NODE_ENV === 'production';
+const isStrictMode = process.env.CORS_STRICT_MODE === 'true';
+
+// CANONICAL PRODUCTION DOMAINS (always allowed)
+const PRODUCTION_ORIGINS = [
+  'https://app.neuropilot.dev',        // Primary frontend
+  'https://api.neuropilot.dev',        // API (self, for CORS preflight)
+  'https://neuropilot.dev',            // Root domain
+  'https://www.neuropilot.dev',        // WWW variant
+];
+
+// LEGACY DOMAINS (allowed only if CORS_STRICT_MODE !== 'true')
+const LEGACY_ORIGINS = [
   'https://inventory-backend-production-3a2c.up.railway.app',
-  // Vercel frontends
   'https://neuropilot-inventory.vercel.app',
-  'https://neuropilot-inventory-david-mikulis-projects-73b27c6d.vercel.app',
   'https://neuropilot-frontend.vercel.app',
-  // Custom domains
   'https://staging.neuropilot.ai',
   'https://neuropilot.ai',
   'https://www.neuropilot.ai',
-  // Local development origins (always allowed for dev convenience)
+];
+
+// LOCAL DEVELOPMENT (only in non-production)
+const DEV_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5000',
@@ -31,12 +43,25 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5000',
   'http://127.0.0.1:8080',
   'http://127.0.0.1:8083',
+];
+
+// Build allowed origins based on environment
+const ALLOWED_ORIGINS = [
+  ...PRODUCTION_ORIGINS,
+  ...(isStrictMode ? [] : LEGACY_ORIGINS),
+  ...(isProduction ? [] : DEV_ORIGINS),
   process.env.FRONTEND_URL,
   process.env.ALLOWED_ORIGIN
 ].filter(Boolean);
 
-// Also allow Vercel preview deployments (pattern match)
-const VERCEL_PREVIEW_PATTERN = /^https:\/\/neuropilot-(inventory|frontend)-[a-z0-9]+-david-mikulis-projects-[a-z0-9]+\.vercel\.app$/;
+// Vercel preview deployments (only if not strict mode)
+const VERCEL_PREVIEW_PATTERN = isStrictMode
+  ? null
+  : /^https:\/\/neuropilot-(inventory|frontend)-[a-z0-9]+-david-mikulis-projects-[a-z0-9]+\.vercel\.app$/;
+
+// Log CORS configuration on startup
+console.log('[CORS] Mode:', isStrictMode ? 'STRICT (production only)' : isProduction ? 'PRODUCTION' : 'DEVELOPMENT');
+console.log('[CORS] Allowed origins:', ALLOWED_ORIGINS.length);
 
 // Forbidden query parameters (prevent accidental logging of secrets)
 const FORBIDDEN_PARAMS = [
@@ -88,12 +113,12 @@ function privacyGuard() {
 
     // CORS validation
     if (origin) {
-      // Allow 'null' origin for local file:// development and cross-origin redirects
-      const isNullOrigin = origin === 'null';
+      // Allow 'null' origin for local file:// development (only in non-strict mode)
+      const isNullOrigin = !isStrictMode && origin === 'null';
       const isInAllowList = ALLOWED_ORIGINS.some(allowed =>
         allowed === origin || allowed === '*'
       );
-      const isVercelPreview = VERCEL_PREVIEW_PATTERN.test(origin);
+      const isVercelPreview = VERCEL_PREVIEW_PATTERN && VERCEL_PREVIEW_PATTERN.test(origin);
       const isAllowed = isNullOrigin || isInAllowList || isVercelPreview;
 
       if (!isAllowed) {

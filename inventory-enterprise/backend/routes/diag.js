@@ -387,4 +387,173 @@ router.post('/seed', async (req, res) => {
   }
 });
 
+// ============================================
+// GOOGLE DRIVE DIAGNOSTICS - V22.4
+// ============================================
+
+/**
+ * GET /diag/google-drive
+ * Test Google Drive configuration and connectivity
+ * Returns: { ok: boolean, message: string, details: object }
+ */
+router.get('/google-drive', async (req, res) => {
+  const ordersStorage = require('../config/ordersStorage');
+
+  const result = {
+    ok: true,
+    message: 'Google Drive configuration check',
+    timestamp: new Date().toISOString(),
+    details: {
+      configured: false,
+      strictMode: process.env.GDRIVE_STRICT_MODE === 'true',
+      validation: null,
+      folders: {},
+      connectivity: 'not_tested'
+    }
+  };
+
+  try {
+    // 1. Validate configuration
+    const validation = ordersStorage.validateConfig();
+    result.details.validation = validation;
+
+    if (!validation.valid) {
+      result.ok = false;
+      result.message = 'Configuration validation failed';
+      return res.status(500).json(result);
+    }
+
+    // 2. Check folder IDs
+    const rootFolder = ordersStorage.getOrdersRootFolderId();
+    result.details.folders = {
+      root: rootFolder ? `...${rootFolder.slice(-8)}` : 'NOT SET',
+      incoming: ordersStorage.getIncomingFolderId() ? 'SET' : 'NOT SET',
+      processed: ordersStorage.getProcessedFolderId() ? 'SET' : 'NOT SET',
+      errors: ordersStorage.getErrorsFolderId() ? 'SET' : 'NOT SET',
+      archive: ordersStorage.getArchiveFolderId() ? 'SET' : 'NOT SET',
+    };
+
+    result.details.configured = !!rootFolder;
+
+    if (!rootFolder) {
+      result.ok = false;
+      result.message = 'No root folder configured';
+      return res.status(500).json(result);
+    }
+
+    // 3. Test URL building
+    const testFileId = '1234567890abcdefghijklmnopqrst';
+    result.details.urlTest = {
+      preview: ordersStorage.buildPreviewUrl(testFileId) ? 'OK' : 'FAILED',
+      view: ordersStorage.buildViewUrl(testFileId) ? 'OK' : 'FAILED',
+      download: ordersStorage.buildDownloadUrl(testFileId) ? 'OK' : 'FAILED',
+    };
+
+    // 4. Check supported source systems
+    result.details.sourceSystems = ordersStorage.getSupportedSourceSystems();
+
+    // 5. Overall status
+    result.ok = validation.valid && !!rootFolder;
+    result.message = result.ok
+      ? 'Google Drive configuration is valid'
+      : 'Google Drive configuration has issues';
+
+    return res.status(result.ok ? 200 : 500).json(result);
+  } catch (error) {
+    result.ok = false;
+    result.message = 'Configuration check failed';
+    result.details.error = error.message;
+    return res.status(500).json(result);
+  }
+});
+
+/**
+ * GET /diag/security
+ * Security configuration summary (safe to expose, no secrets)
+ */
+router.get('/security', async (req, res) => {
+  res.json({
+    ok: true,
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    security: {
+      cors: {
+        strictMode: process.env.CORS_STRICT_MODE === 'true',
+      },
+      csp: {
+        strictMode: process.env.CSP_STRICT_MODE === 'true',
+      },
+      gdrive: {
+        strictMode: process.env.GDRIVE_STRICT_MODE === 'true',
+        configured: !!process.env.GDRIVE_ORDERS_ROOT_ID,
+      },
+      jwt: {
+        secretConfigured: !!process.env.JWT_SECRET && process.env.JWT_SECRET !== 'fallback-secret-change-in-production',
+        refreshSecretConfigured: !!process.env.JWT_REFRESH_SECRET,
+      },
+      headers: {
+        hsts: true,
+        xFrameOptions: 'DENY',
+        xContentTypeOptions: 'nosniff',
+        referrerPolicy: 'strict-origin-when-cross-origin',
+      }
+    }
+  });
+});
+
+/**
+ * GET /diag/backup
+ * Check backup system status
+ */
+router.get('/backup', async (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const backupDir = path.join(__dirname, '..', 'backups');
+
+  const result = {
+    ok: true,
+    timestamp: new Date().toISOString(),
+    backupDir: backupDir,
+    configured: {
+      encryptionEnabled: !!process.env.BACKUP_ENCRYPTION_KEY,
+      gdriveUploadEnabled: !!process.env.GDRIVE_BACKUP_FOLDER_ID,
+      slackNotificationsEnabled: !!process.env.SLACK_WEBHOOK_URL,
+      retentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS, 10) || 30,
+    },
+    lastBackup: null,
+    backupCount: 0,
+  };
+
+  try {
+    if (fs.existsSync(backupDir)) {
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.startsWith('neuropilot_backup_'))
+        .sort()
+        .reverse();
+
+      result.backupCount = files.length;
+
+      if (files.length > 0) {
+        const latestFile = files[0];
+        const stats = fs.statSync(path.join(backupDir, latestFile));
+        result.lastBackup = {
+          file: latestFile,
+          size: stats.size,
+          sizeMB: (stats.size / (1024 * 1024)).toFixed(2),
+          created: stats.mtime.toISOString(),
+          ageHours: ((Date.now() - stats.mtimeMs) / (1000 * 60 * 60)).toFixed(1),
+        };
+      }
+    } else {
+      result.ok = false;
+      result.message = 'Backup directory does not exist';
+    }
+  } catch (error) {
+    result.ok = false;
+    result.error = error.message;
+  }
+
+  return res.json(result);
+});
+
 module.exports = router;

@@ -27,10 +27,10 @@
       try {
         const currentHost = window.location.hostname;
         let API_BASE;
-        if (currentHost.includes('railway.app') || currentHost === 'localhost' || currentHost === '127.0.0.1') {
+        if (currentHost.includes('railway.app') || currentHost === 'localhost' || currentHost === '127.0.0.1' || currentHost === 'api.neuropilot.dev') {
           API_BASE = '';
         } else {
-          API_BASE = 'https://inventory-backend-production-3a2c.up.railway.app';
+          API_BASE = 'https://api.neuropilot.dev';
         }
         localStorage.removeItem('NP_API_URL');
         window.NP_CONFIG = { API_BASE: API_BASE };

@@ -353,12 +353,12 @@
 // ============================================
 const state = {
   config: {
-    // V22.2: Use same-origin detection for API URL
+    // V22.3: Canonical domain - api.neuropilot.dev
     apiUrl: (function() {
       if (typeof CONFIG !== 'undefined' && CONFIG.API_BASE_URL !== undefined) return CONFIG.API_BASE_URL;
       const host = window.location.hostname;
-      if (host.includes('railway.app') || host === 'localhost' || host === '127.0.0.1') return '';
-      return 'https://inventory-backend-production-3a2c.up.railway.app';
+      if (host.includes('railway.app') || host === 'localhost' || host === '127.0.0.1' || host === 'api.neuropilot.dev') return '';
+      return 'https://api.neuropilot.dev';
     })(),
     token: localStorage.getItem('NP_TOKEN'),
     user: JSON.parse(localStorage.getItem('NP_USER') || 'null'),

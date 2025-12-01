@@ -12,8 +12,49 @@
  * @date 2025-10-14
  */
 
-const db = require('../db/connection');
 const crypto = require('crypto');
+
+// Lazy-load PostgreSQL pool for enterprise multi-tenant support
+let pool = null;
+const getPool = () => {
+  if (!pool) {
+    try {
+      pool = require('../../db/postgres').pool;
+    } catch (err) {
+      console.warn('[GFSInvoiceParser] PostgreSQL pool not available:', err.message);
+    }
+  }
+  return pool;
+};
+
+// Helper to run queries (PostgreSQL style)
+const db = {
+  async get(sql, params = []) {
+    const p = getPool();
+    if (!p) return null;
+    // Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
+    let idx = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+    const result = await p.query(pgSql, params);
+    return result.rows[0] || null;
+  },
+  async all(sql, params = []) {
+    const p = getPool();
+    if (!p) return [];
+    let idx = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+    const result = await p.query(pgSql, params);
+    return result.rows;
+  },
+  async run(sql, params = []) {
+    const p = getPool();
+    if (!p) return { changes: 0 };
+    let idx = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++idx}`);
+    const result = await p.query(pgSql, params);
+    return { changes: result.rowCount };
+  }
+};
 
 class GFSInvoiceParserV2 {
   constructor(options = {}) {
