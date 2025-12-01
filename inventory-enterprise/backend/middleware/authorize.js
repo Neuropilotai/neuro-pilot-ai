@@ -166,7 +166,7 @@ function authGuard(requiredRoles = []) {
         userResult = await pool.query(`
           SELECT
             u.user_id as id, u.email, CONCAT(u.first_name, ' ', u.last_name) as name, u.role, u.created_at,
-            COALESCE(ur.org_id, u.org_id::VARCHAR, '1') AS org_id,
+            COALESCE(ur.org_id, u.org_id::VARCHAR, 'default-org') AS org_id,
             ur.site_id
           FROM users u
           LEFT JOIN user_roles ur ON ur.user_id = u.user_id
