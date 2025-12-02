@@ -919,21 +919,27 @@ function parsePrometheusMetrics(metricsText) {
 /**
  * GET /api/owner/locations/unassigned
  * List all inventory items with no location mapping
+ * v21.1: Updated to use PostgreSQL
  */
 router.get('/locations/unassigned', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { q = '', page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
+    const searchPattern = q ? `%${q}%` : null;
 
-    // Ensure unique index exists (idempotent)
-    await db.run(`
-      CREATE UNIQUE INDEX IF NOT EXISTS ux_item_locations_item_loc
-      ON item_locations(item_code, location_id)
-    `).catch(() => {}); // Ignore if already exists
+    // Ensure unique index exists (idempotent) - PostgreSQL syntax
+    try {
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_item_locations_item_loc
+        ON item_locations(item_code, location_id)
+      `);
+    } catch (err) {
+      // Ignore if already exists
+    }
 
-    // Query unassigned items
-    const items = await db.all(`
+    // Query unassigned items - PostgreSQL syntax with positional params
+    const itemsResult = await pool.query(`
       SELECT ii.item_code, ii.item_name, ii.unit
       FROM inventory_items ii
       WHERE ii.is_active = 1
@@ -942,16 +948,16 @@ router.get('/locations/unassigned', authenticateToken, requireOwnerAccess, async
           WHERE il.item_code = ii.item_code AND il.is_active = 1
         )
         AND (
-          :q IS NULL OR :q = ''
-          OR ii.item_code LIKE '%' || :q || '%'
-          OR ii.item_name LIKE '%' || :q || '%'
+          $1 IS NULL OR $1 = ''
+          OR ii.item_code ILIKE $1
+          OR ii.item_name ILIKE $1
         )
       ORDER BY ii.item_name
-      LIMIT :limit OFFSET :offset
-    `, { ':q': q, ':limit': parseInt(limit), ':offset': offset });
+      LIMIT $2 OFFSET $3
+    `, [searchPattern, parseInt(limit), offset]);
 
     // Get total count for pagination
-    const countResult = await db.get(`
+    const countResult = await pool.query(`
       SELECT COUNT(1) AS total
       FROM inventory_items ii
       WHERE ii.is_active = 1
@@ -960,16 +966,16 @@ router.get('/locations/unassigned', authenticateToken, requireOwnerAccess, async
           WHERE il.item_code = ii.item_code AND il.is_active = 1
         )
         AND (
-          :q IS NULL OR :q = ''
-          OR ii.item_code LIKE '%' || :q || '%'
-          OR ii.item_name LIKE '%' || :q || '%'
+          $1 IS NULL OR $1 = ''
+          OR ii.item_code ILIKE $1
+          OR ii.item_name ILIKE $1
         )
-    `, { ':q': q });
+    `, [searchPattern]);
 
     res.json({
       success: true,
-      items,
-      total: countResult.total,
+      items: itemsResult.rows || [],
+      total: parseInt(countResult.rows[0]?.total || 0),
       page: parseInt(page),
       limit: parseInt(limit)
     });
@@ -986,10 +992,11 @@ router.get('/locations/unassigned', authenticateToken, requireOwnerAccess, async
 /**
  * POST /api/owner/locations/assign
  * Bulk assign items to multiple locations
+ * v21.1: Updated to use PostgreSQL
  */
 router.post('/locations/assign', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { itemCodes, locationIds } = req.body;
 
     // Validate input
@@ -1008,33 +1015,35 @@ router.post('/locations/assign', authenticateToken, requireOwnerAccess, async (r
     }
 
     // Get default tenant_id (assuming single-tenant for owner)
-    const tenantResult = await db.get(`SELECT id FROM tenants LIMIT 1`);
-    const tenantId = tenantResult?.id || 'default';
+    const tenantResult = await pool.query(`SELECT id FROM tenants LIMIT 1`);
+    const tenantId = tenantResult.rows[0]?.id || 'default';
 
     let inserted = 0;
 
-    // Transaction for bulk insert
-    await db.run('BEGIN TRANSACTION');
-
+    // Use PostgreSQL transaction
+    const client = await pool.connect();
     try {
+      await client.query('BEGIN');
+
       for (const itemCode of itemCodes) {
         for (const locationId of locationIds) {
           // Generate unique id
           const id = `${itemCode}-${locationId}-${Date.now()}`.substring(0, 255);
 
-          // INSERT OR IGNORE to handle duplicates
-          const result = await db.run(`
-            INSERT OR IGNORE INTO item_locations (id, tenant_id, location_id, item_code, sequence, is_active)
-            VALUES (?, ?, ?, ?, 0, 1)
+          // PostgreSQL: ON CONFLICT DO NOTHING replaces INSERT OR IGNORE
+          const result = await client.query(`
+            INSERT INTO item_locations (id, tenant_id, location_id, item_code, sequence, is_active)
+            VALUES ($1, $2, $3, $4, 0, 1)
+            ON CONFLICT (item_code, location_id) DO NOTHING
           `, [id, tenantId, locationId, itemCode]);
 
-          if (result.changes > 0) {
+          if (result.rowCount > 0) {
             inserted++;
           }
         }
       }
 
-      await db.run('COMMIT');
+      await client.query('COMMIT');
 
       res.json({
         success: true,
@@ -1043,8 +1052,10 @@ router.post('/locations/assign', authenticateToken, requireOwnerAccess, async (r
       });
 
     } catch (err) {
-      await db.run('ROLLBACK');
+      await client.query('ROLLBACK');
       throw err;
+    } finally {
+      client.release();
     }
 
   } catch (error) {
@@ -1059,10 +1070,11 @@ router.post('/locations/assign', authenticateToken, requireOwnerAccess, async (r
 /**
  * POST /api/owner/locations/unassign
  * Remove a single item-location mapping
+ * v21.1: Updated to use PostgreSQL
  */
 router.post('/locations/unassign', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { itemCode, locationId } = req.body;
 
     // Validate input
@@ -1073,16 +1085,16 @@ router.post('/locations/unassign', authenticateToken, requireOwnerAccess, async 
       });
     }
 
-    // Delete the mapping
-    const result = await db.run(`
+    // Delete the mapping - PostgreSQL syntax
+    const result = await pool.query(`
       DELETE FROM item_locations
-      WHERE item_code = ? AND location_id = ?
+      WHERE item_code = $1 AND location_id = $2
     `, [itemCode, locationId]);
 
     res.json({
       success: true,
-      removed: result.changes,
-      message: result.changes > 0 ? 'Mapping removed successfully' : 'Mapping not found'
+      removed: result.rowCount,
+      message: result.rowCount > 0 ? 'Mapping removed successfully' : 'Mapping not found'
     });
 
   } catch (error) {
@@ -1266,11 +1278,11 @@ router.post('/count/workspaces', authenticateToken, requireOwnerAccess, async (r
 /**
  * POST /api/owner/count/workspaces/:id/items
  * Add items to workspace
+ * v21.1: Updated to use PostgreSQL
  */
 router.post('/count/workspaces/:id/items', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
-    await ensureWorkspaceTables(db);
+    const { pool } = require('../db');
 
     const { id } = req.params;
     const { itemCodes } = req.body;
@@ -1284,11 +1296,11 @@ router.post('/count/workspaces/:id/items', authenticateToken, requireOwnerAccess
     }
 
     // Verify workspace exists and is open
-    const workspace = await db.get(`SELECT status FROM count_workspaces WHERE id = ?`, [id]);
-    if (!workspace) {
+    const workspaceResult = await pool.query(`SELECT status FROM count_workspaces WHERE id = $1`, [id]);
+    if (workspaceResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Workspace not found' });
     }
-    if (workspace.status !== 'open') {
+    if (workspaceResult.rows[0].status !== 'open') {
       return res.status(400).json({ success: false, error: 'Workspace is closed' });
     }
 
@@ -1296,16 +1308,16 @@ router.post('/count/workspaces/:id/items', authenticateToken, requireOwnerAccess
     let skipped = 0;
     const now = new Date().toISOString();
 
-    // Insert items
+    // Insert items - PostgreSQL syntax
     for (const itemCode of itemCodes) {
       try {
-        await db.run(`
-          INSERT OR IGNORE INTO workspace_items (workspace_id, item_code, added_at)
-          VALUES (?, ?, ?)
+        const result = await pool.query(`
+          INSERT INTO workspace_items (workspace_id, item_code, added_at)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (workspace_id, item_code) DO NOTHING
         `, [id, itemCode, now]);
 
-        const changes = await db.get(`SELECT changes() as changes`);
-        if (changes.changes > 0) {
+        if (result.rowCount > 0) {
           added++;
         } else {
           skipped++;
@@ -1870,10 +1882,11 @@ router.get('/counts/:countId/pdfs/available', authenticateToken, requireOwnerAcc
 /**
  * POST /api/owner/counts/:countId/pdfs/attach
  * Attach PDFs to a count
+ * v21.1: Updated to use PostgreSQL
  */
 router.post('/counts/:countId/pdfs/attach', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { countId } = req.params;
     const { document_ids } = req.body;
 
@@ -1887,8 +1900,8 @@ router.post('/counts/:countId/pdfs/attach', authenticateToken, requireOwnerAcces
     }
 
     // Verify count exists
-    const count = await db.get(`SELECT id FROM inventory_counts WHERE id = ?`, [countId]);
-    if (!count) {
+    const countResult = await pool.query(`SELECT id FROM inventory_counts WHERE id = $1`, [countId]);
+    if (countResult.rows.length === 0) {
       return res.status(404).json({
         ok: false,
         success: false,
@@ -1901,33 +1914,36 @@ router.post('/counts/:countId/pdfs/attach', authenticateToken, requireOwnerAcces
     let attached = 0;
     let skipped = 0;
 
-    await db.run('BEGIN TRANSACTION');
-
+    // Use PostgreSQL transaction
+    const client = await pool.connect();
     try {
+      await client.query('BEGIN');
+
       for (const documentId of document_ids) {
         // Verify document exists
-        const document = await db.get(`SELECT id FROM documents WHERE id = ? AND deleted_at IS NULL`, [documentId]);
+        const docResult = await client.query(`SELECT id FROM documents WHERE id = $1 AND deleted_at IS NULL`, [documentId]);
 
-        if (!document) {
+        if (docResult.rows.length === 0) {
           console.warn(`Document ${documentId} not found, skipping`);
           skipped++;
           continue;
         }
 
-        // Insert into count_documents
-        const result = await db.run(`
-          INSERT OR IGNORE INTO count_documents (count_id, document_id, attached_by, attached_at)
-          VALUES (?, ?, ?, ?)
+        // Insert into count_documents - PostgreSQL syntax
+        const result = await client.query(`
+          INSERT INTO count_documents (count_id, document_id, attached_by, attached_at)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (count_id, document_id) DO NOTHING
         `, [countId, documentId, attachedBy, now]);
 
-        if (result.changes > 0) {
+        if (result.rowCount > 0) {
           attached++;
         } else {
           skipped++;
         }
       }
 
-      await db.run('COMMIT');
+      await client.query('COMMIT');
 
       res.json({
         ok: true,
@@ -1938,8 +1954,10 @@ router.post('/counts/:countId/pdfs/attach', authenticateToken, requireOwnerAcces
       });
 
     } catch (err) {
-      await db.run('ROLLBACK');
+      await client.query('ROLLBACK');
       throw err;
+    } finally {
+      client.release();
     }
 
   } catch (error) {
@@ -1955,23 +1973,24 @@ router.post('/counts/:countId/pdfs/attach', authenticateToken, requireOwnerAcces
 /**
  * DELETE /api/owner/counts/:countId/pdfs/:documentId
  * Detach a PDF from a count
+ * v21.1: Updated to use PostgreSQL
  */
 router.delete('/counts/:countId/pdfs/:documentId', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
+    const { pool } = require('../db');
     const { countId, documentId } = req.params;
 
-    // Delete the attachment
-    const result = await db.run(`
+    // Delete the attachment - PostgreSQL syntax
+    const result = await pool.query(`
       DELETE FROM count_documents
-      WHERE count_id = ? AND document_id = ?
+      WHERE count_id = $1 AND document_id = $2
     `, [countId, documentId]);
 
     res.json({
       ok: true,
       success: true,
-      removed: result.changes,
-      message: result.changes > 0 ? 'PDF detached successfully' : 'PDF not found'
+      removed: result.rowCount,
+      message: result.rowCount > 0 ? 'PDF detached successfully' : 'PDF not found'
     });
 
   } catch (error) {
@@ -1987,11 +2006,11 @@ router.delete('/counts/:countId/pdfs/:documentId', authenticateToken, requireOwn
 /**
  * POST /api/owner/count/workspaces/:id/attach-count
  * Attach an existing inventory count to workspace
+ * v21.1: Updated to use PostgreSQL
  */
 router.post('/count/workspaces/:id/attach-count', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
-    await ensureWorkspaceTables(db);
+    const { pool } = require('../db');
 
     const { id } = req.params;
     const { count_id } = req.body;
@@ -2005,54 +2024,58 @@ router.post('/count/workspaces/:id/attach-count', authenticateToken, requireOwne
     }
 
     // Verify workspace exists and is open
-    const workspace = await db.get(`SELECT status FROM count_workspaces WHERE id = ?`, [id]);
-    if (!workspace) {
+    const workspaceResult = await pool.query(`SELECT status FROM count_workspaces WHERE id = $1`, [id]);
+    if (workspaceResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Workspace not found' });
     }
-    if (workspace.status !== 'open') {
+    if (workspaceResult.rows[0].status !== 'open') {
       return res.status(400).json({ success: false, error: 'Workspace is closed' });
     }
 
     // Verify count exists and get location_id
-    const count = await db.get(`SELECT * FROM inventory_counts WHERE id = ?`, [count_id]);
-    if (!count) {
+    const countResult = await pool.query(`SELECT * FROM inventory_counts WHERE id = $1`, [count_id]);
+    if (countResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Inventory count not found' });
     }
+    const count = countResult.rows[0];
 
     // Get count details and add them to workspace
-    const countDetails = await db.all(`
+    const countDetailsResult = await pool.query(`
       SELECT
         icr.item_code,
         icr.counted_qty
       FROM inventory_count_rows icr
-      WHERE icr.count_id = ?
+      WHERE icr.count_id = $1
     `, [count_id]);
 
     const now = new Date().toISOString();
     let added = 0;
 
-    await db.run('BEGIN TRANSACTION');
-
+    // Use PostgreSQL transaction
+    const client = await pool.connect();
     try {
-      for (const detail of countDetails) {
-        // Add item to workspace items if not already present
-        await db.run(`
-          INSERT OR IGNORE INTO workspace_items (workspace_id, item_code, added_at)
-          VALUES (?, ?, ?)
+      await client.query('BEGIN');
+
+      for (const detail of countDetailsResult.rows) {
+        // Add item to workspace items if not already present - PostgreSQL syntax
+        await client.query(`
+          INSERT INTO workspace_items (workspace_id, item_code, added_at)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (workspace_id, item_code) DO NOTHING
         `, [id, detail.item_code, now]);
 
         // Add count to workspace_counts (using location_id from parent count)
-        await db.run(`
+        await client.query(`
           INSERT INTO workspace_counts (workspace_id, location_id, item_code, qty, counted_at, counted_by)
-          VALUES (?, ?, ?, ?, ?, ?)
+          VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT(workspace_id, location_id, item_code)
-          DO UPDATE SET qty = excluded.qty, counted_at = excluded.counted_at
+          DO UPDATE SET qty = EXCLUDED.qty, counted_at = EXCLUDED.counted_at
         `, [id, count.location_id, detail.item_code, detail.counted_qty, now, 'from_count_' + count_id]);
 
         added++;
       }
 
-      await db.run('COMMIT');
+      await client.query('COMMIT');
 
       res.json({
         success: true,
@@ -2061,8 +2084,10 @@ router.post('/count/workspaces/:id/attach-count', authenticateToken, requireOwne
       });
 
     } catch (err) {
-      await db.run('ROLLBACK');
+      await client.query('ROLLBACK');
       throw err;
+    } finally {
+      client.release();
     }
 
   } catch (error) {
@@ -2181,11 +2206,11 @@ router.get('/pdfs/available', authenticateToken, requireOwnerAccess, async (req,
 /**
  * POST /api/owner/count/workspaces/:id/attach-pdfs
  * Attach multiple PDF documents to workspace
+ * v21.1: Updated to use PostgreSQL
  */
 router.post('/count/workspaces/:id/attach-pdfs', authenticateToken, requireOwnerAccess, async (req, res) => {
   try {
-    const db = require('../config/database');
-    await ensureWorkspaceTables(db);
+    const { pool } = require('../db');
 
     const { id } = req.params;
     const { document_ids } = req.body;
@@ -2199,11 +2224,11 @@ router.post('/count/workspaces/:id/attach-pdfs', authenticateToken, requireOwner
     }
 
     // Verify workspace exists and is open
-    const workspace = await db.get(`SELECT status FROM count_workspaces WHERE id = ?`, [id]);
-    if (!workspace) {
+    const workspaceResult = await pool.query(`SELECT status FROM count_workspaces WHERE id = $1`, [id]);
+    if (workspaceResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Workspace not found' });
     }
-    if (workspace.status !== 'open') {
+    if (workspaceResult.rows[0].status !== 'open') {
       return res.status(400).json({ success: false, error: 'Workspace is closed' });
     }
 
@@ -2211,33 +2236,36 @@ router.post('/count/workspaces/:id/attach-pdfs', authenticateToken, requireOwner
     let attached = 0;
     let skipped = 0;
 
-    await db.run('BEGIN TRANSACTION');
-
+    // Use PostgreSQL transaction
+    const client = await pool.connect();
     try {
+      await client.query('BEGIN');
+
       for (const documentId of document_ids) {
         // Verify document exists
-        const document = await db.get(`SELECT id FROM documents WHERE id = ? AND deleted_at IS NULL`, [documentId]);
+        const docResult = await client.query(`SELECT id FROM documents WHERE id = $1 AND deleted_at IS NULL`, [documentId]);
 
-        if (!document) {
+        if (docResult.rows.length === 0) {
           console.warn(`Document ${documentId} not found, skipping`);
           skipped++;
           continue;
         }
 
-        // Insert into workspace_invoices
-        const result = await db.run(`
-          INSERT OR IGNORE INTO workspace_invoices (workspace_id, document_id, attached_at)
-          VALUES (?, ?, ?)
+        // Insert into workspace_invoices - PostgreSQL syntax
+        const result = await client.query(`
+          INSERT INTO workspace_invoices (workspace_id, document_id, attached_at)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (workspace_id, document_id) DO NOTHING
         `, [id, documentId, now]);
 
-        if (result.changes > 0) {
+        if (result.rowCount > 0) {
           attached++;
         } else {
           skipped++;
         }
       }
 
-      await db.run('COMMIT');
+      await client.query('COMMIT');
 
       res.json({
         success: true,
@@ -2247,8 +2275,10 @@ router.post('/count/workspaces/:id/attach-pdfs', authenticateToken, requireOwner
       });
 
     } catch (err) {
-      await db.run('ROLLBACK');
+      await client.query('ROLLBACK');
       throw err;
+    } finally {
+      client.release();
     }
 
   } catch (error) {
