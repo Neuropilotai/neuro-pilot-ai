@@ -337,6 +337,11 @@ app.use((req, res, next) => {
 });
 
 // Serve static frontend files
+// V22.3: Primary static files from backend/public (included in Railway deployment)
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/css', express.static(path.join(__dirname, 'public/css')));
+app.use('/js', express.static(path.join(__dirname, 'public/js')));
+// Fallback to ../frontend for local development
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/public', express.static(path.join(__dirname, '../frontend/public')));
 app.use('/dashboard', express.static(path.join(__dirname, '../frontend/dashboard')));
