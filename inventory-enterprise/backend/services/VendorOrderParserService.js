@@ -527,20 +527,20 @@ class VendorOrderParserService {
         header.tax = (header.tax || 0) + parseFloat(gfsGstHst[1].replace(/,/g, ''));
       }
 
-      // Look for "Invoice Total" - try multiple patterns
-      // Pattern 1: "Invoice Total" followed by optional whitespace, $, and amount
-      let gfsInvoiceTotal = text.match(/Invoice\s*Total[\s:]*\$?\s*([\d,]+\.?\d*)/i);
-      // Pattern 2: Look near end of document for "Invoice Total $XX,XXX.XX"
-      if (!gfsInvoiceTotal) {
-        gfsInvoiceTotal = text.match(/Invoice\s*Total\s*\$\s*([\d,]+\.\d{2})/i);
-      }
+      // Look for "Invoice Total" - SEARCH FROM END OF DOCUMENT
+      // The Invoice Total is always on the last page(s), so find the LAST match
+      const invoiceTotalPattern = /Invoice\s*Total[\s:]*\$?\s*([\d,]+\.\d{2})/gi;
+      const allMatches = [...text.matchAll(invoiceTotalPattern)];
 
-      if (gfsInvoiceTotal) {
-        const parsedTotal = parseFloat(gfsInvoiceTotal[1].replace(/,/g, ''));
+      if (allMatches.length > 0) {
+        // Use the LAST match (closest to end of document)
+        const lastMatch = allMatches[allMatches.length - 1];
+        const parsedTotal = parseFloat(lastMatch[1].replace(/,/g, ''));
+
         // Sanity check: Invoice Total should be >= subtotal
         if (parsedTotal >= (header.subtotal || 0)) {
           header.total = parsedTotal;
-          console.log('[VendorOrderParser] GFS: Found Invoice Total:', header.total);
+          console.log('[VendorOrderParser] GFS: Found Invoice Total (last of', allMatches.length, 'matches):', header.total);
         }
       }
 
