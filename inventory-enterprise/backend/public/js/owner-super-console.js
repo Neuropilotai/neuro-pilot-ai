@@ -1373,20 +1373,54 @@ function closeLocationModal() {
 
 async function loadPDFs() {
   const tableDiv = document.getElementById('pdfTable');
-  tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading PDFs...</div>';
+  tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading Orders & PDFs...</div>';
 
   const status = document.getElementById('pdfStatus').value;
   const search = document.getElementById('pdfSearch').value;
 
   try {
+    // Fetch from both sources in parallel
     const params = new URLSearchParams({ status });
     if (search) params.append('search', search);
 
-    const data = await fetchAPI(`/owner/pdfs?${params}`);
-    const pdfs = data.data || [];
+    const [ownerPdfsResult, vendorOrdersResult] = await Promise.allSettled([
+      fetchAPI(`/owner/pdfs?${params}`),
+      fetchAPI('/vendor-orders')
+    ]);
 
-    if (pdfs.length === 0) {
-      tableDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📄</div><div>No PDFs found</div></div>';
+    // Combine results from both sources
+    const pdfs = ownerPdfsResult.status === 'fulfilled' ? (ownerPdfsResult.value.data || []) : [];
+    const vendorOrders = vendorOrdersResult.status === 'fulfilled' ? (vendorOrdersResult.value.orders || []) : [];
+
+    // Transform vendor orders to match PDF format
+    const transformedOrders = vendorOrders.map(order => ({
+      id: order.id,
+      source: 'vendor_order',
+      invoiceNumber: order.orderNumber,
+      filename: order.pdfFileName,
+      invoiceDate: order.orderDate,
+      vendor: order.vendorName,
+      amount: parseFloat(order.total) || 0,
+      isProcessed: order.status === 'parsed' || order.status === 'validated' || order.status === 'fifo_complete',
+      status: order.status,
+      pdfPreviewUrl: order.pdfPreviewUrl,
+      pdfFileId: order.pdfFileId,
+      subtotal: parseFloat(order.subtotal) || 0,
+      tax: parseFloat(order.tax) || 0,
+      createdAt: order.createdAt
+    }));
+
+    // Mark source for original PDFs
+    const allItems = [
+      ...pdfs.map(p => ({ ...p, source: 'document' })),
+      ...transformedOrders
+    ];
+
+    // Sort by created date (newest first)
+    allItems.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    if (allItems.length === 0) {
+      tableDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📄</div><div>No orders or PDFs found</div></div>';
       return;
     }
 
@@ -1400,6 +1434,7 @@ async function loadPDFs() {
             <th>Vendor</th>
             <th>Amount</th>
             <th>Status</th>
+            <th>Source</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -1408,45 +1443,72 @@ async function loadPDFs() {
 
     let totalAmount = 0;
 
-    pdfs.forEach(pdf => {
-      const statusBadge = pdf.isProcessed ? '<span class="badge badge-success">Included</span>' : '<span class="badge badge-warning">Pending</span>';
-      const invoiceNum = pdf.invoiceNumber || pdf.filename;
+    allItems.forEach(item => {
+      // Status badge varies by source
+      let statusBadge;
+      if (item.source === 'vendor_order') {
+        const statusMap = {
+          'new': '<span class="badge badge-info">New</span>',
+          'parsed': '<span class="badge badge-success">Parsed</span>',
+          'validated': '<span class="badge badge-success">Validated</span>',
+          'fifo_complete': '<span class="badge badge-success">FIFO Done</span>',
+          'error': '<span class="badge badge-danger">Error</span>',
+          'archived': '<span class="badge badge-secondary">Archived</span>'
+        };
+        statusBadge = statusMap[item.status] || '<span class="badge badge-warning">Unknown</span>';
+      } else {
+        statusBadge = item.isProcessed ? '<span class="badge badge-success">Included</span>' : '<span class="badge badge-warning">Pending</span>';
+      }
+
+      const invoiceNum = item.invoiceNumber || item.filename;
 
       // Fix: Parse date string directly to avoid timezone issues
-      // Database stores dates as YYYY-MM-DD, display as-is without timezone conversion
       let dateDisplay = 'N/A';
-      if (pdf.invoiceDate) {
-        const dateStr = pdf.invoiceDate;
-        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          // Parse YYYY-MM-DD directly without timezone conversion
-          const [year, month, day] = dateStr.split('-');
+      if (item.invoiceDate) {
+        const dateStr = item.invoiceDate;
+        if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+          const [year, month, day] = dateStr.substring(0, 10).split('-');
           const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
           dateDisplay = date.toLocaleDateString();
         } else {
-          // Fallback for other formats
-          dateDisplay = new Date(dateStr + 'T12:00:00').toLocaleDateString();
+          dateDisplay = new Date(dateStr).toLocaleDateString();
         }
-      } else if (pdf.receivedDate) {
-        dateDisplay = new Date(pdf.receivedDate + 'T12:00:00').toLocaleDateString();
+      } else if (item.receivedDate) {
+        dateDisplay = new Date(item.receivedDate + 'T12:00:00').toLocaleDateString();
       }
 
-      const vendor = pdf.vendor || 'N/A';
-      const amount = pdf.amount || 0;
+      const vendor = item.vendor || 'N/A';
+      const amount = item.amount || 0;
       const amountDisplay = amount > 0 ? `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
 
       if (amount > 0) totalAmount += amount;
 
+      // Source badge
+      const sourceBadge = item.source === 'vendor_order'
+        ? '<span class="badge badge-primary">GDrive</span>'
+        : '<span class="badge badge-secondary">Upload</span>';
+
       // Escape single quotes for onclick handler
-      const escapedInvoiceNum = invoiceNum.replace(/'/g, "\\'");
+      const escapedInvoiceNum = invoiceNum ? invoiceNum.replace(/'/g, "\\'") : '';
+
+      // View action - different for vendor orders vs uploaded PDFs
+      let viewAction;
+      if (item.source === 'vendor_order' && item.pdfPreviewUrl) {
+        viewAction = `<button type="button" class="btn btn-sm btn-primary" onclick="window.open('${item.pdfPreviewUrl}', '_blank')">👁️ View</button>`;
+      } else {
+        viewAction = `<button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${item.id}', '${escapedInvoiceNum}')">👁️ View</button>`;
+      }
+
       html += `
         <tr>
-          <td><input type="checkbox" class="pdf-checkbox" data-pdf-id="${pdf.id}" ${pdf.isProcessed ? 'disabled' : ''}></td>
-          <td><strong>${invoiceNum}</strong></td>
+          <td><input type="checkbox" class="pdf-checkbox" data-pdf-id="${item.id}" data-source="${item.source}" ${item.isProcessed ? 'disabled' : ''}></td>
+          <td><strong>${invoiceNum || '-'}</strong></td>
           <td>${dateDisplay}</td>
           <td>${vendor}</td>
           <td class="text-right-bold">${amountDisplay}</td>
           <td>${statusBadge}</td>
-          <td><button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${pdf.id}', '${escapedInvoiceNum}')">👁️ View</button></td>
+          <td>${sourceBadge}</td>
+          <td>${viewAction}</td>
         </tr>
       `;
     });
@@ -1454,8 +1516,8 @@ async function loadPDFs() {
     html += '</tbody></table>';
     const totalFormatted = totalAmount > 0 ? `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
     html += `<div class="info-text-mt">
-      <strong>Total:</strong> ${data.summary?.total || pdfs.length} PDFs
-      (${data.summary?.processed || 0} processed, ${data.summary?.unprocessed || 0} pending) |
+      <strong>Total:</strong> ${allItems.length} items
+      (${transformedOrders.length} from Google Drive, ${pdfs.length} uploaded) |
       <strong>Total Amount:</strong> <span class="text-success-lg">${totalFormatted}</span>
     </div>`;
 
