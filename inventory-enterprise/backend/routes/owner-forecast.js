@@ -19,6 +19,9 @@ const BreakfastPredictor = require('../src/ai/forecast/BreakfastPredictor');
 const BeverageMath = require('../src/ai/forecast/BeverageMath');
 const FeedbackTrainer = require('../src/ai/forecast/FeedbackTrainer');
 
+// v21.1.9: PostgreSQL pool for native queries
+const { pool } = require('../db');
+
 // Middleware: owner-only (assumes auth middleware applied upstream)
 const { requireOwner } = require('../middleware/requireOwner');
 
@@ -332,15 +335,14 @@ router.post('/train/:comment_id', async (req, res) => {
 /**
  * GET /api/owner/forecast/comments
  * Get all feedback comments (applied and pending)
+ * v21.1.9: Migrated to native PostgreSQL (no SQLite compat adapter)
  */
 router.get('/comments', async (req, res) => {
   try {
-    const db = req.app.locals.db;
-    // Database wrapper already returns Promises - no promisify needed
-
     const limit = parseInt(req.query.limit) || 50;
     const applied = req.query.applied; // 'true', 'false', or undefined (all)
 
+    // v21.1.9: Build PostgreSQL query with positional parameters
     let sql = `
       SELECT
         comment_id,
@@ -358,29 +360,32 @@ router.get('/comments', async (req, res) => {
     `;
 
     const params = [];
+    let paramIndex = 1;
 
+    // v21.1.9: Use PostgreSQL TRUE/FALSE instead of SQLite 1/0
     if (applied === 'true') {
-      sql += ' WHERE applied = 1';
+      sql += ` WHERE applied = TRUE`;
     } else if (applied === 'false') {
-      sql += ' WHERE applied = 0';
+      sql += ` WHERE applied = FALSE`;
     }
 
-    sql += ' ORDER BY created_at DESC LIMIT ?';
+    // v21.1.9: Use PostgreSQL positional parameter $1 instead of ?
+    sql += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
     params.push(limit);
 
-    const comments = await db.all(sql, params);
+    const result = await pool.query(sql, params);
 
     res.json({
       success: true,
-      comments,
-      count: comments.length
+      comments: result.rows,
+      count: result.rows.length
     });
 
   } catch (error) {
     console.error('GET /api/owner/forecast/comments error:', error);
 
-    // If feedback table doesn't exist, return empty comments list instead of 500 error
-    if (error.message && error.message.includes('no such table')) {
+    // Handle table not existing (PostgreSQL error code 42P01)
+    if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
       return res.json({
         success: true,
         comments: [],
