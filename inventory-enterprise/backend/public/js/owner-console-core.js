@@ -348,7 +348,7 @@ function switchTab(tabName) {
   // Find and activate the correct tab button
   const tabs = document.querySelectorAll('.tab');
   tabs.forEach((tab, index) => {
-    const tabNames = ['dashboard', 'inventory', 'locations', 'pdfs', 'count', 'ai', 'forecast', 'reports', 'settings'];
+    const tabNames = ['dashboard', 'inventory', 'locations', 'pdfs', 'count', 'ai', 'forecast', 'reports', 'shrinkage', 'settings'];
     if (tabNames[index] === tabName) {
       tab.classList.add('active');
     }
@@ -393,6 +393,9 @@ function switchTab(tabName) {
       break;
     case 'settings':
       if (typeof loadSettings === 'function') loadSettings();
+      break;
+    case 'shrinkage':
+      if (typeof initShrinkageTab === 'function') initShrinkageTab();
       break;
   }
 }

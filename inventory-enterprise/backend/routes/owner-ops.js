@@ -3176,6 +3176,391 @@ router.get('/audit-export', authenticateToken, requireOwner, requireOwnerOpsPerm
   }
 });
 
+// ============================================
+// SHRINKAGE & VARIANCE INTELLIGENCE V1
+// V22.3: GET /api/owner/ops/shrinkage
+// ============================================
+
+/**
+ * Calculate period date range from period string
+ */
+function getPeriodDateRange(period) {
+  const now = new Date();
+  let periodStart, periodEnd;
+
+  switch (period) {
+    case 'last-7-days':
+      periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      periodEnd = now;
+      break;
+    case 'last-28-days':
+      periodStart = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+      periodEnd = now;
+      break;
+    case 'last-week':
+      // Previous complete week (Monday to Sunday)
+      const dayOfWeek = now.getDay();
+      const daysToLastMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      periodEnd = new Date(now.getTime() - daysToLastMonday * 24 * 60 * 60 * 1000);
+      periodEnd.setHours(0, 0, 0, 0);
+      periodStart = new Date(periodEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case 'this-month':
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      periodEnd = now;
+      break;
+    case 'last-month':
+      periodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      periodEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      break;
+    default:
+      // Default to last 7 days
+      periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      periodEnd = now;
+  }
+
+  return {
+    periodStart: periodStart.toISOString().split('T')[0],
+    periodEnd: periodEnd.toISOString().split('T')[0]
+  };
+}
+
+/**
+ * GET /api/owner/ops/shrinkage
+ *
+ * Shrinkage Intelligence Report
+ * Returns top items by shrinkage, category breakdown, and totals
+ *
+ * Query params:
+ *   - period: last-7-days | last-28-days | last-week | this-month | last-month | custom
+ *   - startDate: YYYY-MM-DD (for custom period)
+ *   - endDate: YYYY-MM-DD (for custom period)
+ *   - category: filter by category
+ *   - limit: number of top items to return (default 20)
+ */
+router.get('/shrinkage',
+  authenticateToken,
+  requireOwnerOpsPermission('VIEW_METRICS'),
+  async (req, res) => {
+    try {
+      const orgId = req.user?.org_id || 'default-org';
+      const period = req.query.period || 'last-7-days';
+      const category = req.query.category || null;
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+      // Calculate date range
+      let periodStart, periodEnd;
+      if (period === 'custom' && req.query.startDate && req.query.endDate) {
+        periodStart = req.query.startDate;
+        periodEnd = req.query.endDate;
+      } else {
+        const range = getPeriodDateRange(period);
+        periodStart = range.periodStart;
+        periodEnd = range.periodEnd;
+      }
+
+      // Log the shrinkage report request
+      try {
+        await db.query(`
+          INSERT INTO ai_ops_breadcrumbs (event_type, event_data, created_at)
+          VALUES ('shrinkage_report_requested', $1, NOW())
+        `, [JSON.stringify({
+          orgId,
+          period,
+          periodStart,
+          periodEnd,
+          category,
+          limit,
+          userId: req.user?.id || 'unknown'
+        })]);
+      } catch (logErr) {
+        logger.warn('[Shrinkage] Breadcrumb log failed:', logErr.message);
+      }
+
+      // Check if materialized view exists
+      const viewCheck = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM pg_matviews WHERE matviewname = 'mv_item_shrinkage_weekly'
+        ) AS exists
+      `);
+
+      if (!viewCheck.rows[0]?.exists) {
+        return res.status(503).json({
+          success: false,
+          error: 'Shrinkage view not available',
+          code: 'VIEW_NOT_READY',
+          hint: 'Run migration 030_shrinkage_intelligence.sql to create the view'
+        });
+      }
+
+      // Build query for top items by shrinkage
+      let itemQuery = `
+        SELECT
+          item_code,
+          item_name,
+          category,
+          unit,
+          period_start,
+          period_end,
+          qty_counted_start,
+          qty_received,
+          qty_wasted,
+          qty_counted_end,
+          qty_theoretical_available,
+          qty_unexplained_shrinkage,
+          shrinkage_percent,
+          value_received,
+          value_wasted,
+          has_opening_count,
+          has_closing_count,
+          has_receipts
+        FROM mv_item_shrinkage_weekly
+        WHERE org_id = $1
+          AND period_start >= $2
+          AND period_end <= $3
+          AND qty_unexplained_shrinkage > 0
+      `;
+      const params = [orgId, periodStart, periodEnd];
+      let paramIndex = 4;
+
+      if (category) {
+        itemQuery += ` AND category = $${paramIndex++}`;
+        params.push(category);
+      }
+
+      itemQuery += ` ORDER BY shrinkage_percent DESC, qty_unexplained_shrinkage DESC LIMIT $${paramIndex}`;
+      params.push(limit);
+
+      const itemsResult = await db.query(itemQuery, params);
+
+      // Get category breakdown
+      const categoryQuery = `
+        SELECT
+          COALESCE(category, 'Uncategorized') AS category,
+          COUNT(DISTINCT item_code) AS item_count,
+          SUM(qty_received) AS total_qty_received,
+          SUM(qty_wasted) AS total_qty_wasted,
+          SUM(qty_unexplained_shrinkage) AS total_qty_shrinkage,
+          CASE
+            WHEN SUM(qty_theoretical_available) > 0 THEN
+              ROUND(SUM(qty_unexplained_shrinkage) * 100.0 / SUM(qty_theoretical_available), 2)
+            ELSE 0
+          END AS category_shrinkage_percent,
+          SUM(value_received) AS total_value_received
+        FROM mv_item_shrinkage_weekly
+        WHERE org_id = $1
+          AND period_start >= $2
+          AND period_end <= $3
+        GROUP BY category
+        ORDER BY total_qty_shrinkage DESC
+      `;
+
+      const categoryResult = await db.query(categoryQuery, [orgId, periodStart, periodEnd]);
+
+      // Get totals
+      const totalsQuery = `
+        SELECT
+          COUNT(DISTINCT item_code) AS total_items_with_shrinkage,
+          SUM(qty_unexplained_shrinkage) AS total_qty_shrinkage,
+          SUM(qty_received) AS total_qty_received,
+          SUM(value_received) AS total_value_received,
+          SUM(value_wasted) AS total_value_wasted,
+          CASE
+            WHEN SUM(qty_theoretical_available) > 0 THEN
+              ROUND(SUM(qty_unexplained_shrinkage) * 100.0 / SUM(qty_theoretical_available), 2)
+            ELSE 0
+          END AS overall_shrinkage_percent
+        FROM mv_item_shrinkage_weekly
+        WHERE org_id = $1
+          AND period_start >= $2
+          AND period_end <= $3
+          AND qty_unexplained_shrinkage > 0
+      `;
+
+      const totalsResult = await db.query(totalsQuery, [orgId, periodStart, periodEnd]);
+      const totals = totalsResult.rows[0] || {};
+
+      // Calculate estimated shrinkage value using average unit costs
+      let shrinkageValueEstimate = 0;
+      for (const item of itemsResult.rows) {
+        // Get latest unit cost for this item
+        const costResult = await db.query(`
+          SELECT unit_cost FROM fifo_cost_layers
+          WHERE item_code = $1 AND (org_id = $2 OR org_id IS NULL)
+          AND quantity_remaining > 0
+          ORDER BY received_date DESC LIMIT 1
+        `, [item.item_code, orgId]);
+
+        const unitCost = costResult.rows[0]?.unit_cost || 0;
+        item.unit_cost = parseFloat(unitCost);
+        item.shrinkage_value = parseFloat(unitCost) * parseFloat(item.qty_unexplained_shrinkage);
+        shrinkageValueEstimate += item.shrinkage_value;
+      }
+
+      res.json({
+        success: true,
+        period: {
+          name: period,
+          start: periodStart,
+          end: periodEnd
+        },
+        totals: {
+          itemsWithShrinkage: parseInt(totals.total_items_with_shrinkage) || 0,
+          totalQtyShrinkage: parseFloat(totals.total_qty_shrinkage) || 0,
+          totalQtyReceived: parseFloat(totals.total_qty_received) || 0,
+          totalValueReceived: parseFloat(totals.total_value_received) || 0,
+          totalValueWasted: parseFloat(totals.total_value_wasted) || 0,
+          overallShrinkagePercent: parseFloat(totals.overall_shrinkage_percent) || 0,
+          estimatedShrinkageValue: Math.round(shrinkageValueEstimate * 100) / 100
+        },
+        topItems: itemsResult.rows.map(row => ({
+          itemCode: row.item_code,
+          itemName: row.item_name,
+          category: row.category || 'Uncategorized',
+          unit: row.unit,
+          periodStart: row.period_start,
+          periodEnd: row.period_end,
+          qtyCountedStart: parseFloat(row.qty_counted_start),
+          qtyReceived: parseFloat(row.qty_received),
+          qtyWasted: parseFloat(row.qty_wasted),
+          qtyCountedEnd: parseFloat(row.qty_counted_end),
+          qtyTheoreticalAvailable: parseFloat(row.qty_theoretical_available),
+          qtyShrinkage: parseFloat(row.qty_unexplained_shrinkage),
+          shrinkagePercent: parseFloat(row.shrinkage_percent),
+          unitCost: row.unit_cost,
+          shrinkageValue: Math.round(row.shrinkage_value * 100) / 100,
+          dataQuality: {
+            hasOpeningCount: row.has_opening_count,
+            hasClosingCount: row.has_closing_count,
+            hasReceipts: row.has_receipts
+          }
+        })),
+        byCategory: categoryResult.rows.map(row => ({
+          category: row.category,
+          itemCount: parseInt(row.item_count),
+          totalQtyReceived: parseFloat(row.total_qty_received) || 0,
+          totalQtyWasted: parseFloat(row.total_qty_wasted) || 0,
+          totalQtyShrinkage: parseFloat(row.total_qty_shrinkage) || 0,
+          shrinkagePercent: parseFloat(row.category_shrinkage_percent) || 0,
+          totalValueReceived: parseFloat(row.total_value_received) || 0
+        })),
+        generatedAt: new Date().toISOString()
+      });
+
+    } catch (error) {
+      logger.error('[Shrinkage] Report error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate shrinkage report',
+        code: 'SHRINKAGE_ERROR',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/owner/ops/shrinkage/refresh
+ *
+ * Refresh the shrinkage materialized view
+ * Should be called after inventory counts or significant data changes
+ */
+router.post('/shrinkage/refresh',
+  authenticateToken,
+  requireOwnerOpsPermission('TRIGGER_GOVERNANCE'),
+  async (req, res) => {
+    try {
+      const startTime = Date.now();
+
+      // Check if view exists
+      const viewCheck = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM pg_matviews WHERE matviewname = 'mv_item_shrinkage_weekly'
+        ) AS exists
+      `);
+
+      if (!viewCheck.rows[0]?.exists) {
+        return res.status(503).json({
+          success: false,
+          error: 'Shrinkage view not available',
+          code: 'VIEW_NOT_READY'
+        });
+      }
+
+      // Refresh concurrently (requires unique index)
+      await db.query('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_item_shrinkage_weekly');
+
+      const duration = Date.now() - startTime;
+
+      // Get row count
+      const countResult = await db.query('SELECT COUNT(*) FROM mv_item_shrinkage_weekly');
+      const rowCount = parseInt(countResult.rows[0].count);
+
+      // Log the refresh
+      await db.query(`
+        INSERT INTO ai_ops_breadcrumbs (event_type, event_data, created_at)
+        VALUES ('shrinkage_view_manual_refresh', $1, NOW())
+      `, [JSON.stringify({
+        userId: req.user?.id,
+        durationMs: duration,
+        rowCount
+      })]);
+
+      res.json({
+        success: true,
+        message: 'Shrinkage view refreshed successfully',
+        refreshedAt: new Date().toISOString(),
+        durationMs: duration,
+        rowCount
+      });
+
+    } catch (error) {
+      logger.error('[Shrinkage] Refresh error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to refresh shrinkage view',
+        code: 'REFRESH_ERROR',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/owner/ops/shrinkage/categories
+ *
+ * Get list of available categories for filtering
+ */
+router.get('/shrinkage/categories',
+  authenticateToken,
+  requireOwnerOpsPermission('VIEW_METRICS'),
+  async (req, res) => {
+    try {
+      const orgId = req.user?.org_id || 'default-org';
+
+      const result = await db.query(`
+        SELECT DISTINCT COALESCE(category, 'Uncategorized') AS category
+        FROM inventory_items
+        WHERE is_active = 1 AND (org_id = $1 OR org_id IS NULL)
+        ORDER BY category
+      `, [orgId]);
+
+      res.json({
+        success: true,
+        categories: result.rows.map(r => r.category)
+      });
+
+    } catch (error) {
+      logger.error('[Shrinkage] Categories error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch categories',
+        code: 'CATEGORIES_ERROR'
+      });
+    }
+  }
+);
+
 // Export router and helper functions for reuse
 module.exports = router;
 module.exports.computeAIOpsHealth = computeAIOpsHealth;

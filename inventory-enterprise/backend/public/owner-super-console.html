@@ -149,6 +149,8 @@
       <div class="tab" onclick="switchTab('inventory')">📦 Inventory</div>
       <div class="tab" onclick="switchTab('locations')">📍 Locations</div>
       <div class="tab" onclick="switchTab('pdfs')">📄 Orders/PDFs</div>
+      <div class="tab" onclick="switchTab('gfs-orders')">🚚 GFS Orders</div>
+      <div class="tab" onclick="switchTab('shrinkage')">📉 Shrinkage</div>
       <div class="tab" onclick="switchTab('count')">🔢 Count</div>
       <div class="tab" onclick="switchTab('playground')">🎮 Playground</div>
     </div>
@@ -434,6 +436,100 @@
           <button type="button" class="btn btn-success" onclick="openIncludeOrdersModal()">✓ Include in Count</button>
         </div>
         <div id="pdfTable"></div>
+      </div>
+    </div>
+
+    <!-- GFS Orders Tab (V22.3) -->
+    <div id="gfs-orders" class="tab-panel">
+      <!-- Watcher Status Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">GFS Order Watcher Status</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadGfsWatcherStatus()">Refresh</button>
+        </div>
+        <div id="gfsWatcherStatus" class="p-3">Loading...</div>
+      </div>
+
+      <!-- Upload Section -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Upload GFS Order PDFs</h3>
+        </div>
+        <div class="p-3">
+          <p class="text-muted mb-3">Upload one or more GFS order PDF files. Each PDF will be parsed and FIFO layers will be populated automatically.</p>
+          <div class="mb-3">
+            <input type="file" id="gfsPdfUpload" class="form-control" accept=".pdf" multiple>
+          </div>
+          <button type="button" class="btn btn-success" onclick="uploadGfsPdfs()" id="btnUploadGfs">
+            Upload &amp; Process
+          </button>
+          <span id="gfsUploadStatus" class="ml-3"></span>
+        </div>
+        <div id="gfsUploadResults" class="p-3"></div>
+      </div>
+
+      <!-- Scan Inbox Section -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Google Drive Inbox Scan</h3>
+        </div>
+        <div class="p-3">
+          <p class="text-muted mb-3">Manually trigger a scan of the configured Google Drive inbox folder for new GFS order PDFs.</p>
+          <button type="button" class="btn btn-primary" onclick="scanGfsInbox()" id="btnScanInbox">
+            Scan Inbox Now
+          </button>
+          <span id="gfsScanStatus" class="ml-3"></span>
+        </div>
+        <div id="gfsScanResults" class="p-3"></div>
+      </div>
+
+      <!-- Recent GFS Orders Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Recent GFS Orders</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadGfsOrders()">Refresh</button>
+        </div>
+        <div class="toolbar">
+          <select class="select" id="gfsOrderStatus" onchange="loadGfsOrders()" aria-label="GFS order status filter">
+            <option value="">All Statuses</option>
+            <option value="new">New</option>
+            <option value="parsed">Parsed</option>
+            <option value="fifo_complete">FIFO Complete</option>
+            <option value="error">Error</option>
+          </select>
+          <input type="text" class="input toolbar-search" id="gfsOrderSearch" placeholder="Search order number...">
+          <button type="button" class="btn btn-primary" onclick="loadGfsOrders()">Search</button>
+        </div>
+        <div id="gfsOrdersTable"></div>
+      </div>
+    </div>
+
+    <!-- Shrinkage Intelligence Tab (V22.3) -->
+    <div id="shrinkage" class="tab-panel">
+      <!-- Header with filters -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📉 Shrinkage Intelligence</h3>
+          <div class="toolbar">
+            <select id="shrinkage-period-filter" class="select" onchange="onShrinkagePeriodChange(this.value)">
+              <option value="last-7-days">Last 7 Days</option>
+              <option value="last-28-days">Last 28 Days</option>
+              <option value="last-week">Last Complete Week</option>
+              <option value="this-month">This Month</option>
+              <option value="last-month">Last Month</option>
+            </select>
+            <select id="shrinkage-category-filter" class="select" onchange="onShrinkageCategoryChange(this.value)">
+              <option value="">All Categories</option>
+            </select>
+            <button type="button" class="btn btn-primary" onclick="loadShrinkageReport()">↻ Refresh</button>
+          </div>
+        </div>
+        <p class="card-subtitle">Track unexplained inventory loss: <code>Shrinkage = Opening + Received - Waste - Closing</code></p>
+      </div>
+
+      <!-- Shrinkage Content -->
+      <div id="shrinkage-content">
+        <div class="loading-indicator">Loading shrinkage data...</div>
       </div>
     </div>
 
@@ -2414,6 +2510,214 @@
 
       .system-owner-email {
         font-size: 10px;
+      }
+    }
+
+    /* ========================================
+       Shrinkage Intelligence Styles (V22.3)
+       ======================================== */
+    .shrinkage-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .shrinkage-summary .summary-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .shrinkage-summary .summary-card.alert {
+      border-color: #dc3545;
+      background: rgba(220, 53, 69, 0.1);
+    }
+
+    .shrinkage-summary .summary-card.warning {
+      border-color: #ffc107;
+      background: rgba(255, 193, 7, 0.1);
+    }
+
+    .shrinkage-summary .summary-card .label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .shrinkage-summary .summary-card .value {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .shrinkage-summary .summary-card .value.negative {
+      color: #dc3545;
+    }
+
+    .shrinkage-summary .summary-card .subtext {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .category-bars {
+      margin-bottom: 24px;
+    }
+
+    .category-bars h4 {
+      margin-bottom: 12px;
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+
+    .category-bar-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .category-bar-item .cat-name {
+      width: 120px;
+      flex-shrink: 0;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .category-bar-item .bar-container {
+      flex: 1;
+      height: 16px;
+      background: var(--border-color);
+      border-radius: 4px;
+      margin: 0 12px;
+      overflow: hidden;
+    }
+
+    .category-bar-item .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .category-bar-item .bar-fill.high-shrinkage {
+      background: linear-gradient(90deg, #dc3545, #ff6b6b);
+    }
+
+    .category-bar-item .bar-fill.medium-shrinkage {
+      background: linear-gradient(90deg, #ffc107, #ffda6a);
+    }
+
+    .category-bar-item .bar-fill.low-shrinkage {
+      background: linear-gradient(90deg, #28a745, #5dd879);
+    }
+
+    .category-bar-item .cat-value {
+      width: 80px;
+      text-align: right;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .shrinkage-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .shrinkage-table th {
+      background: var(--card-bg);
+      border-bottom: 2px solid var(--border-color);
+      padding: 10px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-secondary);
+      position: sticky;
+      top: 0;
+    }
+
+    .shrinkage-table th.numeric,
+    .shrinkage-table td.numeric {
+      text-align: right;
+    }
+
+    .shrinkage-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .shrinkage-table tr:hover {
+      background: rgba(var(--primary-rgb), 0.05);
+    }
+
+    .shrinkage-table .high-shrinkage {
+      color: #dc3545;
+      font-weight: 600;
+    }
+
+    .shrinkage-table .medium-shrinkage {
+      color: #ffc107;
+    }
+
+    .shrinkage-table .low-shrinkage {
+      color: #28a745;
+    }
+
+    .dq-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .dq-ok {
+      background: rgba(40, 167, 69, 0.2);
+      color: #28a745;
+    }
+
+    .dq-missing {
+      background: rgba(220, 53, 69, 0.2);
+      color: #dc3545;
+    }
+
+    .dq-partial {
+      background: rgba(255, 193, 7, 0.2);
+      color: #b38600;
+    }
+
+    .shrinkage-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+    }
+
+    .shrinkage-empty .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .shrinkage-summary {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .category-bar-item .cat-name {
+        width: 80px;
+      }
+
+      .shrinkage-table {
+        font-size: 11px;
+      }
+
+      .shrinkage-table th,
+      .shrinkage-table td {
+        padding: 8px 4px;
       }
     }
   </style>
