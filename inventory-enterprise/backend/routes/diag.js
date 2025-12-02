@@ -615,4 +615,250 @@ router.get('/test-pos-catalog', async (req, res) => {
   }
 });
 
+// ============================================
+// GOOGLE DRIVE FOLDER MANAGEMENT - V22.4
+// ============================================
+
+/**
+ * GET /diag/google-drive/files
+ * List files in the vendor orders root folder
+ * Query params: ?limit=50
+ */
+router.get('/google-drive/files', async (req, res) => {
+  const result = {
+    ok: false,
+    message: '',
+    timestamp: new Date().toISOString(),
+    files: [],
+    folders: [],
+    rootFolderId: null
+  };
+
+  try {
+    const googleDriveService = require('../services/GoogleDriveService');
+    const ordersStorage = require('../config/ordersStorage');
+
+    // Initialize service
+    await googleDriveService.initialize();
+
+    if (!googleDriveService.initialized) {
+      result.message = 'Google Drive service not initialized. Check GOOGLE_SERVICE_ACCOUNT_KEY.';
+      return res.status(503).json(result);
+    }
+
+    const rootFolderId = ordersStorage.getOrdersRootFolderId();
+    result.rootFolderId = rootFolderId;
+
+    // List all files (no mimeType filter to see everything)
+    const query = `'${rootFolderId}' in parents and trashed = false`;
+    const response = await googleDriveService.drive.files.list({
+      q: query,
+      fields: 'files(id, name, mimeType, createdTime, modifiedTime, size)',
+      orderBy: 'createdTime desc',
+      pageSize: parseInt(req.query.limit) || 50
+    });
+
+    const items = response.data.files || [];
+
+    // Separate files and folders
+    for (const item of items) {
+      const entry = {
+        id: item.id,
+        name: item.name,
+        mimeType: item.mimeType,
+        size: item.size ? parseInt(item.size) : 0,
+        createdTime: item.createdTime,
+        modifiedTime: item.modifiedTime,
+        previewUrl: item.mimeType === 'application/pdf'
+          ? ordersStorage.buildPreviewUrl(item.id)
+          : null
+      };
+
+      if (item.mimeType === 'application/vnd.google-apps.folder') {
+        result.folders.push(entry);
+      } else {
+        result.files.push(entry);
+      }
+    }
+
+    result.ok = true;
+    result.message = `Found ${result.files.length} files and ${result.folders.length} folders`;
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    result.message = error.message;
+    return res.status(500).json(result);
+  }
+});
+
+/**
+ * POST /diag/google-drive/setup-folders
+ * Create the standard folder structure for vendor orders
+ * Body: { secret: "execute-sql-2025", parentFolderId?: string }
+ * Creates: Incoming, Processed, Errors, Archive subfolders
+ */
+router.post('/google-drive/setup-folders', async (req, res) => {
+  const result = {
+    ok: false,
+    message: '',
+    timestamp: new Date().toISOString(),
+    folders: {
+      root: null,
+      incoming: null,
+      processed: null,
+      errors: null,
+      archive: null
+    },
+    envVars: {}
+  };
+
+  try {
+    // Security check
+    const { secret, parentFolderId } = req.body;
+    if (secret !== 'execute-sql-2025') {
+      return res.status(403).json({ ok: false, message: 'Invalid secret' });
+    }
+
+    const googleDriveService = require('../services/GoogleDriveService');
+    const ordersStorage = require('../config/ordersStorage');
+
+    // Initialize service
+    await googleDriveService.initialize();
+
+    if (!googleDriveService.initialized) {
+      result.message = 'Google Drive service not initialized. Check GOOGLE_SERVICE_ACCOUNT_KEY.';
+      return res.status(503).json(result);
+    }
+
+    // Use provided parent or default root folder
+    const rootId = parentFolderId || ordersStorage.getOrdersRootFolderId();
+    result.folders.root = rootId;
+
+    // Folder names to create
+    const foldersToCreate = [
+      { key: 'incoming', name: 'Incoming' },
+      { key: 'processed', name: 'Processed' },
+      { key: 'errors', name: 'Errors' },
+      { key: 'archive', name: 'Archive' }
+    ];
+
+    // Create each subfolder
+    for (const folder of foldersToCreate) {
+      try {
+        // Check if folder already exists
+        const query = `'${rootId}' in parents and name = '${folder.name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        const existing = await googleDriveService.drive.files.list({
+          q: query,
+          fields: 'files(id, name)',
+          pageSize: 1
+        });
+
+        if (existing.data.files && existing.data.files.length > 0) {
+          result.folders[folder.key] = existing.data.files[0].id;
+          console.log(`[diag/google-drive/setup-folders] Folder "${folder.name}" already exists: ${existing.data.files[0].id}`);
+        } else {
+          // Create the folder
+          const folderId = await googleDriveService.createFolder(folder.name, rootId);
+          result.folders[folder.key] = folderId;
+          console.log(`[diag/google-drive/setup-folders] Created folder "${folder.name}": ${folderId}`);
+        }
+      } catch (folderError) {
+        console.error(`[diag/google-drive/setup-folders] Error creating ${folder.name}:`, folderError.message);
+        result.folders[folder.key] = `ERROR: ${folderError.message}`;
+      }
+    }
+
+    // Generate env vars for Railway
+    result.envVars = {
+      GDRIVE_ORDERS_ROOT_ID: result.folders.root,
+      GDRIVE_ORDERS_INCOMING_ID: result.folders.incoming,
+      GDRIVE_ORDERS_PROCESSED_ID: result.folders.processed,
+      GDRIVE_ORDERS_ERRORS_ID: result.folders.errors,
+      GDRIVE_ORDERS_ARCHIVE_ID: result.folders.archive
+    };
+
+    result.ok = true;
+    result.message = 'Folder structure created/verified successfully';
+    result.hint = 'Copy the envVars object to your Railway environment variables';
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    result.message = error.message;
+    return res.status(500).json(result);
+  }
+});
+
+/**
+ * POST /diag/google-drive/test-connection
+ * Test Google Drive connectivity and list service account details
+ * Body: { secret: "execute-sql-2025" }
+ */
+router.post('/google-drive/test-connection', async (req, res) => {
+  const result = {
+    ok: false,
+    message: '',
+    timestamp: new Date().toISOString(),
+    serviceAccount: null,
+    testFolder: null
+  };
+
+  try {
+    const { secret } = req.body;
+    if (secret !== 'execute-sql-2025') {
+      return res.status(403).json({ ok: false, message: 'Invalid secret' });
+    }
+
+    const googleDriveService = require('../services/GoogleDriveService');
+    const ordersStorage = require('../config/ordersStorage');
+
+    await googleDriveService.initialize();
+
+    if (!googleDriveService.initialized) {
+      result.message = 'Google Drive service not initialized';
+      return res.status(503).json(result);
+    }
+
+    // Get service account info
+    const aboutResponse = await googleDriveService.drive.about.get({
+      fields: 'user'
+    });
+    result.serviceAccount = {
+      email: aboutResponse.data.user?.emailAddress,
+      displayName: aboutResponse.data.user?.displayName
+    };
+
+    // Test access to root folder
+    const rootId = ordersStorage.getOrdersRootFolderId();
+    try {
+      const folderResponse = await googleDriveService.drive.files.get({
+        fileId: rootId,
+        fields: 'id, name, mimeType, capabilities'
+      });
+      result.testFolder = {
+        id: folderResponse.data.id,
+        name: folderResponse.data.name,
+        mimeType: folderResponse.data.mimeType,
+        canEdit: folderResponse.data.capabilities?.canEdit || false,
+        canAddChildren: folderResponse.data.capabilities?.canAddChildren || false
+      };
+    } catch (folderError) {
+      result.testFolder = {
+        error: folderError.message,
+        hint: 'Service account may not have access to this folder. Share the folder with the service account email.'
+      };
+    }
+
+    result.ok = true;
+    result.message = 'Connection test successful';
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    result.message = error.message;
+    return res.status(500).json(result);
+  }
+});
+
 module.exports = router;
