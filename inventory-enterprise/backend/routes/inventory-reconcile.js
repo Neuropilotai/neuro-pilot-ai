@@ -3,6 +3,7 @@
  * PDF ingestion + physical inventory reconciliation + multi-user finance
  *
  * @version 15.5.0
+ * @version 21.1.8 - Migrated to PostgreSQL (removed SQLite syntax)
  */
 
 const express = require('express');
@@ -10,6 +11,7 @@ const router = express.Router();
 const { logger } = require('../config/logger');
 const PdfIngestService = require('../src/inventory/PdfIngestService');
 const ReconcileService = require('../src/inventory/ReconcileService');
+const { pool } = require('../db');
 
 // v15.3: Financial metrics
 const { incrementImportTotal } = require('../utils/financialMetrics');
@@ -291,10 +293,9 @@ router.post('/reconcile/import-pdfs', async (req, res) => {
 
     logger.info(`💰 Financial PDF import request: ${startDate} → ${endDate} by ${req.user?.email || 'unknown'}`);
 
-    const db = require('../config/database');
-
+    // v21.1.8: Use PostgreSQL pool instead of SQLite db
     // Query all documents (PDFs) in date range
-    const pdfs = await db.all(`
+    const pdfsResult = await pool.query(`
       SELECT
         document_id,
         filename,
@@ -304,10 +305,12 @@ router.post('/reconcile/import-pdfs', async (req, res) => {
         total_amount,
         created_at
       FROM documents
-      WHERE invoice_date >= ? AND invoice_date <= ?
+      WHERE invoice_date >= $1 AND invoice_date <= $2
         AND filename LIKE '%.pdf'
       ORDER BY invoice_date ASC
     `, [startDate, endDate]);
+
+    const pdfs = pdfsResult.rows;
 
     if (pdfs.length === 0) {
       return res.json({
@@ -327,7 +330,7 @@ router.post('/reconcile/import-pdfs', async (req, res) => {
 
     for (const pdf of pdfs) {
       // Get line items for this invoice
-      const lineItems = await db.all(`
+      const lineItemsResult = await pool.query(`
         SELECT
           item_code,
           description,
@@ -338,9 +341,11 @@ router.post('/reconcile/import-pdfs', async (req, res) => {
           category
         FROM invoice_line_items
         WHERE invoice_id IN (
-          SELECT invoice_id FROM invoices WHERE invoice_number = ?
+          SELECT invoice_id FROM invoices WHERE invoice_number = $1
         )
       `, [pdf.invoice_number]);
+
+      const lineItems = lineItemsResult.rows;
 
       // Aggregate by category (BAKE, BEV+ECO, MEAT, PROD, CLEAN, PAPER, etc.)
       const categoryTotals = {};
@@ -374,9 +379,10 @@ router.post('/reconcile/import-pdfs', async (req, res) => {
     }
 
     // Store in ai_reconcile_history for audit trail
+    // v21.1.8: PostgreSQL syntax with $1-$9 placeholders and NOW()
     const importId = `FIN_${Date.now()}`;
     for (const data of financialData) {
-      await db.run(`
+      await pool.query(`
         INSERT INTO ai_reconcile_history (
           import_id,
           vendor,
@@ -388,7 +394,8 @@ router.post('/reconcile/import-pdfs', async (req, res) => {
           qst,
           total_amount,
           created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, NOW())
+        ON CONFLICT (invoice_number, invoice_date) DO NOTHING
       `, [
         importId,
         data.vendor,
@@ -442,10 +449,9 @@ router.get('/reconcile/financial-summary', async (req, res) => {
       });
     }
 
-    const db = require('../config/database');
-
+    // v21.1.8: Use PostgreSQL pool
     // Get financial data from ai_reconcile_history
-    const records = await db.all(`
+    const recordsResult = await pool.query(`
       SELECT
         vendor,
         invoice_date,
@@ -457,9 +463,11 @@ router.get('/reconcile/financial-summary', async (req, res) => {
         total_amount,
         created_at
       FROM ai_reconcile_history
-      WHERE invoice_date >= ? AND invoice_date <= ?
+      WHERE invoice_date >= $1 AND invoice_date <= $2
       ORDER BY invoice_date ASC
     `, [startDate, endDate]);
+
+    const records = recordsResult.rows;
 
     // Group by week or month based on period parameter
     const grouped = {};
@@ -563,10 +571,9 @@ router.get('/reconcile/export.csv',
       });
     }
 
-    const db = require('../config/database');
-
+    // v21.1.8: Use PostgreSQL pool
     // Get financial data
-    const records = await db.all(`
+    const recordsResult = await pool.query(`
       SELECT
         vendor,
         invoice_date,
@@ -577,9 +584,11 @@ router.get('/reconcile/export.csv',
         qst,
         total_amount
       FROM ai_reconcile_history
-      WHERE invoice_date >= ? AND invoice_date <= ?
+      WHERE invoice_date >= $1 AND invoice_date <= $2
       ORDER BY invoice_date ASC
     `, [startDate, endDate]);
+
+    const records = recordsResult.rows;
 
     // Build CSV
     const csvRows = [];
@@ -677,8 +686,6 @@ router.get('/reconcile/export.gl.csv',
       });
     }
 
-    const db = require('../config/database');
-
     // GL account code mapping (from spec)
     const accountCodes = {
       'BAKE': '60110010',
@@ -698,8 +705,9 @@ router.get('/reconcile/export.gl.csv',
       'OTHER': '60110040' // Default to GROC+MISC account
     };
 
+    // v21.1.8: Use PostgreSQL pool
     // Get financial data
-    const records = await db.all(`
+    const recordsResult = await pool.query(`
       SELECT
         vendor,
         invoice_date,
@@ -710,9 +718,11 @@ router.get('/reconcile/export.gl.csv',
         qst,
         total_amount
       FROM ai_reconcile_history
-      WHERE invoice_date >= ? AND invoice_date <= ?
+      WHERE invoice_date >= $1 AND invoice_date <= $2
       ORDER BY invoice_date ASC
     `, [startDate, endDate]);
+
+    const records = recordsResult.rows;
 
     // Build GL CSV
     const csvRows = [];
@@ -815,10 +825,9 @@ router.get('/reconcile/export.pdf',
 
     const language = (lang || 'en').toLowerCase();
 
+    // v21.1.8: Use PostgreSQL pool
     // Get summary data
-    const db = require('../config/database');
-
-    const records = await db.all(`
+    const recordsResult = await pool.query(`
       SELECT
         vendor,
         invoice_date,
@@ -829,9 +838,11 @@ router.get('/reconcile/export.pdf',
         qst,
         total_amount
       FROM ai_reconcile_history
-      WHERE invoice_date >= ? AND invoice_date <= ?
+      WHERE invoice_date >= $1 AND invoice_date <= $2
       ORDER BY invoice_date ASC
     `, [startDate, endDate]);
+
+    const records = recordsResult.rows;
 
     // Compute summary KPIs
     let totalInvoices = records.length;
@@ -1806,16 +1817,16 @@ router.delete('/reconcile/:id', async (req, res) => {
 
   try {
     const { id } = req.params;
-    const db = require('../config/database');
 
     logger.info(`🗑️ Deleting reconciliation report: ${id} by ${req.user?.email || 'unknown'}`);
 
+    // v21.1.8: Use PostgreSQL pool
     // Check if reconciliation exists
-    const reconcile = await db.get(`
-      SELECT reconcile_id, status FROM inventory_reconcile_runs WHERE reconcile_id = ?
+    const reconcileResult = await pool.query(`
+      SELECT reconcile_id, status FROM inventory_reconcile_runs WHERE reconcile_id = $1
     `, [id]);
 
-    if (!reconcile) {
+    if (reconcileResult.rows.length === 0) {
       return res.status(404).json({
         ok: false,
         success: false,
@@ -1824,14 +1835,14 @@ router.delete('/reconcile/:id', async (req, res) => {
     }
 
     // Delete diff records first (foreign key constraint)
-    await db.run(`
+    await pool.query(`
       DELETE FROM inventory_reconcile_diffs
-      WHERE run_id = (SELECT id FROM inventory_reconcile_runs WHERE reconcile_id = ?)
+      WHERE run_id = (SELECT id FROM inventory_reconcile_runs WHERE reconcile_id = $1)
     `, [id]);
 
     // Delete the reconciliation run record
-    await db.run(`
-      DELETE FROM inventory_reconcile_runs WHERE reconcile_id = ?
+    await pool.query(`
+      DELETE FROM inventory_reconcile_runs WHERE reconcile_id = $1
     `, [id]);
 
     logger.info(`✅ Reconciliation report ${id} deleted successfully`);
