@@ -1115,6 +1115,148 @@ router.post('/google-drive/move-file', async (req, res) => {
 });
 
 /**
+ * POST /diag/google-drive/process-file
+ * Process a single PDF file by Google Drive file ID
+ * Body: { secret: "execute-sql-2025", fileId: "...", fileName: "...", vendor: "gfs" }
+ */
+router.post('/google-drive/process-file', async (req, res) => {
+  const result = {
+    ok: false,
+    message: '',
+    timestamp: new Date().toISOString(),
+    orderId: null,
+    status: null,
+    parsed: null
+  };
+
+  try {
+    const { secret, fileId, fileName, vendor } = req.body;
+    if (secret !== 'execute-sql-2025') {
+      return res.status(403).json({ ok: false, message: 'Invalid secret' });
+    }
+
+    if (!fileId) {
+      return res.status(400).json({ ok: false, message: 'fileId is required' });
+    }
+
+    const googleDriveService = require('../services/GoogleDriveService');
+    const ordersStorage = require('../config/ordersStorage');
+    const { pool } = require('../db');
+
+    // Initialize Google Drive service
+    await googleDriveService.initialize();
+
+    if (!googleDriveService.initialized) {
+      result.message = 'Google Drive service not initialized';
+      return res.status(503).json(result);
+    }
+
+    // Get file metadata to confirm it exists and get the name
+    let fileMetadata;
+    try {
+      fileMetadata = await googleDriveService.getFileMetadata(fileId);
+    } catch (metaErr) {
+      result.message = `Cannot access file: ${metaErr.message}`;
+      return res.status(404).json(result);
+    }
+
+    const actualFileName = fileName || fileMetadata.name || 'unknown.pdf';
+    console.log(`[diag/process-file] Processing file: ${actualFileName} (${fileId})`);
+
+    // Check for duplicate
+    const dupCheck = await pool.query(
+      `SELECT id FROM vendor_orders WHERE pdf_file_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [fileId]
+    );
+
+    if (dupCheck.rows.length > 0) {
+      result.ok = true;
+      result.message = 'File already processed';
+      result.orderId = dupCheck.rows[0].id;
+      result.status = 'duplicate';
+      return res.status(200).json(result);
+    }
+
+    // Create vendor_order record
+    const vendorName = vendor || 'gfs';
+    const insertResult = await pool.query(
+      `INSERT INTO vendor_orders (
+        org_id, vendor_name, pdf_file_id, pdf_file_name, pdf_folder_id,
+        pdf_preview_url, status, source_system, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      RETURNING id`,
+      [
+        'default-org',
+        vendorName.toUpperCase(),
+        fileId,
+        actualFileName,
+        fileMetadata.parents?.[0] || null,
+        ordersStorage.buildPreviewUrl(fileId),
+        'pending',
+        vendorName.toLowerCase()
+      ]
+    );
+
+    result.orderId = insertResult.rows[0].id;
+    result.status = 'created';
+    console.log(`[diag/process-file] Created order ${result.orderId} for ${actualFileName}`);
+
+    // Try to parse the PDF
+    let parserService = null;
+    try {
+      parserService = require('../services/VendorOrderParserService');
+    } catch (e) {
+      console.warn('[diag/process-file] Parser service not available');
+    }
+
+    if (parserService) {
+      try {
+        const parseResult = await parserService.parseOrderFromGoogleDrive(
+          result.orderId,
+          fileId,
+          { sourceSystem: vendorName.toLowerCase() }
+        );
+
+        result.parsed = {
+          success: parseResult.success,
+          linesFound: parseResult.linesFound,
+          total: parseResult.total,
+          subtotal: parseResult.subtotal,
+          tax: parseResult.tax,
+          orderNumber: parseResult.orderNumber,
+          ocrConfidence: parseResult.ocrConfidence,
+          errors: parseResult.errors
+        };
+
+        if (parseResult.success) {
+          result.status = 'parsed';
+          result.ok = true;
+          result.message = `Successfully parsed: ${parseResult.linesFound} lines, total ${parseResult.total}`;
+        } else {
+          result.status = 'parse_failed';
+          result.message = parseResult.errors?.join('; ') || 'Parse failed';
+        }
+      } catch (parseError) {
+        result.status = 'parse_error';
+        result.message = parseError.message;
+        result.parsed = { error: parseError.message };
+      }
+    } else {
+      result.status = 'created_no_parse';
+      result.message = 'Order created but parser not available';
+    }
+
+    result.ok = result.status === 'parsed' || result.status === 'created';
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error('[diag/process-file] Error:', error);
+    result.message = error.message;
+    return res.status(500).json(result);
+  }
+});
+
+/**
  * POST /diag/google-drive/reset-errors
  * Move all files from Errors folder back to Incoming folder
  * and delete the associated vendor_orders records
