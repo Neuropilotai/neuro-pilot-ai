@@ -375,8 +375,8 @@ class VendorOrderParserService {
       return await this.parseGFSInvoice(text);
     }
 
-    // Generic invoice parsing
-    result.header = this.parseGenericHeader(text);
+    // Generic invoice parsing (pass vendor for vendor-specific patterns)
+    result.header = this.parseGenericHeader(text, vendor);
     result.lines = this.parseGenericLineItems(text);
 
     return result;
@@ -454,8 +454,10 @@ class VendorOrderParserService {
 
   /**
    * Parse generic invoice header
+   * @param {string} text - Extracted text from invoice
+   * @param {string} vendor - Detected vendor code (gfs, sysco, etc.)
    */
-  parseGenericHeader(text) {
+  parseGenericHeader(text, vendor = 'unknown') {
     const header = {
       orderNumber: null,
       orderDate: null,
@@ -473,39 +475,85 @@ class VendorOrderParserService {
       header.orderNumber = orderMatch[1].trim();
     }
 
-    // Extract date
-    const dateMatch = text.match(/(?:date|dated)[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i) ||
-                     text.match(/(\d{4}-\d{2}-\d{2})/);
+    // Extract date - try GFS format first (MM/DD/YYYY)
+    let dateMatch = text.match(/Invoice Date\s*[\r\n]+[^\r\n]*[\r\n]+(\d{2}\/\d{2}\/\d{4})/i);
+    if (!dateMatch) {
+      dateMatch = text.match(/(?:date|dated)[:\s]+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i) ||
+                  text.match(/(\d{4}-\d{2}-\d{2})/);
+    }
     if (dateMatch) {
       header.orderDate = this.parseDate(dateMatch[1]);
     }
 
-    // Extract vendor
-    const vendorMatch = text.match(/(?:vendor|from|bill from|sold by)[:\s]+([^\n]+)/i);
-    if (vendorMatch) {
-      header.vendorName = vendorMatch[1].trim().substring(0, 100);
+    // Set vendor based on detection
+    if (vendor === 'gfs') {
+      header.vendorName = 'GFS';
+      header.vendorCode = 'GFS';
+    } else if (vendor === 'sysco') {
+      header.vendorName = 'Sysco';
+      header.vendorCode = 'SYSCO';
+    } else if (vendor === 'usfoods') {
+      header.vendorName = 'US Foods';
+      header.vendorCode = 'USFOODS';
     } else {
-      // Use first non-empty line as vendor
-      const lines = text.split('\n').filter(l => l.trim().length > 0);
-      if (lines.length > 0) {
-        header.vendorName = lines[0].trim().substring(0, 100);
+      // Extract vendor from text
+      const vendorMatch = text.match(/(?:vendor|from|bill from|sold by)[:\s]+([^\n]+)/i);
+      if (vendorMatch) {
+        header.vendorName = vendorMatch[1].trim().substring(0, 100);
+      } else {
+        // Use first non-empty line as vendor
+        const lines = text.split('\n').filter(l => l.trim().length > 0);
+        if (lines.length > 0) {
+          header.vendorName = lines[0].trim().substring(0, 100);
+        }
       }
     }
 
-    // Extract totals
-    const totalMatch = text.match(/(?:total|amount due|grand total)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
-    if (totalMatch) {
-      header.total = parseFloat(totalMatch[1].replace(/,/g, ''));
-    }
+    // GFS-specific total extraction
+    if (vendor === 'gfs') {
+      // Look for "Invoice Total\n$XX,XXX.XX" pattern
+      const gfsInvoiceTotal = text.match(/Invoice Total[\s\r\n]+\$?([\d,]+\.?\d*)/i);
+      if (gfsInvoiceTotal) {
+        header.total = parseFloat(gfsInvoiceTotal[1].replace(/,/g, ''));
+      }
 
-    const taxMatch = text.match(/(?:tax|sales tax|gst|hst)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
-    if (taxMatch) {
-      header.tax = parseFloat(taxMatch[1].replace(/,/g, ''));
-    }
+      // Look for "Product Total\n$XX,XXX.XX" pattern
+      const gfsProductTotal = text.match(/Product Total[\s\r\n]+\$?([\d,]+\.?\d*)/i);
+      if (gfsProductTotal) {
+        header.subtotal = parseFloat(gfsProductTotal[1].replace(/,/g, ''));
+      }
 
-    const subtotalMatch = text.match(/(?:subtotal|sub-total|sub total)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
-    if (subtotalMatch) {
-      header.subtotal = parseFloat(subtotalMatch[1].replace(/,/g, ''));
+      // Look for PST/QST and GST/HST
+      const gfsPstQst = text.match(/PST\/QST[\s\r\n]+\$?([\d,]+\.?\d*)/i);
+      const gfsGstHst = text.match(/GST\/HST[\s\r\n]+\$?([\d,]+\.?\d*)/i);
+      if (gfsPstQst) {
+        header.tax = parseFloat(gfsPstQst[1].replace(/,/g, ''));
+      }
+      if (gfsGstHst) {
+        header.tax += parseFloat(gfsGstHst[1].replace(/,/g, ''));
+      }
+    } else {
+      // Generic total extraction
+      const totalMatch = text.match(/(?:invoice total|amount due|grand total)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
+      if (totalMatch) {
+        header.total = parseFloat(totalMatch[1].replace(/,/g, ''));
+      } else {
+        // Fallback: find the last "total" with amount
+        const fallbackTotal = text.match(/(?:^|\s)total[:\s]+\$?[\s]*([\d,]+\.?\d*)/im);
+        if (fallbackTotal) {
+          header.total = parseFloat(fallbackTotal[1].replace(/,/g, ''));
+        }
+      }
+
+      const taxMatch = text.match(/(?:tax|sales tax|gst|hst)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
+      if (taxMatch) {
+        header.tax = parseFloat(taxMatch[1].replace(/,/g, ''));
+      }
+
+      const subtotalMatch = text.match(/(?:subtotal|sub-total|sub total)[:\s]+\$?[\s]*([\d,]+\.?\d*)/i);
+      if (subtotalMatch) {
+        header.subtotal = parseFloat(subtotalMatch[1].replace(/,/g, ''));
+      }
     }
 
     return header;
