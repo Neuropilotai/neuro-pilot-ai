@@ -312,10 +312,16 @@ async function loadDashboard() {
     const stats = statsResponse.stats;
 
     // v15.3: System Health - Use AI Ops health score instead of generic systemHealth
+    // v22.3: Prefer V2 scoring with fallback to V1
     try {
       const opsStatus = await fetchAPI('/owner/ops/status');
-      if (opsStatus.ai_ops_health && typeof opsStatus.ai_ops_health.score === 'number') {
-        const healthScore = opsStatus.ai_ops_health.score;
+      // v22.3: Prefer ai_ops_health_v2 if available, fallback to ai_ops_health
+      const rawV1 = opsStatus.ai_ops_health || {};
+      const rawV2 = opsStatus.ai_ops_health_v2 || null;
+      const health = rawV2 || rawV1;
+      const healthScore = Math.round(health.score || 0);
+
+      if (typeof healthScore === 'number' && healthScore > 0) {
         if (healthScore >= 85) {
           document.getElementById('systemHealth').textContent = '✅ Excellent';
           document.getElementById('systemHealth').style.color = '#22c55e';
@@ -3327,12 +3333,13 @@ async function loadAIOpsStatus() {
     }
 
     // Fallback data structure if API failed or returned null
-    if (!opsStatus || !opsStatus.ai_ops_health) {
+    if (!opsStatus || (!opsStatus.ai_ops_health && !opsStatus.ai_ops_health_v2)) {
       opsStatus = {
         ai_ops_health: {
           score: 0,
           explanations: ['API unavailable - showing fallback data']
         },
+        ai_ops_health_v2: null,
         dqi_score: null,
         forecast_latency_avg: null,
         learning_divergence: null,
@@ -3340,17 +3347,28 @@ async function loadAIOpsStatus() {
       };
     }
 
-    // v13.5 Live Console: Update health score from composite ai_ops_health
-    const healthPct = opsStatus.ai_ops_health ? (opsStatus.ai_ops_health.score ?? 0) : 0;
+    // v22.3: Prefer ai_ops_health_v2 (only scores enabled features) with fallback to ai_ops_health
+    const rawV1 = opsStatus.ai_ops_health || {};
+    const rawV2 = opsStatus.ai_ops_health_v2 || null;
+    const health = rawV2 || rawV1;
+    const healthPct = Math.round(health.score || 0);
+
     healthScoreEl.textContent = healthPct > 0 ? `${healthPct}%` : 'N/A';
     const healthState = healthPct >= 85 ? 'ok' : (healthPct >= 60 ? 'warn' : 'bad');
     swapText(healthScoreEl, healthPct > 0 ? healthState : null);
 
-    // Show top 3 explanations as tooltip
-    if (opsStatus.ai_ops_health && opsStatus.ai_ops_health.explanations && Array.isArray(opsStatus.ai_ops_health.explanations)) {
-      const topExplanations = opsStatus.ai_ops_health.explanations.slice(0, 3).join('\n');
-      healthScoreEl.title = `AI Ops System Health:\n${topExplanations}`;
+    // v22.3: Show mode and explanations in tooltip
+    let tooltipLines = ['AI Ops System Health'];
+    if (rawV2 && rawV2.mode) {
+      tooltipLines.push(`Mode: ${rawV2.mode}`);
     }
+    // Prefer V2 explanations, fallback to V1
+    const explanations = health.explanations || [];
+    if (Array.isArray(explanations) && explanations.length > 0) {
+      tooltipLines.push('---');
+      tooltipLines = tooltipLines.concat(explanations.slice(0, 3));
+    }
+    healthScoreEl.title = tooltipLines.join('\n');
 
     // === v14.4.0: Display Data Quality Index (DQI) with safe null handling ===
     if (opsStatus.dqi_score !== null && opsStatus.dqi_score !== undefined) {
@@ -3612,6 +3630,57 @@ async function triggerJob(jobName) {
 // ============================================================================
 
 /**
+ * v22.3: Render AI Health Components Breakdown
+ * Displays each component with status, score, and detail
+ * @param {Object} components - Components from ai_ops_health_v2.components
+ * @param {HTMLElement} container - DOM element to render into
+ */
+function renderAiComponentsBreakdown(components, container) {
+  if (!components || !container) return;
+
+  const statusIcons = {
+    'healthy': '🟢',
+    'warning': '🟡',
+    'critical': '🔴',
+    'disabled': '⚫',
+    'unknown': '⚪'
+  };
+
+  const statusColors = {
+    'healthy': '#22c55e',
+    'warning': '#f59e0b',
+    'critical': '#ef4444',
+    'disabled': '#6b7280',
+    'unknown': '#9ca3af'
+  };
+
+  let html = '<div style="margin-top: 12px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 6px;">';
+  html += '<div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: 600;">Component Breakdown</div>';
+
+  Object.entries(components).forEach(([key, comp]) => {
+    const icon = statusIcons[comp.status] || statusIcons.unknown;
+    const color = statusColors[comp.status] || statusColors.unknown;
+    const scoreDisplay = comp.score !== null ? `${comp.score}%` : 'N/A';
+
+    html += `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span>${icon}</span>
+          <span style="font-size: 12px; color: #333;">${comp.label || key}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11px; color: #666; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${comp.detail || ''}">${comp.detail || ''}</span>
+          <span style="font-size: 12px; font-weight: 600; color: ${color}; min-width: 40px; text-align: right;">${scoreDisplay}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/**
  * Load Cognitive Intelligence Overview (v13.0 + v14.5.0 CSP)
  * Displays AI confidence trends, forecast accuracy, and active modules
  */
@@ -3629,13 +3698,22 @@ async function loadCognitiveIntelligence() {
     const stats = statsResponse.stats;
 
     // v15.3: Fetch AI Ops status for AI Intelligence Index
+    // v22.3: Prefer V2 scoring with fallback to V1
     const opsStatus = await fetchAPI('/owner/ops/status');
+
+    // v22.3: Prefer ai_ops_health_v2 if available, fallback to ai_ops_health
+    const rawV1 = opsStatus.ai_ops_health || {};
+    const rawV2 = opsStatus.ai_ops_health_v2 || null;
+    const health = rawV2 || rawV1;
+    const healthScore = Math.round(health.score || 0);
 
     // Update AI Intelligence Index (featured metric)
     const aiIndexEl = document.getElementById('aiIntelligenceIndex');
     const aiIndexTrendEl = document.getElementById('aiIndexTrend');
-    if (opsStatus.ai_ops_health && typeof opsStatus.ai_ops_health.score === 'number') {
-      const healthScore = opsStatus.ai_ops_health.score;
+    const aiModeEl = document.getElementById('aiSystemMode');
+    const aiComponentsEl = document.getElementById('aiComponentsBreakdown');
+
+    if (typeof healthScore === 'number' && healthScore > 0) {
       aiIndexEl.textContent = `${healthScore}%`;
 
       // Color code based on health score
@@ -3655,6 +3733,26 @@ async function loadCognitiveIntelligence() {
     } else {
       aiIndexEl.textContent = '--';
       aiIndexTrendEl.textContent = 'No data';
+    }
+
+    // v22.3: Show system mode if using V2 scoring
+    if (aiModeEl && rawV2 && rawV2.mode) {
+      const modeLabels = {
+        'minimal': '🔧 Minimal (Setup)',
+        'basic': '📦 Basic (Inventory Only)',
+        'full': '🚀 Full (AI Enabled)'
+      };
+      aiModeEl.textContent = modeLabels[rawV2.mode] || rawV2.mode;
+      aiModeEl.style.display = 'block';
+    } else if (aiModeEl) {
+      aiModeEl.style.display = 'none';
+    }
+
+    // v22.3: Render component breakdown if using V2 scoring
+    if (aiComponentsEl && rawV2 && rawV2.components) {
+      renderAiComponentsBreakdown(rawV2.components, aiComponentsEl);
+    } else if (aiComponentsEl) {
+      aiComponentsEl.innerHTML = '';
     }
 
     // Update top-level metrics with real data
