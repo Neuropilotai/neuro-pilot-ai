@@ -15,6 +15,22 @@ const crypto = require('crypto');
 const { pool } = require('../db');
 const ordersStorage = require('../config/ordersStorage');
 
+// Import Google Drive service
+let googleDriveService = null;
+try {
+  googleDriveService = require('./GoogleDriveService');
+} catch (err) {
+  console.warn('[VendorOrderParser] Google Drive service not available:', err.message);
+}
+
+// Import pdf-parse for text extraction
+let pdfParse = null;
+try {
+  pdfParse = require('pdf-parse');
+} catch (err) {
+  console.warn('[VendorOrderParser] pdf-parse not available:', err.message);
+}
+
 // Import existing OCR engine
 let ocrEngine = null;
 try {
@@ -94,32 +110,101 @@ class VendorOrderParserService {
       pdfFileId,
       success: false,
       ocrConfidence: 0,
-      ocrEngine: 'none',
+      ocrEngine: 'pdf-parse',
       parseDurationMs: 0,
+      header: null,
       linesFound: 0,
+      lines: [],
       errors: [],
       warnings: []
     };
 
+    let tempFilePath = null;
+
     try {
-      // For now, we can't directly download from Google Drive without OAuth
-      // In production, this would use the Google Drive API with service account
-      // For this implementation, we'll support local file parsing
+      // Check if Google Drive service is available
+      if (!googleDriveService || !googleDriveService.initialized) {
+        throw new Error('Google Drive service not initialized');
+      }
 
-      result.warnings.push(
-        'Direct Google Drive parsing requires OAuth setup. ' +
-        'Currently supports local file parsing via /parse-local endpoint.'
-      );
+      // Check if pdf-parse is available
+      if (!pdfParse) {
+        throw new Error('pdf-parse library not available');
+      }
 
-      result.success = false;
+      console.log('[VendorOrderParser] Downloading PDF from Google Drive:', pdfFileId);
+
+      // Download PDF to temp file
+      tempFilePath = path.join(this.config.tempDir, `${orderId}_${Date.now()}.pdf`);
+      await googleDriveService.downloadFile(pdfFileId, tempFilePath);
+
+      console.log('[VendorOrderParser] PDF downloaded to:', tempFilePath);
+
+      // Read PDF buffer
+      const pdfBuffer = await fs.readFile(tempFilePath);
+
+      // Extract text using pdf-parse
+      console.log('[VendorOrderParser] Extracting text from PDF...');
+      const pdfData = await pdfParse(pdfBuffer);
+      const extractedText = pdfData.text || '';
+
+      console.log('[VendorOrderParser] Extracted', extractedText.length, 'characters from PDF');
+
+      if (extractedText.length < 50) {
+        result.warnings.push('PDF contained very little extractable text. May be image-based.');
+      }
+
+      // Parse the extracted text
+      const parsed = await this.parseInvoiceText(extractedText, options);
+
+      result.header = parsed.header;
+      result.lines = parsed.lines;
+      result.linesFound = parsed.lines.length;
+      result.ocrConfidence = extractedText.length > 100 ? 0.85 : 0.5;
+
+      // Save results to database
+      await this.saveParseResults(orderId, result, extractedText);
+
+      result.success = true;
       result.parseDurationMs = Date.now() - startTime;
+
+      console.log('[VendorOrderParser] Parse complete:', {
+        orderId,
+        linesFound: result.linesFound,
+        vendor: result.header?.vendorName,
+        total: result.header?.total,
+        duration: result.parseDurationMs
+      });
 
       return result;
 
     } catch (error) {
+      console.error('[VendorOrderParser] Parse error:', error);
       result.errors.push(error.message);
       result.parseDurationMs = Date.now() - startTime;
+
+      // Update order status to error
+      try {
+        await pool.query(`
+          UPDATE vendor_orders
+          SET status = 'error', error_message = $2, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [orderId, error.message]);
+      } catch (dbError) {
+        console.error('[VendorOrderParser] Failed to update error status:', dbError);
+      }
+
       return result;
+
+    } finally {
+      // Clean up temp file
+      if (tempFilePath) {
+        try {
+          await fs.unlink(tempFilePath);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+      }
     }
   }
 
