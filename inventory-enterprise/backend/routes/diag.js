@@ -646,12 +646,13 @@ router.get('/google-drive/files', async (req, res) => {
       return res.status(503).json(result);
     }
 
-    const rootFolderId = ordersStorage.getOrdersRootFolderId();
-    result.rootFolderId = rootFolderId;
+    // Allow specifying a folder ID via query param, default to root
+    const folderId = req.query.folderId || ordersStorage.getOrdersRootFolderId();
+    result.rootFolderId = folderId;
 
     // List all files (no mimeType filter to see everything)
     // Using supportsAllDrives for shared folder access
-    const query = `'${rootFolderId}' in parents and trashed = false`;
+    const query = `'${folderId}' in parents and trashed = false`;
     const response = await googleDriveService.drive.files.list({
       q: query,
       fields: 'files(id, name, mimeType, createdTime, modifiedTime, size)',
