@@ -887,7 +887,7 @@ router.post('/google-drive/process-incoming', async (req, res) => {
   };
 
   try {
-    const { secret } = req.body;
+    const { secret, folderId } = req.body;
     if (secret !== 'execute-sql-2025') {
       return res.status(403).json({ ok: false, message: 'Invalid secret' });
     }
@@ -904,8 +904,8 @@ router.post('/google-drive/process-incoming', async (req, res) => {
       return res.status(503).json(result);
     }
 
-    // Get incoming folder ID from env or config
-    const incomingFolderId = process.env.GDRIVE_ORDERS_INCOMING_ID || ordersStorage.getIncomingFolderId();
+    // Get incoming folder ID from request body, env, or config
+    const incomingFolderId = folderId || process.env.GDRIVE_ORDERS_INCOMING_ID || ordersStorage.getIncomingFolderId();
     if (!incomingFolderId) {
       result.message = 'No incoming folder ID configured';
       return res.status(400).json(result);
