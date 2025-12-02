@@ -26,13 +26,14 @@ async function computeFinancialAccuracy(database) {
     const invoiceTotals = {};
 
     try {
+      // v21.1.8: PostgreSQL syntax - use CURRENT_DATE - INTERVAL instead of date()
       const invoiceData = await database.all(`
         SELECT
           category_totals,
           subtotal,
           invoice_date
         FROM ai_reconcile_history
-        WHERE invoice_date >= date('now', '-30 days')
+        WHERE invoice_date >= CURRENT_DATE - INTERVAL '30 days'
       `);
 
       for (const row of invoiceData) {
@@ -60,6 +61,7 @@ async function computeFinancialAccuracy(database) {
     const actualUsage = {};
 
     try {
+      // v21.1.8: PostgreSQL syntax - use NOW() - INTERVAL instead of datetime()
       // Query inventory_reconcile_runs for actual usage data
       const usageData = await database.all(`
         SELECT
@@ -72,7 +74,7 @@ async function computeFinancialAccuracy(database) {
         FROM inventory_reconcile_detail
         WHERE reconcile_id IN (
           SELECT reconcile_id FROM inventory_reconcile_runs
-          WHERE completed_at >= datetime('now', '-30 days')
+          WHERE completed_at >= NOW() - INTERVAL '30 days'
           ORDER BY completed_at DESC
           LIMIT 1
         )
@@ -138,11 +140,15 @@ async function computeFinancialAccuracy(database) {
       color = 'yellow';
     }
 
+    // v21.1.8: PostgreSQL syntax - use ON CONFLICT instead of INSERT OR REPLACE
     // Store in ai_ops_health_metrics
     try {
       await database.run(`
-        INSERT OR REPLACE INTO ai_ops_health_metrics (metric_name, metric_value, weight, last_updated)
-        VALUES ('financial_accuracy', ?, 0.15, datetime('now'))
+        INSERT INTO ai_ops_health_metrics (metric_name, metric_value, weight, last_updated)
+        VALUES ('financial_accuracy', $1, 0.15, NOW())
+        ON CONFLICT (metric_name) DO UPDATE SET
+          metric_value = EXCLUDED.metric_value,
+          last_updated = NOW()
       `, [financialAccuracy]);
     } catch (err) {
       logger.debug('Could not store financial_accuracy metric:', err.message);
