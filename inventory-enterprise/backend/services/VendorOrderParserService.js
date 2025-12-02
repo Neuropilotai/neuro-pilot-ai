@@ -512,7 +512,7 @@ class VendorOrderParserService {
     try {
       await client.query('BEGIN');
 
-      // Update order header
+      // Update order header (including raw_ocr_text for case extraction)
       await client.query(`
         UPDATE vendor_orders
         SET
@@ -527,6 +527,7 @@ class VendorOrderParserService {
           ocr_confidence = $9,
           ocr_engine = $10,
           parse_duration_ms = $11,
+          raw_ocr_text = $12,
           parsed_at = CURRENT_TIMESTAMP,
           error_message = NULL,
           updated_at = CURRENT_TIMESTAMP
@@ -542,7 +543,8 @@ class VendorOrderParserService {
         parseResult.linesFound,
         parseResult.ocrConfidence,
         parseResult.ocrEngine,
-        parseResult.parseDurationMs
+        parseResult.parseDurationMs,
+        rawText  // Store raw OCR text for case extraction
       ]);
 
       // Get org_id from order

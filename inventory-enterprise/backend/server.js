@@ -74,6 +74,9 @@ const Phase4CronScheduler = require('./cron/phase4_cron');
 // v19.0: NeuroNexus Autonomous Foundation - Scheduler
 const AutonomousScheduler = require('./scheduler');
 
+// v22.3: GFS Order Watcher - Background Workers
+const { initWorkers, stopWorkers } = require('./startup/initWorkers');
+
 // v4.1.0 - Quantum Defense Governance
 const QuantumKeyManager = require('./security/quantum_key_manager');
 const AutonomousCompliance = require('./security/autonomous_compliance');
@@ -140,6 +143,9 @@ let complianceEngine = null;
 
 // v19.0 Autonomous Foundation services
 let autonomousScheduler = null;
+
+// v22.3 Background Workers
+let backgroundWorkers = null;
 
 const app = express();
 // v14.4.2: Maximum security - no unsafe-inline anywhere
@@ -1069,6 +1075,17 @@ httpServer.listen(PORT, '0.0.0.0', async () => {
     console.log('ℹ️  Autonomous Scheduler disabled (SCHEDULER_ENABLED=false)\n');
   }
 
+  // Initialize v22.3 - Background Workers (GFS Order Watcher)
+  try {
+    console.log('📦 Initializing Background Workers (v22.3)...');
+    backgroundWorkers = await initWorkers();
+    console.log('  ✅ GFS Order Watcher ready');
+    console.log('  ✨ Background Workers ACTIVE\n');
+  } catch (error) {
+    logger.error('Failed to initialize Background Workers:', error);
+    console.error('  ⚠️  Warning: Background workers may not be available\n');
+  }
+
   // Summary
   console.log('═══════════════════════════════════════════════════════════════');
   console.log('✅ ALL SYSTEMS OPERATIONAL');
@@ -1128,6 +1145,12 @@ const gracefulShutdown = async (signal) => {
     if (autonomousScheduler) {
       console.log('Stopping NeuroNexus Autonomous Scheduler...');
       // Scheduler uses node-cron which stops automatically when process exits
+    }
+
+    // Stop v22.3 Background Workers
+    if (backgroundWorkers) {
+      console.log('Stopping Background Workers...');
+      await stopWorkers(backgroundWorkers);
     }
 
     // Stop real-time components

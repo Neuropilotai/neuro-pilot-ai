@@ -31,6 +31,14 @@ try {
   console.warn('[VendorOrders] Parser service not available:', err.message);
 }
 
+// Import FIFO layer service (optional - may not be available in all environments)
+let fifoLayerService = null;
+try {
+  fifoLayerService = require('../services/FifoLayerService');
+} catch (err) {
+  console.warn('[VendorOrders] FIFO layer service not available:', err.message);
+}
+
 // ============================================
 // HELPERS
 // ============================================
@@ -91,7 +99,7 @@ function validateOrderInput(data) {
   }
 
   // Validate status if provided
-  const validStatuses = ['new', 'parsed', 'validated', 'archived', 'error'];
+  const validStatuses = ['new', 'parsed', 'validated', 'archived', 'error', 'fifo_complete'];
   if (data.status && !validStatuses.includes(data.status)) {
     errors.push(`Invalid status: ${data.status}. Must be one of: ${validStatuses.join(', ')}`);
   }
@@ -682,7 +690,7 @@ router.patch('/:id', async (req, res) => {
 
     // Validate status if provided
     if (data.status) {
-      const validStatuses = ['new', 'parsed', 'validated', 'archived', 'error'];
+      const validStatuses = ['new', 'parsed', 'validated', 'archived', 'error', 'fifo_complete'];
       if (!validStatuses.includes(data.status)) {
         return res.status(400).json({
           success: false,
@@ -977,6 +985,99 @@ router.post('/:id/parse-local', async (req, res) => {
 });
 
 // ============================================
+// POST /api/vendor-orders/:id/populate-fifo - Populate FIFO Layers
+// ============================================
+
+router.post('/:id/populate-fifo', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const userId = getUserId(req);
+    const orderId = req.params.id;
+    const { force = false, skipCases = false } = req.body;
+
+    // Validate UUID format
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid order ID format',
+        code: 'INVALID_ID'
+      });
+    }
+
+    // Check if FIFO layer service is available
+    if (!fifoLayerService) {
+      return res.status(503).json({
+        success: false,
+        error: 'FIFO layer service not available',
+        code: 'FIFO_SERVICE_UNAVAILABLE'
+      });
+    }
+
+    // Verify order exists and belongs to org
+    const orderResult = await pool.query(
+      'SELECT id, status, order_number FROM vendor_orders WHERE id = $1 AND org_id = $2 AND deleted_at IS NULL',
+      [orderId, orgId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found',
+        code: 'NOT_FOUND'
+      });
+    }
+
+    // Call FIFO layer service
+    const result = await fifoLayerService.populateFromVendorOrder(orderId, {
+      force,
+      skipCases,
+      userId
+    });
+
+    // Handle different result codes
+    if (!result.success) {
+      const statusCode = result.code === 'ORDER_NOT_FOUND' ? 404
+        : result.code === 'ALREADY_POPULATED' ? 409
+        : result.code === 'NO_LINE_ITEMS' ? 400
+        : 500;
+
+      return res.status(statusCode).json({
+        success: false,
+        error: result.error,
+        code: result.code,
+        hint: result.hint || null,
+        orderStatus: result.orderStatus || null
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'FIFO layers populated successfully',
+      result: {
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        status: result.status,
+        layersCreated: result.layersCreated,
+        layersUpdated: result.layersUpdated,
+        casesExtracted: result.casesExtracted,
+        totalQuantity: result.totalQuantity,
+        totalValueCents: result.totalValueCents,
+        populatedAt: result.populatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('[VendorOrders] Populate FIFO error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to populate FIFO layers',
+      code: 'FIFO_ERROR',
+      details: error.message
+    });
+  }
+});
+
+// ============================================
 // GET /api/vendor-orders/:id/ai-insights
 // ============================================
 
@@ -1079,6 +1180,7 @@ router.get('/stats/summary', async (req, res) => {
         COUNT(CASE WHEN vo.status = 'new' THEN 1 END) AS new_count,
         COUNT(CASE WHEN vo.status = 'parsed' THEN 1 END) AS parsed_count,
         COUNT(CASE WHEN vo.status = 'validated' THEN 1 END) AS validated_count,
+        COUNT(CASE WHEN vo.status = 'fifo_complete' THEN 1 END) AS fifo_complete_count,
         COUNT(CASE WHEN vo.status = 'error' THEN 1 END) AS error_count,
         COUNT(DISTINCT vo.vendor_id) AS vendor_count
       FROM vendor_orders vo
@@ -1098,6 +1200,7 @@ router.get('/stats/summary', async (req, res) => {
           new: parseInt(stats.new_count),
           parsed: parseInt(stats.parsed_count),
           validated: parseInt(stats.validated_count),
+          fifo_complete: parseInt(stats.fifo_complete_count),
           error: parseInt(stats.error_count)
         },
         vendorCount: parseInt(stats.vendor_count)
