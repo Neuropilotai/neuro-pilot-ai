@@ -429,6 +429,382 @@ async function computeAIOpsHealth(database, phase3Cron, metrics) {
   };
 }
 
+// === v22.3: Improved AI Ops Health Computation ===
+/**
+ * Compute AI Ops System Health Score V2 (0-100)
+ *
+ * Key improvements over V1:
+ * - Only scores ENABLED features (disabled features don't penalize)
+ * - Distinguishes "not configured" from "broken" from "idle"
+ * - Dynamic weight redistribution to enabled features
+ * - Clearer breakdown with status per component
+ *
+ * @param {object} database - Database connection
+ * @param {object} phase3Cron - Cron scheduler instance
+ * @param {object} metrics - Pre-computed metrics
+ * @returns {object} { score, mode, components, breakdown, explanations }
+ */
+async function computeAIOpsHealthV2(database, phase3Cron, metrics) {
+  const {
+    lastForecastTs,
+    lastLearningTs,
+    aiConfidenceAvg,
+    forecastAccuracy,
+    forecastLatency,
+    learningLatency
+  } = metrics;
+
+  const breakdown = [];
+  const explanations = [];
+
+  // Detect system mode based on what's configured
+  let hasInventoryData = false;
+  let hasAIForecasting = false;
+  let hasLearningModule = false;
+  let hasPDFProcessing = false;
+
+  // Check for inventory data
+  try {
+    const itemCount = await database.get(`SELECT COUNT(*) as cnt FROM inventory_items`);
+    hasInventoryData = itemCount && itemCount.cnt > 0;
+  } catch (err) {
+    logger.debug('[AIOpsHealthV2] inventory_items check failed:', err.message);
+  }
+
+  // Check if forecasting has ever run (has data)
+  try {
+    const forecastData = await database.get(`SELECT COUNT(*) as cnt FROM ai_daily_forecast_cache`);
+    hasAIForecasting = (forecastData && forecastData.cnt > 0) || lastForecastTs !== null;
+  } catch (err) {
+    logger.debug('[AIOpsHealthV2] forecast cache check failed:', err.message);
+  }
+
+  // Check if learning module has data
+  try {
+    const learningData = await database.get(`SELECT COUNT(*) as cnt FROM ai_learning_insights`);
+    hasLearningModule = (learningData && learningData.cnt > 0) || lastLearningTs !== null;
+  } catch (err) {
+    logger.debug('[AIOpsHealthV2] learning insights check failed:', err.message);
+  }
+
+  // Check if PDF processing is configured (vendor_orders with PDFs)
+  try {
+    const pdfData = await database.get(`SELECT COUNT(*) as cnt FROM vendor_orders WHERE pdf_file_id IS NOT NULL`);
+    hasPDFProcessing = pdfData && pdfData.cnt > 0;
+  } catch (err) {
+    logger.debug('[AIOpsHealthV2] vendor_orders check failed:', err.message);
+  }
+
+  // Determine system mode
+  let mode = 'minimal';
+  if (hasInventoryData) {
+    mode = 'basic';
+  }
+  if (hasAIForecasting || hasLearningModule) {
+    mode = 'full';
+  }
+
+  // Define components with their base weights
+  const componentDefs = [
+    {
+      key: 'dataQuality',
+      label: 'Data Quality',
+      baseWeight: 30,
+      enabled: hasInventoryData,
+      compute: async () => {
+        // Use existing DQI logic simplified
+        try {
+          const dqi = await computeDataQualityIndex(database);
+          return {
+            score: Math.max(0, Math.min(100, dqi.dqi_score)),
+            status: dqi.dqi_score >= 80 ? 'healthy' : dqi.dqi_score >= 50 ? 'warning' : 'critical',
+            value: `${dqi.dqi_score}%`,
+            detail: `${dqi.dqi_issues?.length || 0} issues found`
+          };
+        } catch (err) {
+          return { score: 70, status: 'unknown', value: 'N/A', detail: 'Unable to compute' };
+        }
+      }
+    },
+    {
+      key: 'systemHealth',
+      label: 'System Health',
+      baseWeight: 25,
+      enabled: true, // Always enabled - core infrastructure
+      compute: async () => {
+        let score = 100;
+        const checks = [];
+
+        // Check database connection
+        try {
+          await database.get('SELECT 1');
+          checks.push('Database: OK');
+        } catch (err) {
+          score -= 40;
+          checks.push('Database: ERROR');
+        }
+
+        // Check breadcrumbs (system logging working)
+        try {
+          const breadcrumbs = await database.get(`
+            SELECT COUNT(*) as cnt FROM ai_ops_breadcrumbs
+            WHERE created_at >= NOW() - INTERVAL '24 hours'
+          `);
+          if (breadcrumbs && breadcrumbs.cnt > 0) {
+            checks.push('Logging: Active');
+          } else {
+            score -= 10;
+            checks.push('Logging: Idle');
+          }
+        } catch (err) {
+          checks.push('Logging: N/A');
+        }
+
+        // Check workers (GFS watcher if enabled)
+        const gfsEnabled = process.env.GFS_WATCHER_ENABLED === 'true';
+        if (gfsEnabled) {
+          try {
+            const gfsWatcher = require('../workers/gfs-order-watcher');
+            const status = gfsWatcher.getStatus();
+            if (status.isRunning) {
+              checks.push('GFS Watcher: Running');
+            } else {
+              score -= 15;
+              checks.push('GFS Watcher: Stopped');
+            }
+          } catch (err) {
+            checks.push('GFS Watcher: N/A');
+          }
+        }
+
+        return {
+          score: Math.max(0, score),
+          status: score >= 80 ? 'healthy' : score >= 50 ? 'warning' : 'critical',
+          value: `${score}%`,
+          detail: checks.join(', ')
+        };
+      }
+    },
+    {
+      key: 'forecastHealth',
+      label: 'AI Forecasting',
+      baseWeight: 20,
+      enabled: hasAIForecasting,
+      compute: async () => {
+        if (!hasAIForecasting) {
+          return { score: null, status: 'disabled', value: 'Not configured', detail: 'AI forecasting not enabled' };
+        }
+
+        let score = 100;
+        const details = [];
+
+        // Check forecast recency
+        if (lastForecastTs) {
+          const ageMs = Date.now() - new Date(lastForecastTs).getTime();
+          const ageHours = ageMs / 1000 / 60 / 60;
+          if (ageHours < 24) {
+            details.push(`Last run: ${ageHours.toFixed(1)}h ago`);
+          } else if (ageHours < 48) {
+            score -= 20;
+            details.push(`Last run: ${ageHours.toFixed(0)}h ago (stale)`);
+          } else {
+            score -= 50;
+            details.push(`Last run: ${ageHours.toFixed(0)}h ago (very stale)`);
+          }
+        } else {
+          score = 70; // Has cache but never ran recently - idle state
+          details.push('Waiting for first run');
+        }
+
+        // Check accuracy if available
+        if (forecastAccuracy !== null && forecastAccuracy > 0) {
+          if (forecastAccuracy >= 80) {
+            details.push(`Accuracy: ${forecastAccuracy}%`);
+          } else {
+            score -= 20;
+            details.push(`Accuracy: ${forecastAccuracy}% (low)`);
+          }
+        }
+
+        return {
+          score: Math.max(0, score),
+          status: score >= 80 ? 'healthy' : score >= 50 ? 'warning' : 'critical',
+          value: lastForecastTs ? `${score}%` : 'Idle',
+          detail: details.join(', ') || 'No data yet'
+        };
+      }
+    },
+    {
+      key: 'learningHealth',
+      label: 'AI Learning',
+      baseWeight: 15,
+      enabled: hasLearningModule,
+      compute: async () => {
+        if (!hasLearningModule) {
+          return { score: null, status: 'disabled', value: 'Not configured', detail: 'AI learning not enabled' };
+        }
+
+        let score = 100;
+        const details = [];
+
+        // Check learning recency
+        if (lastLearningTs) {
+          const ageMs = Date.now() - new Date(lastLearningTs).getTime();
+          const ageHours = ageMs / 1000 / 60 / 60;
+          if (ageHours < 24) {
+            details.push(`Last run: ${ageHours.toFixed(1)}h ago`);
+          } else if (ageHours < 48) {
+            score -= 20;
+            details.push(`Last run: ${ageHours.toFixed(0)}h ago (stale)`);
+          } else {
+            score -= 50;
+            details.push(`Last run: ${ageHours.toFixed(0)}h ago (very stale)`);
+          }
+        } else {
+          score = 70;
+          details.push('Waiting for first run');
+        }
+
+        // Check confidence if available
+        if (aiConfidenceAvg !== null && aiConfidenceAvg > 0) {
+          if (aiConfidenceAvg >= 70) {
+            details.push(`Confidence: ${aiConfidenceAvg}%`);
+          } else {
+            score -= 15;
+            details.push(`Confidence: ${aiConfidenceAvg}% (low)`);
+          }
+        }
+
+        return {
+          score: Math.max(0, score),
+          status: score >= 80 ? 'healthy' : score >= 50 ? 'warning' : 'critical',
+          value: lastLearningTs ? `${score}%` : 'Idle',
+          detail: details.join(', ') || 'No data yet'
+        };
+      }
+    },
+    {
+      key: 'pdfProcessing',
+      label: 'PDF Processing',
+      baseWeight: 10,
+      enabled: hasPDFProcessing || process.env.GFS_WATCHER_ENABLED === 'true',
+      compute: async () => {
+        const gfsEnabled = process.env.GFS_WATCHER_ENABLED === 'true';
+        if (!hasPDFProcessing && !gfsEnabled) {
+          return { score: null, status: 'disabled', value: 'Not configured', detail: 'PDF processing not enabled' };
+        }
+
+        let score = 100;
+        const details = [];
+
+        // Count recent vendor orders
+        try {
+          const recentOrders = await database.get(`
+            SELECT COUNT(*) as cnt FROM vendor_orders
+            WHERE created_at >= NOW() - INTERVAL '7 days'
+          `);
+          if (recentOrders && recentOrders.cnt > 0) {
+            details.push(`${recentOrders.cnt} orders this week`);
+          } else {
+            score = 70; // No recent activity but not broken
+            details.push('No recent orders');
+          }
+        } catch (err) {
+          score = 60;
+          details.push('Unable to check orders');
+        }
+
+        // Check for errors in recent orders
+        try {
+          const errorOrders = await database.get(`
+            SELECT COUNT(*) as cnt FROM vendor_orders
+            WHERE status = 'error' AND created_at >= NOW() - INTERVAL '7 days'
+          `);
+          if (errorOrders && errorOrders.cnt > 0) {
+            score -= Math.min(30, errorOrders.cnt * 5);
+            details.push(`${errorOrders.cnt} errors`);
+          }
+        } catch (err) {
+          // Ignore
+        }
+
+        return {
+          score: Math.max(0, score),
+          status: score >= 80 ? 'healthy' : score >= 50 ? 'warning' : 'critical',
+          value: `${score}%`,
+          detail: details.join(', ') || 'OK'
+        };
+      }
+    }
+  ];
+
+  // Compute enabled components and redistribute weights
+  const enabledComponents = componentDefs.filter(c => c.enabled);
+  const totalBaseWeight = enabledComponents.reduce((sum, c) => sum + c.baseWeight, 0);
+
+  // Calculate actual weights (redistribute to 100%)
+  const components = {};
+  let totalScore = 0;
+  let totalWeight = 0;
+
+  for (const comp of componentDefs) {
+    const result = await comp.compute();
+    const actualWeight = comp.enabled ? Math.round((comp.baseWeight / totalBaseWeight) * 100) : 0;
+
+    components[comp.key] = {
+      label: comp.label,
+      enabled: comp.enabled,
+      weight: actualWeight,
+      score: result.score,
+      status: result.status,
+      value: result.value,
+      detail: result.detail
+    };
+
+    breakdown.push({
+      key: comp.key,
+      label: comp.label,
+      enabled: comp.enabled,
+      weight: actualWeight,
+      score: result.score,
+      status: result.status,
+      contribution: comp.enabled && result.score !== null ? Math.round((result.score * actualWeight) / 100) : 0
+    });
+
+    if (comp.enabled && result.score !== null) {
+      totalScore += (result.score * actualWeight) / 100;
+      totalWeight += actualWeight;
+
+      // Build explanation
+      if (result.status === 'critical') {
+        explanations.push(`${comp.label}: ${result.value} - ${result.detail}`);
+      } else if (result.status === 'warning') {
+        explanations.push(`${comp.label}: ${result.detail}`);
+      }
+    }
+  }
+
+  // Normalize score if weights don't add to 100 due to rounding
+  const finalScore = totalWeight > 0 ? Math.round((totalScore / totalWeight) * 100) : 0;
+
+  // Add mode explanation
+  if (mode === 'minimal') {
+    explanations.unshift('System Mode: Minimal (no inventory data yet)');
+  } else if (mode === 'basic') {
+    explanations.unshift('System Mode: Basic (inventory only, AI features not enabled)');
+  }
+
+  return {
+    score: finalScore,
+    mode,
+    enabledFeatures: enabledComponents.map(c => c.key),
+    disabledFeatures: componentDefs.filter(c => !c.enabled).map(c => c.key),
+    components,
+    breakdown,
+    explanations: explanations.slice(0, 5) // Limit to top 5
+  };
+}
+
 // === v13.5: Data Quality Index (DQI) Computation ===
 /**
  * Compute Data Quality Index (0-100 score)
@@ -995,7 +1371,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       logger.debug('Predictive health metrics not available:', err.message);
     }
 
-    // === v13.5: Composite AI Ops System Health ===
+    // === v13.5: Composite AI Ops System Health (Legacy) ===
     const ai_ops_health = await computeAIOpsHealth(db, req.app.locals.phase3Cron, {
       lastForecastTs,
       lastLearningTs,
@@ -1004,6 +1380,17 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       forecastLatency: predictiveHealth.forecast_latency_avg,
       learningLatency: predictiveHealth.learning_latency_avg,
       realtimeStatus
+    });
+
+    // === v22.3: Improved AI Ops System Health (V2) ===
+    // Only scores enabled features, distinguishes disabled from broken
+    const ai_ops_health_v2 = await computeAIOpsHealthV2(db, req.app.locals.phase3Cron, {
+      lastForecastTs,
+      lastLearningTs,
+      aiConfidenceAvg,
+      forecastAccuracy,
+      forecastLatency: predictiveHealth.forecast_latency_avg,
+      learningLatency: predictiveHealth.learning_latency_avg
     });
 
     // === v14.4.2: Auto-Heal Guarded Hook ===
@@ -1053,8 +1440,12 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       learning_latency_avg: predictiveHealth.learning_latency_avg,
       forecast_divergence: predictiveHealth.forecast_divergence,
 
-      // === v13.5: Composite AI Ops System Health ===
+      // === v13.5: Composite AI Ops System Health (Legacy) ===
       ai_ops_health,
+
+      // === v22.3: Improved AI Ops System Health ===
+      // This is the new recommended scoring - only scores enabled features
+      ai_ops_health_v2,
 
       // === v14.4.2: Auto-Heal Status ===
       auto_heal: autoHealResult,
