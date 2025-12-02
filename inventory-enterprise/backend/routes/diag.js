@@ -1071,4 +1071,121 @@ router.post('/google-drive/process-incoming', async (req, res) => {
   }
 });
 
+/**
+ * POST /diag/google-drive/move-file
+ * Move a file from one folder to another
+ */
+router.post('/google-drive/move-file', async (req, res) => {
+  try {
+    const googleDriveService = require('../services/GoogleDriveService');
+
+    if (!googleDriveService.initialized) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Google Drive service not initialized. Check GOOGLE_SERVICE_ACCOUNT_KEY.'
+      });
+    }
+
+    const { fileId, targetFolderId } = req.body;
+
+    if (!fileId || !targetFolderId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Missing fileId or targetFolderId'
+      });
+    }
+
+    await googleDriveService.moveFile(fileId, targetFolderId);
+
+    return res.status(200).json({
+      ok: true,
+      message: `File ${fileId} moved to folder ${targetFolderId}`
+    });
+
+  } catch (error) {
+    console.error('[diag/move-file] Error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /diag/google-drive/reset-errors
+ * Move all files from Errors folder back to Incoming folder
+ * and delete the associated vendor_orders records
+ */
+router.post('/google-drive/reset-errors', async (req, res) => {
+  try {
+    const googleDriveService = require('../services/GoogleDriveService');
+
+    if (!googleDriveService.initialized) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Google Drive service not initialized.'
+      });
+    }
+
+    const incomingFolderId = process.env.GDRIVE_ORDERS_INCOMING_ID;
+    const errorsFolderId = process.env.GDRIVE_ORDERS_ERRORS_ID;
+
+    if (!incomingFolderId || !errorsFolderId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Missing GDRIVE_ORDERS_INCOMING_ID or GDRIVE_ORDERS_ERRORS_ID env vars'
+      });
+    }
+
+    // List files in Errors folder
+    const query = `'${errorsFolderId}' in parents and trashed = false`;
+    const response = await googleDriveService.drive.files.list({
+      q: query,
+      fields: 'files(id, name)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    const files = response.data.files || [];
+
+    if (files.length === 0) {
+      return res.status(200).json({
+        ok: true,
+        message: 'No files in Errors folder to reset'
+      });
+    }
+
+    const results = [];
+
+    for (const file of files) {
+      try {
+        // Delete vendor_orders record for this file
+        await pool.query(`
+          DELETE FROM vendor_orders WHERE pdf_file_id = $1
+        `, [file.id]);
+
+        // Move file back to Incoming
+        await googleDriveService.moveFile(file.id, incomingFolderId);
+
+        results.push({ fileName: file.name, status: 'moved' });
+      } catch (fileError) {
+        results.push({ fileName: file.name, status: 'error', error: fileError.message });
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message: `Reset ${files.length} files from Errors to Incoming`,
+      results
+    });
+
+  } catch (error) {
+    console.error('[diag/reset-errors] Error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
