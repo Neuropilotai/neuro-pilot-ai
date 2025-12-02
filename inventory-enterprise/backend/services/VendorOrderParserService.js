@@ -511,26 +511,53 @@ class VendorOrderParserService {
 
     // GFS-specific total extraction
     if (vendor === 'gfs') {
-      // Look for "Invoice Total\n$XX,XXX.XX" pattern
-      const gfsInvoiceTotal = text.match(/Invoice Total[\s\r\n]+\$?([\d,]+\.?\d*)/i);
-      if (gfsInvoiceTotal) {
-        header.total = parseFloat(gfsInvoiceTotal[1].replace(/,/g, ''));
-      }
-
-      // Look for "Product Total\n$XX,XXX.XX" pattern
+      // Look for "Product Total\n$XX,XXX.XX" pattern (subtotal before taxes)
       const gfsProductTotal = text.match(/Product Total[\s\r\n]+\$?([\d,]+\.?\d*)/i);
       if (gfsProductTotal) {
         header.subtotal = parseFloat(gfsProductTotal[1].replace(/,/g, ''));
       }
 
-      // Look for PST/QST and GST/HST
+      // Look for PST/QST and GST/HST taxes
       const gfsPstQst = text.match(/PST\/QST[\s\r\n]+\$?([\d,]+\.?\d*)/i);
       const gfsGstHst = text.match(/GST\/HST[\s\r\n]+\$?([\d,]+\.?\d*)/i);
       if (gfsPstQst) {
         header.tax = parseFloat(gfsPstQst[1].replace(/,/g, ''));
       }
       if (gfsGstHst) {
-        header.tax += parseFloat(gfsGstHst[1].replace(/,/g, ''));
+        header.tax = (header.tax || 0) + parseFloat(gfsGstHst[1].replace(/,/g, ''));
+      }
+
+      // Look for "Invoice Total" - try multiple patterns
+      // Pattern 1: "Invoice Total\n$XX,XXX.XX"
+      let gfsInvoiceTotal = text.match(/Invoice Total[\s\r\n]+\$?([\d,]+\.?\d*)/i);
+      // Pattern 2: "Invoice Total" followed by amount on same or next line
+      if (!gfsInvoiceTotal) {
+        gfsInvoiceTotal = text.match(/Invoice\s*Total[:\s]*\$?([\d,]+\.?\d*)/i);
+      }
+      // Pattern 3: Look for the largest dollar amount after "Total" keyword near end
+      if (!gfsInvoiceTotal) {
+        const allTotals = [...text.matchAll(/Total[:\s]*\$?([\d,]+\.?\d{2})/gi)];
+        if (allTotals.length > 0) {
+          // Find the largest "Total" value (likely Invoice Total)
+          let maxTotal = 0;
+          for (const match of allTotals) {
+            const val = parseFloat(match[1].replace(/,/g, ''));
+            if (val > maxTotal) {
+              maxTotal = val;
+              gfsInvoiceTotal = match;
+            }
+          }
+        }
+      }
+
+      if (gfsInvoiceTotal) {
+        header.total = parseFloat(gfsInvoiceTotal[1].replace(/,/g, ''));
+      }
+
+      // Fallback: Calculate total from subtotal + tax if Invoice Total not found
+      if (!header.total && header.subtotal) {
+        header.total = header.subtotal + (header.tax || 0);
+        console.log('[VendorOrderParser] GFS: Calculated total from subtotal + tax:', header.total);
       }
     } else {
       // Generic total extraction
