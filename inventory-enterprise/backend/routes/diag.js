@@ -1079,6 +1079,9 @@ router.post('/google-drive/move-file', async (req, res) => {
   try {
     const googleDriveService = require('../services/GoogleDriveService');
 
+    // Initialize Google Drive service
+    await googleDriveService.initialize();
+
     if (!googleDriveService.initialized) {
       return res.status(503).json({
         ok: false,
@@ -1119,6 +1122,9 @@ router.post('/google-drive/move-file', async (req, res) => {
 router.post('/google-drive/reset-errors', async (req, res) => {
   try {
     const googleDriveService = require('../services/GoogleDriveService');
+
+    // Initialize Google Drive service
+    await googleDriveService.initialize();
 
     if (!googleDriveService.initialized) {
       return res.status(503).json({
