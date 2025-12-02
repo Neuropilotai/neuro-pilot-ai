@@ -105,7 +105,9 @@ class GoogleDriveService {
         q: query,
         fields: 'files(id, name, mimeType, createdTime, modifiedTime, size, parents)',
         orderBy: 'createdTime desc',
-        pageSize: 100
+        pageSize: 100,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
       });
 
       const files = response.data.files || [];
@@ -145,7 +147,7 @@ class GoogleDriveService {
 
       // Get file stream
       const response = await this.drive.files.get(
-        { fileId, alt: 'media' },
+        { fileId, alt: 'media', supportsAllDrives: true },
         { responseType: 'stream' }
       );
 
@@ -182,7 +184,8 @@ class GoogleDriveService {
       // Get current parents
       const file = await this.drive.files.get({
         fileId,
-        fields: 'parents'
+        fields: 'parents',
+        supportsAllDrives: true
       });
 
       const previousParents = file.data.parents?.join(',') || '';
@@ -192,7 +195,8 @@ class GoogleDriveService {
         fileId,
         addParents: destFolderId,
         removeParents: previousParents,
-        fields: 'id, parents'
+        fields: 'id, parents',
+        supportsAllDrives: true
       });
 
       console.log(`[GoogleDriveService] Moved ${fileId} to folder ${destFolderId}`);
@@ -215,7 +219,8 @@ class GoogleDriveService {
     try {
       const response = await this.drive.files.get({
         fileId,
-        fields: 'id, name, mimeType, createdTime, modifiedTime, size, parents, webViewLink, webContentLink'
+        fields: 'id, name, mimeType, createdTime, modifiedTime, size, parents, webViewLink, webContentLink',
+        supportsAllDrives: true
       });
 
       const file = response.data;
@@ -254,7 +259,9 @@ class GoogleDriveService {
       const response = await this.drive.files.list({
         q: query,
         fields: 'files(id, name, mimeType, createdTime, size)',
-        pageSize: 1
+        pageSize: 1,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
       });
 
       const files = response.data.files || [];
@@ -299,7 +306,8 @@ class GoogleDriveService {
 
       const response = await this.drive.files.create({
         resource: fileMetadata,
-        fields: 'id'
+        fields: 'id',
+        supportsAllDrives: true
       });
 
       console.log(`[GoogleDriveService] Created folder ${folderName} with ID ${response.data.id}`);

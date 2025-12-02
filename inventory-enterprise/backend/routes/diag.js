@@ -650,12 +650,15 @@ router.get('/google-drive/files', async (req, res) => {
     result.rootFolderId = rootFolderId;
 
     // List all files (no mimeType filter to see everything)
+    // Using supportsAllDrives for shared folder access
     const query = `'${rootFolderId}' in parents and trashed = false`;
     const response = await googleDriveService.drive.files.list({
       q: query,
       fields: 'files(id, name, mimeType, createdTime, modifiedTime, size)',
       orderBy: 'createdTime desc',
-      pageSize: parseInt(req.query.limit) || 50
+      pageSize: parseInt(req.query.limit) || 50,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
     });
 
     const items = response.data.files || [];
@@ -747,11 +750,14 @@ router.post('/google-drive/setup-folders', async (req, res) => {
     for (const folder of foldersToCreate) {
       try {
         // Check if folder already exists
+        // Using supportsAllDrives for shared folder access
         const query = `'${rootId}' in parents and name = '${folder.name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
         const existing = await googleDriveService.drive.files.list({
           q: query,
           fields: 'files(id, name)',
-          pageSize: 1
+          pageSize: 1,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true
         });
 
         if (existing.data.files && existing.data.files.length > 0) {
@@ -830,11 +836,13 @@ router.post('/google-drive/test-connection', async (req, res) => {
     };
 
     // Test access to root folder
+    // Using supportsAllDrives for shared folder access
     const rootId = ordersStorage.getOrdersRootFolderId();
     try {
       const folderResponse = await googleDriveService.drive.files.get({
         fileId: rootId,
-        fields: 'id, name, mimeType, capabilities'
+        fields: 'id, name, mimeType, capabilities',
+        supportsAllDrives: true
       });
       result.testFolder = {
         id: folderResponse.data.id,

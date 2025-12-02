@@ -20,8 +20,40 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
 const { pool } = require('../db');
 const ordersStorage = require('../config/ordersStorage');
+
+// Multer configuration for GFS PDF uploads
+const uploadDir = process.env.GFS_UPLOAD_DIR || '/tmp/gfs-uploads';
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    cb(null, `gfs-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  }
+});
 
 // Import parser service (optional - may not be available in all environments)
 let parserService = null;
@@ -1213,6 +1245,320 @@ router.get('/stats/summary', async (req, res) => {
       success: false,
       error: 'Failed to fetch statistics',
       code: 'STATS_ERROR'
+    });
+  }
+});
+
+// ============================================
+// POST /api/vendor-orders/upload-gfs-pdf - Batch Upload GFS PDFs
+// V22.3: Manual upload from Owner Console
+// ============================================
+
+router.post('/upload-gfs-pdf', upload.array('pdfs', 10), async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    const orgId = getOrgId(req);
+    const userId = getUserId(req);
+    const files = req.files;
+
+    // Validate files uploaded
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No PDF files uploaded',
+        code: 'NO_FILES',
+        hint: 'Upload one or more PDF files using multipart/form-data with field name "pdfs"'
+      });
+    }
+
+    // Check services availability
+    if (!parserService) {
+      return res.status(503).json({
+        success: false,
+        error: 'Parser service not available',
+        code: 'PARSER_UNAVAILABLE'
+      });
+    }
+
+    if (!fifoLayerService) {
+      return res.status(503).json({
+        success: false,
+        error: 'FIFO layer service not available',
+        code: 'FIFO_SERVICE_UNAVAILABLE'
+      });
+    }
+
+    const results = [];
+
+    // Process each uploaded PDF
+    for (const file of files) {
+      const fileResult = {
+        fileName: file.originalname,
+        success: false,
+        orderId: null,
+        status: null,
+        linesFound: 0,
+        fifoLayers: 0,
+        casesExtracted: 0,
+        error: null
+      };
+
+      try {
+        // Create vendor_order record
+        const insertResult = await pool.query(`
+          INSERT INTO vendor_orders (
+            org_id, vendor_name, pdf_file_name,
+            status, source_system, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id
+        `, [
+          orgId,
+          'Gordon Food Service',
+          file.originalname,
+          'new',
+          'gfs',
+          userId
+        ]);
+
+        const orderId = insertResult.rows[0].id;
+        fileResult.orderId = orderId;
+
+        // Parse the PDF
+        const parseResult = await parserService.parseOrderFromFile(
+          orderId,
+          file.path,
+          { userId }
+        );
+
+        fileResult.linesFound = parseResult.linesFound || 0;
+
+        if (!parseResult.success) {
+          fileResult.error = parseResult.errors?.join('; ') || 'Parse failed';
+          fileResult.status = 'error';
+
+          await pool.query(
+            `UPDATE vendor_orders SET status = 'error', error_message = $1 WHERE id = $2`,
+            [fileResult.error, orderId]
+          );
+        } else {
+          // Populate FIFO layers
+          const fifoResult = await fifoLayerService.populateFromVendorOrder(orderId, {
+            force: false,
+            skipCases: false,
+            userId
+          });
+
+          fileResult.status = fifoResult.status || 'parsed';
+          fileResult.fifoLayers = (fifoResult.layersCreated || 0) + (fifoResult.layersUpdated || 0);
+          fileResult.casesExtracted = fifoResult.casesExtracted || 0;
+          fileResult.success = true;
+        }
+
+      } catch (fileError) {
+        console.error(`[VendorOrders] Error processing ${file.originalname}:`, fileError);
+        fileResult.error = fileError.message;
+        fileResult.status = 'error';
+
+        // Update order status if created
+        if (fileResult.orderId) {
+          await pool.query(
+            `UPDATE vendor_orders SET status = 'error', error_message = $1 WHERE id = $2`,
+            [fileError.message, fileResult.orderId]
+          ).catch(() => {}); // Ignore update errors
+        }
+      } finally {
+        // Cleanup temp file
+        try {
+          await fs.unlink(file.path);
+        } catch (cleanupErr) {
+          console.warn(`[VendorOrders] Failed to cleanup ${file.path}:`, cleanupErr.message);
+        }
+      }
+
+      results.push(fileResult);
+    }
+
+    // Calculate summary
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    const totalLines = results.reduce((sum, r) => sum + r.linesFound, 0);
+    const totalLayers = results.reduce((sum, r) => sum + r.fifoLayers, 0);
+    const totalCases = results.reduce((sum, r) => sum + r.casesExtracted, 0);
+
+    // Log breadcrumb
+    try {
+      await pool.query(`
+        INSERT INTO ai_ops_breadcrumbs (event_type, event_data, created_at)
+        VALUES ($1, $2, CURRENT_TIMESTAMP)
+      `, ['gfs_batch_upload', JSON.stringify({
+        userId,
+        filesUploaded: files.length,
+        successful,
+        failed,
+        totalLines,
+        totalLayers,
+        totalCases,
+        durationMs: Date.now() - startTime
+      })]);
+    } catch (logErr) {
+      console.warn('[VendorOrders] Failed to log breadcrumb:', logErr.message);
+    }
+
+    res.json({
+      success: failed === 0,
+      message: `Processed ${files.length} files: ${successful} successful, ${failed} failed`,
+      summary: {
+        filesProcessed: files.length,
+        successful,
+        failed,
+        totalLinesFound: totalLines,
+        totalFifoLayers: totalLayers,
+        totalCasesExtracted: totalCases,
+        durationMs: Date.now() - startTime
+      },
+      results
+    });
+
+  } catch (error) {
+    console.error('[VendorOrders] Upload GFS PDF error:', error);
+
+    // Cleanup any uploaded files on error
+    if (req.files) {
+      for (const file of req.files) {
+        try {
+          await fs.unlink(file.path);
+        } catch (cleanupErr) {
+          // Ignore
+        }
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process uploaded PDFs',
+      code: 'UPLOAD_ERROR',
+      details: error.message
+    });
+  }
+});
+
+// ============================================
+// POST /api/vendor-orders/scan-inbox - Trigger Manual Inbox Scan
+// V22.3: Manually trigger GFS watcher cycle
+// ============================================
+
+router.post('/scan-inbox', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+
+    // Try to import gfs-order-watcher
+    let gfsWatcher = null;
+    try {
+      gfsWatcher = require('../workers/gfs-order-watcher');
+    } catch (err) {
+      console.warn('[VendorOrders] GFS watcher not available:', err.message);
+    }
+
+    if (!gfsWatcher) {
+      return res.status(503).json({
+        success: false,
+        error: 'GFS order watcher not available',
+        code: 'WATCHER_UNAVAILABLE',
+        hint: 'The GFS order watcher worker is not configured or available'
+      });
+    }
+
+    // Get current status before running
+    const statusBefore = gfsWatcher.getStatus();
+
+    // Run the cycle
+    console.log(`[VendorOrders] Manual scan-inbox triggered by ${userId}`);
+    await gfsWatcher.runCycle();
+
+    // Get status after running
+    const statusAfter = gfsWatcher.getStatus();
+
+    // Calculate what changed in this run
+    const ordersProcessedThisRun = statusAfter.stats.ordersProcessed - statusBefore.stats.ordersProcessed;
+    const ordersSkippedThisRun = statusAfter.stats.ordersSkipped - statusBefore.stats.ordersSkipped;
+    const errorsThisRun = statusAfter.stats.errors - statusBefore.stats.errors;
+
+    // Log breadcrumb
+    try {
+      await pool.query(`
+        INSERT INTO ai_ops_breadcrumbs (event_type, event_data, created_at)
+        VALUES ($1, $2, CURRENT_TIMESTAMP)
+      `, ['gfs_manual_scan', JSON.stringify({
+        triggeredBy: userId,
+        ordersProcessed: ordersProcessedThisRun,
+        ordersSkipped: ordersSkippedThisRun,
+        errors: errorsThisRun
+      })]);
+    } catch (logErr) {
+      console.warn('[VendorOrders] Failed to log breadcrumb:', logErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: `Inbox scan complete: ${ordersProcessedThisRun} processed, ${ordersSkippedThisRun} skipped`,
+      result: {
+        ordersProcessed: ordersProcessedThisRun,
+        ordersSkipped: ordersSkippedThisRun,
+        errors: errorsThisRun,
+        lastRunAt: statusAfter.lastRunAt
+      },
+      watcherStatus: {
+        isRunning: statusAfter.isRunning,
+        schedule: statusAfter.schedule,
+        totalRuns: statusAfter.stats.totalRuns,
+        config: statusAfter.config
+      }
+    });
+
+  } catch (error) {
+    console.error('[VendorOrders] Scan inbox error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to scan inbox',
+      code: 'SCAN_ERROR',
+      details: error.message
+    });
+  }
+});
+
+// ============================================
+// GET /api/vendor-orders/gfs-watcher-status - Get Watcher Status
+// ============================================
+
+router.get('/gfs-watcher-status', async (req, res) => {
+  try {
+    // Try to import gfs-order-watcher
+    let gfsWatcher = null;
+    try {
+      gfsWatcher = require('../workers/gfs-order-watcher');
+    } catch (err) {
+      return res.json({
+        success: true,
+        available: false,
+        message: 'GFS watcher not configured'
+      });
+    }
+
+    const status = gfsWatcher.getStatus();
+
+    res.json({
+      success: true,
+      available: true,
+      status
+    });
+
+  } catch (error) {
+    console.error('[VendorOrders] Get watcher status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get watcher status',
+      code: 'STATUS_ERROR'
     });
   }
 });
