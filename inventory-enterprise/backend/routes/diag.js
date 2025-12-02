@@ -870,4 +870,205 @@ router.post('/google-drive/test-connection', async (req, res) => {
   }
 });
 
+/**
+ * POST /diag/google-drive/process-incoming
+ * Process all PDFs from the Incoming folder
+ * Creates vendor_order records and triggers parsing
+ * Body: { secret: "execute-sql-2025" }
+ */
+router.post('/google-drive/process-incoming', async (req, res) => {
+  const result = {
+    ok: false,
+    message: '',
+    timestamp: new Date().toISOString(),
+    processed: [],
+    errors: [],
+    summary: { total: 0, created: 0, parsed: 0, failed: 0 }
+  };
+
+  try {
+    const { secret } = req.body;
+    if (secret !== 'execute-sql-2025') {
+      return res.status(403).json({ ok: false, message: 'Invalid secret' });
+    }
+
+    const googleDriveService = require('../services/GoogleDriveService');
+    const ordersStorage = require('../config/ordersStorage');
+    const { pool } = require('../db');
+
+    // Initialize Google Drive service
+    await googleDriveService.initialize();
+
+    if (!googleDriveService.initialized) {
+      result.message = 'Google Drive service not initialized';
+      return res.status(503).json(result);
+    }
+
+    // Get incoming folder ID from env or config
+    const incomingFolderId = process.env.GDRIVE_ORDERS_INCOMING_ID || ordersStorage.getIncomingFolderId();
+    if (!incomingFolderId) {
+      result.message = 'No incoming folder ID configured';
+      return res.status(400).json(result);
+    }
+
+    // List PDFs in Incoming folder
+    const query = `'${incomingFolderId}' in parents and mimeType = 'application/pdf' and trashed = false`;
+    const response = await googleDriveService.drive.files.list({
+      q: query,
+      fields: 'files(id, name, mimeType, createdTime, size)',
+      orderBy: 'createdTime asc',
+      pageSize: 50,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    const files = response.data.files || [];
+    result.summary.total = files.length;
+
+    if (files.length === 0) {
+      result.ok = true;
+      result.message = 'No PDFs found in Incoming folder';
+      return res.status(200).json(result);
+    }
+
+    console.log(`[diag/process-incoming] Found ${files.length} PDFs to process`);
+
+    // Process each PDF
+    for (const file of files) {
+      const fileResult = {
+        fileId: file.id,
+        fileName: file.name,
+        orderId: null,
+        status: 'pending',
+        error: null
+      };
+
+      try {
+        // Check for duplicate (same file ID already processed)
+        const dupCheck = await pool.query(
+          `SELECT id FROM vendor_orders WHERE pdf_file_id = $1 AND deleted_at IS NULL LIMIT 1`,
+          [file.id]
+        );
+
+        if (dupCheck.rows.length > 0) {
+          fileResult.status = 'skipped';
+          fileResult.error = 'Already processed (duplicate)';
+          fileResult.orderId = dupCheck.rows[0].id;
+          result.processed.push(fileResult);
+          continue;
+        }
+
+        // Extract order number from filename (e.g., "9018587877.pdf" -> "9018587877")
+        const orderNumber = file.name.replace(/\.pdf$/i, '');
+
+        // Create vendor_order record
+        const insertResult = await pool.query(`
+          INSERT INTO vendor_orders (
+            org_id, vendor_name, order_number,
+            pdf_file_id, pdf_file_name, pdf_folder_id,
+            pdf_preview_url, status, source_system,
+            created_at, created_by
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10
+          ) RETURNING id
+        `, [
+          'default-org',
+          'GFS',  // Default to GFS, can be updated later
+          orderNumber,
+          file.id,
+          file.name,
+          incomingFolderId,
+          ordersStorage.buildPreviewUrl(file.id),
+          'new',
+          'gfs',
+          'system'
+        ]);
+
+        fileResult.orderId = insertResult.rows[0].id;
+        fileResult.status = 'created';
+        result.summary.created++;
+
+        console.log(`[diag/process-incoming] Created order ${fileResult.orderId} for ${file.name}`);
+
+        // Try to parse the PDF
+        let parserService = null;
+        try {
+          parserService = require('../services/VendorOrderParserService');
+        } catch (e) {
+          console.warn('[diag/process-incoming] Parser service not available');
+        }
+
+        if (parserService) {
+          try {
+            const parseResult = await parserService.parseOrderFromGoogleDrive(
+              fileResult.orderId,
+              file.id,
+              { sourceSystem: 'gfs' }
+            );
+
+            if (parseResult.success) {
+              fileResult.status = 'parsed';
+              fileResult.linesFound = parseResult.linesFound;
+              fileResult.ocrConfidence = parseResult.ocrConfidence;
+              result.summary.parsed++;
+
+              // Move to Processed folder
+              const processedFolderId = process.env.GDRIVE_ORDERS_PROCESSED_ID;
+              if (processedFolderId) {
+                try {
+                  await googleDriveService.moveFile(file.id, processedFolderId);
+                  fileResult.movedTo = 'Processed';
+                } catch (moveErr) {
+                  console.warn(`[diag/process-incoming] Failed to move ${file.name}:`, moveErr.message);
+                }
+              }
+            } else {
+              fileResult.status = 'parse_failed';
+              fileResult.error = parseResult.errors?.join('; ') || 'Parse failed';
+              result.summary.failed++;
+
+              // Move to Errors folder
+              const errorsFolderId = process.env.GDRIVE_ORDERS_ERRORS_ID;
+              if (errorsFolderId) {
+                try {
+                  await googleDriveService.moveFile(file.id, errorsFolderId);
+                  fileResult.movedTo = 'Errors';
+                } catch (moveErr) {
+                  console.warn(`[diag/process-incoming] Failed to move ${file.name}:`, moveErr.message);
+                }
+              }
+            }
+          } catch (parseError) {
+            fileResult.status = 'parse_error';
+            fileResult.error = parseError.message;
+            result.summary.failed++;
+          }
+        } else {
+          fileResult.status = 'created_no_parse';
+          fileResult.error = 'Parser service not available';
+        }
+
+        result.processed.push(fileResult);
+
+      } catch (fileError) {
+        fileResult.status = 'error';
+        fileResult.error = fileError.message;
+        result.errors.push(fileResult);
+        result.summary.failed++;
+        console.error(`[diag/process-incoming] Error processing ${file.name}:`, fileError.message);
+      }
+    }
+
+    result.ok = true;
+    result.message = `Processed ${files.length} PDFs: ${result.summary.created} created, ${result.summary.parsed} parsed, ${result.summary.failed} failed`;
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error('[diag/process-incoming] Error:', error);
+    result.message = error.message;
+    return res.status(500).json(result);
+  }
+});
+
 module.exports = router;
