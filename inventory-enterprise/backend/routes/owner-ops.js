@@ -620,7 +620,7 @@ router.get('/status', authenticateToken, requireOwner, async (req, res) => {
       forecastCheck = await db.get(`
         SELECT
           date,
-          created_at,
+          MAX(created_at) as created_at,
           COUNT(*) as item_count
         FROM ai_daily_forecast_cache
         WHERE date = ?
