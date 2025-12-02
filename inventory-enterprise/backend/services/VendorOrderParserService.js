@@ -528,33 +528,23 @@ class VendorOrderParserService {
       }
 
       // Look for "Invoice Total" - try multiple patterns
-      // Pattern 1: "Invoice Total\n$XX,XXX.XX"
-      let gfsInvoiceTotal = text.match(/Invoice Total[\s\r\n]+\$?([\d,]+\.?\d*)/i);
-      // Pattern 2: "Invoice Total" followed by amount on same or next line
+      // Pattern 1: "Invoice Total" followed by optional whitespace, $, and amount
+      let gfsInvoiceTotal = text.match(/Invoice\s*Total[\s:]*\$?\s*([\d,]+\.?\d*)/i);
+      // Pattern 2: Look near end of document for "Invoice Total $XX,XXX.XX"
       if (!gfsInvoiceTotal) {
-        gfsInvoiceTotal = text.match(/Invoice\s*Total[:\s]*\$?([\d,]+\.?\d*)/i);
-      }
-      // Pattern 3: Look for the largest dollar amount after "Total" keyword near end
-      if (!gfsInvoiceTotal) {
-        const allTotals = [...text.matchAll(/Total[:\s]*\$?([\d,]+\.?\d{2})/gi)];
-        if (allTotals.length > 0) {
-          // Find the largest "Total" value (likely Invoice Total)
-          let maxTotal = 0;
-          for (const match of allTotals) {
-            const val = parseFloat(match[1].replace(/,/g, ''));
-            if (val > maxTotal) {
-              maxTotal = val;
-              gfsInvoiceTotal = match;
-            }
-          }
-        }
+        gfsInvoiceTotal = text.match(/Invoice\s*Total\s*\$\s*([\d,]+\.\d{2})/i);
       }
 
       if (gfsInvoiceTotal) {
-        header.total = parseFloat(gfsInvoiceTotal[1].replace(/,/g, ''));
+        const parsedTotal = parseFloat(gfsInvoiceTotal[1].replace(/,/g, ''));
+        // Sanity check: Invoice Total should be >= subtotal
+        if (parsedTotal >= (header.subtotal || 0)) {
+          header.total = parsedTotal;
+          console.log('[VendorOrderParser] GFS: Found Invoice Total:', header.total);
+        }
       }
 
-      // Fallback: Calculate total from subtotal + tax if Invoice Total not found
+      // Fallback: Calculate total from subtotal + tax
       if (!header.total && header.subtotal) {
         header.total = header.subtotal + (header.tax || 0);
         console.log('[VendorOrderParser] GFS: Calculated total from subtotal + tax:', header.total);
