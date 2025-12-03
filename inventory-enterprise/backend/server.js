@@ -53,6 +53,9 @@ const ownerForecastRoutes = require('./routes/owner-forecast');
 // v15.6.0 - Count by Invoice (Finance-First Workflow)
 const countSessionsRoutes = require('./routes/count-sessions');
 
+// v23.0 - PostgreSQL-native Counts API (Phase A/B inventory model)
+const countsApiRoutes = require('./routes/counts-api');
+
 // v15.7.0 - System Health Monitoring & Audit (Production-Hardened v2.0)
 const healthRoutes = require('./routes/health-v2');
 
@@ -458,6 +461,10 @@ app.use('/api/owner/forecast-orders', authenticateToken, requireOwnerDevice, own
 
 // v15.6.0 - Count by Invoice (Finance-First Workflow)
 app.use('/api/owner/counts', authenticateToken, requireOwnerDevice, countSessionsRoutes);
+
+// v23.0 - PostgreSQL-native Counts API (Phase A/B inventory model)
+app.use('/api/counts', authenticateToken, countsApiRoutes);
+app.use('/api', authenticateToken, countsApiRoutes); // For /api/locations/:id/items/add-by-code
 
 // v15.7.0 - System Health Monitoring & Audit
 // Note: Auth handled per-route in health-v2.js (/status is public, others require OWNER/FINANCE)

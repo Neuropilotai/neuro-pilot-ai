@@ -803,8 +803,71 @@ async function getDatabaseStats() {
       stats.databaseSize = 'N/A';
     }
 
-    // v21.3: Build stats.inventory object for frontend compatibility
+    // v23.0: Enhanced stats.inventory with Phase A/B logic
+    // Phase A: No physical inventory yet -> use FIFO/PDFs
+    // Phase B: Physical inventory exists -> use count data + FIFO for cost
     try {
+      // Check if any approved/closed physical counts exist
+      let hasPhysicalInventory = false;
+      try {
+        const countCheck = await pool.query(`
+          SELECT COUNT(*) as count FROM inventory_counts
+          WHERE status IN ('approved', 'closed')
+        `);
+        hasPhysicalInventory = parseInt(countCheck.rows[0]?.count || 0) > 0;
+      } catch (e) {
+        hasPhysicalInventory = false;
+      }
+
+      // Get FIFO-based inventory stats (from vendor orders)
+      const fifoResult = await pool.query(`
+        SELECT
+          COUNT(DISTINCT item_code) as fifo_items,
+          COUNT(*) as fifo_layers,
+          COALESCE(SUM(quantity_remaining), 0) as fifo_qty,
+          COALESCE(SUM(quantity_remaining * unit_cost), 0) as fifo_value
+        FROM fifo_cost_layers
+        WHERE quantity_remaining > 0
+      `);
+      const fifoRow = fifoResult.rows[0] || {};
+
+      // Get vendor order line items stats
+      const linesResult = await pool.query(`
+        SELECT
+          COUNT(*) as total_lines,
+          COALESCE(SUM(ordered_qty), 0) as total_qty,
+          COUNT(DISTINCT vol.order_id) as orders_with_lines
+        FROM vendor_order_lines vol
+        JOIN vendor_orders vo ON vo.id = vol.order_id
+        WHERE vo.deleted_at IS NULL
+      `);
+      const linesRow = linesResult.rows[0] || {};
+
+      // Get vendor orders count
+      const ordersResult = await pool.query(`
+        SELECT
+          COUNT(*) as total_orders,
+          COUNT(CASE WHEN status = 'fifo_complete' THEN 1 END) as fifo_complete_orders
+        FROM vendor_orders
+        WHERE deleted_at IS NULL
+      `);
+      const ordersRow = ordersResult.rows[0] || {};
+
+      // Get case counts (boxes) if table exists
+      let totalBoxes = 0;
+      try {
+        const casesResult = await pool.query(`
+          SELECT COUNT(*) as total_cases
+          FROM vendor_order_cases
+          WHERE status = 'available'
+        `);
+        totalBoxes = parseInt(casesResult.rows[0]?.total_cases || 0);
+      } catch (e) {
+        // Table may not exist yet - use line count as fallback
+        totalBoxes = parseInt(linesRow.total_lines || 0);
+      }
+
+      // Get manual inventory items stats
       const invResult = await pool.query(`
         SELECT
           COUNT(*) as total_items,
@@ -815,17 +878,73 @@ async function getDatabaseStats() {
         WHERE is_active = 1
       `);
       const invRow = invResult.rows[0] || {};
+
+      // Build stats.inventory with Phase A/B awareness
+      const fifoItems = parseInt(fifoRow.fifo_items || 0);
+      const fifoLayers = parseInt(fifoRow.fifo_layers || 0);
+      const fifoQty = parseFloat(fifoRow.fifo_qty || 0);
+      const fifoValue = parseFloat(fifoRow.fifo_value || 0);
+      const manualItems = parseInt(invRow.total_items || 0);
+      const manualUnits = parseFloat(invRow.total_units || 0);
+      const manualValue = parseFloat(invRow.total_value || 0);
+      const invoicesIncluded = parseInt(ordersRow.fifo_complete_orders || 0);
+      const totalLineItems = parseInt(linesRow.total_lines || 0);
+
+      // Determine primary source based on what data exists
+      let source = 'manual';
+      let primaryItems = manualItems;
+      let primaryUnits = manualUnits;
+      let primaryValue = manualValue;
+
+      if (fifoLayers > 0) {
+        // FIFO data exists - use it as primary
+        source = hasPhysicalInventory ? 'physical_counts' : 'pdf_fifo';
+        primaryItems = fifoItems;
+        primaryUnits = fifoQty;
+        primaryValue = fifoValue;
+      } else if (totalLineItems > 0) {
+        // Line items exist but FIFO not populated yet
+        source = 'vendor_orders_pending_fifo';
+      }
+
       stats.inventory = {
-        totalItems: parseInt(invRow.total_items || 0),
-        manualItems: parseInt(invRow.total_items || 0),
-        totalUnits: parseFloat(invRow.total_units || 0),
-        totalValue: parseFloat(invRow.total_value || 0),
+        // Primary stats (based on source)
+        totalItems: primaryItems || manualItems,
+        totalUnits: primaryUnits || manualUnits,
+        totalValue: primaryValue || manualValue,
+
+        // Detailed breakdown
+        manualItems: manualItems,
+        manualUnits: manualUnits,
+        manualValue: manualValue,
+
+        // FIFO-specific stats
+        fifoItems: fifoItems,
+        fifoLayers: fifoLayers,
+        fifoQuantity: fifoQty,
+        fifoValue: fifoValue,
+
+        // Vendor order stats
+        totalLineItems: totalLineItems,
+        totalQuantityFromPDFs: parseFloat(linesRow.total_qty || 0),
+        invoicesIncluded: invoicesIncluded,
+        totalOrders: parseInt(ordersRow.total_orders || 0),
+
+        // Box/case tracking
+        totalBoxes: totalBoxes,
+
+        // Categories
         categories: parseInt(invRow.categories || 0),
-        totalLineItems: 0,
-        totalQuantityFromPDFs: 0,
-        avgUnitPrice: invRow.total_items > 0 ? parseFloat(invRow.total_value || 0) / parseInt(invRow.total_items || 1) : 0
+
+        // Calculated
+        avgUnitPrice: primaryItems > 0 ? primaryValue / primaryItems : 0,
+
+        // Source indicator
+        source: source,
+        hasPhysicalInventory: hasPhysicalInventory
       };
     } catch (error) {
+      console.error('Error building stats.inventory:', error);
       stats.inventory = {
         totalItems: 0,
         manualItems: 0,
@@ -834,7 +953,13 @@ async function getDatabaseStats() {
         categories: 0,
         totalLineItems: 0,
         totalQuantityFromPDFs: 0,
-        avgUnitPrice: 0
+        avgUnitPrice: 0,
+        fifoLayers: 0,
+        fifoValue: 0,
+        invoicesIncluded: 0,
+        totalBoxes: 0,
+        source: 'error',
+        hasPhysicalInventory: false
       };
     }
 
