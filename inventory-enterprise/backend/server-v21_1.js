@@ -1602,6 +1602,11 @@ app.use('/api/pos/payments', authGuard(['staff', 'manager', 'admin', 'owner']), 
 app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REPORT'), safeRequire('./routes/pos.reports', 'pos.reports'));
 app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), safeRequire('./routes/pdfs.pos', 'pdfs.pos'));
 
+// v23.0 - PostgreSQL-native Counts API (Phase A/B inventory model)
+app.use('/api/counts', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('COUNTS'), safeRequire('./routes/counts-api', 'counts-api'));
+// v23.0 - Add items by code to locations
+app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS'), safeRequire('./routes/counts-api', 'counts-api-locations'));
+
 console.log('[STARTUP] ✓ All routes registered');
 
 // ============================================
