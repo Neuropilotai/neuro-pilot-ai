@@ -1606,6 +1606,8 @@ app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS
 app.use('/api/counts', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('COUNTS'), safeRequire('./routes/counts-api', 'counts-api'));
 // v23.0 - Add items by code to locations
 app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS'), safeRequire('./routes/counts-api', 'counts-api-locations'));
+// v23.0 - 4-Week Menu Cycle API (menu_cycle_days, menu_cycle_items, menu_stations)
+app.use('/api/menu-cycle', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('MENU_CYCLE'), safeRequire('./routes/menu-cycle-api', 'menu-cycle-api'));
 
 console.log('[STARTUP] ✓ All routes registered');
 
