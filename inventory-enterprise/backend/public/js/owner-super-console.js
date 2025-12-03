@@ -5011,6 +5011,74 @@ async function loadMenu() {
 }
 
 /**
+ * v23.4.7: Normalize menu week API response to canonical format
+ * Handles all historical API shapes:
+ * - New menu-cycle API: { success, week: NUMBER, meal_period, days: [...] }
+ * - Legacy menu API: { success, data: { weekNum, days: [...] } }
+ * - Legacy v22: { success, week: { days: [...] } }
+ * @param {object} res - Raw API response
+ * @param {number} requestedWeek - Week number requested (fallback)
+ * @returns {object} Normalized { weekNum, mealPeriod, days, _source }
+ */
+function normalizeMenuWeekResponse(res, requestedWeek) {
+  // Null/undefined guard
+  if (!res || !res.success) {
+    console.warn('normalizeMenuWeekResponse: invalid response, returning empty');
+    return {
+      weekNum: requestedWeek,
+      mealPeriod: 'dinner',
+      days: [],
+      _source: 'empty'
+    };
+  }
+
+  // Detect response shape
+  // Shape 1: New menu-cycle API - days at top level, week is NUMBER
+  if (Array.isArray(res.days)) {
+    return {
+      weekNum: typeof res.week === 'number' ? res.week : requestedWeek,
+      mealPeriod: res.meal_period || 'dinner',
+      days: res.days,
+      _source: 'menu-cycle'
+    };
+  }
+
+  // Shape 2: Legacy - data wrapper with nested object
+  if (res.data && typeof res.data === 'object') {
+    const data = res.data;
+    return {
+      weekNum: data.weekNum || data.cycle_week || requestedWeek,
+      mealPeriod: data.mealPeriod || data.meal_period || 'dinner',
+      days: Array.isArray(data.days) ? data.days : [],
+      startsOn: data.startsOn,
+      endsOn: data.endsOn,
+      _source: 'legacy'
+    };
+  }
+
+  // Shape 3: Legacy v22 - week is an object with days
+  if (res.week && typeof res.week === 'object' && !Array.isArray(res.week)) {
+    return {
+      weekNum: res.week.weekNum || res.week.cycle_week || requestedWeek,
+      mealPeriod: res.week.mealPeriod || 'dinner',
+      days: Array.isArray(res.week.days) ? res.week.days : [],
+      startsOn: res.week.startsOn,
+      endsOn: res.week.endsOn,
+      _source: 'legacy'
+    };
+  }
+
+  // Unknown shape - log and return empty
+  console.warn('normalizeMenuWeekResponse: unknown response shape', Object.keys(res));
+  return {
+    weekNum: requestedWeek,
+    mealPeriod: 'dinner',
+    days: [],
+    _source: 'empty'
+  };
+}
+
+/**
  * Load specific week data and render calendar
  * @param {number} weekNum - Week number (1-4)
  */
@@ -5036,10 +5104,10 @@ async function loadMenuWeek(weekNum) {
     const calendar = document.getElementById('menuCalendar');
     calendar.innerHTML = '<div class="loading"><div class="spinner"></div> Loading week data...</div>';
 
-    // v23.4.6: Try new menu-cycle API first, fall back to legacy
-    // Handle null returns from fetchAPI gracefully
+    // v23.4.7: Unified API fetch with normalization
+    // Try new menu-cycle API first, fall back to legacy
     let weekRes;
-    let useNewAPI = true;
+    let apiSource = 'menu-cycle';
     try {
       weekRes = await fetchAPI(`/menu-cycle/week/${weekNum}?meal=dinner`);
       if (!weekRes || !weekRes.success) {
@@ -5047,60 +5115,25 @@ async function loadMenuWeek(weekNum) {
       }
     } catch (e) {
       console.log(`📋 Falling back to legacy menu API: ${e.message}`);
-      useNewAPI = false;
+      apiSource = 'legacy';
       weekRes = await fetchAPI(`/menu/week/${weekNum}`);
     }
 
-    // v23.4.6: Guard against null response from both APIs
-    if (!weekRes || !weekRes.success) {
-      console.warn(`⚠️ Week ${weekNum}: Both APIs failed, showing empty calendar`);
-      weekRes = { success: true, days: [] }; // Empty fallback
-    }
-
-    // v23.0: Handle both API response formats
-    let weekData;
-    if (useNewAPI) {
-      // New API: { success, week, meal_period, days: [{ day_of_week, day_name, stations: [...] }] }
-      // v23.4: Gracefully handle missing days array instead of throwing
-      if (!weekRes.days || !Array.isArray(weekRes.days)) {
-        console.warn(`⚠️ Week ${weekNum} menu-cycle API returned no days array, using empty structure`);
-        weekRes.days = [];
-      }
-      weekData = {
-        weekNum: weekRes.week || weekNum,
-        mealPeriod: weekRes.meal_period || 'dinner',
-        days: weekRes.days
-      };
-      console.log(`📊 Week ${weekNum} (menu-cycle API):`, {
-        days: weekData.days?.length,
-        totalItems: weekData.days?.reduce((sum, day) =>
-          sum + day.stations?.reduce((s, st) => s + (st.items?.length || 0), 0) || 0, 0)
-      });
-    } else {
-      // Legacy API returns { success: true, data: { days: [...], cycle_week, ... } }
-      // v23.4.5: Fix schema drift - check both weekRes.data and weekRes.week
-      weekData = weekRes.data || weekRes.week;
-      if (!weekData || !weekData.days) {
-        // Handle case where legacy API returns no week data
-        console.warn(`⚠️ Week ${weekNum} legacy API returned no data, using empty structure`);
-        weekData = {
-          weekNum: weekNum,
-          days: [],
-          startsOn: null,
-          endsOn: null
-        };
-      }
-      console.log(`📊 Week ${weekNum} (legacy API):`, {
-        days: weekData.days?.length,
-        totalRecipes: weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0)
-      });
-    }
+    // v23.4.7: Use normalizer to handle ALL historical API shapes
+    const weekData = normalizeMenuWeekResponse(weekRes, weekNum);
+    console.log(`📊 Week ${weekNum} (${weekData._source}):`, {
+      days: weekData.days?.length,
+      totalItems: weekData._source === 'menu-cycle'
+        ? weekData.days?.reduce((sum, day) =>
+            sum + (day.stations?.reduce((s, st) => s + (st.items?.length || 0), 0) || 0), 0)
+        : weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0)
+    });
 
     // Update week info banner
     const weekDates = document.getElementById('menuWeekDates');
     if (weekDates) {
-      if (useNewAPI) {
-        weekDates.textContent = `Week ${weekNum} • 4-Week Rotation`;
+      if (weekData._source === 'menu-cycle') {
+        weekDates.textContent = `Week ${weekData.weekNum} • 4-Week Rotation`;
       } else if (weekData.startsOn) {
         const startDate = new Date(weekData.startsOn).toLocaleDateString('en-US', {
           month: 'short',
@@ -5111,11 +5144,13 @@ async function loadMenuWeek(weekNum) {
           day: 'numeric'
         });
         weekDates.textContent = `${startDate} — ${endDate}`;
+      } else {
+        weekDates.textContent = `Week ${weekData.weekNum}`;
       }
     }
 
-    // Render calendar grid - use appropriate renderer
-    if (useNewAPI) {
+    // Render calendar grid - use appropriate renderer based on source
+    if (weekData._source === 'menu-cycle') {
       renderMenuCycleCalendar(weekData);
     } else {
       renderMenuCalendar(weekData);
