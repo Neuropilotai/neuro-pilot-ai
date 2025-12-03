@@ -455,6 +455,10 @@ app.use('/api/inventory', authenticateToken, requireOwnerDevice, inventoryReconc
 const financeRoutes = require('./routes/finance');
 app.use('/api/finance', authenticateToken, requireOwnerDevice, financeRoutes);
 
+// v23.4.0 - Equipment/Furniture Item Bank API
+const equipmentRoutes = require('./routes/equipment-api');
+app.use('/api/equipment', authenticateToken, requireOwnerDevice, equipmentRoutes);
+
 // v15.5.0 - AI Forecasting + Order Recommendation Engine
 const ownerForecastOrdersRoutes = require('./routes/owner-forecast-orders');
 app.use('/api/owner/forecast-orders', authenticateToken, requireOwnerDevice, ownerForecastOrdersRoutes);

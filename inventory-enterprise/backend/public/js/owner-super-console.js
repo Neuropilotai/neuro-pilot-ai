@@ -12652,6 +12652,384 @@ window.refreshShrinkageView = refreshShrinkageView;
 window.initShrinkageTab = initShrinkageTab;
 
 // ============================================================================
+// EQUIPMENT TAB MODULE (v23.4.0)
+// ============================================================================
+
+(function() {
+  'use strict';
+
+  // State
+  let equipmentPage = 1;
+  const equipmentPerPage = 50;
+  let equipmentTotal = 0;
+  let equipmentSearchQuery = '';
+  let equipmentVendorFilter = '';
+  let equipmentCategoryFilter = '';
+
+  // Helper function
+  const $$ = (selector) => document.querySelector(selector);
+
+  // Initialize on DOM load
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeEquipmentTab();
+  });
+
+  /**
+   * Initialize Equipment module
+   */
+  function initializeEquipmentTab() {
+    // Refresh button
+    const btnRefresh = $$('#btn-refresh-equipment');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', () => loadEquipmentData());
+    }
+
+    // Add equipment button
+    const btnAdd = $$('#btn-add-equipment');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', showAddEquipmentModal);
+    }
+
+    // Export button
+    const btnExport = $$('#btn-export-equipment');
+    if (btnExport) {
+      btnExport.addEventListener('click', exportEquipmentCSV);
+    }
+
+    // Add vendor button
+    const btnAddVendor = $$('#btn-add-equipment-vendor');
+    if (btnAddVendor) {
+      btnAddVendor.addEventListener('click', showAddEquipmentVendorModal);
+    }
+
+    // Refresh purchases button
+    const btnRefreshPurchases = $$('#btn-refresh-purchases');
+    if (btnRefreshPurchases) {
+      btnRefreshPurchases.addEventListener('click', loadEquipmentPurchases);
+    }
+
+    // Search
+    const searchInput = $$('#equipment-search');
+    if (searchInput) {
+      let searchTimeout;
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          equipmentSearchQuery = e.target.value;
+          equipmentPage = 1;
+          loadEquipmentItems();
+        }, 500);
+      });
+    }
+
+    // Vendor filter
+    const vendorFilter = $$('#filter-equipment-vendor');
+    if (vendorFilter) {
+      vendorFilter.addEventListener('change', (e) => {
+        equipmentVendorFilter = e.target.value;
+        equipmentPage = 1;
+        loadEquipmentItems();
+      });
+    }
+
+    // Category filter
+    const categoryFilter = $$('#filter-equipment-category');
+    if (categoryFilter) {
+      categoryFilter.addEventListener('change', (e) => {
+        equipmentCategoryFilter = e.target.value;
+        equipmentPage = 1;
+        loadEquipmentItems();
+      });
+    }
+
+    // Pagination
+    const btnPrev = $$('#btn-equipment-prev');
+    const btnNext = $$('#btn-equipment-next');
+
+    if (btnPrev) {
+      btnPrev.addEventListener('click', () => {
+        if (equipmentPage > 1) {
+          equipmentPage--;
+          loadEquipmentItems();
+        }
+      });
+    }
+
+    if (btnNext) {
+      btnNext.addEventListener('click', () => {
+        const totalPages = Math.ceil(equipmentTotal / equipmentPerPage);
+        if (equipmentPage < totalPages) {
+          equipmentPage++;
+          loadEquipmentItems();
+        }
+      });
+    }
+
+    console.log('✅ Equipment Tab v23.4.0 initialized');
+  }
+
+  /**
+   * Load all equipment data
+   */
+  async function loadEquipmentData() {
+    await Promise.all([
+      loadEquipmentStats(),
+      loadEquipmentItems(),
+      loadEquipmentVendors(),
+      loadEquipmentPurchases()
+    ]);
+  }
+
+  /**
+   * Load equipment statistics
+   */
+  async function loadEquipmentStats() {
+    try {
+      const response = await fetchJSON('/api/equipment/stats');
+      if (response.success) {
+        const stats = response.stats;
+        const el = (id) => document.getElementById(id);
+        if (el('equipment-total-items')) el('equipment-total-items').textContent = stats.totalItems || 0;
+        if (el('equipment-total-value')) el('equipment-total-value').textContent = '$' + (stats.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (el('equipment-vendors-count')) el('equipment-vendors-count').textContent = stats.vendorCount || 0;
+        if (el('equipment-capital-assets')) el('equipment-capital-assets').textContent = stats.capitalAssets || 0;
+      }
+    } catch (error) {
+      console.error('Failed to load equipment stats:', error);
+    }
+  }
+
+  /**
+   * Load equipment items
+   */
+  async function loadEquipmentItems() {
+    const tbody = $$('#equipment-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center"><div class="spinner"></div> Loading equipment items...</td></tr>';
+
+    try {
+      const offset = (equipmentPage - 1) * equipmentPerPage;
+      const params = new URLSearchParams({
+        limit: equipmentPerPage,
+        offset: offset,
+        item_type: 'equipment'
+      });
+
+      if (equipmentSearchQuery) params.append('q', equipmentSearchQuery);
+      if (equipmentVendorFilter) params.append('vendor_id', equipmentVendorFilter);
+      if (equipmentCategoryFilter) params.append('category', equipmentCategoryFilter);
+
+      const response = await fetchJSON(`/api/equipment/items?${params.toString()}`);
+
+      if (response.success) {
+        equipmentTotal = response.total || 0;
+        renderEquipmentTable(response.items || []);
+        updateEquipmentPagination();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Failed to load equipment items</td></tr>';
+      }
+    } catch (error) {
+      console.error('Failed to load equipment items:', error);
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Error: ${error.message}</td></tr>`;
+    }
+  }
+
+  /**
+   * Render equipment table
+   */
+  function renderEquipmentTable(items) {
+    const tbody = $$('#equipment-tbody');
+    if (!tbody) return;
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center">No equipment items found. Add equipment or adjust filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => `
+      <tr data-id="${item.id}">
+        <td>${escapeHtml(item.supplier_item_code || item.item_code || '--')}</td>
+        <td>${escapeHtml(item.description || item.supplier_description || '--')}</td>
+        <td>${escapeHtml(item.supplier_name || '--')}</td>
+        <td>${escapeHtml(item.manufacturer || '--')}</td>
+        <td>${escapeHtml(item.model_number || '--')}</td>
+        <td>${escapeHtml(item.category || item.supplier_category || '--')}</td>
+        <td>${item.unit_price_cents ? '$' + (item.unit_price_cents / 100).toFixed(2) : '--'}</td>
+        <td>${item.quantity || 1}</td>
+        <td>${item.unit_price_cents ? '$' + ((item.unit_price_cents / 100) * (item.quantity || 1)).toFixed(2) : '--'}</td>
+        <td>
+          <button type="button" class="btn btn-xs btn-secondary" onclick="editEquipmentItem(${item.id})">Edit</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  /**
+   * Update equipment pagination
+   */
+  function updateEquipmentPagination() {
+    const totalPages = Math.ceil(equipmentTotal / equipmentPerPage) || 1;
+    const info = $$('#equipment-pagination-info');
+    const btnPrev = $$('#btn-equipment-prev');
+    const btnNext = $$('#btn-equipment-next');
+
+    if (info) info.textContent = `Page ${equipmentPage} of ${totalPages} (${equipmentTotal} items)`;
+    if (btnPrev) btnPrev.disabled = equipmentPage <= 1;
+    if (btnNext) btnNext.disabled = equipmentPage >= totalPages;
+  }
+
+  /**
+   * Load equipment vendors
+   */
+  async function loadEquipmentVendors() {
+    const grid = $$('#equipment-vendors-grid');
+    const vendorSelect = $$('#filter-equipment-vendor');
+
+    try {
+      const response = await fetchJSON('/api/equipment/vendors');
+
+      if (response.success) {
+        const vendors = response.vendors || [];
+
+        // Update vendor filter dropdown
+        if (vendorSelect) {
+          const currentValue = vendorSelect.value;
+          vendorSelect.innerHTML = '<option value="">All Vendors</option>' +
+            vendors.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join('');
+          vendorSelect.value = currentValue;
+        }
+
+        // Update vendor grid
+        if (grid) {
+          if (vendors.length === 0) {
+            grid.innerHTML = '<div class="text-center">No equipment vendors found.</div>';
+            return;
+          }
+
+          grid.innerHTML = vendors.map(vendor => `
+            <div class="card stat-card">
+              <div class="stat-value">${escapeHtml(vendor.name)}</div>
+              <div class="stat-label">${vendor.item_count || 0} items</div>
+              <div class="text-muted" style="font-size: 11px;">
+                ${vendor.website ? `<a href="${escapeHtml(vendor.website)}" target="_blank">Website</a>` : 'No website'}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load equipment vendors:', error);
+      if (grid) grid.innerHTML = '<div class="text-danger">Failed to load vendors</div>';
+    }
+  }
+
+  /**
+   * Load recent equipment purchases
+   */
+  async function loadEquipmentPurchases() {
+    const tbody = $$('#equipment-purchases-tbody');
+    if (!tbody) return;
+
+    try {
+      const response = await fetchJSON('/api/equipment/purchases?limit=10');
+
+      if (response.success) {
+        const purchases = response.purchases || [];
+
+        if (purchases.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center">No recent equipment purchases found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = purchases.map(p => `
+          <tr>
+            <td>${p.order_date ? new Date(p.order_date).toLocaleDateString() : '--'}</td>
+            <td>${escapeHtml(p.order_number || '--')}</td>
+            <td>${escapeHtml(p.vendor_name || '--')}</td>
+            <td>${p.total_lines || 0}</td>
+            <td>$${((p.total_cents || 0) / 100).toFixed(2)}</td>
+            <td><span class="badge badge-${p.status === 'received' ? 'success' : 'info'}">${p.status || 'new'}</span></td>
+          </tr>
+        `).join('');
+      }
+    } catch (error) {
+      console.error('Failed to load equipment purchases:', error);
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load purchases</td></tr>';
+    }
+  }
+
+  /**
+   * Show add equipment modal (placeholder)
+   */
+  function showAddEquipmentModal() {
+    alert('Add Equipment Item - Coming soon!\n\nThis will allow you to manually add equipment items to the catalog.');
+  }
+
+  /**
+   * Show add equipment vendor modal (placeholder)
+   */
+  function showAddEquipmentVendorModal() {
+    alert('Add Equipment Vendor - Coming soon!\n\nThis will allow you to add new equipment vendors.');
+  }
+
+  /**
+   * Export equipment to CSV
+   */
+  async function exportEquipmentCSV() {
+    try {
+      const params = new URLSearchParams({ item_type: 'equipment' });
+      if (equipmentSearchQuery) params.append('q', equipmentSearchQuery);
+      if (equipmentVendorFilter) params.append('vendor_id', equipmentVendorFilter);
+      if (equipmentCategoryFilter) params.append('category', equipmentCategoryFilter);
+
+      const response = await authFetch(`/api/equipment/export-csv?${params.toString()}`);
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `equipment-export-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        throw new Error('Export failed');
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export equipment data: ' + error.message);
+    }
+  }
+
+  /**
+   * Edit equipment item (placeholder)
+   */
+  function editEquipmentItem(id) {
+    alert(`Edit Equipment Item ${id} - Coming soon!`);
+  }
+
+  // Helper: escape HTML
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Expose to global scope
+  window.loadEquipmentData = loadEquipmentData;
+  window.loadEquipmentItems = loadEquipmentItems;
+  window.loadEquipmentVendors = loadEquipmentVendors;
+  window.loadEquipmentPurchases = loadEquipmentPurchases;
+  window.editEquipmentItem = editEquipmentItem;
+  window.initEquipmentTab = initializeEquipmentTab;
+
+})();
+
+// ============================================================================
 // HEALTH MONITORING INITIALIZATION
 // ============================================================================
 // Start health monitoring when page loads (defined in owner-console-core.js)
