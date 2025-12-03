@@ -780,8 +780,20 @@ async function getDatabaseStats() {
       stats.closedCountsThisMonth = 0;
     }
 
-    // Get total inventory value - skip view that may not exist
-    stats.inventoryValue = '$0.00';
+    // Get total inventory value from inventory_items
+    try {
+      const valueResult = await pool.query(`
+        SELECT COALESCE(SUM(current_quantity * unit_cost), 0) as total_value
+        FROM inventory_items
+        WHERE is_active = 1
+      `);
+      const totalValue = parseFloat(valueResult.rows[0]?.total_value || 0);
+      stats.inventoryValue = '$' + totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      stats.inventoryValueRaw = totalValue;
+    } catch (error) {
+      stats.inventoryValue = '$0.00';
+      stats.inventoryValueRaw = 0;
+    }
 
     // Database size (PostgreSQL version)
     try {
@@ -796,6 +808,47 @@ async function getDatabaseStats() {
     stats.forecast_cached_tomorrow = 0;
     stats.feedback_pending = 0;
     stats.learning_insights_7d = 0;
+
+    // v21.2: Get recent vendor orders for Recent Activity
+    try {
+      const recentOrdersResult = await pool.query(`
+        SELECT
+          id,
+          vendor_name,
+          order_number,
+          order_date,
+          total_cents,
+          total_lines,
+          status,
+          created_at
+        FROM vendor_orders
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 5
+      `);
+      stats.recentVendorOrders = (recentOrdersResult.rows || []).map(order => ({
+        id: order.id,
+        vendor: order.vendor_name,
+        orderNumber: order.order_number,
+        orderDate: order.order_date,
+        total: order.total_cents ? (order.total_cents / 100).toFixed(2) : '0.00',
+        lineCount: order.total_lines || 0,
+        status: order.status,
+        createdAt: order.created_at
+      }));
+    } catch (error) {
+      stats.recentVendorOrders = [];
+    }
+
+    // v21.2: Get total vendor orders count
+    try {
+      const orderCountResult = await pool.query(`
+        SELECT COUNT(*) as count FROM vendor_orders WHERE deleted_at IS NULL
+      `);
+      stats.totalVendorOrders = parseInt(orderCountResult.rows[0]?.count || 0);
+    } catch (error) {
+      stats.totalVendorOrders = 0;
+    }
 
     return stats;
   } catch (error) {
