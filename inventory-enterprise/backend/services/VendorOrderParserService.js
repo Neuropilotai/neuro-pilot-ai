@@ -370,14 +370,20 @@ class VendorOrderParserService {
     // Detect vendor from text
     const vendor = this.detectVendor(text);
 
-    // Use vendor-specific parser if available
-    if (vendor === 'gfs' && gfsParser) {
-      return await this.parseGFSInvoice(text);
-    }
-
-    // Generic invoice parsing (pass vendor for vendor-specific patterns)
+    // Parse header (vendor-specific patterns)
     result.header = this.parseGenericHeader(text, vendor);
-    result.lines = this.parseGenericLineItems(text);
+
+    // Use vendor-specific line item parser
+    if (vendor === 'gfs') {
+      result.lines = this.parseGFSLineItems(text);
+      // If GFS parser didn't find lines, try the generic parser as fallback
+      if (result.lines.length === 0) {
+        console.log('[VendorOrderParser] GFS line parser found no items, trying generic parser');
+        result.lines = this.parseGenericLineItems(text);
+      }
+    } else {
+      result.lines = this.parseGenericLineItems(text);
+    }
 
     return result;
   }
@@ -578,6 +584,152 @@ class VendorOrderParserService {
   }
 
   /**
+   * Parse GFS-specific line items from invoice text
+   * Format: GFS_CODE ORD_QTY SHIP_QTY UNIT PACK_SIZE BRAND DESCRIPTION CATEGORY UNIT_PRICE EXT_PRICE
+   * Example: 9752309 2 2 CS 1x18.18 KG Packer APPLE MCINTOSH 120-140CT PR 35.23 70.46
+   * Next line may contain barcode: 650746000217
+   * For meat: Also has case tracking lines like "CASE: 410140870551 WEIGHT: 29.07"
+   */
+  parseGFSLineItems(text) {
+    const lines = [];
+    if (!text) return lines;
+
+    const textLines = text.split('\n');
+    let lineNumber = 0;
+
+    // GFS line item pattern:
+    // GFS_CODE(7 digits) ORD_QTY SHIP_QTY UNIT PACK_SIZE BRAND DESCRIPTION CATEGORY UNIT_PRICE EXT_PRICE
+    // Pattern captures: code, ord_qty, ship_qty, unit, pack_size, brand+description, category, unit_price, ext_price
+    const gfsLinePattern = /^(\d{7})\s+(\d+)\s+(\d+)\s+(CS|EA|LB|KG|PK|BX|DZ|BG)\s+([\dx\.]+\s*(?:KG|LB|OZ|ML|L|G|EA)?[A-Z]*)\s+([A-Za-z][A-Za-z0-9\-&\'\s]+?)([A-Z]{2})\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/i;
+
+    // Simpler pattern for lines that don't match the full pattern
+    const simplifiedPattern = /^(\d{7})\s+(\d+)\s+(\d+)\s+(CS|EA|LB|KG|PK|BX|DZ|BG)\s+(.+?)\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s*$/i;
+
+    // Barcode pattern (UPC/EAN codes on their own line)
+    const barcodePattern = /^(\d{12,14})$/;
+
+    // Case tracking pattern for FIFO meat (CASE: XXXXXX WEIGHT: XX.XX)
+    const casePattern = /CASE:\s*(\d+)\s+WEIGHT:\s*([\d.]+)/i;
+
+    for (let i = 0; i < textLines.length; i++) {
+      const line = textLines[i].trim();
+      if (!line) continue;
+
+      let match = line.match(gfsLinePattern);
+
+      // Try simplified pattern if full pattern doesn't match
+      if (!match) {
+        match = line.match(simplifiedPattern);
+      }
+
+      if (match) {
+        // Full pattern: [full, code, ord, ship, unit, pack, desc+brand, cat, uprice, eprice]
+        // Simplified: [full, code, ord, ship, unit, middle, uprice, eprice]
+        const isFullPattern = match.length === 10;
+
+        const gfsCode = match[1];
+        const orderedQty = parseInt(match[2]);
+        const shippedQty = parseInt(match[3]);
+        const unit = match[4].toUpperCase();
+
+        let packSize, description, brand, categoryCode, unitPrice, extendedPrice;
+
+        if (isFullPattern) {
+          packSize = match[5].trim();
+          // Split brand+description - brand is usually first word, all caps portions
+          const brandDesc = match[6].trim();
+          const brandMatch = brandDesc.match(/^([A-Z][a-z]+|[A-Z]+)\s+(.+)$/);
+          if (brandMatch) {
+            brand = brandMatch[1];
+            description = brandMatch[2].trim();
+          } else {
+            brand = null;
+            description = brandDesc;
+          }
+          categoryCode = match[7].toUpperCase();
+          unitPrice = parseFloat(match[8].replace(/,/g, ''));
+          extendedPrice = parseFloat(match[9].replace(/,/g, ''));
+        } else {
+          // Simplified pattern - parse the middle section
+          const middle = match[5].trim();
+          // Extract pack size (usually at start like "1x18.18 KG" or "5x4.15 KGA")
+          const packMatch = middle.match(/^([\dx\.]+\s*(?:KG|LB|OZ|ML|L|G|EA)?[A-Z]*)\s+(.+)/i);
+          if (packMatch) {
+            packSize = packMatch[1].trim();
+            const rest = packMatch[2].trim();
+            // Last two chars before prices might be category
+            const catMatch = rest.match(/^(.+?)\s+([A-Z]{2})$/);
+            if (catMatch) {
+              description = catMatch[1].trim();
+              categoryCode = catMatch[2];
+            } else {
+              description = rest;
+              categoryCode = null;
+            }
+          } else {
+            packSize = null;
+            description = middle;
+            categoryCode = null;
+          }
+          brand = null;
+          unitPrice = parseFloat(match[6].replace(/,/g, ''));
+          extendedPrice = parseFloat(match[7].replace(/,/g, ''));
+        }
+
+        // Check next line for barcode
+        let barcode = null;
+        if (i + 1 < textLines.length) {
+          const nextLine = textLines[i + 1].trim();
+          const barcodeMatch = nextLine.match(barcodePattern);
+          if (barcodeMatch) {
+            barcode = barcodeMatch[1];
+          }
+        }
+
+        // Check for case tracking info (for FIFO meat products)
+        const cases = [];
+        let j = i + 1;
+        while (j < textLines.length && j < i + 10) { // Look at next few lines
+          const caseLine = textLines[j].trim();
+          const caseMatch = caseLine.match(casePattern);
+          if (caseMatch) {
+            cases.push({
+              caseId: caseMatch[1],
+              weight: parseFloat(caseMatch[2])
+            });
+          } else if (caseLine.match(/^(\d{7})\s+/)) {
+            // Next item line, stop looking
+            break;
+          }
+          j++;
+        }
+
+        lines.push({
+          lineNumber: ++lineNumber,
+          vendorSku: gfsCode,  // GFS item code as vendor SKU
+          gfsCode: gfsCode,    // Also store explicitly
+          description: description ? description.substring(0, 255) : 'Unknown Item',
+          orderedQty: orderedQty,
+          shippedQty: shippedQty,
+          quantity: shippedQty, // Use shipped qty as actual quantity
+          unit: unit,
+          packSize: packSize,
+          unitPrice: unitPrice,
+          extendedPrice: extendedPrice,
+          categoryCode: categoryCode,
+          brand: brand,
+          upcBarcode: barcode,
+          cases: cases.length > 0 ? cases : null, // Case tracking for FIFO
+          rawText: line
+        });
+      }
+    }
+
+    console.log(`[VendorOrderParser] GFS: Parsed ${lines.length} line items`);
+    return lines;
+  }
+
+  /**
    * Parse generic line items from text
    */
   parseGenericLineItems(text) {
@@ -715,23 +867,29 @@ class VendorOrderParserService {
       for (const line of parseResult.lines) {
         await client.query(`
           INSERT INTO vendor_order_lines (
-            order_id, org_id, line_number, vendor_sku, description,
-            ordered_qty, unit, unit_price_cents, extended_price_cents,
-            category_code, brand, raw_text
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            order_id, org_id, line_number, vendor_sku, gfs_code, upc_barcode,
+            description, ordered_qty, received_qty, unit, pack_size,
+            unit_price_cents, extended_price_cents,
+            category_code, brand, raw_text, metadata
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         `, [
           orderId,
           orgId,
           line.lineNumber,
-          line.vendorSku,
+          line.vendorSku || line.gfsCode,  // vendor_sku
+          line.gfsCode || null,             // gfs_code
+          line.upcBarcode || null,          // upc_barcode
           line.description,
-          line.quantity,
+          line.orderedQty || line.quantity, // ordered_qty
+          line.shippedQty || line.quantity, // received_qty (shipped = received)
           line.unit,
+          line.packSize || null,            // pack_size
           line.unitPrice ? Math.round(line.unitPrice * 100) : 0,
           line.extendedPrice ? Math.round(line.extendedPrice * 100) : 0,
           line.categoryCode,
           line.brand,
-          line.rawText
+          line.rawText,
+          line.cases ? JSON.stringify({ cases: line.cases }) : null  // Store case tracking in metadata
         ]);
       }
 
