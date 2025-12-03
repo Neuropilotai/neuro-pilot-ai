@@ -312,10 +312,16 @@ async function loadDashboard() {
     const stats = statsResponse.stats;
 
     // v15.3: System Health - Use AI Ops health score instead of generic systemHealth
+    // v22.3: Prefer V2 scoring with fallback to V1
     try {
       const opsStatus = await fetchAPI('/owner/ops/status');
-      if (opsStatus.ai_ops_health && typeof opsStatus.ai_ops_health.score === 'number') {
-        const healthScore = opsStatus.ai_ops_health.score;
+      // v22.3: Prefer ai_ops_health_v2 if available, fallback to ai_ops_health
+      const rawV1 = opsStatus.ai_ops_health || {};
+      const rawV2 = opsStatus.ai_ops_health_v2 || null;
+      const health = rawV2 || rawV1;
+      const healthScore = Math.round(health.score || 0);
+
+      if (typeof healthScore === 'number' && healthScore > 0) {
         if (healthScore >= 85) {
           document.getElementById('systemHealth').textContent = '✅ Excellent';
           document.getElementById('systemHealth').style.color = '#22c55e';
@@ -1367,20 +1373,54 @@ function closeLocationModal() {
 
 async function loadPDFs() {
   const tableDiv = document.getElementById('pdfTable');
-  tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading PDFs...</div>';
+  tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading Orders & PDFs...</div>';
 
   const status = document.getElementById('pdfStatus').value;
   const search = document.getElementById('pdfSearch').value;
 
   try {
+    // Fetch from both sources in parallel
     const params = new URLSearchParams({ status });
     if (search) params.append('search', search);
 
-    const data = await fetchAPI(`/owner/pdfs?${params}`);
-    const pdfs = data.data || [];
+    const [ownerPdfsResult, vendorOrdersResult] = await Promise.allSettled([
+      fetchAPI(`/owner/pdfs?${params}`),
+      fetchAPI('/vendor-orders')
+    ]);
 
-    if (pdfs.length === 0) {
-      tableDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📄</div><div>No PDFs found</div></div>';
+    // Combine results from both sources
+    const pdfs = ownerPdfsResult.status === 'fulfilled' ? (ownerPdfsResult.value.data || []) : [];
+    const vendorOrders = vendorOrdersResult.status === 'fulfilled' ? (vendorOrdersResult.value.orders || []) : [];
+
+    // Transform vendor orders to match PDF format
+    const transformedOrders = vendorOrders.map(order => ({
+      id: order.id,
+      source: 'vendor_order',
+      invoiceNumber: order.orderNumber,
+      filename: order.pdfFileName,
+      invoiceDate: order.orderDate,
+      vendor: order.vendorName,
+      amount: parseFloat(order.total) || 0,
+      isProcessed: order.status === 'parsed' || order.status === 'validated' || order.status === 'fifo_complete',
+      status: order.status,
+      pdfPreviewUrl: order.pdfPreviewUrl,
+      pdfFileId: order.pdfFileId,
+      subtotal: parseFloat(order.subtotal) || 0,
+      tax: parseFloat(order.tax) || 0,
+      createdAt: order.createdAt
+    }));
+
+    // Mark source for original PDFs
+    const allItems = [
+      ...pdfs.map(p => ({ ...p, source: 'document' })),
+      ...transformedOrders
+    ];
+
+    // Sort by created date (newest first)
+    allItems.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    if (allItems.length === 0) {
+      tableDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📄</div><div>No orders or PDFs found</div></div>';
       return;
     }
 
@@ -1394,6 +1434,7 @@ async function loadPDFs() {
             <th>Vendor</th>
             <th>Amount</th>
             <th>Status</th>
+            <th>Source</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -1402,45 +1443,72 @@ async function loadPDFs() {
 
     let totalAmount = 0;
 
-    pdfs.forEach(pdf => {
-      const statusBadge = pdf.isProcessed ? '<span class="badge badge-success">Included</span>' : '<span class="badge badge-warning">Pending</span>';
-      const invoiceNum = pdf.invoiceNumber || pdf.filename;
+    allItems.forEach(item => {
+      // Status badge varies by source
+      let statusBadge;
+      if (item.source === 'vendor_order') {
+        const statusMap = {
+          'new': '<span class="badge badge-info">New</span>',
+          'parsed': '<span class="badge badge-success">Parsed</span>',
+          'validated': '<span class="badge badge-success">Validated</span>',
+          'fifo_complete': '<span class="badge badge-success">FIFO Done</span>',
+          'error': '<span class="badge badge-danger">Error</span>',
+          'archived': '<span class="badge badge-secondary">Archived</span>'
+        };
+        statusBadge = statusMap[item.status] || '<span class="badge badge-warning">Unknown</span>';
+      } else {
+        statusBadge = item.isProcessed ? '<span class="badge badge-success">Included</span>' : '<span class="badge badge-warning">Pending</span>';
+      }
+
+      const invoiceNum = item.invoiceNumber || item.filename;
 
       // Fix: Parse date string directly to avoid timezone issues
-      // Database stores dates as YYYY-MM-DD, display as-is without timezone conversion
       let dateDisplay = 'N/A';
-      if (pdf.invoiceDate) {
-        const dateStr = pdf.invoiceDate;
-        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          // Parse YYYY-MM-DD directly without timezone conversion
-          const [year, month, day] = dateStr.split('-');
+      if (item.invoiceDate) {
+        const dateStr = item.invoiceDate;
+        if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+          const [year, month, day] = dateStr.substring(0, 10).split('-');
           const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
           dateDisplay = date.toLocaleDateString();
         } else {
-          // Fallback for other formats
-          dateDisplay = new Date(dateStr + 'T12:00:00').toLocaleDateString();
+          dateDisplay = new Date(dateStr).toLocaleDateString();
         }
-      } else if (pdf.receivedDate) {
-        dateDisplay = new Date(pdf.receivedDate + 'T12:00:00').toLocaleDateString();
+      } else if (item.receivedDate) {
+        dateDisplay = new Date(item.receivedDate + 'T12:00:00').toLocaleDateString();
       }
 
-      const vendor = pdf.vendor || 'N/A';
-      const amount = pdf.amount || 0;
+      const vendor = item.vendor || 'N/A';
+      const amount = item.amount || 0;
       const amountDisplay = amount > 0 ? `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
 
       if (amount > 0) totalAmount += amount;
 
+      // Source badge
+      const sourceBadge = item.source === 'vendor_order'
+        ? '<span class="badge badge-primary">GDrive</span>'
+        : '<span class="badge badge-secondary">Upload</span>';
+
       // Escape single quotes for onclick handler
-      const escapedInvoiceNum = invoiceNum.replace(/'/g, "\\'");
+      const escapedInvoiceNum = invoiceNum ? invoiceNum.replace(/'/g, "\\'") : '';
+
+      // View action - different for vendor orders vs uploaded PDFs
+      let viewAction;
+      if (item.source === 'vendor_order' && item.pdfPreviewUrl) {
+        viewAction = `<button type="button" class="btn btn-sm btn-primary" onclick="window.open('${item.pdfPreviewUrl}', '_blank')">👁️ View</button>`;
+      } else {
+        viewAction = `<button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${item.id}', '${escapedInvoiceNum}')">👁️ View</button>`;
+      }
+
       html += `
         <tr>
-          <td><input type="checkbox" class="pdf-checkbox" data-pdf-id="${pdf.id}" ${pdf.isProcessed ? 'disabled' : ''}></td>
-          <td><strong>${invoiceNum}</strong></td>
+          <td><input type="checkbox" class="pdf-checkbox" data-pdf-id="${item.id}" data-source="${item.source}" ${item.isProcessed ? 'disabled' : ''}></td>
+          <td><strong>${invoiceNum || '-'}</strong></td>
           <td>${dateDisplay}</td>
           <td>${vendor}</td>
           <td class="text-right-bold">${amountDisplay}</td>
           <td>${statusBadge}</td>
-          <td><button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${pdf.id}', '${escapedInvoiceNum}')">👁️ View</button></td>
+          <td>${sourceBadge}</td>
+          <td>${viewAction}</td>
         </tr>
       `;
     });
@@ -1448,8 +1516,8 @@ async function loadPDFs() {
     html += '</tbody></table>';
     const totalFormatted = totalAmount > 0 ? `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
     html += `<div class="info-text-mt">
-      <strong>Total:</strong> ${data.summary?.total || pdfs.length} PDFs
-      (${data.summary?.processed || 0} processed, ${data.summary?.unprocessed || 0} pending) |
+      <strong>Total:</strong> ${allItems.length} items
+      (${transformedOrders.length} from Google Drive, ${pdfs.length} uploaded) |
       <strong>Total Amount:</strong> <span class="text-success-lg">${totalFormatted}</span>
     </div>`;
 
@@ -2392,9 +2460,9 @@ async function loadSettings() {
     </div>
   `;
 
-  // Audit Info
+  // Audit Info - Use relative path to avoid CSP issues
   try {
-    const metrics = await fetch('http://127.0.0.1:8083/metrics').then(r => r.text());
+    const metrics = await fetch('/metrics').then(r => r.text());
     const auditDiv = document.getElementById('auditInfo');
 
     // Extract audit chain hash if available in metrics
@@ -3327,12 +3395,13 @@ async function loadAIOpsStatus() {
     }
 
     // Fallback data structure if API failed or returned null
-    if (!opsStatus || !opsStatus.ai_ops_health) {
+    if (!opsStatus || (!opsStatus.ai_ops_health && !opsStatus.ai_ops_health_v2)) {
       opsStatus = {
         ai_ops_health: {
           score: 0,
           explanations: ['API unavailable - showing fallback data']
         },
+        ai_ops_health_v2: null,
         dqi_score: null,
         forecast_latency_avg: null,
         learning_divergence: null,
@@ -3340,17 +3409,28 @@ async function loadAIOpsStatus() {
       };
     }
 
-    // v13.5 Live Console: Update health score from composite ai_ops_health
-    const healthPct = opsStatus.ai_ops_health ? (opsStatus.ai_ops_health.score ?? 0) : 0;
+    // v22.3: Prefer ai_ops_health_v2 (only scores enabled features) with fallback to ai_ops_health
+    const rawV1 = opsStatus.ai_ops_health || {};
+    const rawV2 = opsStatus.ai_ops_health_v2 || null;
+    const health = rawV2 || rawV1;
+    const healthPct = Math.round(health.score || 0);
+
     healthScoreEl.textContent = healthPct > 0 ? `${healthPct}%` : 'N/A';
     const healthState = healthPct >= 85 ? 'ok' : (healthPct >= 60 ? 'warn' : 'bad');
     swapText(healthScoreEl, healthPct > 0 ? healthState : null);
 
-    // Show top 3 explanations as tooltip
-    if (opsStatus.ai_ops_health && opsStatus.ai_ops_health.explanations && Array.isArray(opsStatus.ai_ops_health.explanations)) {
-      const topExplanations = opsStatus.ai_ops_health.explanations.slice(0, 3).join('\n');
-      healthScoreEl.title = `AI Ops System Health:\n${topExplanations}`;
+    // v22.3: Show mode and explanations in tooltip
+    let tooltipLines = ['AI Ops System Health'];
+    if (rawV2 && rawV2.mode) {
+      tooltipLines.push(`Mode: ${rawV2.mode}`);
     }
+    // Prefer V2 explanations, fallback to V1
+    const explanations = health.explanations || [];
+    if (Array.isArray(explanations) && explanations.length > 0) {
+      tooltipLines.push('---');
+      tooltipLines = tooltipLines.concat(explanations.slice(0, 3));
+    }
+    healthScoreEl.title = tooltipLines.join('\n');
 
     // === v14.4.0: Display Data Quality Index (DQI) with safe null handling ===
     if (opsStatus.dqi_score !== null && opsStatus.dqi_score !== undefined) {
@@ -3612,6 +3692,57 @@ async function triggerJob(jobName) {
 // ============================================================================
 
 /**
+ * v22.3: Render AI Health Components Breakdown
+ * Displays each component with status, score, and detail
+ * @param {Object} components - Components from ai_ops_health_v2.components
+ * @param {HTMLElement} container - DOM element to render into
+ */
+function renderAiComponentsBreakdown(components, container) {
+  if (!components || !container) return;
+
+  const statusIcons = {
+    'healthy': '🟢',
+    'warning': '🟡',
+    'critical': '🔴',
+    'disabled': '⚫',
+    'unknown': '⚪'
+  };
+
+  const statusColors = {
+    'healthy': '#22c55e',
+    'warning': '#f59e0b',
+    'critical': '#ef4444',
+    'disabled': '#6b7280',
+    'unknown': '#9ca3af'
+  };
+
+  let html = '<div style="margin-top: 12px; padding: 8px; background: rgba(0,0,0,0.05); border-radius: 6px;">';
+  html += '<div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: 600;">Component Breakdown</div>';
+
+  Object.entries(components).forEach(([key, comp]) => {
+    const icon = statusIcons[comp.status] || statusIcons.unknown;
+    const color = statusColors[comp.status] || statusColors.unknown;
+    const scoreDisplay = comp.score !== null ? `${comp.score}%` : 'N/A';
+
+    html += `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span>${icon}</span>
+          <span style="font-size: 12px; color: #333;">${comp.label || key}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11px; color: #666; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${comp.detail || ''}">${comp.detail || ''}</span>
+          <span style="font-size: 12px; font-weight: 600; color: ${color}; min-width: 40px; text-align: right;">${scoreDisplay}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/**
  * Load Cognitive Intelligence Overview (v13.0 + v14.5.0 CSP)
  * Displays AI confidence trends, forecast accuracy, and active modules
  */
@@ -3629,13 +3760,22 @@ async function loadCognitiveIntelligence() {
     const stats = statsResponse.stats;
 
     // v15.3: Fetch AI Ops status for AI Intelligence Index
+    // v22.3: Prefer V2 scoring with fallback to V1
     const opsStatus = await fetchAPI('/owner/ops/status');
+
+    // v22.3: Prefer ai_ops_health_v2 if available, fallback to ai_ops_health
+    const rawV1 = opsStatus.ai_ops_health || {};
+    const rawV2 = opsStatus.ai_ops_health_v2 || null;
+    const health = rawV2 || rawV1;
+    const healthScore = Math.round(health.score || 0);
 
     // Update AI Intelligence Index (featured metric)
     const aiIndexEl = document.getElementById('aiIntelligenceIndex');
     const aiIndexTrendEl = document.getElementById('aiIndexTrend');
-    if (opsStatus.ai_ops_health && typeof opsStatus.ai_ops_health.score === 'number') {
-      const healthScore = opsStatus.ai_ops_health.score;
+    const aiModeEl = document.getElementById('aiSystemMode');
+    const aiComponentsEl = document.getElementById('aiComponentsBreakdown');
+
+    if (typeof healthScore === 'number' && healthScore > 0) {
       aiIndexEl.textContent = `${healthScore}%`;
 
       // Color code based on health score
@@ -3655,6 +3795,26 @@ async function loadCognitiveIntelligence() {
     } else {
       aiIndexEl.textContent = '--';
       aiIndexTrendEl.textContent = 'No data';
+    }
+
+    // v22.3: Show system mode if using V2 scoring
+    if (aiModeEl && rawV2 && rawV2.mode) {
+      const modeLabels = {
+        'minimal': '🔧 Minimal (Setup)',
+        'basic': '📦 Basic (Inventory Only)',
+        'full': '🚀 Full (AI Enabled)'
+      };
+      aiModeEl.textContent = modeLabels[rawV2.mode] || rawV2.mode;
+      aiModeEl.style.display = 'block';
+    } else if (aiModeEl) {
+      aiModeEl.style.display = 'none';
+    }
+
+    // v22.3: Render component breakdown if using V2 scoring
+    if (aiComponentsEl && rawV2 && rawV2.components) {
+      renderAiComponentsBreakdown(rawV2.components, aiComponentsEl);
+    } else if (aiComponentsEl) {
+      aiComponentsEl.innerHTML = '';
     }
 
     // Update top-level metrics with real data
@@ -11587,6 +11747,646 @@ document.addEventListener('DOMContentLoaded', function() {
   window.refreshIntegrityBadge = refreshIntegrityBadge;
   window.revalidatePeriod = revalidatePeriod;
 })();
+
+// ============================================================================
+// GFS ORDERS TAB FUNCTIONS (V22.3)
+// ============================================================================
+
+/**
+ * Load GFS watcher status
+ */
+async function loadGfsWatcherStatus() {
+  const div = $('gfsWatcherStatus');
+  if (!div) return;
+
+  div.innerHTML = '<div class="text-muted">Loading watcher status...</div>';
+
+  try {
+    const response = await authFetch('/api/vendor-orders/gfs-watcher-status');
+    const data = await response.json();
+
+    if (!data.available) {
+      div.innerHTML = `
+        <div class="info-box-full">
+          <strong>GFS Watcher Not Configured</strong><br>
+          The automated Google Drive watcher is not configured for this environment.
+          You can still upload PDFs manually using the upload section below.
+        </div>
+      `;
+      return;
+    }
+
+    const status = data.status;
+    const runningClass = status.isRunning ? 'u-text-ok' : 'u-text-warn';
+
+    div.innerHTML = `
+      <div class="grid grid-4 u-mb-3">
+        <div class="stat-mini">
+          <div class="stat-value ${runningClass}">${status.isRunning ? 'Running' : 'Stopped'}</div>
+          <div class="stat-label">Status</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-value">${status.stats?.totalRuns || 0}</div>
+          <div class="stat-label">Total Runs</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-value">${status.stats?.ordersProcessed || 0}</div>
+          <div class="stat-label">Orders Processed</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-value">${status.stats?.errors || 0}</div>
+          <div class="stat-label">Errors</div>
+        </div>
+      </div>
+      <div class="text-muted small">
+        <strong>Schedule:</strong> ${status.schedule || 'Not set'}<br>
+        <strong>Last Run:</strong> ${status.lastRunAt ? new Date(status.lastRunAt).toLocaleString() : 'Never'}<br>
+        <strong>Inbox Folder:</strong> ${status.config?.inboxFolderId || 'Not configured'}
+      </div>
+    `;
+
+  } catch (error) {
+    console.error('Failed to load GFS watcher status:', error);
+    div.innerHTML = `<div class="u-text-bad">Failed to load watcher status: ${error.message}</div>`;
+  }
+}
+
+/**
+ * Upload GFS PDF files
+ */
+async function uploadGfsPdfs() {
+  const fileInput = $('gfsPdfUpload');
+  const btn = $('btnUploadGfs');
+  const statusSpan = $('gfsUploadStatus');
+  const resultsDiv = $('gfsUploadResults');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    statusSpan.innerHTML = '<span class="u-text-warn">Please select one or more PDF files</span>';
+    return;
+  }
+
+  // Disable button and show progress
+  btn.disabled = true;
+  btn.textContent = 'Uploading...';
+  statusSpan.innerHTML = '<span class="text-muted">Processing files...</span>';
+  resultsDiv.innerHTML = '';
+
+  try {
+    const formData = new FormData();
+    for (const file of fileInput.files) {
+      formData.append('pdfs', file);
+    }
+
+    const response = await authFetch('/api/vendor-orders/upload-gfs-pdf', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      statusSpan.innerHTML = `<span class="u-text-ok">${data.message}</span>`;
+    } else {
+      statusSpan.innerHTML = `<span class="u-text-warn">${data.message}</span>`;
+    }
+
+    // Display results
+    let html = `
+      <div class="info-box-full u-mb-2">
+        <strong>Summary:</strong> ${data.summary.filesProcessed} files processed in ${data.summary.durationMs}ms<br>
+        <strong>Lines Found:</strong> ${data.summary.totalLinesFound} |
+        <strong>FIFO Layers:</strong> ${data.summary.totalFifoLayers} |
+        <strong>Cases:</strong> ${data.summary.totalCasesExtracted}
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>File Name</th>
+            <th>Status</th>
+            <th>Lines</th>
+            <th>FIFO Layers</th>
+            <th>Cases</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    for (const result of data.results) {
+      const statusClass = result.success ? 'u-text-ok' : 'u-text-bad';
+      html += `
+        <tr>
+          <td>${result.fileName}</td>
+          <td class="${statusClass}">${result.status || (result.success ? 'Success' : 'Failed')}</td>
+          <td>${result.linesFound}</td>
+          <td>${result.fifoLayers}</td>
+          <td>${result.casesExtracted}</td>
+          <td>${result.error || '-'}</td>
+        </tr>
+      `;
+    }
+
+    html += '</tbody></table>';
+    resultsDiv.innerHTML = html;
+
+    // Clear file input
+    fileInput.value = '';
+
+    // Refresh orders list
+    loadGfsOrders();
+
+  } catch (error) {
+    console.error('Failed to upload GFS PDFs:', error);
+    statusSpan.innerHTML = `<span class="u-text-bad">Upload failed: ${error.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Upload & Process';
+  }
+}
+
+/**
+ * Scan GFS inbox (Google Drive)
+ */
+async function scanGfsInbox() {
+  const btn = $('btnScanInbox');
+  const statusSpan = $('gfsScanStatus');
+  const resultsDiv = $('gfsScanResults');
+
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  statusSpan.innerHTML = '<span class="text-muted">Scanning Google Drive inbox...</span>';
+  resultsDiv.innerHTML = '';
+
+  try {
+    const response = await authFetch('/api/vendor-orders/scan-inbox', {
+      method: 'POST'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      statusSpan.innerHTML = `<span class="u-text-ok">${data.message}</span>`;
+
+      resultsDiv.innerHTML = `
+        <div class="info-box-full">
+          <strong>Scan Results:</strong><br>
+          Orders Processed: ${data.result.ordersProcessed}<br>
+          Orders Skipped (already processed): ${data.result.ordersSkipped}<br>
+          Errors: ${data.result.errors}<br>
+          Last Run: ${data.result.lastRunAt ? new Date(data.result.lastRunAt).toLocaleString() : 'N/A'}
+        </div>
+      `;
+
+      // Refresh watcher status and orders list
+      loadGfsWatcherStatus();
+      loadGfsOrders();
+    } else {
+      statusSpan.innerHTML = `<span class="u-text-bad">Scan failed: ${data.error}</span>`;
+      if (data.hint) {
+        resultsDiv.innerHTML = `<div class="text-muted">${data.hint}</div>`;
+      }
+    }
+
+  } catch (error) {
+    console.error('Failed to scan GFS inbox:', error);
+    statusSpan.innerHTML = `<span class="u-text-bad">Scan failed: ${error.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan Inbox Now';
+  }
+}
+
+/**
+ * Load GFS orders list
+ */
+async function loadGfsOrders() {
+  const div = $('gfsOrdersTable');
+  if (!div) return;
+
+  const status = $('gfsOrderStatus')?.value || '';
+  const search = $('gfsOrderSearch')?.value || '';
+
+  div.innerHTML = '<div class="text-muted p-3">Loading GFS orders...</div>';
+
+  try {
+    let url = '/api/vendor-orders?sourceSystem=gfs&pageSize=50';
+    if (status) url += `&status=${encodeURIComponent(status)}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const response = await authFetch(url);
+    const data = await response.json();
+
+    if (!data.orders || data.orders.length === 0) {
+      div.innerHTML = '<div class="empty-state p-3">No GFS orders found</div>';
+      return;
+    }
+
+    let html = `
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Date</th>
+            <th>File Name</th>
+            <th>Status</th>
+            <th>Lines</th>
+            <th>Total</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    for (const order of data.orders) {
+      const statusClass = order.status === 'fifo_complete' ? 'u-text-ok' :
+                          order.status === 'error' ? 'u-text-bad' :
+                          order.status === 'parsed' ? 'u-text-warn' : '';
+
+      html += `
+        <tr>
+          <td>${order.orderNumber || '-'}</td>
+          <td>${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '-'}</td>
+          <td>${order.pdfFileName || '-'}</td>
+          <td class="${statusClass}">${order.status}</td>
+          <td>${order.totalLines}</td>
+          <td>$${order.total}</td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="viewGfsOrder('${order.id}')">View</button>
+            ${order.status === 'parsed' ? `<button class="btn btn-sm btn-primary" onclick="populateFifoForOrder('${order.id}')">Populate FIFO</button>` : ''}
+          </td>
+        </tr>
+      `;
+    }
+
+    html += '</tbody></table>';
+    html += `<div class="text-muted small p-2">Showing ${data.orders.length} of ${data.pagination.totalCount} orders</div>`;
+
+    div.innerHTML = html;
+
+  } catch (error) {
+    console.error('Failed to load GFS orders:', error);
+    div.innerHTML = `<div class="u-text-bad p-3">Failed to load orders: ${error.message}</div>`;
+  }
+}
+
+/**
+ * View GFS order details
+ */
+async function viewGfsOrder(orderId) {
+  try {
+    const response = await authFetch(`/api/vendor-orders/${orderId}`);
+    const data = await response.json();
+
+    if (!data.success) {
+      alert('Failed to load order: ' + data.error);
+      return;
+    }
+
+    const order = data.order;
+    const lines = data.lines;
+
+    let linesHtml = '';
+    for (const line of lines) {
+      linesHtml += `
+        <tr>
+          <td>${line.lineNumber}</td>
+          <td>${line.vendorSku || line.gfsCode || '-'}</td>
+          <td>${line.description}</td>
+          <td>${line.orderedQty} ${line.unit}</td>
+          <td>$${line.unitPrice}</td>
+          <td>$${line.extendedPrice}</td>
+        </tr>
+      `;
+    }
+
+    const modalHtml = `
+      <div class="modal-content">
+        <h3>GFS Order: ${order.orderNumber || orderId.substring(0, 8)}</h3>
+        <div class="grid grid-3 u-mb-3">
+          <div><strong>Vendor:</strong> ${order.vendorName}</div>
+          <div><strong>Date:</strong> ${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '-'}</div>
+          <div><strong>Status:</strong> ${order.status}</div>
+          <div><strong>Total:</strong> $${order.total}</div>
+          <div><strong>Lines:</strong> ${order.totalLines}</div>
+          <div><strong>OCR Confidence:</strong> ${order.ocrConfidence ? (order.ocrConfidence * 100).toFixed(1) + '%' : '-'}</div>
+        </div>
+        <h4>Line Items</h4>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>SKU</th>
+              <th>Description</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Extended</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linesHtml}
+          </tbody>
+        </table>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+        </div>
+      </div>
+    `;
+
+    showModal(modalHtml);
+
+  } catch (error) {
+    console.error('Failed to view order:', error);
+    alert('Failed to load order details: ' + error.message);
+  }
+}
+
+/**
+ * Populate FIFO layers for a specific order
+ */
+async function populateFifoForOrder(orderId) {
+  if (!confirm('Populate FIFO cost layers for this order?')) return;
+
+  try {
+    const response = await authFetch(`/api/vendor-orders/${orderId}/populate-fifo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: false, skipCases: false })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      alert(`FIFO layers populated successfully!\n\nLayers Created: ${data.result.layersCreated}\nLayers Updated: ${data.result.layersUpdated}\nCases Extracted: ${data.result.casesExtracted}`);
+      loadGfsOrders();
+    } else {
+      alert('Failed to populate FIFO: ' + data.error);
+    }
+
+  } catch (error) {
+    console.error('Failed to populate FIFO:', error);
+    alert('Failed to populate FIFO layers: ' + error.message);
+  }
+}
+
+// ============================================================================
+// SHRINKAGE & VARIANCE INTELLIGENCE V1
+// V22.3: Owner Console UI for shrinkage reporting
+// ============================================================================
+
+// Shrinkage state
+let shrinkageData = null;
+let shrinkageCategories = [];
+let selectedShrinkagePeriod = 'last-7-days';
+let selectedShrinkageCategory = '';
+
+/**
+ * Load and display shrinkage report
+ */
+async function loadShrinkageReport() {
+  const container = document.getElementById('shrinkage-content');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading-indicator">Loading shrinkage data...</div>';
+
+  try {
+    // Build query params
+    const params = new URLSearchParams({
+      period: selectedShrinkagePeriod,
+      limit: 20
+    });
+
+    if (selectedShrinkageCategory) {
+      params.append('category', selectedShrinkageCategory);
+    }
+
+    const response = await authFetch(`/api/owner/ops/shrinkage?${params.toString()}`);
+    const data = await response.json();
+
+    if (!data.success) {
+      container.innerHTML = `
+        <div class="error-message">
+          <h4>Shrinkage Data Not Available</h4>
+          <p>${data.error || 'Unknown error'}</p>
+          ${data.hint ? `<p class="hint">${data.hint}</p>` : ''}
+        </div>
+      `;
+      return;
+    }
+
+    shrinkageData = data;
+    renderShrinkageReport(data);
+
+  } catch (error) {
+    console.error('Failed to load shrinkage report:', error);
+    container.innerHTML = `
+      <div class="error-message">
+        <h4>Error Loading Shrinkage Data</h4>
+        <p>${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Load categories for filter dropdown
+ */
+async function loadShrinkageCategories() {
+  try {
+    const response = await authFetch('/api/owner/ops/shrinkage/categories');
+    const data = await response.json();
+
+    if (data.success) {
+      shrinkageCategories = data.categories;
+      updateShrinkageCategoryDropdown();
+    }
+  } catch (error) {
+    console.error('Failed to load categories:', error);
+  }
+}
+
+/**
+ * Update category dropdown
+ */
+function updateShrinkageCategoryDropdown() {
+  const dropdown = document.getElementById('shrinkage-category-filter');
+  if (!dropdown) return;
+
+  dropdown.innerHTML = '<option value="">All Categories</option>';
+  shrinkageCategories.forEach(cat => {
+    dropdown.innerHTML += `<option value="${cat}">${cat}</option>`;
+  });
+}
+
+/**
+ * Render the shrinkage report
+ */
+function renderShrinkageReport(data) {
+  const container = document.getElementById('shrinkage-content');
+  if (!container) return;
+
+  const { period, totals, topItems, byCategory } = data;
+
+  container.innerHTML = `
+    <!-- Summary Cards -->
+    <div class="shrinkage-summary">
+      <div class="summary-card shrinkage-total">
+        <h4>Total Shrinkage Value</h4>
+        <div class="value">$${totals.estimatedShrinkageValue.toLocaleString()}</div>
+        <div class="subtext">${period.start} to ${period.end}</div>
+      </div>
+      <div class="summary-card shrinkage-percent">
+        <h4>Overall Shrinkage %</h4>
+        <div class="value ${totals.overallShrinkagePercent > 5 ? 'warning' : ''}">${totals.overallShrinkagePercent}%</div>
+        <div class="subtext">of theoretical available</div>
+      </div>
+      <div class="summary-card shrinkage-items">
+        <h4>Items with Shrinkage</h4>
+        <div class="value">${totals.itemsWithShrinkage}</div>
+        <div class="subtext">items need attention</div>
+      </div>
+      <div class="summary-card shrinkage-qty">
+        <h4>Total Qty Lost</h4>
+        <div class="value">${totals.totalQtyShrinkage.toFixed(1)}</div>
+        <div class="subtext">units unexplained</div>
+      </div>
+    </div>
+
+    <!-- Category Breakdown -->
+    <div class="shrinkage-section">
+      <h3>Shrinkage by Category</h3>
+      <div class="category-bars">
+        ${byCategory.map(cat => `
+          <div class="category-bar">
+            <div class="category-name">${cat.category}</div>
+            <div class="bar-container">
+              <div class="bar-fill ${cat.shrinkagePercent > 5 ? 'warning' : ''}"
+                   style="width: ${Math.min(100, cat.shrinkagePercent * 5)}%"></div>
+              <span class="bar-label">${cat.shrinkagePercent}%</span>
+            </div>
+            <div class="category-details">
+              ${cat.itemCount} items | ${cat.totalQtyShrinkage.toFixed(1)} units
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Top Items Table -->
+    <div class="shrinkage-section">
+      <h3>Top Items by Shrinkage</h3>
+      <table class="shrinkage-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Category</th>
+            <th>Opening</th>
+            <th>Received</th>
+            <th>Waste</th>
+            <th>Closing</th>
+            <th>Shrinkage</th>
+            <th>%</th>
+            <th>Value</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${topItems.map(item => `
+            <tr class="${item.shrinkagePercent > 10 ? 'high-shrinkage' : item.shrinkagePercent > 5 ? 'medium-shrinkage' : ''}">
+              <td>
+                <div class="item-name">${item.itemName || item.itemCode}</div>
+                <div class="item-code">${item.itemCode}</div>
+              </td>
+              <td>${item.category}</td>
+              <td>${item.qtyCountedStart.toFixed(1)}</td>
+              <td>${item.qtyReceived.toFixed(1)}</td>
+              <td>${item.qtyWasted.toFixed(1)}</td>
+              <td>${item.qtyCountedEnd.toFixed(1)}</td>
+              <td class="shrinkage-qty">${item.qtyShrinkage.toFixed(1)}</td>
+              <td class="shrinkage-pct ${item.shrinkagePercent > 10 ? 'high' : item.shrinkagePercent > 5 ? 'medium' : ''}">${item.shrinkagePercent}%</td>
+              <td class="shrinkage-value">$${item.shrinkageValue.toFixed(2)}</td>
+              <td class="data-quality">
+                ${item.dataQuality.hasOpeningCount ? '<span class="dq-ok">O</span>' : '<span class="dq-missing">O</span>'}
+                ${item.dataQuality.hasReceipts ? '<span class="dq-ok">R</span>' : '<span class="dq-missing">R</span>'}
+                ${item.dataQuality.hasClosingCount ? '<span class="dq-ok">C</span>' : '<span class="dq-missing">C</span>'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="table-legend">
+        <span><span class="dq-ok">O</span> = Opening count</span>
+        <span><span class="dq-ok">R</span> = Receipts</span>
+        <span><span class="dq-ok">C</span> = Closing count</span>
+        <span class="warning-text">Grey = missing data</span>
+      </div>
+    </div>
+
+    <div class="shrinkage-footer">
+      <span>Report generated: ${new Date(data.generatedAt).toLocaleString()}</span>
+      <button class="btn btn-secondary" onclick="refreshShrinkageView()">Refresh View</button>
+    </div>
+  `;
+}
+
+/**
+ * Handle period change
+ */
+function onShrinkagePeriodChange(value) {
+  selectedShrinkagePeriod = value;
+  loadShrinkageReport();
+}
+
+/**
+ * Handle category change
+ */
+function onShrinkageCategoryChange(value) {
+  selectedShrinkageCategory = value;
+  loadShrinkageReport();
+}
+
+/**
+ * Refresh the materialized view
+ */
+async function refreshShrinkageView() {
+  try {
+    const btn = document.querySelector('.shrinkage-footer button');
+    if (btn) btn.disabled = true;
+
+    const response = await authFetch('/api/owner/ops/shrinkage/refresh', {
+      method: 'POST'
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      alert(`Shrinkage view refreshed!\n\nRows: ${data.rowCount}\nDuration: ${data.durationMs}ms`);
+      loadShrinkageReport();
+    } else {
+      alert('Failed to refresh: ' + data.error);
+    }
+  } catch (error) {
+    console.error('Failed to refresh shrinkage view:', error);
+    alert('Failed to refresh: ' + error.message);
+  } finally {
+    const btn = document.querySelector('.shrinkage-footer button');
+    if (btn) btn.disabled = false;
+  }
+}
+
+/**
+ * Initialize Shrinkage tab
+ */
+function initShrinkageTab() {
+  loadShrinkageCategories();
+  loadShrinkageReport();
+}
+
+// Expose to global scope
+window.loadShrinkageReport = loadShrinkageReport;
+window.onShrinkagePeriodChange = onShrinkagePeriodChange;
+window.onShrinkageCategoryChange = onShrinkageCategoryChange;
+window.refreshShrinkageView = refreshShrinkageView;
+window.initShrinkageTab = initShrinkageTab;
 
 // ============================================================================
 // HEALTH MONITORING INITIALIZATION

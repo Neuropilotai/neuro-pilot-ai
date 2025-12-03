@@ -348,7 +348,7 @@ function switchTab(tabName) {
   // Find and activate the correct tab button
   const tabs = document.querySelectorAll('.tab');
   tabs.forEach((tab, index) => {
-    const tabNames = ['dashboard', 'inventory', 'locations', 'pdfs', 'count', 'ai', 'forecast', 'reports', 'settings'];
+    const tabNames = ['dashboard', 'inventory', 'locations', 'pdfs', 'count', 'ai', 'forecast', 'reports', 'shrinkage', 'settings'];
     if (tabNames[index] === tabName) {
       tab.classList.add('active');
     }
@@ -394,6 +394,9 @@ function switchTab(tabName) {
     case 'settings':
       if (typeof loadSettings === 'function') loadSettings();
       break;
+    case 'shrinkage':
+      if (typeof initShrinkageTab === 'function') initShrinkageTab();
+      break;
   }
 }
 
@@ -411,7 +414,8 @@ async function loadDashboard() {
 
     // Render all dashboard components
     renderSystemStatus(response.health);
-    renderAIOpsHealth(response.ai_ops_health);
+    // v22.3: Prefer ai_ops_health_v2 (only scores enabled features) with fallback to v1
+    renderAIOpsHealth(response.ai_ops_health, response.ai_ops_health_v2);
     renderAIModules(response.aiModules);
     renderDBMetrics(response.dbStats);
     renderAuditLogs(response.auditLogs);
@@ -453,29 +457,101 @@ function renderSystemStatus(health) {
   }
 }
 
-function renderAIOpsHealth(aiOpsHealth) {
-  if (!aiOpsHealth) return;
+/**
+ * v22.3: Updated to prefer V2 scoring with V1 fallback
+ * V2 only scores enabled features, avoiding penalty for disabled systems
+ * @param {Object} aiOpsHealthV1 - Legacy V1 scoring (may penalize disabled features)
+ * @param {Object} aiOpsHealthV2 - New V2 scoring (only scores enabled features)
+ */
+function renderAIOpsHealth(aiOpsHealthV1, aiOpsHealthV2) {
+  // v22.3: Prefer V2 if available, fallback to V1
+  const health = aiOpsHealthV2 || aiOpsHealthV1;
+  if (!health) return;
 
-  // Render AI Ops health score
+  // Render AI Ops health score - V2 uses 'score', V1 uses 'health_score'
   const healthScoreEl = document.getElementById('opsHealthScore');
   if (healthScoreEl) {
-    healthScoreEl.textContent = aiOpsHealth.health_score || '--';
+    const score = health.score !== undefined ? Math.round(health.score) : (health.health_score || '--');
+    healthScoreEl.textContent = score;
+
+    // Color code based on score
+    if (typeof score === 'number') {
+      if (score >= 85) {
+        swapText(healthScoreEl, 'ok');
+      } else if (score >= 70) {
+        swapText(healthScoreEl, 'warn');
+      } else {
+        swapText(healthScoreEl, 'bad');
+      }
+    }
   }
 
+  // v22.3: Show mode indicator if V2
+  const modeEl = document.getElementById('opsHealthMode');
+  if (modeEl && aiOpsHealthV2 && aiOpsHealthV2.mode) {
+    modeEl.textContent = `Mode: ${aiOpsHealthV2.mode}`;
+    modeEl.style.display = 'block';
+  } else if (modeEl) {
+    modeEl.style.display = 'none';
+  }
+
+  // Legacy V1 fields (may not exist in V2)
   const dqiEl = document.getElementById('opsDQIScore');
   if (dqiEl) {
-    dqiEl.textContent = aiOpsHealth.data_quality_index || '--';
+    dqiEl.textContent = health.data_quality_index || '--';
   }
 
   const latencyEl = document.getElementById('opsForecastLatency');
   if (latencyEl) {
-    latencyEl.textContent = aiOpsHealth.forecast_latency || '--';
+    latencyEl.textContent = health.forecast_latency || '--';
   }
 
   const divergenceEl = document.getElementById('opsLearningDivergence');
   if (divergenceEl) {
-    divergenceEl.textContent = aiOpsHealth.learning_divergence || '--';
+    divergenceEl.textContent = health.learning_divergence || '--';
   }
+
+  // v22.3: Render component breakdown if V2 is available
+  const breakdownEl = document.getElementById('opsHealthComponents');
+  if (breakdownEl && aiOpsHealthV2 && aiOpsHealthV2.components) {
+    renderOpsHealthComponents(aiOpsHealthV2.components, breakdownEl);
+  }
+}
+
+/**
+ * v22.3: Render component breakdown for V2 scoring
+ * @param {Array} components - Array of component objects with label, status, score, weight, detail
+ * @param {HTMLElement} container - Container element to render into
+ */
+function renderOpsHealthComponents(components, container) {
+  if (!components || !container) return;
+
+  const statusIcons = {
+    'healthy': '🟢',
+    'warning': '🟡',
+    'critical': '🔴',
+    'disabled': '⚫',
+    'unknown': '⚪'
+  };
+
+  let html = '<div class="ops-health-components">';
+
+  components.forEach(comp => {
+    const icon = statusIcons[comp.status] || statusIcons['unknown'];
+    const scoreDisplay = comp.status === 'disabled' ? 'N/A' : `${Math.round(comp.score || 0)}%`;
+    const weightDisplay = comp.status === 'disabled' ? '' : `(${comp.weight}%)`;
+
+    html += `
+      <div class="ops-component-row" title="${comp.detail || comp.label}">
+        <span class="ops-component-icon">${icon}</span>
+        <span class="ops-component-label">${comp.label}</span>
+        <span class="ops-component-score">${scoreDisplay} ${weightDisplay}</span>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 function renderAIModules(aiModules) {
@@ -572,8 +648,8 @@ async function loadAIOpsStatus() {
   try {
     const data = await fetchAPI('/owner/ai-ops/status');
 
-    // Render health grid
-    renderAIOpsHealth(data);
+    // v22.3: Prefer V2 scoring with V1 fallback
+    renderAIOpsHealth(data.ai_ops_health || data, data.ai_ops_health_v2);
 
     // Render checks
     const checksEl = document.getElementById('aiOpsChecks');
@@ -1546,6 +1622,7 @@ window.switchTab = switchTab;
 window.loadDashboard = loadDashboard;
 window.renderSystemStatus = renderSystemStatus;
 window.renderAIOpsHealth = renderAIOpsHealth;
+window.renderOpsHealthComponents = renderOpsHealthComponents;
 window.renderAIModules = renderAIModules;
 window.renderDBMetrics = renderDBMetrics;
 window.renderAuditLogs = renderAuditLogs;
