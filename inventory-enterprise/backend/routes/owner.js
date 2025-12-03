@@ -803,6 +803,41 @@ async function getDatabaseStats() {
       stats.databaseSize = 'N/A';
     }
 
+    // v21.3: Build stats.inventory object for frontend compatibility
+    try {
+      const invResult = await pool.query(`
+        SELECT
+          COUNT(*) as total_items,
+          COALESCE(SUM(current_quantity), 0) as total_units,
+          COALESCE(SUM(current_quantity * unit_cost), 0) as total_value,
+          COUNT(DISTINCT category) as categories
+        FROM inventory_items
+        WHERE is_active = 1
+      `);
+      const invRow = invResult.rows[0] || {};
+      stats.inventory = {
+        totalItems: parseInt(invRow.total_items || 0),
+        manualItems: parseInt(invRow.total_items || 0),
+        totalUnits: parseFloat(invRow.total_units || 0),
+        totalValue: parseFloat(invRow.total_value || 0),
+        categories: parseInt(invRow.categories || 0),
+        totalLineItems: 0,
+        totalQuantityFromPDFs: 0,
+        avgUnitPrice: invRow.total_items > 0 ? parseFloat(invRow.total_value || 0) / parseInt(invRow.total_items || 1) : 0
+      };
+    } catch (error) {
+      stats.inventory = {
+        totalItems: 0,
+        manualItems: 0,
+        totalUnits: 0,
+        totalValue: 0,
+        categories: 0,
+        totalLineItems: 0,
+        totalQuantityFromPDFs: 0,
+        avgUnitPrice: 0
+      };
+    }
+
     // v13.0: AI Module metrics - skip tables that may not exist
     stats.forecast_cached_today = 0;
     stats.forecast_cached_tomorrow = 0;
