@@ -1,8 +1,8 @@
 [build]
 builder = "NIXPACKS"
-# V23.4.7: Menu-cycle domain resolution with normalizeMenuWeekResponse() - Dec 3
+# V23.4.8: Force rebuild - ensure normalizeMenuWeekResponse() deployed - Dec 3
 watchPatterns = ["**/*"]
-buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.7:' $(date +%s)"
+buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.8:' $(date +%s)"
 
 [deploy]
 startCommand = "npm run start:postgres"
