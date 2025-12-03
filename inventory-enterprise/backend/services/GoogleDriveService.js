@@ -171,6 +171,33 @@ class GoogleDriveService {
   }
 
   /**
+   * Download a file from Google Drive as a Buffer
+   * Used for PDF parsing without writing to disk
+   *
+   * @param {string} fileId - Google Drive file ID
+   * @returns {Promise<Buffer>} File contents as Buffer
+   */
+  async downloadFileAsBuffer(fileId) {
+    await this.ensureInitialized();
+
+    try {
+      const response = await this.drive.files.get(
+        { fileId, alt: 'media', supportsAllDrives: true },
+        { responseType: 'arraybuffer' }
+      );
+
+      const buffer = Buffer.from(response.data);
+      console.log(`[GoogleDriveService] Downloaded ${fileId} as buffer (${buffer.length} bytes)`);
+
+      return buffer;
+
+    } catch (error) {
+      console.error('[GoogleDriveService] downloadFileAsBuffer error:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Move a file to a different folder in Google Drive
    *
    * @param {string} fileId - Google Drive file ID

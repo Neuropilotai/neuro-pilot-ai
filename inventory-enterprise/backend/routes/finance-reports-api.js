@@ -1,6 +1,6 @@
 /**
  * Finance Reports API Routes
- * NeuroPilot AI Enterprise V23.4.9
+ * NeuroPilot AI Enterprise V23.5.0
  *
  * Handles finance report ingestion, parsing, and reconciliation.
  * Integrates with Google Drive for PDF retrieval and template learning.
@@ -17,7 +17,13 @@
  * - GET    /api/finance-reports/templates - List report templates
  * - POST   /api/finance-reports/templates - Create/update template
  *
- * @version 23.4.9
+ * V23.5.0 New Endpoints:
+ * - POST   /api/finance-reports/sync      - Sync files from Google Drive
+ * - GET    /api/finance-reports/coverage  - Period coverage analysis
+ * - POST   /api/finance-reports/process-batch - Process unprocessed files
+ * - GET    /api/finance-reports/unprocessed - List unprocessed files
+ *
+ * @version 23.5.0
  * @author NeuroPilot AI Team
  */
 
@@ -1064,6 +1070,206 @@ router.post('/templates', async (req, res) => {
       success: false,
       error: 'Failed to save template',
       code: 'TEMPLATE_SAVE_ERROR'
+    });
+  }
+});
+
+// ============================================
+// V23.5.0: POST /api/finance-reports/sync - Sync from Google Drive
+// ============================================
+
+router.post('/sync', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const userId = getUserId(req);
+    const { folderIds, parseImmediately } = req.body;
+
+    if (!FinanceReportAgent) {
+      return res.status(503).json({
+        success: false,
+        error: 'FinanceReportAgent not available',
+        code: 'AGENT_UNAVAILABLE'
+      });
+    }
+
+    const agent = new FinanceReportAgent({
+      orgId,
+      userId
+    });
+
+    const result = await agent.syncDriveFiles({
+      folderIds: folderIds || undefined,
+      parseImmediately: parseImmediately || false
+    });
+
+    res.json({
+      success: result.success,
+      message: result.success
+        ? `Sync complete: ${result.created_count} new, ${result.updated_count} updated, ${result.skipped_count} skipped`
+        : result.error,
+      result: {
+        created: result.created_count,
+        updated: result.updated_count,
+        skipped: result.skipped_count,
+        total: result.total_files,
+        errors: result.errors?.length || 0
+      },
+      files: result.files,
+      errors: result.errors
+    });
+
+  } catch (error) {
+    console.error('[FinanceReports] Sync error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync from Google Drive',
+      code: 'SYNC_ERROR',
+      details: error.message
+    });
+  }
+});
+
+// ============================================
+// V23.5.0: GET /api/finance-reports/coverage - Period Coverage Check
+// ============================================
+
+router.get('/coverage', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const { startPeriod, endPeriod } = req.query;
+
+    if (!FinanceReportAgent) {
+      return res.status(503).json({
+        success: false,
+        error: 'FinanceReportAgent not available',
+        code: 'AGENT_UNAVAILABLE'
+      });
+    }
+
+    const agent = new FinanceReportAgent({ orgId });
+
+    const result = await agent.getPeriodCoverage({
+      startPeriod: startPeriod || undefined,
+      endPeriod: endPeriod || undefined
+    });
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        error: result.error,
+        code: 'COVERAGE_ERROR'
+      });
+    }
+
+    res.json({
+      success: true,
+      coverage: {
+        startPeriod: result.start_period,
+        endPeriod: result.end_period,
+        totalPeriods: result.total_periods,
+        coveredPeriods: result.covered_periods,
+        coveragePct: result.coverage_pct.toFixed(1),
+        fullyReconciled: result.fully_reconciled,
+        missingPeriods: result.missing_periods
+      },
+      periods: result.periods
+    });
+
+  } catch (error) {
+    console.error('[FinanceReports] Coverage error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get period coverage',
+      code: 'COVERAGE_ERROR',
+      details: error.message
+    });
+  }
+});
+
+// ============================================
+// V23.5.0: POST /api/finance-reports/process-batch - Process Unprocessed Files
+// ============================================
+
+router.post('/process-batch', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const userId = getUserId(req);
+    const { batchSize } = req.body;
+
+    if (!FinanceReportAgent) {
+      return res.status(503).json({
+        success: false,
+        error: 'FinanceReportAgent not available',
+        code: 'AGENT_UNAVAILABLE'
+      });
+    }
+
+    const agent = new FinanceReportAgent({
+      orgId,
+      userId
+    });
+
+    const result = await agent.processBatch(batchSize || 10);
+
+    res.json({
+      success: true,
+      message: `Processed ${result.processed} files: ${result.succeeded} succeeded, ${result.failed} failed`,
+      result: {
+        processed: result.processed,
+        succeeded: result.succeeded,
+        failed: result.failed,
+        errors: result.errors
+      }
+    });
+
+  } catch (error) {
+    console.error('[FinanceReports] Process batch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process batch',
+      code: 'BATCH_ERROR',
+      details: error.message
+    });
+  }
+});
+
+// ============================================
+// V23.5.0: GET /api/finance-reports/unprocessed - List Unprocessed Files
+// ============================================
+
+router.get('/unprocessed', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+
+    if (!FinanceReportAgent) {
+      return res.status(503).json({
+        success: false,
+        error: 'FinanceReportAgent not available',
+        code: 'AGENT_UNAVAILABLE'
+      });
+    }
+
+    const agent = new FinanceReportAgent({ orgId });
+    const files = await agent.getUnprocessedFiles();
+
+    res.json({
+      success: true,
+      count: files.length,
+      files: files.map(f => ({
+        id: f.id,
+        pdfFileId: f.pdf_file_id,
+        pdfFileName: f.pdf_file_name,
+        pdfFolderId: f.pdf_folder_id,
+        createdAt: f.created_at
+      }))
+    });
+
+  } catch (error) {
+    console.error('[FinanceReports] Unprocessed list error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to list unprocessed files',
+      code: 'LIST_ERROR'
     });
   }
 });

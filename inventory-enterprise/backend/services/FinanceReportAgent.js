@@ -1,12 +1,18 @@
 /**
  * FinanceReportAgent - Finance Brain AI Agent
- * NeuroPilot AI Enterprise V23.4.9
+ * NeuroPilot AI Enterprise V23.5.0
  *
  * Responsible for:
  * - Parsing month-end finance reports from Google Drive PDFs
  * - Extracting line items with GL accounts, budgets, actuals, variances
  * - Template learning: detecting and storing report formats
  * - Auto-reconciliation against vendor_orders
+ *
+ * V23.5.0 Additions:
+ * - syncDriveFiles(): Scan Google Drive folders, upsert to finance_reports
+ * - getPeriodCoverage(): Analyze fiscal period coverage & reconciliation
+ * - processBatch(): Process multiple unprocessed files in batch
+ * - getUnprocessedFiles(): List files needing parsing
  *
  * Dependencies:
  * - GoogleDriveService: Download PDFs from Google Drive
@@ -73,10 +79,12 @@ class FinanceReportAgent {
 
   /**
    * Initialize Google Drive service
+   * Uses singleton instance for shared auth across operations
    */
   async initDriveService() {
     if (!this.driveService) {
-      this.driveService = new GoogleDriveService();
+      // Use singleton instance (imported at top)
+      this.driveService = GoogleDriveService;
       await this.driveService.initialize();
     }
     return this.driveService;
@@ -104,9 +112,9 @@ class FinanceReportAgent {
 
       console.log(`[FinanceReportAgent] Parsing file: ${fileInfo.name}`);
 
-      // Download PDF content
-      const pdfBuffer = await this.driveService.downloadFile(fileId);
-      if (!pdfBuffer) {
+      // Download PDF content as buffer
+      const pdfBuffer = await this.driveService.downloadFileAsBuffer(fileId);
+      if (!pdfBuffer || pdfBuffer.length === 0) {
         throw new Error(`Failed to download file: ${fileId}`);
       }
 
@@ -894,6 +902,457 @@ class FinanceReportAgent {
       september: 9, october: 10, november: 11, december: 12
     };
     return months[monthName.toLowerCase()] || 1;
+  }
+
+  // ============================================
+  // V23.5.0: Finance Brain Extension Methods
+  // ============================================
+
+  /**
+   * Sync files from Google Drive folders to finance_reports table
+   * Scans configured folders and upserts based on google_file_id
+   *
+   * @param {Object} options - Sync options
+   * @param {string[]} options.folderIds - Array of Google Drive folder IDs to scan
+   * @param {boolean} options.parseImmediately - Whether to parse files immediately (default: false)
+   * @returns {Object} Sync summary with counts
+   */
+  async syncDriveFiles(options = {}) {
+    const pool = getPool();
+    await this.initDriveService();
+
+    const folderIds = options.folderIds || [
+      process.env.FINANCE_ORDERS_FOLDER_ID,
+      process.env.FINANCE_REPORTS_FOLDER_ID
+    ].filter(Boolean);
+
+    if (folderIds.length === 0) {
+      return {
+        success: false,
+        error: 'No folder IDs configured. Set FINANCE_ORDERS_FOLDER_ID or FINANCE_REPORTS_FOLDER_ID.'
+      };
+    }
+
+    const results = {
+      created_count: 0,
+      updated_count: 0,
+      skipped_count: 0,
+      total_files: 0,
+      errors: [],
+      files: []
+    };
+
+    for (const folderId of folderIds) {
+      try {
+        console.log(`[FinanceReportAgent] Scanning folder: ${folderId}`);
+
+        // List PDF files in folder
+        const files = await this.driveService.listFiles(folderId, 'application/pdf');
+        results.total_files += files.length;
+
+        for (const file of files) {
+          try {
+            // Check if file already exists in database
+            const existing = await pool.query(`
+              SELECT id, pdf_file_name, status, updated_at
+              FROM finance_reports
+              WHERE org_id = $1 AND pdf_file_id = $2 AND deleted_at IS NULL
+            `, [this.orgId, file.id]);
+
+            if (existing.rows.length > 0) {
+              const existingReport = existing.rows[0];
+
+              // Check if file was modified since last sync
+              const fileModified = new Date(file.modifiedTime);
+              const dbUpdated = new Date(existingReport.updated_at);
+
+              if (fileModified > dbUpdated) {
+                // Update existing record
+                await pool.query(`
+                  UPDATE finance_reports
+                  SET pdf_file_name = $1,
+                      pdf_folder_id = $2,
+                      status = CASE WHEN status = 'error' THEN 'new' ELSE status END,
+                      updated_at = CURRENT_TIMESTAMP,
+                      updated_by = $3
+                  WHERE id = $4
+                `, [file.name, folderId, this.userId, existingReport.id]);
+
+                results.updated_count++;
+                results.files.push({
+                  file_id: file.id,
+                  name: file.name,
+                  action: 'updated',
+                  report_id: existingReport.id
+                });
+              } else {
+                results.skipped_count++;
+                results.files.push({
+                  file_id: file.id,
+                  name: file.name,
+                  action: 'skipped',
+                  reason: 'no_changes'
+                });
+              }
+            } else {
+              // Insert new record
+              const insertResult = await pool.query(`
+                INSERT INTO finance_reports (
+                  org_id, site_id, report_type, report_name,
+                  pdf_file_id, pdf_file_name, pdf_folder_id,
+                  status, created_by
+                ) VALUES (
+                  $1, $2, 'month_end', $3, $4, $3, $5, 'new', $6
+                )
+                RETURNING id
+              `, [this.orgId, this.siteId, file.name, file.id, folderId, this.userId]);
+
+              results.created_count++;
+              results.files.push({
+                file_id: file.id,
+                name: file.name,
+                action: 'created',
+                report_id: insertResult.rows[0].id
+              });
+
+              // Optionally parse immediately
+              if (options.parseImmediately) {
+                try {
+                  const parseResult = await this.parseFromGoogleDrive(file.id);
+                  if (parseResult.success) {
+                    await this.saveReport({
+                      ...parseResult,
+                      pdf_file_id: file.id,
+                      pdf_file_name: file.name,
+                      pdf_folder_id: folderId
+                    });
+                  }
+                } catch (parseError) {
+                  results.errors.push({
+                    file_id: file.id,
+                    name: file.name,
+                    error: `Parse failed: ${parseError.message}`
+                  });
+                }
+              }
+            }
+
+          } catch (fileError) {
+            results.errors.push({
+              file_id: file.id,
+              name: file.name,
+              error: fileError.message
+            });
+          }
+        }
+
+      } catch (folderError) {
+        results.errors.push({
+          folder_id: folderId,
+          error: `Folder scan failed: ${folderError.message}`
+        });
+      }
+    }
+
+    results.success = results.errors.length === 0;
+    console.log(`[FinanceReportAgent] Sync complete: ${results.created_count} created, ${results.updated_count} updated, ${results.skipped_count} skipped`);
+
+    return results;
+  }
+
+  /**
+   * Get period coverage analysis
+   * Checks which fiscal periods have reports and their reconciliation status
+   *
+   * @param {Object} options - Coverage options
+   * @param {string} options.startPeriod - Start fiscal period (e.g., "2024-01")
+   * @param {string} options.endPeriod - End fiscal period (e.g., "2025-01")
+   * @returns {Object} Coverage analysis
+   */
+  async getPeriodCoverage(options = {}) {
+    const pool = getPool();
+
+    const startPeriod = options.startPeriod || '2024-01';
+    const endPeriod = options.endPeriod || new Date().toISOString().slice(0, 7).replace('-', '-');
+
+    try {
+      // Get all reports with their reconciliation status
+      const reportsResult = await pool.query(`
+        SELECT
+          fr.fiscal_period,
+          fr.report_type,
+          fr.status,
+          fr.total_lines,
+          fr.total_amount_cents,
+          COUNT(DISTINCT frl.id) AS line_count,
+          COUNT(DISTINCT ir.id) AS reconciled_count,
+          COUNT(DISTINCT CASE WHEN ir.status = 'matched' THEN ir.id END) AS matched_count,
+          COUNT(DISTINCT CASE WHEN ir.status = 'unmatched' THEN ir.id END) AS unmatched_count
+        FROM finance_reports fr
+        LEFT JOIN finance_report_lines frl ON frl.report_id = fr.id
+        LEFT JOIN invoice_reconciliation ir ON ir.report_line_id = frl.id
+        WHERE fr.org_id = $1
+          AND fr.deleted_at IS NULL
+          AND fr.fiscal_period >= $2
+          AND fr.fiscal_period <= $3
+        GROUP BY fr.id, fr.fiscal_period, fr.report_type, fr.status, fr.total_lines, fr.total_amount_cents
+        ORDER BY fr.fiscal_period DESC
+      `, [this.orgId, startPeriod, endPeriod]);
+
+      // Generate expected periods list
+      const expectedPeriods = this.generatePeriodRange(startPeriod, endPeriod);
+
+      // Map coverage
+      const coverage = {};
+      for (const period of expectedPeriods) {
+        coverage[period] = {
+          period,
+          has_report: false,
+          reports: [],
+          total_amount: 0,
+          reconciliation_pct: 0
+        };
+      }
+
+      // Fill in actual data
+      for (const row of reportsResult.rows) {
+        if (row.fiscal_period && coverage[row.fiscal_period]) {
+          coverage[row.fiscal_period].has_report = true;
+          coverage[row.fiscal_period].reports.push({
+            type: row.report_type,
+            status: row.status,
+            lines: row.line_count,
+            amount: row.total_amount_cents / 100,
+            reconciled: row.reconciled_count,
+            matched: row.matched_count,
+            unmatched: row.unmatched_count
+          });
+          coverage[row.fiscal_period].total_amount += (row.total_amount_cents || 0) / 100;
+
+          // Calculate reconciliation percentage
+          if (row.line_count > 0) {
+            const pct = (row.matched_count / row.line_count) * 100;
+            coverage[row.fiscal_period].reconciliation_pct = Math.max(
+              coverage[row.fiscal_period].reconciliation_pct,
+              pct
+            );
+          }
+        }
+      }
+
+      // Calculate summary
+      const periods = Object.values(coverage);
+      const coveredPeriods = periods.filter(p => p.has_report).length;
+      const totalPeriods = periods.length;
+      const fullyReconciled = periods.filter(p => p.reconciliation_pct >= 95).length;
+
+      return {
+        success: true,
+        start_period: startPeriod,
+        end_period: endPeriod,
+        total_periods: totalPeriods,
+        covered_periods: coveredPeriods,
+        coverage_pct: totalPeriods > 0 ? (coveredPeriods / totalPeriods) * 100 : 0,
+        fully_reconciled: fullyReconciled,
+        missing_periods: periods.filter(p => !p.has_report).map(p => p.period),
+        periods: coverage
+      };
+
+    } catch (error) {
+      console.error('[FinanceReportAgent] Coverage check error:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Helper: Generate list of fiscal periods between start and end
+   */
+  generatePeriodRange(startPeriod, endPeriod) {
+    const periods = [];
+    const [startYear, startMonth] = startPeriod.split('-').map(Number);
+    const [endYear, endMonth] = endPeriod.split('-').map(Number);
+
+    let year = startYear;
+    let month = startMonth;
+
+    while (year < endYear || (year === endYear && month <= endMonth)) {
+      periods.push(`${year}-${String(month).padStart(2, '0')}`);
+      month++;
+      if (month > 12) {
+        month = 1;
+        year++;
+      }
+    }
+
+    return periods;
+  }
+
+  /**
+   * Get unprocessed files that need parsing
+   * @returns {Array} List of files with status 'new'
+   */
+  async getUnprocessedFiles() {
+    const pool = getPool();
+
+    const result = await pool.query(`
+      SELECT id, pdf_file_id, pdf_file_name, pdf_folder_id, created_at
+      FROM finance_reports
+      WHERE org_id = $1
+        AND deleted_at IS NULL
+        AND status = 'new'
+      ORDER BY created_at ASC
+      LIMIT 50
+    `, [this.orgId]);
+
+    return result.rows;
+  }
+
+  /**
+   * Process a batch of unprocessed files
+   * @param {number} batchSize - Number of files to process (default: 10)
+   * @returns {Object} Processing results
+   */
+  async processBatch(batchSize = 10) {
+    const pool = getPool();
+    const files = await this.getUnprocessedFiles();
+    const batch = files.slice(0, batchSize);
+
+    const results = {
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+      errors: []
+    };
+
+    for (const file of batch) {
+      results.processed++;
+
+      try {
+        // Mark as parsing
+        await pool.query(`
+          UPDATE finance_reports
+          SET status = 'parsing', updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [file.id]);
+
+        // Parse the file
+        const parseResult = await this.parseFromGoogleDrive(file.pdf_file_id);
+
+        if (parseResult.success) {
+          // Update report with parsed data
+          await pool.query(`
+            UPDATE finance_reports
+            SET
+              report_type = $1,
+              report_name = COALESCE($2, report_name),
+              period_start = $3,
+              period_end = $4,
+              fiscal_period = $5,
+              total_lines = $6,
+              total_amount_cents = $7,
+              currency = $8,
+              template_id = $9,
+              template_confidence = $10,
+              ocr_confidence = $11,
+              ocr_engine = $12,
+              parse_duration_ms = $13,
+              parsed_at = CURRENT_TIMESTAMP,
+              parsed_by = $14,
+              status = CASE WHEN $15 THEN 'needs_review' ELSE 'parsed' END,
+              needs_review = $15,
+              review_reason = $16,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE id = $17
+          `, [
+            parseResult.report_type,
+            parseResult.report_name,
+            parseResult.period_start,
+            parseResult.period_end,
+            parseResult.fiscal_period,
+            parseResult.total_lines,
+            parseResult.total_amount_cents,
+            parseResult.currency,
+            parseResult.template_id,
+            parseResult.template_confidence,
+            parseResult.ocr_confidence,
+            parseResult.ocr_engine,
+            parseResult.parse_duration_ms,
+            this.userId,
+            parseResult.needs_review,
+            parseResult.review_reason,
+            file.id
+          ]);
+
+          // Save line items
+          if (parseResult.lines && parseResult.lines.length > 0) {
+            for (const line of parseResult.lines) {
+              await pool.query(`
+                INSERT INTO finance_report_lines (
+                  report_id, org_id, line_number, section, category,
+                  description, gl_account,
+                  budget_cents, actual_cents, variance_cents, variance_pct,
+                  line_confidence, needs_review, raw_text
+                ) VALUES (
+                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+                )
+                ON CONFLICT DO NOTHING
+              `, [
+                file.id,
+                this.orgId,
+                line.line_number,
+                line.section,
+                line.category || line.section,
+                line.description,
+                line.gl_account,
+                line.budget_cents,
+                line.actual_cents,
+                line.variance_cents,
+                line.variance_pct,
+                line.line_confidence,
+                line.line_confidence < this.config.minConfidenceThreshold,
+                line.raw_text
+              ]);
+            }
+          }
+
+          results.succeeded++;
+        } else {
+          // Mark as error
+          await pool.query(`
+            UPDATE finance_reports
+            SET status = 'error', error_message = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [parseResult.error, file.id]);
+
+          results.failed++;
+          results.errors.push({
+            report_id: file.id,
+            file_name: file.pdf_file_name,
+            error: parseResult.error
+          });
+        }
+
+      } catch (error) {
+        // Mark as error
+        await pool.query(`
+          UPDATE finance_reports
+          SET status = 'error', error_message = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [error.message, file.id]);
+
+        results.failed++;
+        results.errors.push({
+          report_id: file.id,
+          file_name: file.pdf_file_name,
+          error: error.message
+        });
+      }
+    }
+
+    return results;
   }
 }
 
