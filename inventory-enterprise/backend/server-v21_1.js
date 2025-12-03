@@ -1573,6 +1573,9 @@ app.use('/api/vendor-orders', authGuard(['staff', 'manager', 'admin', 'owner']),
 // V23.4: Equipment/Furniture Item Bank API
 app.use('/api/equipment', authGuard(['owner']), rateLimitMiddleware, auditLog('EQUIPMENT'), safeRequire('./routes/equipment-api', 'equipment-api'));
 
+// V23.4.9: Finance Reports API (Finance Brain)
+app.use('/api/finance-reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('FINANCE_REPORTS'), safeRequire('./routes/finance-reports-api', 'finance-reports-api'));
+
 // Diagnostic routes (always available for deployment validation)
 app.use('/diag', safeRequire('./routes/diag', 'diag'));
 
