@@ -5313,8 +5313,9 @@ function renderMenuCycleCalendar(weekData) {
   // Build calendar HTML with station-based layout
   let html = '<div class="menu-cycle-grid">';
 
-  // Day headers (Wed-Tue)
+  // Day headers (Wed-Tue) - with spacer for station label column
   html += '<div class="menu-cycle-header">';
+  html += '<div class="menu-cycle-header-spacer"></div>'; // Spacer to align with station label column
   days.forEach(day => {
     html += `<div class="menu-cycle-day-header">${day.day_name}</div>`;
   });
@@ -5391,11 +5392,14 @@ function renderMenuCycleCalendar(weekData) {
       }
       .menu-cycle-header {
         display: grid;
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: 140px repeat(7, 1fr);
         background: var(--primary-color, #2196F3);
         color: white;
         font-weight: 600;
         text-align: center;
+      }
+      .menu-cycle-header-spacer {
+        background: var(--primary-color, #2196F3);
       }
       .menu-cycle-day-header {
         padding: 8px 4px;

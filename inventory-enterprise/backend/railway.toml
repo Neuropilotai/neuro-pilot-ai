@@ -1,8 +1,8 @@
 [build]
 builder = "NIXPACKS"
-# V23.5.0: Finance Brain Extension - Drive sync, coverage check, batch processing - Dec 3
+# V23.5.1: Menu Calendar alignment fix - day headers now align with station columns - Dec 3
 watchPatterns = ["**/*"]
-buildCommand = "npm cache clean --force && npm install --production=false && npm run build && echo 'Build V23.5.0:' $(date +%s)"
+buildCommand = "npm cache clean --force && npm install --production=false && npm run build && echo 'Build V23.5.1:' $(date +%s)"
 
 [deploy]
 startCommand = "npm run start:postgres"
