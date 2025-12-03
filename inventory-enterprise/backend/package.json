@@ -1,6 +1,6 @@
 {
   "name": "inventory-enterprise-v3",
-  "version": "21.1.5",
+  "version": "23.4.10",
   "description": "Enterprise-grade inventory management system with Phase 16.5 Unified Governance & Predictive UI, real-time command center, 7-day forecasting, WebSocket live updates, Phase 3 Autonomous Learning Layer, AI Tuner with YAML proposals, 24h health prediction, security anomaly detection, automated governance reporting, Generative Intelligence & Autonomous Governance, GPT/Claude-powered executive summaries, self-learning policy adaptation, ISO/SOC compliance scanning, AI Ops automation, predictive incident response, LSTM + Isolation Forest anomaly detection, automated remediation playbooks, multi-channel alerting (Slack, Email, PagerDuty), comprehensive E2E testing, performance monitoring, multi-tenancy, advanced RBAC, real-time AI intelligence, Redis caching, PostgreSQL support, Grafana UI metrics, and CI/CD pipeline",
   "main": "server-v21_1.js",
   "type": "commonjs",
@@ -9,6 +9,7 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
+    "build": "node scripts/inject-version.js",
     "start": "node scripts/init-postgres.js && node server-v21_1.js",
     "start:with-init": "node scripts/init-database.js && node server-v21_1.js",
     "start:postgres": "node scripts/init-postgres.js && node server-v21_1.js",

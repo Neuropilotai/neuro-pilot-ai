@@ -13,6 +13,7 @@ const morgan = require('morgan');
 const cron = require('node-cron');
 const jwt = require('jsonwebtoken');
 const promClient = require('prom-client');
+const { APP_VERSION, APP_VERSION_SHORT } = require('./version');
 console.log('[STARTUP] Loading database...');
 const { pool } = require('./db');
 
@@ -969,7 +970,7 @@ app.get('/health', async (req, res) => {
     // Always return 200 - server is alive
     return res.status(200).json({
       status: 'ok',
-      version: 'v21.1',
+      version: APP_VERSION,
       uptime: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
       responseTimeMs: Date.now() - startTime,
@@ -984,7 +985,7 @@ app.get('/health', async (req, res) => {
     console.error('[HEALTH] Error in health check:', err.message);
     return res.status(200).json({
       status: 'ok',
-      version: 'v21.1',
+      version: APP_VERSION,
       uptime: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
       responseTimeMs: Date.now() - startTime,
@@ -1178,7 +1179,7 @@ app.get('/api/health', async (req, res) => {
 
   res.json({
     success: dbStatus === 'connected',
-    version: 'v21.1',
+    version: APP_VERSION,
     database: dbStatus,
     uptime: process.uptime(),
     ...(dbError && { dbError })
@@ -1200,7 +1201,7 @@ app.get('/api/health/status', async (req, res) => {
 
   res.json({
     success: dbStatus === 'connected',
-    version: 'v21.1',
+    version: APP_VERSION,
     database: dbStatus,
     uptime: process.uptime(),
     ...(dbError && { dbError })
@@ -1253,7 +1254,7 @@ app.get('/api/health/detailed', async (req, res) => {
 app.get('/api/rbac/bootstrap', async (req, res) => {
   res.json({
     success: true,
-    version: 'v21.1',
+    version: APP_VERSION,
     rbac: {
       enabled: true,
       roles: ['owner', 'admin', 'manager', 'staff', 'viewer'],
@@ -1409,7 +1410,7 @@ app.post('/api/admin/migrate-reset', async (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     name: 'NeuroInnovate Inventory Enterprise API',
-    version: 'v21.1',
+    version: APP_VERSION,
     mode: 'production',
     security: {
       rbac: true,
@@ -1579,6 +1580,9 @@ app.use('/api/finance-reports', authGuard(['manager', 'admin', 'owner']), rateLi
 // Diagnostic routes (always available for deployment validation)
 app.use('/diag', safeRequire('./routes/diag', 'diag'));
 
+// V23.4.10: Version API (public endpoint for diagnostics and UI)
+app.use('/api', safeRequire('./routes/version-api', 'version-api'));
+
 // ============================================
 // HEAVY ROUTES - LOAD SYNCHRONOUSLY NOW
 // Since healthcheck returns 200 immediately without blocking,
@@ -1710,7 +1714,7 @@ if (phase3Cron) {
 console.log('[STARTUP] About to start server on port', PORT);
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('================================================');
-  console.log('  NeuroInnovate Inventory Enterprise V21.1');
+  console.log(`  NeuroInnovate Inventory Enterprise ${APP_VERSION}`);
   console.log('================================================');
   console.log(`  Mode: ${process.env.NODE_ENV || 'development'}`);
   console.log(`  Port: ${PORT}`);
