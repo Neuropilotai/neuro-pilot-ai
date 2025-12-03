@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-# V22.3: Force full rebuild - no cache - HTML fix deployment
+# V23.4: Equipment Tab - Force rebuild
 watchPatterns = ["**/*"]
 buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V22.2:' $(date +%s)"
 
