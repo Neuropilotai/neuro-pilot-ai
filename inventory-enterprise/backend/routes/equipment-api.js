@@ -5,14 +5,13 @@
 
 const express = require('express');
 const router = express.Router();
-const { getPool } = require('../db/postgres');
+const { pool } = require('../db');
 
 // ============================================================================
 // GET /api/equipment/stats - Get equipment statistics
 // ============================================================================
 router.get('/stats', async (req, res) => {
   try {
-    const pool = getPool();
     const orgId = req.user?.org_id || 'default-org';
 
     // Get stats from supplier_items and vendors with equipment type
@@ -59,7 +58,6 @@ router.get('/stats', async (req, res) => {
 // ============================================================================
 router.get('/items', async (req, res) => {
   try {
-    const pool = getPool();
     const orgId = req.user?.org_id || 'default-org';
     const { limit = 50, offset = 0, q, vendor_id, category } = req.query;
 
@@ -156,7 +154,6 @@ router.get('/items', async (req, res) => {
 // ============================================================================
 router.get('/vendors', async (req, res) => {
   try {
-    const pool = getPool();
     const orgId = req.user?.org_id || 'default-org';
 
     const result = await pool.query(`
@@ -190,7 +187,6 @@ router.get('/vendors', async (req, res) => {
 // ============================================================================
 router.get('/purchases', async (req, res) => {
   try {
-    const pool = getPool();
     const orgId = req.user?.org_id || 'default-org';
     const { limit = 10 } = req.query;
 
@@ -227,7 +223,6 @@ router.get('/purchases', async (req, res) => {
 // ============================================================================
 router.get('/export-csv', async (req, res) => {
   try {
-    const pool = getPool();
     const orgId = req.user?.org_id || 'default-org';
     const { q, vendor_id, category } = req.query;
 
