@@ -5074,8 +5074,9 @@ async function loadMenuWeek(weekNum) {
           sum + day.stations?.reduce((s, st) => s + (st.items?.length || 0), 0) || 0, 0)
       });
     } else {
-      // Legacy API - weekRes.week contains the week data
-      weekData = weekRes.week;
+      // Legacy API returns { success: true, data: { days: [...], cycle_week, ... } }
+      // v23.4.5: Fix schema drift - check both weekRes.data and weekRes.week
+      weekData = weekRes.data || weekRes.week;
       if (!weekData || !weekData.days) {
         // Handle case where legacy API returns no week data
         console.warn(`⚠️ Week ${weekNum} legacy API returned no data, using empty structure`);

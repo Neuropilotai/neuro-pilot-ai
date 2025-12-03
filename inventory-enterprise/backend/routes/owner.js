@@ -1958,22 +1958,23 @@ router.get('/counts/history', authenticateToken, requireOwnerAccess, async (req,
     const { pool } = require('../db');
     const limit = parseInt(req.query.limit) || 50;
 
-    // Get all inventory counts with item counts (PostgreSQL syntax)
+    // v23.4.5: Fixed query to match actual inventory_counts schema
+    // Table has count_id (not id), count_name, count_date, count_type, status
+    // No location_id column - removed join
     const result = await pool.query(`
       SELECT
-        ic.id,
-        ic.created_at,
-        ic.approved_at,
-        ic.closed_at,
+        ic.count_id as id,
+        ic.count_name,
+        ic.count_date,
+        ic.count_type,
         ic.status,
-        ic.location_id,
-        sl.name as location_name,
-        COUNT(DISTINCT icr.id) as item_count,
-        'MONTHLY' as count_type
+        ic.created_at,
+        ic.closed_at,
+        ic.notes,
+        COUNT(DISTINCT icr.id) as item_count
       FROM inventory_counts ic
-      LEFT JOIN storage_locations sl ON sl.id = ic.location_id
-      LEFT JOIN inventory_count_rows icr ON icr.count_id = ic.id
-      GROUP BY ic.id, ic.created_at, ic.approved_at, ic.closed_at, ic.status, ic.location_id, sl.name
+      LEFT JOIN inventory_count_rows icr ON icr.count_id = ic.count_id::text
+      GROUP BY ic.count_id, ic.count_name, ic.count_date, ic.count_type, ic.status, ic.created_at, ic.closed_at, ic.notes
       ORDER BY ic.created_at DESC
       LIMIT $1
     `, [limit]);

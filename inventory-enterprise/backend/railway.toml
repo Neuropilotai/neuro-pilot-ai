@@ -1,8 +1,8 @@
 [build]
 builder = "NIXPACKS"
-# V23.4.4: Fixed /api/owner/pdfs SELECT DISTINCT ORDER BY PostgreSQL error - Dec 3
+# V23.4.5: Fixed menu-cycle API schema drift + inventory_counts location_id query - Dec 3
 watchPatterns = ["**/*"]
-buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.4:' $(date +%s)"
+buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.5:' $(date +%s)"
 
 [deploy]
 startCommand = "npm run start:postgres"
