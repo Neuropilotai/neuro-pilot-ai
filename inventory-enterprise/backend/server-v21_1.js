@@ -1570,6 +1570,9 @@ app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rat
 // V22.2: Vendor Orders with Google Drive PDF Integration
 app.use('/api/vendor-orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR_ORDERS'), safeRequire('./routes/vendor-orders', 'vendor-orders'));
 
+// V23.4: Equipment/Furniture Item Bank API
+app.use('/api/equipment', authGuard(['owner']), rateLimitMiddleware, auditLog('EQUIPMENT'), safeRequire('./routes/equipment-api', 'equipment-api'));
+
 // Diagnostic routes (always available for deployment validation)
 app.use('/diag', safeRequire('./routes/diag', 'diag'));
 
