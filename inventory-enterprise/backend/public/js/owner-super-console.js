@@ -366,11 +366,14 @@ async function loadDashboard() {
       }
     })();
 
+    // v21.2: Use inventoryValueRaw from API (or fallback to nested inventory.totalValue for backward compat)
+    const inventoryValue = stats.inventoryValueRaw || stats.inventory?.totalValue || 0;
+
     const dbStatsHTML = `
       <table class="table">
         <tr class="row-highlight-success">
           <td class="td-medium-value">💰 Total Inventory Value</td>
-          <td class="td-large-value">$${(stats.inventory?.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+          <td class="td-large-value">$${inventoryValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
         </tr>
         <tr><td>Unique Products (from PDFs)</td><td><strong>${stats.inventory?.totalItems || 0}</strong> <span class="badge badge-success">Auto-Extracted</span></td></tr>
         <tr><td>Manual Inventory Items</td><td><strong>${stats.inventory?.manualItems || 0}</strong> items</td></tr>
@@ -386,8 +389,8 @@ async function loadDashboard() {
     `;
     document.getElementById('dbStats').innerHTML = dbStatsHTML;
 
-    // Recent Activity
-    await loadRecentActivity(stats.recentActivity);
+    // Recent Activity - v21.2: Use recentVendorOrders from API
+    await loadRecentActivity(stats.recentActivity, stats.recentVendorOrders);
 
     console.log('✅ Dashboard loaded successfully with real data!');
   } catch (error) {
@@ -549,14 +552,27 @@ function closeStockoutDetailModal() {
   document.getElementById('stockoutDetailModal').classList.remove('active');
 }
 
-async function loadRecentActivity(recentActivity) {
+async function loadRecentActivity(recentActivity, recentVendorOrders = []) {
   const div = document.getElementById('recentActivity');
 
   try {
     const activities = [];
 
-    // Last PDF Upload
-    if (recentActivity?.lastPDFUpload) {
+    // v21.2: Show recent vendor orders first (from API recentVendorOrders)
+    if (recentVendorOrders && recentVendorOrders.length > 0) {
+      recentVendorOrders.forEach((order, idx) => {
+        const orderDate = order.createdAt ? new Date(order.createdAt) : null;
+        const timeAgo = orderDate ? getTimeAgo(orderDate) : 'Unknown';
+        activities.push({
+          icon: '📄',
+          title: `${order.vendor || 'Vendor'} Invoice`,
+          detail: `#${order.orderNumber || 'N/A'} - $${order.total || '0.00'} (${order.lineCount || 0} items)`,
+          time: timeAgo,
+          type: 'success'
+        });
+      });
+    } else if (recentActivity?.lastPDFUpload) {
+      // Fallback to legacy recentActivity format
       const uploadDate = new Date(recentActivity.lastPDFUpload);
       const timeAgo = getTimeAgo(uploadDate);
       activities.push({
