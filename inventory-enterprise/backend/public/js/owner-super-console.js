@@ -5036,39 +5036,71 @@ async function loadMenuWeek(weekNum) {
     const calendar = document.getElementById('menuCalendar');
     calendar.innerHTML = '<div class="loading"><div class="spinner"></div> Loading week data...</div>';
 
-    // Fetch week data with scaled quantities
-    const weekRes = await fetchAPI(`/menu/week/${weekNum}`);
+    // v23.0: Try new menu-cycle API first, fall back to legacy
+    let weekRes;
+    let useNewAPI = true;
+    try {
+      weekRes = await fetchAPI(`/menu-cycle/week/${weekNum}?meal=dinner`);
+      if (!weekRes.success) {
+        throw new Error('menu-cycle API failed');
+      }
+    } catch (e) {
+      console.log(`📋 Falling back to legacy menu API: ${e.message}`);
+      useNewAPI = false;
+      weekRes = await fetchAPI(`/menu/week/${weekNum}`);
+    }
 
     if (!weekRes.success) {
       throw new Error('Failed to load week data');
     }
 
-    const weekData = weekRes.week;
-
-    // Debug: Log week data
-    console.log(`📊 Week ${weekNum} data:`, {
-      days: weekData.days?.length,
-      totalRecipes: weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0),
-      firstDayRecipes: weekData.days?.[0]?.recipes?.length,
-      sampleRecipe: weekData.days?.[0]?.recipes?.[0]
-    });
+    // v23.0: Handle both API response formats
+    let weekData;
+    if (useNewAPI) {
+      // New API: { success, week, meal_period, days: [{ day_of_week, day_name, stations: [...] }] }
+      weekData = {
+        weekNum: weekRes.week,
+        mealPeriod: weekRes.meal_period,
+        days: weekRes.days
+      };
+      console.log(`📊 Week ${weekNum} (menu-cycle API):`, {
+        days: weekData.days?.length,
+        totalItems: weekData.days?.reduce((sum, day) =>
+          sum + day.stations?.reduce((s, st) => s + (st.items?.length || 0), 0) || 0, 0)
+      });
+    } else {
+      // Legacy API
+      weekData = weekRes.week;
+      console.log(`📊 Week ${weekNum} (legacy API):`, {
+        days: weekData.days?.length,
+        totalRecipes: weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0)
+      });
+    }
 
     // Update week info banner
     const weekDates = document.getElementById('menuWeekDates');
     if (weekDates) {
-      const startDate = new Date(weekData.startsOn).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-      const endDate = new Date(weekData.endsOn).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-      weekDates.textContent = `${startDate} — ${endDate}`;
+      if (useNewAPI) {
+        weekDates.textContent = `Week ${weekNum} • 4-Week Rotation`;
+      } else if (weekData.startsOn) {
+        const startDate = new Date(weekData.startsOn).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+        const endDate = new Date(weekData.endsOn).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+        weekDates.textContent = `${startDate} — ${endDate}`;
+      }
     }
 
-    // Render calendar grid
-    renderMenuCalendar(weekData);
+    // Render calendar grid - use appropriate renderer
+    if (useNewAPI) {
+      renderMenuCycleCalendar(weekData);
+    } else {
+      renderMenuCalendar(weekData);
+    }
 
     console.log(`✅ Week ${weekNum} loaded`);
   } catch (error) {
@@ -5186,6 +5218,173 @@ function renderMenuCalendar(weekData) {
       openRecipeDrawer(recipeId);
     });
   });
+}
+
+/**
+ * v23.0: Render menu cycle calendar with station-based layout
+ * @param {object} weekData - Week data from menu-cycle API
+ */
+function renderMenuCycleCalendar(weekData) {
+  const calendar = document.getElementById('menuCalendar');
+  if (!calendar) return;
+
+  const days = weekData.days || [];
+  const totalItems = days.reduce((sum, day) =>
+    sum + (day.stations || []).reduce((s, st) => s + (st.items?.length || 0), 0), 0);
+
+  console.log(`🎨 Rendering station-based calendar with ${totalItems} items across ${days.length} days`);
+
+  // Build calendar HTML with station-based layout
+  let html = '<div class="menu-cycle-grid">';
+
+  // Day headers (Wed-Tue)
+  html += '<div class="menu-cycle-header">';
+  days.forEach(day => {
+    html += `<div class="menu-cycle-day-header">${day.day_name}</div>`;
+  });
+  html += '</div>';
+
+  // Collect all unique stations across all days
+  const allStations = new Map();
+  days.forEach(day => {
+    (day.stations || []).forEach(station => {
+      if (!allStations.has(station.code)) {
+        allStations.set(station.code, {
+          code: station.code,
+          name: station.name,
+          cuisine_type: station.cuisine_type,
+          order: station.order || 0
+        });
+      }
+    });
+  });
+
+  // Sort stations by order
+  const sortedStations = [...allStations.values()].sort((a, b) => a.order - b.order);
+
+  // Render each station as a row
+  sortedStations.forEach(station => {
+    const cuisineIcon = {
+      'western': '🍔',
+      'south_asian': '🍛',
+      'healthy': '🥗',
+      'dessert': '🍰',
+      'beverage': '🥤'
+    }[station.cuisine_type] || '🍽️';
+
+    html += `<div class="menu-cycle-station-row">`;
+    html += `<div class="menu-cycle-station-label" title="${station.name}">${cuisineIcon} ${station.name}</div>`;
+
+    days.forEach(day => {
+      const dayStation = (day.stations || []).find(s => s.code === station.code);
+      const items = dayStation?.items || [];
+
+      html += `<div class="menu-cycle-cell">`;
+      if (items.length > 0) {
+        items.forEach(item => {
+          const vegBadge = item.is_vegan ? '🌱' : (item.is_vegetarian ? '🥬' : '');
+          html += `
+            <div class="menu-cycle-item" data-id="${item.id}" title="${item.name}">
+              <span class="menu-cycle-item-name">${item.name}</span>
+              ${vegBadge ? `<span class="menu-cycle-veg-badge">${vegBadge}</span>` : ''}
+            </div>
+          `;
+        });
+      } else {
+        html += '<div class="menu-cycle-empty">—</div>';
+      }
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  html += '</div>';
+
+  // Add CSS styles inline if not already present
+  if (!document.getElementById('menu-cycle-styles')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'menu-cycle-styles';
+    styleEl.textContent = `
+      .menu-cycle-grid {
+        display: grid;
+        gap: 2px;
+        background: var(--border-color, #e0e0e0);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .menu-cycle-header {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        background: var(--primary-color, #2196F3);
+        color: white;
+        font-weight: 600;
+        text-align: center;
+      }
+      .menu-cycle-day-header {
+        padding: 8px 4px;
+        font-size: 13px;
+      }
+      .menu-cycle-station-row {
+        display: grid;
+        grid-template-columns: 140px repeat(7, 1fr);
+        background: white;
+      }
+      .menu-cycle-station-label {
+        padding: 8px;
+        background: #f5f5f5;
+        font-weight: 500;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-right: 1px solid #e0e0e0;
+      }
+      .menu-cycle-cell {
+        padding: 6px;
+        min-height: 50px;
+        border-right: 1px solid #f0f0f0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .menu-cycle-item {
+        background: #f8f9fa;
+        padding: 4px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        line-height: 1.3;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .menu-cycle-item:hover {
+        background: #e3f2fd;
+      }
+      .menu-cycle-item-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .menu-cycle-veg-badge {
+        flex-shrink: 0;
+        font-size: 10px;
+        margin-left: 4px;
+      }
+      .menu-cycle-empty {
+        color: #ccc;
+        font-size: 12px;
+        text-align: center;
+        padding: 8px;
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
+
+  calendar.innerHTML = html;
+  console.log(`✅ Station-based calendar rendered`);
 }
 
 /**
