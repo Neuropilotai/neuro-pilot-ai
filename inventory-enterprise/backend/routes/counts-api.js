@@ -819,4 +819,266 @@ router.get('/stats/summary', async (req, res) => {
   }
 });
 
+// ============================================
+// V23.3 INVOICE-AWARE COUNTS
+// Link and exclude invoices from counts
+// ============================================
+
+// POST /api/counts/:countId/invoices - Link invoice to count
+router.post('/:countId/invoices', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const userId = getUserId(req);
+    const { countId } = req.params;
+    const { vendor_order_id } = req.body;
+
+    if (!vendor_order_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'vendor_order_id required',
+        code: 'MISSING_PARAM'
+      });
+    }
+
+    // Use the link_invoice_to_count function
+    const result = await pool.query(
+      'SELECT link_invoice_to_count($1, $2, $3, $4) AS link_id',
+      [orgId, countId, vendor_order_id, userId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Invoice linked to count',
+      link_id: result.rows[0].link_id,
+      count_id: parseInt(countId),
+      vendor_order_id
+    });
+
+  } catch (error) {
+    console.error('[Counts] Link invoice error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to link invoice',
+      code: 'LINK_ERROR'
+    });
+  }
+});
+
+// GET /api/counts/:countId/invoices - Get invoices linked to count
+router.get('/:countId/invoices', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const { countId } = req.params;
+
+    const result = await pool.query(`
+      SELECT
+        ici.*,
+        vo.status AS current_invoice_status,
+        vo.total_lines
+      FROM inventory_count_invoices ici
+      LEFT JOIN vendor_orders vo ON ici.vendor_order_id = vo.id
+      WHERE ici.org_id = $1 AND ici.count_id = $2
+      ORDER BY ici.invoice_order_date DESC
+    `, [orgId, countId]);
+
+    // Get summary
+    const summary = await pool.query(`
+      SELECT * FROM count_invoice_summary
+      WHERE org_id = $1 AND count_id = $2
+    `, [orgId, countId]);
+
+    res.json({
+      success: true,
+      count_id: parseInt(countId),
+      invoices: result.rows,
+      summary: summary.rows[0] || null
+    });
+
+  } catch (error) {
+    console.error('[Counts] Get invoices error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get invoices',
+      code: 'GET_INVOICES_ERROR'
+    });
+  }
+});
+
+// PUT /api/counts/:countId/invoices/:invoiceId/exclude - Exclude invoice from count
+router.put('/:countId/invoices/:invoiceId/exclude', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const userId = getUserId(req);
+    const { countId, invoiceId } = req.params;
+    const { reason } = req.body;
+
+    const result = await pool.query(
+      'SELECT exclude_invoice_from_count($1, $2, $3, $4, $5) AS excluded',
+      [orgId, countId, invoiceId, userId, reason || null]
+    );
+
+    if (!result.rows[0].excluded) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invoice link not found',
+        code: 'NOT_FOUND'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Invoice excluded from count',
+      count_id: parseInt(countId),
+      vendor_order_id: invoiceId
+    });
+
+  } catch (error) {
+    console.error('[Counts] Exclude invoice error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to exclude invoice',
+      code: 'EXCLUDE_ERROR'
+    });
+  }
+});
+
+// PUT /api/counts/:countId/invoices/:invoiceId/include - Re-include previously excluded invoice
+router.put('/:countId/invoices/:invoiceId/include', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const { countId, invoiceId } = req.params;
+
+    const result = await pool.query(`
+      UPDATE inventory_count_invoices
+      SET is_excluded = FALSE, excluded_at = NULL, excluded_by = NULL, exclusion_reason = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE org_id = $1 AND count_id = $2 AND vendor_order_id = $3
+      RETURNING id
+    `, [orgId, countId, invoiceId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invoice link not found',
+        code: 'NOT_FOUND'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Invoice re-included in count',
+      count_id: parseInt(countId),
+      vendor_order_id: invoiceId
+    });
+
+  } catch (error) {
+    console.error('[Counts] Include invoice error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to include invoice',
+      code: 'INCLUDE_ERROR'
+    });
+  }
+});
+
+// GET /api/counts/:countId/theoretical - Calculate theoretical quantities
+router.get('/:countId/theoretical', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const { countId } = req.params;
+
+    // Get all items that have received quantities from linked, non-excluded invoices
+    const result = await pool.query(`
+      SELECT
+        vol.vendor_sku AS item_code,
+        vol.description AS item_description,
+        SUM(vol.received_qty) AS received_quantity,
+        COUNT(DISTINCT ici.vendor_order_id) AS invoices_count
+      FROM inventory_count_invoices ici
+      JOIN vendor_order_lines vol ON ici.vendor_order_id = vol.order_id
+      WHERE ici.org_id = $1
+        AND ici.count_id = $2
+        AND ici.is_excluded = FALSE
+      GROUP BY vol.vendor_sku, vol.description
+      ORDER BY vol.description
+    `, [orgId, countId]);
+
+    res.json({
+      success: true,
+      count_id: parseInt(countId),
+      theoretical_items: result.rows,
+      count: result.rows.length
+    });
+
+  } catch (error) {
+    console.error('[Counts] Theoretical calc error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate theoretical quantities',
+      code: 'THEORETICAL_ERROR'
+    });
+  }
+});
+
+// GET /api/counts/linkable-invoices - Get invoices available to link
+router.get('/linkable-invoices', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const { from_date, to_date, vendor_id } = req.query;
+
+    let whereConditions = ["vo.org_id = $1 OR vo.org_id = 'default-org'"];
+    let params = [orgId];
+    let paramIndex = 2;
+
+    whereConditions.push("vo.status IN ('received', 'parsed', 'approved')");
+    whereConditions.push("vo.deleted_at IS NULL");
+
+    if (from_date) {
+      whereConditions.push(`vo.order_date >= $${paramIndex++}`);
+      params.push(from_date);
+    }
+    if (to_date) {
+      whereConditions.push(`vo.order_date <= $${paramIndex++}`);
+      params.push(to_date);
+    }
+    if (vendor_id) {
+      whereConditions.push(`vo.vendor_id = $${paramIndex++}`);
+      params.push(vendor_id);
+    }
+
+    const result = await pool.query(`
+      SELECT
+        vo.id AS vendor_order_id,
+        vo.order_number,
+        vo.order_date,
+        vo.vendor_name,
+        vo.vendor_id,
+        vo.total_lines,
+        vo.total_cents,
+        vo.status,
+        EXISTS (
+          SELECT 1 FROM inventory_count_invoices ici
+          WHERE ici.vendor_order_id = vo.id
+        ) AS is_linked_to_any_count
+      FROM vendor_orders vo
+      WHERE ${whereConditions.join(' AND ')}
+      ORDER BY vo.order_date DESC
+      LIMIT 100
+    `, params);
+
+    res.json({
+      success: true,
+      invoices: result.rows,
+      count: result.rows.length
+    });
+
+  } catch (error) {
+    console.error('[Counts] Linkable invoices error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get linkable invoices',
+      code: 'LINKABLE_ERROR'
+    });
+  }
+});
+
 module.exports = router;

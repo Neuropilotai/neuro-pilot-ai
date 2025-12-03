@@ -1,12 +1,17 @@
 /**
  * FIFO Layer Service
- * NeuroPilot AI Enterprise v22.3
+ * NeuroPilot AI Enterprise v23.3
  *
  * Populates fifo_cost_layers from parsed vendor orders.
  * Supports GFS case-level tracking for meat products.
  * Provides FIFO consumption methods for cost calculation.
  *
- * @version 22.3
+ * v23.3: Item Bank Integration
+ * - FIFO layers now reference master_item_id and supplier_item_id from Item Bank
+ * - Vendor order cases also reference Item Bank entries
+ * - Enables full traceability from invoice -> Item Bank -> FIFO -> counts
+ *
+ * @version 23.3
  * @author NeuroPilot AI Team
  */
 
@@ -20,6 +25,57 @@ const GfsCaseExtractor = require('./GfsCaseExtractor');
 class FifoLayerService {
   constructor() {
     this.caseExtractor = new GfsCaseExtractor();
+  }
+
+  /**
+   * v23.3: Look up Item Bank references for an item code
+   * Finds supplier_item_id and master_item_id from Item Bank
+   *
+   * @param {Object} client - DB client
+   * @param {string} itemCode - Product/item code (vendor_sku, gfs_code, etc.)
+   * @param {number} vendorId - Vendor ID (optional, for more precise matching)
+   * @returns {Promise<Object>} { supplierItemId, masterItemId }
+   */
+  async lookupItemBankRefs(client, itemCode, vendorId = null) {
+    const refs = { supplierItemId: null, masterItemId: null };
+
+    if (!itemCode) return refs;
+
+    try {
+      // First try to find by supplier_item_code with optional vendor filter
+      let result;
+      if (vendorId) {
+        result = await client.query(`
+          SELECT si.id AS supplier_item_id, si.master_item_id
+          FROM supplier_items si
+          WHERE si.supplier_item_code = $1
+            AND si.vendor_id = $2
+            AND si.is_active = TRUE
+          LIMIT 1
+        `, [itemCode, vendorId]);
+      }
+
+      // If not found with vendor, try without vendor filter
+      if (!result || result.rows.length === 0) {
+        result = await client.query(`
+          SELECT si.id AS supplier_item_id, si.master_item_id
+          FROM supplier_items si
+          WHERE si.supplier_item_code = $1
+            AND si.is_active = TRUE
+          LIMIT 1
+        `, [itemCode]);
+      }
+
+      if (result.rows.length > 0) {
+        refs.supplierItemId = result.rows[0].supplier_item_id;
+        refs.masterItemId = result.rows[0].master_item_id;
+      }
+
+      return refs;
+    } catch (error) {
+      console.warn('[FifoLayerService] Item Bank lookup warning:', error.message);
+      return refs;
+    }
   }
 
   /**
@@ -111,6 +167,9 @@ class FifoLayerService {
       }
 
       // 6. Process each line item
+      // v23.3: Get vendor_id for Item Bank lookups
+      const vendorId = order.vendor_id || null;
+
       for (const line of lines) {
         const itemCode = line.vendor_sku || line.gfs_code || line.description?.substring(0, 50) || 'UNKNOWN';
         const quantity = parseFloat(line.ordered_qty) || 0;
@@ -120,20 +179,26 @@ class FifoLayerService {
 
         if (quantity <= 0) continue;
 
-        // Upsert into fifo_cost_layers
+        // v23.3: Look up Item Bank references for this item code
+        const itemBankRefs = await this.lookupItemBankRefs(client, itemCode, vendorId);
+
+        // Upsert into fifo_cost_layers (v23.3: includes Item Bank refs)
         const upsertResult = await client.query(`
           INSERT INTO fifo_cost_layers (
             item_code, invoice_number, received_date,
             quantity_received, quantity_remaining, unit_cost, unit,
-            vendor_order_id, org_id, location_code, notes
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            vendor_order_id, org_id, location_code, notes,
+            master_item_id, supplier_item_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           ON CONFLICT (vendor_order_id, item_code)
           WHERE vendor_order_id IS NOT NULL
           DO UPDATE SET
             quantity_received = EXCLUDED.quantity_received,
             quantity_remaining = EXCLUDED.quantity_remaining,
             unit_cost = EXCLUDED.unit_cost,
-            unit = EXCLUDED.unit
+            unit = EXCLUDED.unit,
+            master_item_id = COALESCE(EXCLUDED.master_item_id, fifo_cost_layers.master_item_id),
+            supplier_item_id = COALESCE(EXCLUDED.supplier_item_id, fifo_cost_layers.supplier_item_id)
           RETURNING layer_id, (xmax = 0) AS inserted
         `, [
           itemCode,
@@ -146,7 +211,9 @@ class FifoLayerService {
           orderId,
           orgId,
           null, // location_code
-          `From vendor order ${order.order_number || orderId.substring(0, 8)}`
+          `From vendor order ${order.order_number || orderId.substring(0, 8)}`,
+          itemBankRefs.masterItemId,
+          itemBankRefs.supplierItemId
         ]);
 
         if (upsertResult.rows.length > 0) {
@@ -177,17 +244,23 @@ class FifoLayerService {
           // Extract all cases
           const casesMap = this.caseExtractor.extractAllCases(rawText, lineItems);
 
-          // Get FIFO layer IDs for linking
+          // v23.3: Get FIFO layer IDs and Item Bank refs for linking
           const layerResult = await client.query(
-            `SELECT layer_id, item_code FROM fifo_cost_layers WHERE vendor_order_id = $1`,
+            `SELECT layer_id, item_code, master_item_id, supplier_item_id
+             FROM fifo_cost_layers WHERE vendor_order_id = $1`,
             [orderId]
           );
-          const layerIdMap = new Map();
-          layerResult.rows.forEach(r => layerIdMap.set(r.item_code, r.layer_id));
+          const layerDataMap = new Map();
+          layerResult.rows.forEach(r => layerDataMap.set(r.item_code, {
+            layerId: r.layer_id,
+            masterItemId: r.master_item_id,
+            supplierItemId: r.supplier_item_id
+          }));
 
-          // Insert cases
+          // Insert cases (v23.3: with Item Bank refs)
           for (const [productCode, cases] of casesMap) {
-            const fifoLayerId = layerIdMap.get(productCode) || null;
+            const layerData = layerDataMap.get(productCode) || {};
+            const fifoLayerId = layerData.layerId || null;
 
             // Find the line_id for this product
             const matchingLine = lines.find(l =>
@@ -195,14 +268,25 @@ class FifoLayerService {
             );
             const lineId = matchingLine?.id || null;
 
+            // v23.3: Get Item Bank refs - first from FIFO layer, then lookup if needed
+            let masterItemId = layerData.masterItemId || null;
+            let supplierItemId = layerData.supplierItemId || null;
+
+            if (!supplierItemId) {
+              const itemBankRefs = await this.lookupItemBankRefs(client, productCode, vendorId);
+              supplierItemId = itemBankRefs.supplierItemId;
+              masterItemId = masterItemId || itemBankRefs.masterItemId;
+            }
+
             for (const caseData of cases) {
               try {
                 await client.query(`
                   INSERT INTO vendor_order_cases (
                     order_id, line_id, org_id, item_code,
                     case_number, weight_kg, weight_lb, weight_unit,
-                    sequence_number, status, fifo_layer_id
-                  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    sequence_number, status, fifo_layer_id,
+                    master_item_id, supplier_item_id
+                  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                   ON CONFLICT (order_id, item_code, case_number) DO NOTHING
                 `, [
                   orderId,
@@ -215,7 +299,9 @@ class FifoLayerService {
                   caseData.weightUnit || 'KG',
                   caseData.sequenceNumber,
                   'available',
-                  fifoLayerId
+                  fifoLayerId,
+                  masterItemId,
+                  supplierItemId
                 ]);
                 result.casesExtracted++;
               } catch (caseError) {

@@ -808,6 +808,7 @@ class VendorOrderParserService {
 
   /**
    * Save parse results to database
+   * V23.3: Now also populates Item Bank (supplier_items, supplier_item_prices)
    */
   async saveParseResults(orderId, parseResult, rawText) {
     const client = await pool.connect();
@@ -850,12 +851,14 @@ class VendorOrderParserService {
         rawText  // Store raw OCR text for case extraction
       ]);
 
-      // Get org_id from order
+      // Get org_id and vendor_id from order for Item Bank population
       const orderResult = await client.query(
-        'SELECT org_id FROM vendor_orders WHERE id = $1',
+        'SELECT org_id, vendor_id, order_date FROM vendor_orders WHERE id = $1',
         [orderId]
       );
-      const orgId = orderResult.rows[0]?.org_id || 1;
+      const orgId = orderResult.rows[0]?.org_id || 'default-org';
+      const vendorId = orderResult.rows[0]?.vendor_id;
+      const orderDate = orderResult.rows[0]?.order_date || new Date().toISOString().split('T')[0];
 
       // Delete existing line items
       await client.query(
@@ -863,20 +866,26 @@ class VendorOrderParserService {
         [orderId]
       );
 
-      // Insert new line items
+      // Insert new line items and populate Item Bank
+      let itemBankCount = 0;
       for (const line of parseResult.lines) {
-        await client.query(`
+        const supplierItemCode = line.vendorSku || line.gfsCode;
+        const unitPriceCents = line.unitPrice ? Math.round(line.unitPrice * 100) : 0;
+
+        // Insert vendor_order_line
+        const lineResult = await client.query(`
           INSERT INTO vendor_order_lines (
             order_id, org_id, line_number, vendor_sku, gfs_code, upc_barcode,
             description, ordered_qty, received_qty, unit, pack_size,
             unit_price_cents, extended_price_cents,
             category_code, brand, raw_text, metadata
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          RETURNING id
         `, [
           orderId,
           orgId,
           line.lineNumber,
-          line.vendorSku || line.gfsCode,  // vendor_sku
+          supplierItemCode,  // vendor_sku
           line.gfsCode || null,             // gfs_code
           line.upcBarcode || null,          // upc_barcode
           line.description,
@@ -884,13 +893,85 @@ class VendorOrderParserService {
           line.shippedQty || line.quantity, // received_qty (shipped = received)
           line.unit,
           line.packSize || null,            // pack_size
-          line.unitPrice ? Math.round(line.unitPrice * 100) : 0,
+          unitPriceCents,
           line.extendedPrice ? Math.round(line.extendedPrice * 100) : 0,
           line.categoryCode,
           line.brand,
           line.rawText,
           line.cases ? JSON.stringify({ cases: line.cases }) : null  // Store case tracking in metadata
         ]);
+
+        const lineId = lineResult.rows[0]?.id;
+
+        // ============================================
+        // V23.3 ITEM BANK INTEGRATION
+        // Populate supplier_items and supplier_item_prices
+        // ============================================
+        if (vendorId && supplierItemCode && line.description) {
+          try {
+            // Call upsert_supplier_item to create/update supplier item
+            const upsertResult = await client.query(`
+              SELECT upsert_supplier_item(
+                $1::VARCHAR,      -- p_org_id
+                $2::INTEGER,      -- p_vendor_id
+                $3::VARCHAR,      -- p_supplier_item_code
+                $4::TEXT,         -- p_description
+                $5::VARCHAR,      -- p_pack_size
+                $6::VARCHAR,      -- p_unit_of_measure
+                $7::VARCHAR,      -- p_brand
+                $8::VARCHAR       -- p_upc_barcode
+              ) AS supplier_item_id
+            `, [
+              orgId,
+              vendorId,
+              supplierItemCode,
+              line.description,
+              line.packSize || null,
+              line.unit || 'EACH',
+              line.brand || null,
+              line.upcBarcode || null
+            ]);
+
+            const supplierItemId = upsertResult.rows[0]?.supplier_item_id;
+
+            // Record price if we have a valid price and supplier_item_id
+            if (supplierItemId && unitPriceCents > 0) {
+              await client.query(`
+                SELECT record_supplier_price(
+                  $1::INTEGER,    -- p_supplier_item_id
+                  $2::INTEGER,    -- p_unit_price_cents
+                  $3::DATE,       -- p_effective_date
+                  $4::VARCHAR,    -- p_source
+                  $5::UUID        -- p_source_order_id
+                )
+              `, [
+                supplierItemId,
+                unitPriceCents,
+                orderDate,
+                'invoice_parse',
+                orderId
+              ]);
+
+              // Update vendor_order_line with supplier_item_id reference
+              if (lineId) {
+                await client.query(`
+                  UPDATE vendor_order_lines
+                  SET supplier_item_id = $1, item_bank_processed = TRUE, item_bank_processed_at = CURRENT_TIMESTAMP
+                  WHERE id = $2
+                `, [supplierItemId, lineId]);
+              }
+
+              itemBankCount++;
+            }
+          } catch (itemBankError) {
+            // Log but don't fail the entire parse for Item Bank errors
+            console.warn('[VendorOrderParser] Item Bank upsert warning for line', line.lineNumber, ':', itemBankError.message);
+          }
+        }
+      }
+
+      if (itemBankCount > 0) {
+        console.log(`[VendorOrderParser] Item Bank: ${itemBankCount} items processed for order ${orderId}`);
       }
 
       await client.query('COMMIT');

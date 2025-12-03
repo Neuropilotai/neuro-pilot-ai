@@ -1608,6 +1608,8 @@ app.use('/api/counts', authGuard(['staff', 'manager', 'admin', 'owner']), rateLi
 app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS'), safeRequire('./routes/counts-api', 'counts-api-locations'));
 // v23.0 - 4-Week Menu Cycle API (menu_cycle_days, menu_cycle_items, menu_stations)
 app.use('/api/menu-cycle', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('MENU_CYCLE'), safeRequire('./routes/menu-cycle-api', 'menu-cycle-api'));
+// v23.3 - Item Bank API (master_items, supplier_items, supplier_item_prices)
+app.use('/api/item-bank', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('ITEM_BANK'), safeRequire('./routes/item-bank-api', 'item-bank-api'));
 
 console.log('[STARTUP] ✓ All routes registered');
 

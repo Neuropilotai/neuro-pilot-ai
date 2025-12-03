@@ -5058,6 +5058,9 @@ async function loadMenuWeek(weekNum) {
     let weekData;
     if (useNewAPI) {
       // New API: { success, week, meal_period, days: [{ day_of_week, day_name, stations: [...] }] }
+      if (!weekRes.days || !Array.isArray(weekRes.days)) {
+        throw new Error('Invalid menu-cycle response: missing days array');
+      }
       weekData = {
         weekNum: weekRes.week,
         mealPeriod: weekRes.meal_period,
@@ -5069,8 +5072,18 @@ async function loadMenuWeek(weekNum) {
           sum + day.stations?.reduce((s, st) => s + (st.items?.length || 0), 0) || 0, 0)
       });
     } else {
-      // Legacy API
+      // Legacy API - weekRes.week contains the week data
       weekData = weekRes.week;
+      if (!weekData || !weekData.days) {
+        // Handle case where legacy API returns no week data
+        console.warn(`⚠️ Week ${weekNum} legacy API returned no data, using empty structure`);
+        weekData = {
+          weekNum: weekNum,
+          days: [],
+          startsOn: null,
+          endsOn: null
+        };
+      }
       console.log(`📊 Week ${weekNum} (legacy API):`, {
         days: weekData.days?.length,
         totalRecipes: weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0)
@@ -5125,6 +5138,17 @@ async function loadMenuWeek(weekNum) {
 function renderMenuCalendar(weekData) {
   const calendar = document.getElementById('menuCalendar');
   if (!calendar) return;
+
+  // v23.3: Guard against missing or empty data
+  if (!weekData || !weekData.days || weekData.days.length === 0) {
+    console.warn('⚠️ renderMenuCalendar: No days data available');
+    calendar.innerHTML = `
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No menu data available for this week.
+      </div>
+    `;
+    return;
+  }
 
   // Debug: Check what we're rendering
   const totalRecipes = weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0) || 0;
@@ -5227,6 +5251,17 @@ function renderMenuCalendar(weekData) {
 function renderMenuCycleCalendar(weekData) {
   const calendar = document.getElementById('menuCalendar');
   if (!calendar) return;
+
+  // v23.3: Guard against missing or empty data
+  if (!weekData || !weekData.days || weekData.days.length === 0) {
+    console.warn('⚠️ renderMenuCycleCalendar: No days data available');
+    calendar.innerHTML = `
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No menu cycle data available for this week.
+      </div>
+    `;
+    return;
+  }
 
   const days = weekData.days || [];
   const totalItems = days.reduce((sum, day) =>
