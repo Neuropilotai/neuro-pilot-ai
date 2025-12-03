@@ -369,14 +369,27 @@ async function loadDashboard() {
     // v21.2: Use inventoryValueRaw from API (or fallback to nested inventory.totalValue for backward compat)
     const inventoryValue = stats.inventoryValueRaw || stats.inventory?.totalValue || 0;
 
+    // v23.0: Source badge based on inventory source
+    const sourceLabel = {
+      'manual': { text: 'Manual', badge: 'warning' },
+      'pdf_fifo': { text: 'PDF/FIFO', badge: 'success' },
+      'physical_counts': { text: 'Physical Count', badge: 'primary' },
+      'vendor_orders_pending_fifo': { text: 'Pending FIFO', badge: 'info' },
+      'error': { text: 'Error', badge: 'danger' }
+    }[stats.inventory?.source] || { text: 'Unknown', badge: 'secondary' };
+
     const dbStatsHTML = `
       <table class="table">
         <tr class="row-highlight-success">
           <td class="td-medium-value">💰 Total Inventory Value</td>
-          <td class="td-large-value">$${inventoryValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+          <td class="td-large-value">$${inventoryValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span class="badge badge-${sourceLabel.badge}" title="Data source">${sourceLabel.text}</span></td>
         </tr>
-        <tr><td>Unique Products (from PDFs)</td><td><strong>${stats.inventory?.totalItems || 0}</strong> <span class="badge badge-success">Auto-Extracted</span></td></tr>
-        <tr><td>Manual Inventory Items</td><td><strong>${stats.inventory?.manualItems || 0}</strong> items</td></tr>
+        <tr><td>📦 Total Items</td><td><strong>${stats.inventory?.totalItems || 0}</strong> unique products</td></tr>
+        <tr><td>📊 Total Units</td><td><strong>${(stats.inventory?.totalUnits || 0).toLocaleString()}</strong> units in stock</td></tr>
+        <tr><td>🧊 Total Boxes/Cases</td><td><strong>${(stats.inventory?.totalBoxes || 0).toLocaleString()}</strong> cases tracked</td></tr>
+        <tr><td>📜 Invoices Included</td><td><strong>${stats.inventory?.invoicesIncluded || 0}</strong> of ${stats.inventory?.totalOrders || 0} orders</td></tr>
+        <tr><td>📋 FIFO Layers</td><td><strong>${stats.inventory?.fifoLayers || 0}</strong> cost layers <span class="badge badge-${stats.inventory?.fifoLayers > 0 ? 'success' : 'secondary'}">${stats.inventory?.fifoLayers > 0 ? 'Active' : 'None'}</span></td></tr>
+        <tr><td>Manual Inventory Items</td><td><strong>${stats.inventory?.manualItems || 0}</strong> items ($${(stats.inventory?.manualValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2})})</td></tr>
         <tr><td>Active Locations</td><td><strong>${stats.locations?.total || 0}</strong></td></tr>
         <tr><td>Invoices Processed</td><td><strong>${stats.pdfs?.total || 0}</strong> (${stats.pdfs?.withDates || 0} with dates)</td></tr>
         <tr><td>Total Invoice Amount</td><td><strong>$${(stats.pdfs?.totalAmount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td></tr>
