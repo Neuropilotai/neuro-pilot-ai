@@ -14,10 +14,28 @@
  * - PostgreSQL: Store parsed data
  */
 
-const { getPool } = require('../db/postgres');
+const { Pool } = require('pg');
 const GoogleDriveService = require('./GoogleDriveService');
 const pdf = require('pdf-parse');
 const crypto = require('crypto');
+
+// Lazy-load pool to avoid circular dependency (same pattern as middleware/tenant.js)
+let pool = null;
+const getPool = () => {
+  if (!pool) {
+    // Try to get pool from server exports, or create new one
+    try {
+      pool = require('../db/postgres').pool;
+    } catch (e) {
+      // Fallback: create pool directly from env
+      pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+    }
+  }
+  return pool;
+};
 
 class FinanceReportAgent {
   constructor(options = {}) {
