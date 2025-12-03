@@ -303,6 +303,7 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
     pdfListCounter.inc({ status_filter: status, has_cutoff: hasCutoff.toString() });
 
     // v13.1: Base query with new invoice columns
+    // v23.4.4: Fixed SELECT DISTINCT - must include ORDER BY column
     let query = `
       SELECT DISTINCT
         d.id,
@@ -319,6 +320,7 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
         d.invoice_number,
         d.vendor,
         d.invoice_amount,
+        COALESCE(d.invoice_date, d.created_at) as sort_date,
         pi.line_id as processed_invoice_id,
         pi.invoice_number as processed_invoice_number,
         pi.received_date,
@@ -365,7 +367,8 @@ router.get('/', authenticateToken, requireOwner, async (req, res) => {
     }
 
     // v13.1: Order by invoice_date DESC (most recent first), fallback to created_at
-    query += ' ORDER BY COALESCE(d.invoice_date, d.created_at) DESC';
+    // v23.4.4: Use sort_date alias for PostgreSQL SELECT DISTINCT compatibility
+    query += ' ORDER BY sort_date DESC';
 
     // Apply limit
     query += ' LIMIT ?';

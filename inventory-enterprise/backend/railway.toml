@@ -1,8 +1,8 @@
 [build]
 builder = "NIXPACKS"
-# V23.4.3: DB Fixes - inventory_reconcile_detail view, ai_ops_health_metrics unique constraint - Dec 3
+# V23.4.4: Fixed /api/owner/pdfs SELECT DISTINCT ORDER BY PostgreSQL error - Dec 3
 watchPatterns = ["**/*"]
-buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.3:' $(date +%s)"
+buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.4:' $(date +%s)"
 
 [deploy]
 startCommand = "npm run start:postgres"
