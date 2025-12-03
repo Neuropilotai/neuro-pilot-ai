@@ -53,7 +53,8 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * pageSize;
     const status = req.query.status || null;
 
-    let whereConditions = ['(c.org_id = $1 OR c.org_id IS NULL)'];
+    // Production schema: count_id (integer), org_id (uuid), count_name, count_date, count_type, status, counted_by, notes
+    let whereConditions = ['(c.org_id::text = $1 OR c.org_id IS NULL)'];
     let params = [orgId];
     let paramIndex = 2;
 
@@ -71,25 +72,21 @@ router.get('/', async (req, res) => {
     );
     const totalCount = parseInt(countResult.rows[0].count);
 
-    // Get counts with location info
+    // Get counts - using actual production schema columns
     const result = await pool.query(`
       SELECT
-        c.id,
-        c.location_id,
-        sl.name as location_name,
+        c.count_id as id,
+        c.count_name,
+        c.count_date,
+        c.count_type,
         c.status,
-        c.created_by,
+        c.counted_by,
         c.created_at,
-        c.approved_by,
-        c.approved_at,
         c.closed_at,
-        c.closed_by,
         c.notes,
-        c.reference_date,
-        (SELECT COUNT(*) FROM inventory_count_rows r WHERE r.count_id = c.id) as item_count,
-        (SELECT COALESCE(SUM(ABS(r.variance)), 0) FROM inventory_count_rows r WHERE r.count_id = c.id) as total_variance
+        c.org_id,
+        (SELECT COUNT(*) FROM inventory_count_items i WHERE i.count_id = c.count_id) as item_count
       FROM inventory_counts c
-      LEFT JOIN storage_locations sl ON c.location_id = sl.id
       WHERE ${whereClause}
       ORDER BY c.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -123,16 +120,32 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const orgId = getOrgId(req);
-    const countId = req.params.id;
+    const countId = parseInt(req.params.id);
 
-    // Get count header
+    if (isNaN(countId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid count ID',
+        code: 'INVALID_ID'
+      });
+    }
+
+    // Get count header - production schema uses count_id (integer)
     const countResult = await pool.query(`
       SELECT
-        c.*,
-        sl.name as location_name
+        c.count_id as id,
+        c.count_name,
+        c.count_date,
+        c.count_type,
+        c.status,
+        c.counted_by,
+        c.notes,
+        c.created_at,
+        c.updated_at,
+        c.closed_at,
+        c.org_id
       FROM inventory_counts c
-      LEFT JOIN storage_locations sl ON c.location_id = sl.id
-      WHERE c.id = $1 AND (c.org_id = $2 OR c.org_id IS NULL)
+      WHERE c.count_id = $1 AND (c.org_id::text = $2 OR c.org_id IS NULL)
     `, [countId, orgId]);
 
     if (countResult.rows.length === 0) {
@@ -145,41 +158,52 @@ router.get('/:id', async (req, res) => {
 
     const count = countResult.rows[0];
 
-    // Get count rows
-    const rowsResult = await pool.query(`
+    // Get count items - production schema uses inventory_count_items
+    const itemsResult = await pool.query(`
       SELECT
-        r.*,
+        i.count_item_id as id,
+        i.item_code,
+        i.quantity,
+        i.location,
+        i.notes,
+        i.created_at,
         ii.description as item_description,
         ii.category
-      FROM inventory_count_rows r
-      LEFT JOIN inventory_items ii ON r.item_code = ii.item_code
-      WHERE r.count_id = $1
-      ORDER BY r.id
+      FROM inventory_count_items i
+      LEFT JOIN inventory_items ii ON i.item_code = ii.item_code
+      WHERE i.count_id = $1
+      ORDER BY i.count_item_id
     `, [countId]);
 
-    // Get linked vendor orders
-    const ordersResult = await pool.query(`
-      SELECT
-        cvo.id,
-        cvo.vendor_order_id,
-        cvo.included,
-        vo.vendor_name,
-        vo.order_number,
-        vo.order_date,
-        vo.total_cents,
-        vo.total_lines
-      FROM count_vendor_orders cvo
-      JOIN vendor_orders vo ON vo.id = cvo.vendor_order_id
-      WHERE cvo.count_id = $1
-      ORDER BY vo.order_date DESC
-    `, [countId]);
+    // Get linked vendor orders (if any)
+    let vendorOrders = [];
+    try {
+      const ordersResult = await pool.query(`
+        SELECT
+          cvo.id,
+          cvo.vendor_order_id,
+          cvo.included,
+          vo.vendor_name,
+          vo.order_number,
+          vo.order_date,
+          vo.total_cents,
+          vo.total_lines
+        FROM count_vendor_orders cvo
+        JOIN vendor_orders vo ON vo.id = cvo.vendor_order_id
+        WHERE cvo.count_id = $1::text
+        ORDER BY vo.order_date DESC
+      `, [countId]);
+      vendorOrders = ordersResult.rows;
+    } catch (e) {
+      // count_vendor_orders may not exist or link may not be set up
+    }
 
     res.json({
       success: true,
       count: {
         ...count,
-        rows: rowsResult.rows,
-        vendorOrders: ordersResult.rows.map(o => ({
+        items: itemsResult.rows,
+        vendorOrders: vendorOrders.map(o => ({
           id: o.id,
           vendorOrderId: o.vendor_order_id,
           included: o.included,
@@ -761,12 +785,12 @@ router.get('/stats/summary', async (req, res) => {
       SELECT
         COUNT(*) as total_counts,
         COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_count,
-        COUNT(CASE WHEN status = 'pending_approval' THEN 1 END) as pending_count,
-        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_count,
+        COUNT(CASE WHEN status = 'pending_approval' OR status = 'pending' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN status = 'approved' OR status = 'completed' THEN 1 END) as approved_count,
         COUNT(CASE WHEN status = 'closed' THEN 1 END) as closed_count,
         MAX(created_at) as last_count_date
       FROM inventory_counts
-      WHERE (org_id = $1 OR org_id IS NULL)
+      WHERE (org_id::text = $1 OR org_id IS NULL)
     `, [orgId]);
 
     const stats = result.rows[0];
@@ -774,12 +798,12 @@ router.get('/stats/summary', async (req, res) => {
     res.json({
       success: true,
       stats: {
-        totalCounts: parseInt(stats.total_counts),
+        totalCounts: parseInt(stats.total_counts) || 0,
         byStatus: {
-          draft: parseInt(stats.draft_count),
-          pendingApproval: parseInt(stats.pending_count),
-          approved: parseInt(stats.approved_count),
-          closed: parseInt(stats.closed_count)
+          draft: parseInt(stats.draft_count) || 0,
+          pendingApproval: parseInt(stats.pending_count) || 0,
+          approved: parseInt(stats.approved_count) || 0,
+          closed: parseInt(stats.closed_count) || 0
         },
         lastCountDate: stats.last_count_date
       }
