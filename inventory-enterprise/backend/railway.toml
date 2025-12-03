@@ -1,8 +1,8 @@
 [build]
 builder = "NIXPACKS"
-# V23.4.5: Fixed menu-cycle API schema drift + inventory_counts location_id query - Dec 3
+# V23.4.6: Domain audit + null-safe menu/AI-ops fetch guards - Dec 3
 watchPatterns = ["**/*"]
-buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.5:' $(date +%s)"
+buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.6:' $(date +%s)"
 
 [deploy]
 startCommand = "npm run start:postgres"

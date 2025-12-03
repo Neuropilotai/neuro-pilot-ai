@@ -5036,13 +5036,14 @@ async function loadMenuWeek(weekNum) {
     const calendar = document.getElementById('menuCalendar');
     calendar.innerHTML = '<div class="loading"><div class="spinner"></div> Loading week data...</div>';
 
-    // v23.0: Try new menu-cycle API first, fall back to legacy
+    // v23.4.6: Try new menu-cycle API first, fall back to legacy
+    // Handle null returns from fetchAPI gracefully
     let weekRes;
     let useNewAPI = true;
     try {
       weekRes = await fetchAPI(`/menu-cycle/week/${weekNum}?meal=dinner`);
-      if (!weekRes.success) {
-        throw new Error('menu-cycle API failed');
+      if (!weekRes || !weekRes.success) {
+        throw new Error('menu-cycle API failed or returned null');
       }
     } catch (e) {
       console.log(`📋 Falling back to legacy menu API: ${e.message}`);
@@ -5050,8 +5051,10 @@ async function loadMenuWeek(weekNum) {
       weekRes = await fetchAPI(`/menu/week/${weekNum}`);
     }
 
-    if (!weekRes.success) {
-      throw new Error('Failed to load week data');
+    // v23.4.6: Guard against null response from both APIs
+    if (!weekRes || !weekRes.success) {
+      console.warn(`⚠️ Week ${weekNum}: Both APIs failed, showing empty calendar`);
+      weekRes = { success: true, days: [] }; // Empty fallback
     }
 
     // v23.0: Handle both API response formats

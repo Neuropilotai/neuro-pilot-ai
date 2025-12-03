@@ -648,6 +648,13 @@ async function loadAIOpsStatus() {
   try {
     const data = await fetchAPI('/owner/ai-ops/status');
 
+    // v23.4.6: Guard against null response (401 errors, etc.)
+    if (!data) {
+      console.warn('⚠️ AI Ops status returned null (possible 401)');
+      renderAIOpsHealth({ score: 0, explanations: ['AI Ops data unavailable'] }, null);
+      return;
+    }
+
     // v22.3: Prefer V2 scoring with V1 fallback
     renderAIOpsHealth(data.ai_ops_health || data, data.ai_ops_health_v2);
 
