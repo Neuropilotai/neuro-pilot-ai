@@ -1,8 +1,8 @@
 [build]
 builder = "NIXPACKS"
-# V23.4.2: CSP Fix, Menu Week Fix, Owner PDFs Route - Force rebuild Dec 3
+# V23.4.3: DB Fixes - inventory_reconcile_detail view, ai_ops_health_metrics unique constraint - Dec 3
 watchPatterns = ["**/*"]
-buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.2:' $(date +%s)"
+buildCommand = "npm cache clean --force && npm install --production=false && echo 'Build V23.4.3:' $(date +%s)"
 
 [deploy]
 startCommand = "npm run start:postgres"
