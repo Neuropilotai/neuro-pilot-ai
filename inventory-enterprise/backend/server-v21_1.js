@@ -793,7 +793,7 @@ app.use(helmet({
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
-      framesSrc: ["'self'", "https://drive.google.com"], // Allow Google Drive embeds for PDF preview
+      frameSrc: ["'self'", "https://drive.google.com"], // Allow Google Drive embeds for PDF preview
       upgradeInsecureRequests: [],
     }
   },
@@ -1584,6 +1584,7 @@ app.use('/diag', safeRequire('./routes/diag', 'diag'));
 
 // V21.1 Owner Console Routes - Full Feature Restoration
 app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
+app.use('/api/owner/pdfs', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_PDFS'), safeRequire('./routes/owner-pdfs', 'owner-pdfs'));
 app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
 app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), safeRequire('./routes/governance', 'governance'));
 

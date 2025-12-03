@@ -5058,12 +5058,14 @@ async function loadMenuWeek(weekNum) {
     let weekData;
     if (useNewAPI) {
       // New API: { success, week, meal_period, days: [{ day_of_week, day_name, stations: [...] }] }
+      // v23.4: Gracefully handle missing days array instead of throwing
       if (!weekRes.days || !Array.isArray(weekRes.days)) {
-        throw new Error('Invalid menu-cycle response: missing days array');
+        console.warn(`⚠️ Week ${weekNum} menu-cycle API returned no days array, using empty structure`);
+        weekRes.days = [];
       }
       weekData = {
-        weekNum: weekRes.week,
-        mealPeriod: weekRes.meal_period,
+        weekNum: weekRes.week || weekNum,
+        mealPeriod: weekRes.meal_period || 'dinner',
         days: weekRes.days
       };
       console.log(`📊 Week ${weekNum} (menu-cycle API):`, {
