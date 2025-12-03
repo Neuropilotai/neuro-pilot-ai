@@ -4786,7 +4786,7 @@ async function openAttachPDFsModal(workspaceId) {
             <input type="checkbox" class="pdf-checkbox" value="${pdf.id}" />
           </td>
           <td>${pdf.filename}</td>
-          <td>${pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : 'N/A'}</td>
+          <td>${pdf.invoiceDate ? new Date(pdf.invoiceDate).toLocaleDateString() : 'N/A'}</td>
           <td>${pdf.vendor || 'Unknown'}</td>
           <td>$${pdf.invoice_amount ? pdf.invoice_amount.toFixed(2) : '0.00'}</td>
         </tr>
@@ -6935,7 +6935,7 @@ async function loadAttachedPdfs(countId) {
     let html = '<table class="table"><thead><tr><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th><th>Action</th></tr></thead><tbody>';
 
     for (const pdf of pdfs) {
-      const date = pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : '--';
+      const date = pdf.invoiceDate ? new Date(pdf.invoiceDate).toLocaleDateString() : '--';
       const amount = pdf.invoice_amount ? `$${parseFloat(pdf.invoice_amount).toFixed(2)}` : '--';
 
       html += '<tr>';
@@ -6985,7 +6985,7 @@ async function loadAvailablePdfs(countId) {
     let html = '<table class="table"><thead><tr><th><input type="checkbox" id="selectAllAvailablePdfs" onchange="toggleSelectAllAvailablePdfs()"></th><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th></tr></thead><tbody>';
 
     for (const pdf of pdfs) {
-      const date = pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : '--';
+      const date = pdf.invoiceDate ? new Date(pdf.invoiceDate).toLocaleDateString() : '--';
       const amount = pdf.invoice_amount ? `$${parseFloat(pdf.invoice_amount).toFixed(2)}` : '--';
 
       html += '<tr>';
