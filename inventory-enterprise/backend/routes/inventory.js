@@ -1625,4 +1625,64 @@ router.get('/quick-count/history/:itemCode', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/inventory/stats
+ * Get inventory summary statistics
+ *
+ * Returns: total items, total units, total cases, total value, category breakdown
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    // Get overall summary
+    const summary = await db.get(`
+      SELECT
+        COUNT(*) as total_items,
+        COALESCE(SUM(current_quantity), 0) as total_units,
+        COALESCE(SUM(CASE WHEN unit IN ('case', 'CS') THEN current_quantity ELSE 0 END), 0) as total_cases,
+        COALESCE(SUM(current_quantity * unit_cost), 0) as total_value,
+        COUNT(CASE WHEN current_quantity <= reorder_point THEN 1 END) as low_stock_count
+      FROM inventory_items
+      WHERE is_active = 1
+    `);
+
+    // Get category breakdown
+    const categories = await db.all(`
+      SELECT
+        category,
+        COUNT(*) as item_count,
+        SUM(current_quantity) as total_quantity,
+        SUM(current_quantity * unit_cost) as category_value
+      FROM inventory_items
+      WHERE is_active = 1
+      GROUP BY category
+      ORDER BY category_value DESC
+    `);
+
+    res.json({
+      success: true,
+      stats: {
+        totalItems: parseInt(summary.total_items) || 0,
+        totalUnits: parseFloat(summary.total_units) || 0,
+        totalCases: parseFloat(summary.total_cases) || 0,
+        totalValue: parseFloat(summary.total_value) || 0,
+        lowStockCount: parseInt(summary.low_stock_count) || 0
+      },
+      categories: categories.map(c => ({
+        category: c.category,
+        itemCount: parseInt(c.item_count),
+        totalQuantity: parseFloat(c.total_quantity),
+        value: parseFloat(c.category_value) || 0
+      }))
+    });
+
+  } catch (error) {
+    console.error('[INVENTORY_STATS] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch inventory stats',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
