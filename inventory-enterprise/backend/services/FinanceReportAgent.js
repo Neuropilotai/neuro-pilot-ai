@@ -1,6 +1,6 @@
 /**
  * FinanceReportAgent - Finance Brain AI Agent
- * NeuroPilot AI Enterprise V23.5.0
+ * NeuroPilot AI Enterprise V23.6.0
  *
  * Responsible for:
  * - Parsing month-end finance reports from Google Drive PDFs
@@ -13,6 +13,13 @@
  * - getPeriodCoverage(): Analyze fiscal period coverage & reconciliation
  * - processBatch(): Process multiple unprocessed files in batch
  * - getUnprocessedFiles(): List files needing parsing
+ *
+ * V23.6.0 Additions:
+ * - Enhanced confidence scoring with multiple factors
+ * - Human review queue integration (finance_questions)
+ * - createFinanceQuestion(): Create review question when uncertain
+ * - applyOwnerAnswer(): Apply owner's answer to improve parsing
+ * - DriveWatch integration for full file tracking
  *
  * Dependencies:
  * - GoogleDriveService: Download PDFs from Google Drive
@@ -1353,6 +1360,812 @@ class FinanceReportAgent {
     }
 
     return results;
+  }
+
+  // ============================================
+  // V23.6.0: Enhanced Confidence & Human Review
+  // ============================================
+
+  /**
+   * Confidence thresholds (configurable via env)
+   */
+  static get CONFIDENCE_THRESHOLDS() {
+    return {
+      OK: parseFloat(process.env.FINANCE_CONFIDENCE_OK || '0.8'),
+      WARN: parseFloat(process.env.FINANCE_CONFIDENCE_WARN || '0.5'),
+      LOW: parseFloat(process.env.FINANCE_CONFIDENCE_LOW || '0.3')
+    };
+  }
+
+  /**
+   * Compute comprehensive confidence score for a parse result
+   * Considers multiple factors:
+   * - Template match
+   * - Vendor detection
+   * - Header totals alignment
+   * - Line parsing success rate
+   * - Period detection
+   *
+   * @param {Object} parseResult - Result from parsePdfBuffer
+   * @param {Object} context - Additional context
+   * @returns {Object} Confidence details
+   */
+  computeConfidenceScore(parseResult, context = {}) {
+    const scores = {
+      template: 0,
+      vendor: 0,
+      totals: 0,
+      lines: 0,
+      period: 0
+    };
+    const weights = {
+      template: 0.30,
+      vendor: 0.15,
+      totals: 0.25,
+      lines: 0.20,
+      period: 0.10
+    };
+    const issues = [];
+
+    // Template match score
+    if (parseResult.template_id) {
+      scores.template = parseResult.template_confidence || 0.8;
+    } else {
+      issues.push('No matching template found');
+    }
+
+    // Vendor detection score
+    if (context.detectedVendor || parseResult.detected_vendor) {
+      scores.vendor = 1.0;
+    } else {
+      scores.vendor = 0;
+      issues.push('Vendor could not be detected');
+    }
+
+    // Header totals alignment score
+    if (parseResult.lines && parseResult.lines.length > 0) {
+      const calculatedTotal = parseResult.lines.reduce((sum, l) => sum + (l.actual_cents || 0), 0);
+      const headerTotal = parseResult.total_amount_cents || 0;
+
+      if (headerTotal > 0) {
+        const diff = Math.abs(calculatedTotal - headerTotal);
+        const pctDiff = diff / headerTotal;
+
+        if (pctDiff < 0.01) {
+          scores.totals = 1.0;
+        } else if (pctDiff < 0.05) {
+          scores.totals = 0.8;
+        } else if (pctDiff < 0.10) {
+          scores.totals = 0.5;
+          issues.push(`Totals differ by ${(pctDiff * 100).toFixed(1)}%`);
+        } else {
+          scores.totals = 0.2;
+          issues.push(`Totals differ significantly (${(pctDiff * 100).toFixed(1)}%)`);
+        }
+      } else {
+        scores.totals = 0.5; // Can't verify, neutral score
+      }
+    }
+
+    // Line parsing success rate
+    if (parseResult.lines && parseResult.lines.length > 0) {
+      const avgLineConfidence = parseResult.lines.reduce((sum, l) => sum + (l.line_confidence || 0.5), 0) / parseResult.lines.length;
+      scores.lines = avgLineConfidence;
+
+      if (avgLineConfidence < 0.6) {
+        issues.push(`Low average line confidence: ${(avgLineConfidence * 100).toFixed(0)}%`);
+      }
+    } else {
+      scores.lines = 0;
+      issues.push('No line items extracted');
+    }
+
+    // Period detection score
+    if (parseResult.fiscal_period || parseResult.period_end) {
+      scores.period = 1.0;
+    } else {
+      scores.period = 0;
+      issues.push('Period could not be detected');
+    }
+
+    // Calculate weighted overall score
+    let overallScore = 0;
+    for (const [factor, weight] of Object.entries(weights)) {
+      overallScore += scores[factor] * weight;
+    }
+
+    // Determine status based on thresholds
+    const thresholds = FinanceReportAgent.CONFIDENCE_THRESHOLDS;
+    let status = 'parsed_ok';
+    let needsHumanReview = false;
+
+    if (overallScore < thresholds.LOW) {
+      status = 'parse_failed';
+      needsHumanReview = true;
+    } else if (overallScore < thresholds.WARN) {
+      status = 'parsed_with_warnings';
+      needsHumanReview = true;
+    } else if (overallScore < thresholds.OK) {
+      status = 'parsed_with_warnings';
+    }
+
+    return {
+      overall: Math.round(overallScore * 10000) / 10000,
+      scores,
+      weights,
+      status,
+      needsHumanReview,
+      issues,
+      thresholds
+    };
+  }
+
+  /**
+   * Create a finance question when the system is uncertain
+   *
+   * @param {Object} options - Question options
+   * @param {UUID} options.financeReportId - Report ID
+   * @param {number} options.driveWatchId - DriveWatch ID (optional)
+   * @param {string} options.googleFileId - Google file ID
+   * @param {string} options.questionType - Type of question
+   * @param {string} options.questionText - Human-readable question
+   * @param {string} options.systemGuess - System's best guess
+   * @param {number} options.confidence - System's confidence in guess
+   * @param {Array} options.options - Possible answers
+   * @param {Object} options.context - Additional context
+   * @returns {Object} Created question
+   */
+  async createFinanceQuestion(options) {
+    const pool = getPool();
+
+    const {
+      financeReportId,
+      driveWatchId,
+      googleFileId,
+      questionType,
+      questionText,
+      systemGuess,
+      confidence,
+      options: answerOptions,
+      context = {},
+      priority = 'normal'
+    } = options;
+
+    try {
+      // Get file/vendor/period context from related records
+      let vendor = context.vendor;
+      let period = context.period;
+      let fileName = context.fileName;
+
+      if (financeReportId && (!vendor || !fileName)) {
+        const reportResult = await pool.query(`
+          SELECT pdf_file_name, detected_vendor, fiscal_period
+          FROM finance_reports
+          WHERE id = $1
+        `, [financeReportId]);
+
+        if (reportResult.rows.length > 0) {
+          const report = reportResult.rows[0];
+          fileName = fileName || report.pdf_file_name;
+          vendor = vendor || report.detected_vendor;
+          period = period || report.fiscal_period;
+        }
+      }
+
+      // Insert question
+      const result = await pool.query(`
+        INSERT INTO finance_questions (
+          org_id, question_type, question_text,
+          google_file_id, finance_report_id, drive_watch_id,
+          vendor, period, file_name,
+          system_guess, system_confidence, options,
+          question_context, priority, created_by
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+        )
+        RETURNING question_id, created_at
+      `, [
+        this.orgId,
+        questionType,
+        questionText,
+        googleFileId,
+        financeReportId,
+        driveWatchId,
+        vendor,
+        period,
+        fileName,
+        systemGuess,
+        confidence,
+        answerOptions ? JSON.stringify(answerOptions) : null,
+        JSON.stringify(context),
+        priority,
+        'FinanceReportAgent'
+      ]);
+
+      const question = result.rows[0];
+
+      // Record in history
+      await pool.query(`
+        INSERT INTO finance_question_history (
+          question_id, action, actor, new_status, payload
+        ) VALUES ($1, 'created', 'FinanceReportAgent', 'open', $2)
+      `, [
+        question.question_id,
+        JSON.stringify({ questionType, fileName, vendor })
+      ]);
+
+      // Update finance_report if linked
+      if (financeReportId) {
+        await pool.query(`
+          UPDATE finance_reports
+          SET needs_human_review = TRUE,
+              process_status = 'needs_question',
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [financeReportId]);
+      }
+
+      // Update drive_files_watch if linked
+      if (driveWatchId) {
+        await pool.query(`
+          UPDATE drive_files_watch
+          SET process_status = 'needs_question'
+          WHERE id = $1
+        `, [driveWatchId]);
+      }
+
+      console.log(`[FinanceReportAgent] Created question ${question.question_id} (${questionType})`);
+
+      return {
+        success: true,
+        questionId: question.question_id,
+        createdAt: question.created_at
+      };
+
+    } catch (error) {
+      console.error('[FinanceReportAgent] Create question error:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get open questions for this org
+   * @param {Object} filters - Optional filters
+   * @returns {Array} Open questions
+   */
+  async getOpenQuestions(filters = {}) {
+    const pool = getPool();
+
+    const { questionType, vendor, limit = 50 } = filters;
+
+    let whereClause = 'WHERE fq.org_id = $1 AND fq.status = \'open\'';
+    const params = [this.orgId];
+    let paramIndex = 2;
+
+    if (questionType) {
+      whereClause += ` AND fq.question_type = $${paramIndex++}`;
+      params.push(questionType);
+    }
+    if (vendor) {
+      whereClause += ` AND fq.vendor = $${paramIndex++}`;
+      params.push(vendor);
+    }
+
+    try {
+      const result = await pool.query(`
+        SELECT
+          fq.question_id,
+          fq.created_at,
+          fq.question_type,
+          fq.question_text,
+          fq.vendor,
+          fq.period,
+          fq.file_name,
+          fq.google_file_id,
+          fq.finance_report_id,
+          fq.drive_watch_id,
+          fq.system_guess,
+          fq.system_confidence,
+          fq.options,
+          fq.priority,
+          fr.total_amount_cents / 100.0 as report_total_amount,
+          fr.total_lines as report_line_count
+        FROM finance_questions fq
+        LEFT JOIN finance_reports fr ON fq.finance_report_id = fr.id
+        ${whereClause}
+        ORDER BY
+          CASE fq.priority
+            WHEN 'urgent' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'normal' THEN 3
+            ELSE 4
+          END,
+          fq.created_at ASC
+        LIMIT $${paramIndex}
+      `, [...params, limit]);
+
+      return result.rows;
+
+    } catch (error) {
+      console.error('[FinanceReportAgent] Get questions error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get a single question by ID
+   * @param {number} questionId
+   * @returns {Object} Question details
+   */
+  async getQuestionById(questionId) {
+    const pool = getPool();
+
+    try {
+      const result = await pool.query(`
+        SELECT
+          fq.*,
+          fr.report_name,
+          fr.pdf_file_name,
+          fr.total_amount_cents,
+          fr.total_lines,
+          fr.fiscal_period,
+          fr.status as report_status,
+          dfw.google_file_name as watch_file_name,
+          dfw.detected_vendor as watch_vendor
+        FROM finance_questions fq
+        LEFT JOIN finance_reports fr ON fq.finance_report_id = fr.id
+        LEFT JOIN drive_files_watch dfw ON fq.drive_watch_id = dfw.id
+        WHERE fq.question_id = $1 AND fq.org_id = $2
+      `, [questionId, this.orgId]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return result.rows[0];
+
+    } catch (error) {
+      console.error('[FinanceReportAgent] Get question error:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Apply owner's answer to a question
+   * Updates related records based on the answer type
+   *
+   * @param {number} questionId - Question ID
+   * @param {string} answer - Text answer
+   * @param {Object} answerPayload - Structured answer data
+   * @param {string} answeredBy - User ID
+   * @returns {Object} Result
+   */
+  async applyOwnerAnswer(questionId, answer, answerPayload, answeredBy) {
+    const pool = getPool();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Get question details
+      const questionResult = await client.query(`
+        SELECT * FROM finance_questions
+        WHERE question_id = $1 AND org_id = $2
+      `, [questionId, this.orgId]);
+
+      if (questionResult.rows.length === 0) {
+        throw new Error('Question not found');
+      }
+
+      const question = questionResult.rows[0];
+
+      // Update question status
+      await client.query(`
+        UPDATE finance_questions
+        SET
+          status = 'answered',
+          owner_answer = $1,
+          answer_payload = $2,
+          answered_by = $3,
+          resolved_at = CURRENT_TIMESTAMP
+        WHERE question_id = $4
+      `, [answer, JSON.stringify(answerPayload), answeredBy, questionId]);
+
+      // Record in history
+      await client.query(`
+        INSERT INTO finance_question_history (
+          question_id, action, actor, old_status, new_status, payload
+        ) VALUES ($1, 'answered', $2, 'open', 'answered', $3)
+      `, [questionId, answeredBy, JSON.stringify({ answer, payload: answerPayload })]);
+
+      // Apply answer based on question type
+      const updates = await this.applyAnswerByType(client, question, answerPayload);
+
+      await client.query('COMMIT');
+
+      console.log(`[FinanceReportAgent] Applied answer to question ${questionId}`);
+
+      return {
+        success: true,
+        questionId,
+        appliedUpdates: updates
+      };
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('[FinanceReportAgent] Apply answer error:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Apply answer based on question type
+   * @param {Object} client - DB client
+   * @param {Object} question - Question record
+   * @param {Object} payload - Answer payload
+   * @returns {Object} Applied updates
+   */
+  async applyAnswerByType(client, question, payload) {
+    const updates = { updated: [] };
+
+    switch (question.question_type) {
+      case 'unknown_vendor':
+        if (payload.correct_vendor && question.finance_report_id) {
+          await client.query(`
+            UPDATE finance_reports
+            SET detected_vendor = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [payload.correct_vendor, question.finance_report_id]);
+          updates.updated.push('finance_reports.detected_vendor');
+        }
+        if (payload.correct_vendor && question.drive_watch_id) {
+          await client.query(`
+            UPDATE drive_files_watch
+            SET detected_vendor = $1
+            WHERE id = $2
+          `, [payload.correct_vendor, question.drive_watch_id]);
+          updates.updated.push('drive_files_watch.detected_vendor');
+        }
+        break;
+
+      case 'unknown_period':
+        if (payload.correct_period && question.finance_report_id) {
+          await client.query(`
+            UPDATE finance_reports
+            SET fiscal_period = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [payload.correct_period, question.finance_report_id]);
+          updates.updated.push('finance_reports.fiscal_period');
+        }
+        if (payload.correct_period && question.drive_watch_id) {
+          await client.query(`
+            UPDATE drive_files_watch
+            SET period_hint = $1
+            WHERE id = $2
+          `, [payload.correct_period, question.drive_watch_id]);
+          updates.updated.push('drive_files_watch.period_hint');
+        }
+        break;
+
+      case 'unknown_template':
+        if (payload.template_corrections && question.finance_report_id) {
+          // Learn new template from corrections
+          const templateData = {
+            name: payload.template_name || `Template from Q${question.question_id}`,
+            vendorName: payload.vendor || question.vendor,
+            columnMappings: payload.column_mappings || {},
+            headerPattern: payload.header_pattern || []
+          };
+          await this.learnTemplate(question.finance_report_id, templateData);
+          updates.updated.push('report_templates');
+
+          // Optionally trigger re-parse
+          if (payload.reparse) {
+            updates.reparse_requested = true;
+          }
+        }
+        break;
+
+      case 'misclassified_file_type':
+        if (payload.correct_file_type) {
+          if (question.finance_report_id) {
+            await client.query(`
+              UPDATE finance_reports
+              SET file_type = $1, report_type = $2, updated_at = CURRENT_TIMESTAMP
+              WHERE id = $3
+            `, [
+              payload.correct_file_type,
+              payload.correct_file_type === 'vendor_invoice' ? 'custom' : 'month_end',
+              question.finance_report_id
+            ]);
+            updates.updated.push('finance_reports.file_type');
+          }
+          if (question.drive_watch_id) {
+            await client.query(`
+              UPDATE drive_files_watch
+              SET file_type = $1
+              WHERE id = $2
+            `, [payload.correct_file_type, question.drive_watch_id]);
+            updates.updated.push('drive_files_watch.file_type');
+          }
+        }
+        break;
+
+      case 'low_confidence':
+        // Mark as reviewed/validated
+        if (payload.confirmed_correct && question.finance_report_id) {
+          await client.query(`
+            UPDATE finance_reports
+            SET status = 'validated',
+                needs_human_review = FALSE,
+                process_status = 'parsed_ok',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [question.finance_report_id]);
+          updates.updated.push('finance_reports.status');
+        } else if (payload.corrections && question.finance_report_id) {
+          // Apply manual corrections
+          await client.query(`
+            UPDATE finance_reports
+            SET metadata = metadata || $1,
+                needs_human_review = FALSE,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [JSON.stringify({ manual_corrections: payload.corrections }), question.finance_report_id]);
+          updates.updated.push('finance_reports.metadata');
+        }
+        break;
+
+      case 'bad_totals':
+        if (payload.correct_total_cents && question.finance_report_id) {
+          await client.query(`
+            UPDATE finance_reports
+            SET total_amount_cents = $1,
+                metadata = metadata || '{"totals_manually_corrected": true}'::jsonb,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+          `, [payload.correct_total_cents, question.finance_report_id]);
+          updates.updated.push('finance_reports.total_amount_cents');
+        }
+        break;
+
+      default:
+        // Generic update: clear review flag if confirmed
+        if (payload.confirmed_reviewed && question.finance_report_id) {
+          await client.query(`
+            UPDATE finance_reports
+            SET needs_human_review = FALSE,
+                process_status = CASE WHEN process_status = 'needs_question' THEN 'parsed_ok' ELSE process_status END,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [question.finance_report_id]);
+          updates.updated.push('finance_reports.needs_human_review');
+        }
+    }
+
+    return updates;
+  }
+
+  /**
+   * Auto-create questions for a low-confidence parse result
+   * @param {Object} parseResult - Parse result
+   * @param {Object} confidenceDetails - From computeConfidenceScore
+   * @param {Object} context - File context
+   */
+  async createQuestionsForLowConfidence(parseResult, confidenceDetails, context) {
+    const questions = [];
+
+    // Create question for each major issue
+    for (const issue of confidenceDetails.issues) {
+      let questionType = 'other';
+      let questionText = issue;
+      let systemGuess = null;
+      let options = null;
+
+      // Determine question type from issue
+      if (issue.includes('template')) {
+        questionType = 'unknown_template';
+        questionText = `No matching template found for this document. The system detected ${parseResult.total_lines || 0} line items but cannot confidently map the columns.`;
+        systemGuess = 'This appears to be a finance report but the layout is unfamiliar.';
+      } else if (issue.includes('Vendor')) {
+        questionType = 'unknown_vendor';
+        questionText = `Cannot identify the vendor for file: ${context.fileName}`;
+        options = ['GFS', 'Sysco', 'US Foods', 'Costco', 'Other'];
+      } else if (issue.includes('Period')) {
+        questionType = 'unknown_period';
+        questionText = `Cannot determine the fiscal period for this report.`;
+        systemGuess = parseResult.fiscal_period || 'Unknown';
+      } else if (issue.includes('Totals')) {
+        questionType = 'bad_totals';
+        questionText = issue;
+        systemGuess = `Calculated: $${(parseResult.total_amount_cents / 100).toFixed(2)}`;
+      } else if (issue.includes('line')) {
+        questionType = 'low_confidence';
+        questionText = issue;
+      }
+
+      const result = await this.createFinanceQuestion({
+        financeReportId: context.financeReportId,
+        driveWatchId: context.driveWatchId,
+        googleFileId: context.googleFileId,
+        questionType,
+        questionText,
+        systemGuess,
+        confidence: confidenceDetails.overall,
+        options,
+        context: {
+          fileName: context.fileName,
+          vendor: context.vendor,
+          period: context.period,
+          issue
+        },
+        priority: confidenceDetails.overall < 0.3 ? 'high' : 'normal'
+      });
+
+      if (result.success) {
+        questions.push(result.questionId);
+      }
+    }
+
+    return questions;
+  }
+
+  /**
+   * Process file with confidence evaluation and question creation
+   * Enhanced version of processBatch that includes DriveWatch integration
+   *
+   * @param {number} watchId - drive_files_watch ID
+   * @returns {Object} Processing result
+   */
+  async processWatchedFile(watchId) {
+    const pool = getPool();
+
+    try {
+      // Get file info from drive_files_watch
+      const fileResult = await pool.query(`
+        SELECT
+          dfw.*,
+          fr.id as finance_report_id,
+          fr.status as report_status
+        FROM drive_files_watch dfw
+        LEFT JOIN finance_reports fr ON dfw.finance_report_id = fr.id
+        WHERE dfw.id = $1 AND dfw.org_id = $2
+      `, [watchId, this.orgId]);
+
+      if (fileResult.rows.length === 0) {
+        return { success: false, error: 'File not found' };
+      }
+
+      const file = fileResult.rows[0];
+
+      // Update status to processing
+      await pool.query(`
+        UPDATE drive_files_watch
+        SET process_status = 'processing', process_attempts = process_attempts + 1
+        WHERE id = $1
+      `, [watchId]);
+
+      // Parse the file
+      const parseResult = await this.parseFromGoogleDrive(file.google_file_id);
+
+      if (!parseResult.success) {
+        // Mark as failed
+        await pool.query(`
+          UPDATE drive_files_watch
+          SET process_status = 'parse_failed', error_message = $1, last_processed_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [parseResult.error, watchId]);
+
+        return { success: false, error: parseResult.error };
+      }
+
+      // Compute confidence score
+      const confidenceDetails = this.computeConfidenceScore(parseResult, {
+        detectedVendor: file.detected_vendor,
+        fileName: file.google_file_name
+      });
+
+      // Update finance_report with parsed data
+      let reportId = file.finance_report_id;
+      if (reportId) {
+        await pool.query(`
+          UPDATE finance_reports
+          SET
+            report_type = $1,
+            report_name = COALESCE($2, report_name),
+            period_start = $3,
+            period_end = $4,
+            fiscal_period = $5,
+            total_lines = $6,
+            total_amount_cents = $7,
+            currency = $8,
+            template_id = $9,
+            template_confidence = $10,
+            ocr_confidence = $11,
+            confidence = $12,
+            process_status = $13,
+            needs_human_review = $14,
+            last_processed_at = CURRENT_TIMESTAMP,
+            parsed_at = CURRENT_TIMESTAMP,
+            parsed_by = $15,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $16
+        `, [
+          parseResult.report_type,
+          parseResult.report_name,
+          parseResult.period_start,
+          parseResult.period_end,
+          parseResult.fiscal_period,
+          parseResult.total_lines,
+          parseResult.total_amount_cents,
+          parseResult.currency,
+          parseResult.template_id,
+          parseResult.template_confidence,
+          parseResult.ocr_confidence,
+          confidenceDetails.overall,
+          confidenceDetails.status,
+          confidenceDetails.needsHumanReview,
+          this.userId,
+          reportId
+        ]);
+      }
+
+      // Update drive_files_watch
+      await pool.query(`
+        UPDATE drive_files_watch
+        SET
+          process_status = $1,
+          confidence = $2,
+          last_processed_at = CURRENT_TIMESTAMP,
+          error_message = NULL
+        WHERE id = $3
+      `, [confidenceDetails.status, confidenceDetails.overall, watchId]);
+
+      // Create questions if needed
+      let questionIds = [];
+      if (confidenceDetails.needsHumanReview && confidenceDetails.issues.length > 0) {
+        questionIds = await this.createQuestionsForLowConfidence(parseResult, confidenceDetails, {
+          financeReportId: reportId,
+          driveWatchId: watchId,
+          googleFileId: file.google_file_id,
+          fileName: file.google_file_name,
+          vendor: file.detected_vendor,
+          period: file.period_hint
+        });
+      }
+
+      return {
+        success: true,
+        watchId,
+        reportId,
+        confidence: confidenceDetails.overall,
+        status: confidenceDetails.status,
+        needsHumanReview: confidenceDetails.needsHumanReview,
+        issues: confidenceDetails.issues,
+        questionsCreated: questionIds.length,
+        linesParsed: parseResult.total_lines
+      };
+
+    } catch (error) {
+      console.error('[FinanceReportAgent] Process watched file error:', error.message);
+
+      // Mark as failed
+      await pool.query(`
+        UPDATE drive_files_watch
+        SET process_status = 'parse_failed', error_message = $1, last_processed_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [error.message, watchId]);
+
+      return { success: false, error: error.message };
+    }
   }
 }
 

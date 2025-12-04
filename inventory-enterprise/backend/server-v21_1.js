@@ -1577,6 +1577,9 @@ app.use('/api/equipment', authGuard(['owner']), rateLimitMiddleware, auditLog('E
 // V23.4.9: Finance Reports API (Finance Brain)
 app.use('/api/finance-reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('FINANCE_REPORTS'), safeRequire('./routes/finance-reports-api', 'finance-reports-api'));
 
+// V23.6.0: Finance Monitor API (DriveWatch + Human Review Queue)
+app.use('/api/owner/finance', authGuard(['owner']), rateLimitMiddleware, auditLog('FINANCE_MONITOR'), safeRequire('./routes/finance-monitor-api', 'finance-monitor-api'));
+
 // Diagnostic routes (always available for deployment validation)
 app.use('/diag', safeRequire('./routes/diag', 'diag'));
 

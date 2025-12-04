@@ -1135,6 +1135,56 @@ class MetricsExporter {
       labelNames: ['period']
     });
 
+    // ========================================================================
+    // DRIVEWATCH FINANCE MONITOR METRICS (V23.6.0)
+    // ========================================================================
+
+    this.driveWatchFilesTotalGauge = new promClient.Gauge({
+      name: 'drivewatch_files_total',
+      help: 'Total files tracked by DriveWatch',
+      labelNames: ['status']
+    });
+
+    this.driveWatchSyncDuration = new promClient.Histogram({
+      name: 'drivewatch_sync_duration_seconds',
+      help: 'Duration of DriveWatch sync operations',
+      buckets: [0.5, 1, 2, 5, 10, 30, 60]
+    });
+
+    this.driveWatchSyncFilesCounter = new promClient.Counter({
+      name: 'drivewatch_sync_files_total',
+      help: 'Total files processed during sync',
+      labelNames: ['result']
+    });
+
+    this.driveWatchConfidenceGauge = new promClient.Gauge({
+      name: 'drivewatch_avg_confidence',
+      help: 'Average confidence score for parsed files (0-1)'
+    });
+
+    this.driveWatchQuestionsOpenGauge = new promClient.Gauge({
+      name: 'drivewatch_questions_open',
+      help: 'Number of open human review questions'
+    });
+
+    this.driveWatchQuestionsAnsweredCounter = new promClient.Counter({
+      name: 'drivewatch_questions_answered_total',
+      help: 'Total questions answered by owners',
+      labelNames: ['question_type']
+    });
+
+    this.driveWatchParseAttemptsCounter = new promClient.Counter({
+      name: 'drivewatch_parse_attempts_total',
+      help: 'Total parse attempts',
+      labelNames: ['status']
+    });
+
+    this.driveWatchParseDuration = new promClient.Histogram({
+      name: 'drivewatch_parse_duration_seconds',
+      help: 'Duration of file parsing',
+      buckets: [0.1, 0.5, 1, 2, 5, 10, 30]
+    });
+
     // Register all metrics
     this.register.registerMetric(this.httpRequestDuration);
     this.register.registerMetric(this.httpRequestsTotal);
@@ -1299,6 +1349,16 @@ class MetricsExporter {
     this.register.registerMetric(this.financeAIMappingAutoPctGauge);
     this.register.registerMetric(this.financeTaxMismatchTotalCounter);
     this.register.registerMetric(this.financePeriodVerifiedTotalGauge);
+
+    // Register DriveWatch Finance Monitor metrics (V23.6.0)
+    this.register.registerMetric(this.driveWatchFilesTotalGauge);
+    this.register.registerMetric(this.driveWatchSyncDuration);
+    this.register.registerMetric(this.driveWatchSyncFilesCounter);
+    this.register.registerMetric(this.driveWatchConfidenceGauge);
+    this.register.registerMetric(this.driveWatchQuestionsOpenGauge);
+    this.register.registerMetric(this.driveWatchQuestionsAnsweredCounter);
+    this.register.registerMetric(this.driveWatchParseAttemptsCounter);
+    this.register.registerMetric(this.driveWatchParseDuration);
   }
 
   /**
@@ -2283,6 +2343,76 @@ class MetricsExporter {
    */
   recordFinancePeriodVerifiedTotal(period, value = 1) {
     this.financePeriodVerifiedTotalGauge.labels(period).set(value);
+  }
+
+  // ========================================================================
+  // DRIVEWATCH FINANCE MONITOR RECORDING METHODS (V23.6.0)
+  // ========================================================================
+
+  /**
+   * Record DriveWatch files by status
+   * @param {string} status - Process status (pending, processing, parsed_ok, etc.)
+   * @param {number} count - Number of files
+   */
+  recordDriveWatchFilesTotal(status, count) {
+    this.driveWatchFilesTotalGauge.labels(status).set(count);
+  }
+
+  /**
+   * Record DriveWatch sync duration
+   * @param {number} durationSeconds - Duration in seconds
+   */
+  recordDriveWatchSyncDuration(durationSeconds) {
+    this.driveWatchSyncDuration.observe(durationSeconds);
+  }
+
+  /**
+   * Increment DriveWatch sync files counter
+   * @param {string} result - Sync result (new, updated, skipped, error)
+   * @param {number} count - Number of files
+   */
+  recordDriveWatchSyncFiles(result, count = 1) {
+    this.driveWatchSyncFilesCounter.labels(result).inc(count);
+  }
+
+  /**
+   * Record average confidence for parsed files
+   * @param {number} avgConfidence - Average confidence (0-1)
+   */
+  recordDriveWatchConfidence(avgConfidence) {
+    this.driveWatchConfidenceGauge.set(avgConfidence);
+  }
+
+  /**
+   * Record number of open questions
+   * @param {number} count - Number of open questions
+   */
+  recordDriveWatchQuestionsOpen(count) {
+    this.driveWatchQuestionsOpenGauge.set(count);
+  }
+
+  /**
+   * Increment questions answered counter
+   * @param {string} questionType - Question type (unknown_vendor, low_confidence, etc.)
+   */
+  recordDriveWatchQuestionAnswered(questionType) {
+    this.driveWatchQuestionsAnsweredCounter.labels(questionType).inc();
+  }
+
+  /**
+   * Increment parse attempts counter
+   * @param {string} status - Parse status (parsed_ok, parsed_with_warnings, parse_failed)
+   */
+  recordDriveWatchParseAttempt(status) {
+    this.driveWatchParseAttemptsCounter.labels(status).inc();
+  }
+
+  /**
+   * Record parse duration
+   * @param {number} durationSeconds - Duration in seconds
+   */
+  recordDriveWatchParseDuration(durationSeconds) {
+    this.driveWatchParseDuration.observe(durationSeconds);
   }
 
   // ========================================================================

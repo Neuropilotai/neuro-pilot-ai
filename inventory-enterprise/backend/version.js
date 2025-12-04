@@ -13,7 +13,7 @@
 const pkg = require('./package.json');
 
 // Version priority: APP_VERSION env var > package.json version > fallback
-const RAW_VERSION = process.env.APP_VERSION || pkg.version || '23.5.1';
+const RAW_VERSION = process.env.APP_VERSION || pkg.version || '23.6.0';
 
 // Normalize to "V{major}.{minor}.{patch}" format
 const APP_VERSION = RAW_VERSION.startsWith('V')
