@@ -289,19 +289,29 @@ router.post('/drivewatch/sync', async (req, res) => {
       processAfterSync: processAfterSync || false
     });
 
+    // Map result fields (service uses snake_case, API uses camelCase)
+    const filesFound = result.total_files || result.filesFound || 0;
+    const newFiles = result.new_files || result.newFiles || 0;
+    const updatedFiles = result.updated_files || result.updatedFiles || 0;
+    const skipped = result.skipped_files || result.skipped || 0;
+    const errors = result.errors || [];
+
     res.json({
       success: result.success,
       message: result.success
-        ? `Sync complete: ${result.filesFound} found, ${result.newFiles} new, ${result.updatedFiles} updated`
+        ? `Sync complete: ${filesFound} found, ${newFiles} new, ${updatedFiles} updated`
         : result.error,
       result: {
-        filesFound: result.filesFound,
-        newFiles: result.newFiles,
-        updatedFiles: result.updatedFiles,
-        skipped: result.skipped,
-        errors: result.errors?.length || 0
+        filesFound,
+        newFiles,
+        updatedFiles,
+        skipped,
+        errors: errors.length,
+        reportsCreated: result.reports_created || 0,
+        foldersScanned: result.folders_scanned || []
       },
-      errors: result.errors,
+      files: result.files || [],
+      errors: errors,
       timestamp: new Date().toISOString()
     });
 

@@ -13162,12 +13162,23 @@ window.initShrinkageTab = initShrinkageTab;
       });
 
       if (result && result.success) {
-        const msg = `✅ Sync complete! New: ${result.newFiles || 0}, Updated: ${result.updatedFiles || 0}, Parsed: ${result.parsedFiles || 0}`;
+        // Data is in result.result (API returns nested structure)
+        const r = result.result || {};
+        const newFiles = r.newFiles || 0;
+        const updatedFiles = r.updatedFiles || 0;
+        const reportsCreated = r.reportsCreated || 0;
+        const filesFound = r.filesFound || 0;
+        const msg = `✅ Sync complete! Found: ${filesFound}, New: ${newFiles}, Updated: ${updatedFiles}, Reports: ${reportsCreated}`;
         statusEl.innerHTML = `<span style="color:green;">${msg}</span>`;
         // Reload data after sync
         setTimeout(() => loadFinanceBrainData(), 1000);
       } else {
-        statusEl.innerHTML = `<span style="color:orange;">⚠️ ${result?.message || 'Sync completed with warnings'}</span>`;
+        // Show error details if available
+        const errorCount = result?.result?.errors || 0;
+        const errorMsg = errorCount > 0 ? ` (${errorCount} errors)` : '';
+        statusEl.innerHTML = `<span style="color:orange;">⚠️ ${result?.message || 'Sync completed with warnings'}${errorMsg}</span>`;
+        // Still reload to show any partial data
+        setTimeout(() => loadFinanceBrainData(), 1000);
       }
     } catch (err) {
       console.error('DriveWatch sync error:', err);
