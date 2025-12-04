@@ -6,7 +6,7 @@
   <meta name="np-api-url" content="">
   <title>Owner Super Console | NeuroInnovate Inventory v20.1.0</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="stylesheet" href="css/styles.css?v=22.3.0">
+  <link rel="stylesheet" href="css/styles.css?v=23.5.1">
 
   <!-- NeuroPilot fetch bootstrap v2.2 – V22.2: Same-origin for Railway -->
   <script>
@@ -160,6 +160,7 @@
       <div class="tab" onclick="switchTab('menu')">🍽️ Menu</div>
       <div class="tab" onclick="switchTab('financials')">💰 Financials</div>
       <div class="tab" onclick="switchTab('item-bank')">🏦 Item Bank</div>
+      <div class="tab" onclick="switchTab('equipment')">🔧 Equipment</div>
       <div class="tab" onclick="switchTab('governance')">⚛️ Governance</div>
       <div class="tab" onclick="switchTab('intelligence')">🔮 Intelligence</div>
       <div class="tab" onclick="switchTab('reports')">📋 Reports</div>
@@ -1141,6 +1142,135 @@
             </table>
           </div>
         </details>
+      </div>
+    </div>
+
+    <!-- Equipment Tab (v23.4.0) -->
+    <div id="equipment" class="tab-panel">
+      <!-- Equipment Summary Stats -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">🔧 Equipment & Furniture Inventory</h3>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-equipment">↻ Refresh</button>
+        </div>
+        <div class="grid grid-4">
+          <div class="stat-card">
+            <div class="stat-value" id="equipment-total-items">--</div>
+            <div class="stat-label">Total Equipment Items</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="equipment-total-value">$--</div>
+            <div class="stat-label">Total Value</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="equipment-vendors-count">--</div>
+            <div class="stat-label">Equipment Vendors</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="equipment-capital-assets">--</div>
+            <div class="stat-label">Capital Assets</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Equipment Item Catalog -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🪑 Equipment Catalog</h3>
+          <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-primary" id="btn-add-equipment">+ Add Item</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="btn-export-equipment">📥 Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Search & Filter -->
+        <div class="filter-bar">
+          <input type="text" id="equipment-search" placeholder="🔍 Search equipment by description, model, or vendor..." class="form-control">
+          <select id="filter-equipment-vendor" class="form-control">
+            <option value="">All Vendors</option>
+          </select>
+          <select id="filter-equipment-category" class="form-control">
+            <option value="">All Categories</option>
+            <option value="furniture">Furniture</option>
+            <option value="smallwares">Smallwares</option>
+            <option value="appliances">Appliances</option>
+            <option value="refrigeration">Refrigeration</option>
+            <option value="cooking">Cooking Equipment</option>
+            <option value="storage">Storage</option>
+            <option value="display">Display</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <!-- Equipment Table -->
+        <div class="table-responsive">
+          <table class="table" id="equipment-table">
+            <thead>
+              <tr>
+                <th>Item Code</th>
+                <th>Description</th>
+                <th>Vendor</th>
+                <th>Manufacturer</th>
+                <th>Model #</th>
+                <th>Category</th>
+                <th>Unit Price</th>
+                <th>Qty</th>
+                <th>Total Value</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="equipment-tbody">
+              <tr>
+                <td colspan="10" class="text-center">No equipment items loaded. Click Refresh to load items.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar">
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-equipment-prev" disabled>← Previous</button>
+          <span id="equipment-pagination-info">Page 1 of 1</span>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-equipment-next" disabled>Next →</button>
+        </div>
+      </div>
+
+      <!-- Equipment Vendors -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🏭 Equipment Vendors</h3>
+          <button type="button" class="btn btn-sm btn-primary" id="btn-add-equipment-vendor">+ Add Vendor</button>
+        </div>
+        <div class="grid grid-3" id="equipment-vendors-grid">
+          <div class="loading"><div class="spinner"></div> Loading vendors...</div>
+        </div>
+      </div>
+
+      <!-- Recent Equipment Purchases -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📦 Recent Equipment Purchases</h3>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" id="btn-refresh-purchases">↻ Refresh</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Invoice #</th>
+                <th>Vendor</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="equipment-purchases-tbody">
+              <tr>
+                <td colspan="6" class="text-center">No recent purchases found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -2723,15 +2853,15 @@
   </style>
 
   <!-- v21.1: Unified API Client - LYRA FIX -->
-  <script src="js/api-unified.js?v=21.1.1"></script>
+  <script src="js/api-unified.js?v=23.5.1"></script>
 
   <!-- v20.1.0: RBAC Client with NP_CONFIG + graceful degradation -->
-  <script src="js/rbac-client.js?v=20.1.0"></script>
+  <script src="js/rbac-client.js?v=23.5.1"></script>
 
   <!-- v21.0.0: Shared Console Core with dynamic API base -->
-  <script src="js/owner-console-core.js?v=21.0.0"></script>
+  <script src="js/owner-console-core.js?v=23.5.1"></script>
 
-  <!-- v21.0.0: Owner Super Console with vendor orders in PDFs tab -->
-  <script src="js/owner-super-console.js?v=21.2.0"></script>
+  <!-- v23.4: PDF invoice date field name fix -->
+  <script src="js/owner-super-console.js?v=23.5.1"></script>
 </body>
 </html>

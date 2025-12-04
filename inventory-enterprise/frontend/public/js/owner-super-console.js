@@ -369,14 +369,27 @@ async function loadDashboard() {
     // v21.2: Use inventoryValueRaw from API (or fallback to nested inventory.totalValue for backward compat)
     const inventoryValue = stats.inventoryValueRaw || stats.inventory?.totalValue || 0;
 
+    // v23.0: Source badge based on inventory source
+    const sourceLabel = {
+      'manual': { text: 'Manual', badge: 'warning' },
+      'pdf_fifo': { text: 'PDF/FIFO', badge: 'success' },
+      'physical_counts': { text: 'Physical Count', badge: 'primary' },
+      'vendor_orders_pending_fifo': { text: 'Pending FIFO', badge: 'info' },
+      'error': { text: 'Error', badge: 'danger' }
+    }[stats.inventory?.source] || { text: 'Unknown', badge: 'secondary' };
+
     const dbStatsHTML = `
       <table class="table">
         <tr class="row-highlight-success">
           <td class="td-medium-value">💰 Total Inventory Value</td>
-          <td class="td-large-value">$${inventoryValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+          <td class="td-large-value">$${inventoryValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <span class="badge badge-${sourceLabel.badge}" title="Data source">${sourceLabel.text}</span></td>
         </tr>
-        <tr><td>Unique Products (from PDFs)</td><td><strong>${stats.inventory?.totalItems || 0}</strong> <span class="badge badge-success">Auto-Extracted</span></td></tr>
-        <tr><td>Manual Inventory Items</td><td><strong>${stats.inventory?.manualItems || 0}</strong> items</td></tr>
+        <tr><td>📦 Total Items</td><td><strong>${stats.inventory?.totalItems || 0}</strong> unique products</td></tr>
+        <tr><td>📊 Total Units</td><td><strong>${(stats.inventory?.totalUnits || 0).toLocaleString()}</strong> units in stock</td></tr>
+        <tr><td>🧊 Total Boxes/Cases</td><td><strong>${(stats.inventory?.totalBoxes || 0).toLocaleString()}</strong> cases tracked</td></tr>
+        <tr><td>📜 Invoices Included</td><td><strong>${stats.inventory?.invoicesIncluded || 0}</strong> of ${stats.inventory?.totalOrders || 0} orders</td></tr>
+        <tr><td>📋 FIFO Layers</td><td><strong>${stats.inventory?.fifoLayers || 0}</strong> cost layers <span class="badge badge-${stats.inventory?.fifoLayers > 0 ? 'success' : 'secondary'}">${stats.inventory?.fifoLayers > 0 ? 'Active' : 'None'}</span></td></tr>
+        <tr><td>Manual Inventory Items</td><td><strong>${stats.inventory?.manualItems || 0}</strong> items ($${(stats.inventory?.manualValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2})})</td></tr>
         <tr><td>Active Locations</td><td><strong>${stats.locations?.total || 0}</strong></td></tr>
         <tr><td>Invoices Processed</td><td><strong>${stats.pdfs?.total || 0}</strong> (${stats.pdfs?.withDates || 0} with dates)</td></tr>
         <tr><td>Total Invoice Amount</td><td><strong>$${(stats.pdfs?.totalAmount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td></tr>
@@ -4773,7 +4786,7 @@ async function openAttachPDFsModal(workspaceId) {
             <input type="checkbox" class="pdf-checkbox" value="${pdf.id}" />
           </td>
           <td>${pdf.filename}</td>
-          <td>${pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : 'N/A'}</td>
+          <td>${pdf.invoiceDate ? new Date(pdf.invoiceDate).toLocaleDateString() : 'N/A'}</td>
           <td>${pdf.vendor || 'Unknown'}</td>
           <td>$${pdf.invoice_amount ? pdf.invoice_amount.toFixed(2) : '0.00'}</td>
         </tr>
@@ -4998,6 +5011,74 @@ async function loadMenu() {
 }
 
 /**
+ * v23.4.7: Normalize menu week API response to canonical format
+ * Handles all historical API shapes:
+ * - New menu-cycle API: { success, week: NUMBER, meal_period, days: [...] }
+ * - Legacy menu API: { success, data: { weekNum, days: [...] } }
+ * - Legacy v22: { success, week: { days: [...] } }
+ * @param {object} res - Raw API response
+ * @param {number} requestedWeek - Week number requested (fallback)
+ * @returns {object} Normalized { weekNum, mealPeriod, days, _source }
+ */
+function normalizeMenuWeekResponse(res, requestedWeek) {
+  // Null/undefined guard
+  if (!res || !res.success) {
+    console.warn('normalizeMenuWeekResponse: invalid response, returning empty');
+    return {
+      weekNum: requestedWeek,
+      mealPeriod: 'dinner',
+      days: [],
+      _source: 'empty'
+    };
+  }
+
+  // Detect response shape
+  // Shape 1: New menu-cycle API - days at top level, week is NUMBER
+  if (Array.isArray(res.days)) {
+    return {
+      weekNum: typeof res.week === 'number' ? res.week : requestedWeek,
+      mealPeriod: res.meal_period || 'dinner',
+      days: res.days,
+      _source: 'menu-cycle'
+    };
+  }
+
+  // Shape 2: Legacy - data wrapper with nested object
+  if (res.data && typeof res.data === 'object') {
+    const data = res.data;
+    return {
+      weekNum: data.weekNum || data.cycle_week || requestedWeek,
+      mealPeriod: data.mealPeriod || data.meal_period || 'dinner',
+      days: Array.isArray(data.days) ? data.days : [],
+      startsOn: data.startsOn,
+      endsOn: data.endsOn,
+      _source: 'legacy'
+    };
+  }
+
+  // Shape 3: Legacy v22 - week is an object with days
+  if (res.week && typeof res.week === 'object' && !Array.isArray(res.week)) {
+    return {
+      weekNum: res.week.weekNum || res.week.cycle_week || requestedWeek,
+      mealPeriod: res.week.mealPeriod || 'dinner',
+      days: Array.isArray(res.week.days) ? res.week.days : [],
+      startsOn: res.week.startsOn,
+      endsOn: res.week.endsOn,
+      _source: 'legacy'
+    };
+  }
+
+  // Unknown shape - log and return empty
+  console.warn('normalizeMenuWeekResponse: unknown response shape', Object.keys(res));
+  return {
+    weekNum: requestedWeek,
+    mealPeriod: 'dinner',
+    days: [],
+    _source: 'empty'
+  };
+}
+
+/**
  * Load specific week data and render calendar
  * @param {number} weekNum - Week number (1-4)
  */
@@ -5023,39 +5104,57 @@ async function loadMenuWeek(weekNum) {
     const calendar = document.getElementById('menuCalendar');
     calendar.innerHTML = '<div class="loading"><div class="spinner"></div> Loading week data...</div>';
 
-    // Fetch week data with scaled quantities
-    const weekRes = await fetchAPI(`/menu/week/${weekNum}`);
-
-    if (!weekRes.success) {
-      throw new Error('Failed to load week data');
+    // v23.4.7: Unified API fetch with normalization
+    // Try new menu-cycle API first, fall back to legacy
+    let weekRes;
+    let apiSource = 'menu-cycle';
+    try {
+      weekRes = await fetchAPI(`/menu-cycle/week/${weekNum}?meal=dinner`);
+      if (!weekRes || !weekRes.success) {
+        throw new Error('menu-cycle API failed or returned null');
+      }
+    } catch (e) {
+      console.log(`📋 Falling back to legacy menu API: ${e.message}`);
+      apiSource = 'legacy';
+      weekRes = await fetchAPI(`/menu/week/${weekNum}`);
     }
 
-    const weekData = weekRes.week;
-
-    // Debug: Log week data
-    console.log(`📊 Week ${weekNum} data:`, {
+    // v23.4.7: Use normalizer to handle ALL historical API shapes
+    const weekData = normalizeMenuWeekResponse(weekRes, weekNum);
+    console.log(`📊 Week ${weekNum} (${weekData._source}):`, {
       days: weekData.days?.length,
-      totalRecipes: weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0),
-      firstDayRecipes: weekData.days?.[0]?.recipes?.length,
-      sampleRecipe: weekData.days?.[0]?.recipes?.[0]
+      totalItems: weekData._source === 'menu-cycle'
+        ? weekData.days?.reduce((sum, day) =>
+            sum + (day.stations?.reduce((s, st) => s + (st.items?.length || 0), 0) || 0), 0)
+        : weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0)
     });
 
     // Update week info banner
     const weekDates = document.getElementById('menuWeekDates');
     if (weekDates) {
-      const startDate = new Date(weekData.startsOn).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-      const endDate = new Date(weekData.endsOn).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-      weekDates.textContent = `${startDate} — ${endDate}`;
+      if (weekData._source === 'menu-cycle') {
+        weekDates.textContent = `Week ${weekData.weekNum} • 4-Week Rotation`;
+      } else if (weekData.startsOn) {
+        const startDate = new Date(weekData.startsOn).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+        const endDate = new Date(weekData.endsOn).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+        weekDates.textContent = `${startDate} — ${endDate}`;
+      } else {
+        weekDates.textContent = `Week ${weekData.weekNum}`;
+      }
     }
 
-    // Render calendar grid
-    renderMenuCalendar(weekData);
+    // Render calendar grid - use appropriate renderer based on source
+    if (weekData._source === 'menu-cycle') {
+      renderMenuCycleCalendar(weekData);
+    } else {
+      renderMenuCalendar(weekData);
+    }
 
     console.log(`✅ Week ${weekNum} loaded`);
   } catch (error) {
@@ -5080,6 +5179,17 @@ async function loadMenuWeek(weekNum) {
 function renderMenuCalendar(weekData) {
   const calendar = document.getElementById('menuCalendar');
   if (!calendar) return;
+
+  // v23.3: Guard against missing or empty data
+  if (!weekData || !weekData.days || weekData.days.length === 0) {
+    console.warn('⚠️ renderMenuCalendar: No days data available');
+    calendar.innerHTML = `
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No menu data available for this week.
+      </div>
+    `;
+    return;
+  }
 
   // Debug: Check what we're rendering
   const totalRecipes = weekData.days?.reduce((sum, day) => sum + (day.recipes?.length || 0), 0) || 0;
@@ -5173,6 +5283,188 @@ function renderMenuCalendar(weekData) {
       openRecipeDrawer(recipeId);
     });
   });
+}
+
+/**
+ * v23.0: Render menu cycle calendar with station-based layout
+ * @param {object} weekData - Week data from menu-cycle API
+ */
+function renderMenuCycleCalendar(weekData) {
+  const calendar = document.getElementById('menuCalendar');
+  if (!calendar) return;
+
+  // v23.3: Guard against missing or empty data
+  if (!weekData || !weekData.days || weekData.days.length === 0) {
+    console.warn('⚠️ renderMenuCycleCalendar: No days data available');
+    calendar.innerHTML = `
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> No menu cycle data available for this week.
+      </div>
+    `;
+    return;
+  }
+
+  const days = weekData.days || [];
+  const totalItems = days.reduce((sum, day) =>
+    sum + (day.stations || []).reduce((s, st) => s + (st.items?.length || 0), 0), 0);
+
+  console.log(`🎨 Rendering station-based calendar with ${totalItems} items across ${days.length} days`);
+
+  // Build calendar HTML with station-based layout
+  let html = '<div class="menu-cycle-grid">';
+
+  // Day headers (Wed-Tue) - with spacer for station label column
+  html += '<div class="menu-cycle-header">';
+  html += '<div class="menu-cycle-header-spacer"></div>'; // Spacer to align with station label column
+  days.forEach(day => {
+    html += `<div class="menu-cycle-day-header">${day.day_name}</div>`;
+  });
+  html += '</div>';
+
+  // Collect all unique stations across all days
+  const allStations = new Map();
+  days.forEach(day => {
+    (day.stations || []).forEach(station => {
+      if (!allStations.has(station.code)) {
+        allStations.set(station.code, {
+          code: station.code,
+          name: station.name,
+          cuisine_type: station.cuisine_type,
+          order: station.order || 0
+        });
+      }
+    });
+  });
+
+  // Sort stations by order
+  const sortedStations = [...allStations.values()].sort((a, b) => a.order - b.order);
+
+  // Render each station as a row
+  sortedStations.forEach(station => {
+    const cuisineIcon = {
+      'western': '🍔',
+      'south_asian': '🍛',
+      'healthy': '🥗',
+      'dessert': '🍰',
+      'beverage': '🥤'
+    }[station.cuisine_type] || '🍽️';
+
+    html += `<div class="menu-cycle-station-row">`;
+    html += `<div class="menu-cycle-station-label" title="${station.name}">${cuisineIcon} ${station.name}</div>`;
+
+    days.forEach(day => {
+      const dayStation = (day.stations || []).find(s => s.code === station.code);
+      const items = dayStation?.items || [];
+
+      html += `<div class="menu-cycle-cell">`;
+      if (items.length > 0) {
+        items.forEach(item => {
+          const vegBadge = item.is_vegan ? '🌱' : (item.is_vegetarian ? '🥬' : '');
+          html += `
+            <div class="menu-cycle-item" data-id="${item.id}" title="${item.name}">
+              <span class="menu-cycle-item-name">${item.name}</span>
+              ${vegBadge ? `<span class="menu-cycle-veg-badge">${vegBadge}</span>` : ''}
+            </div>
+          `;
+        });
+      } else {
+        html += '<div class="menu-cycle-empty">—</div>';
+      }
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  html += '</div>';
+
+  // Add CSS styles inline if not already present
+  if (!document.getElementById('menu-cycle-styles')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'menu-cycle-styles';
+    styleEl.textContent = `
+      .menu-cycle-grid {
+        display: grid;
+        gap: 2px;
+        background: var(--border-color, #e0e0e0);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .menu-cycle-header {
+        display: grid;
+        grid-template-columns: 140px repeat(7, 1fr);
+        background: var(--primary-color, #2196F3);
+        color: white;
+        font-weight: 600;
+        text-align: center;
+      }
+      .menu-cycle-header-spacer {
+        background: var(--primary-color, #2196F3);
+      }
+      .menu-cycle-day-header {
+        padding: 8px 4px;
+        font-size: 13px;
+      }
+      .menu-cycle-station-row {
+        display: grid;
+        grid-template-columns: 140px repeat(7, 1fr);
+        background: white;
+      }
+      .menu-cycle-station-label {
+        padding: 8px;
+        background: #f5f5f5;
+        font-weight: 500;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-right: 1px solid #e0e0e0;
+      }
+      .menu-cycle-cell {
+        padding: 6px;
+        min-height: 50px;
+        border-right: 1px solid #f0f0f0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .menu-cycle-item {
+        background: #f8f9fa;
+        padding: 4px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        line-height: 1.3;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .menu-cycle-item:hover {
+        background: #e3f2fd;
+      }
+      .menu-cycle-item-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .menu-cycle-veg-badge {
+        flex-shrink: 0;
+        font-size: 10px;
+        margin-left: 4px;
+      }
+      .menu-cycle-empty {
+        color: #ccc;
+        font-size: 12px;
+        text-align: center;
+        padding: 8px;
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
+
+  calendar.innerHTML = html;
+  console.log(`✅ Station-based calendar rendered`);
 }
 
 /**
@@ -6688,7 +6980,7 @@ async function loadAttachedPdfs(countId) {
     let html = '<table class="table"><thead><tr><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th><th>Action</th></tr></thead><tbody>';
 
     for (const pdf of pdfs) {
-      const date = pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : '--';
+      const date = pdf.invoiceDate ? new Date(pdf.invoiceDate).toLocaleDateString() : '--';
       const amount = pdf.invoice_amount ? `$${parseFloat(pdf.invoice_amount).toFixed(2)}` : '--';
 
       html += '<tr>';
@@ -6738,7 +7030,7 @@ async function loadAvailablePdfs(countId) {
     let html = '<table class="table"><thead><tr><th><input type="checkbox" id="selectAllAvailablePdfs" onchange="toggleSelectAllAvailablePdfs()"></th><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th></tr></thead><tbody>';
 
     for (const pdf of pdfs) {
-      const date = pdf.invoice_date ? new Date(pdf.invoice_date).toLocaleDateString() : '--';
+      const date = pdf.invoiceDate ? new Date(pdf.invoiceDate).toLocaleDateString() : '--';
       const amount = pdf.invoice_amount ? `$${parseFloat(pdf.invoice_amount).toFixed(2)}` : '--';
 
       html += '<tr>';
@@ -12403,6 +12695,384 @@ window.onShrinkagePeriodChange = onShrinkagePeriodChange;
 window.onShrinkageCategoryChange = onShrinkageCategoryChange;
 window.refreshShrinkageView = refreshShrinkageView;
 window.initShrinkageTab = initShrinkageTab;
+
+// ============================================================================
+// EQUIPMENT TAB MODULE (v23.4.0)
+// ============================================================================
+
+(function() {
+  'use strict';
+
+  // State
+  let equipmentPage = 1;
+  const equipmentPerPage = 50;
+  let equipmentTotal = 0;
+  let equipmentSearchQuery = '';
+  let equipmentVendorFilter = '';
+  let equipmentCategoryFilter = '';
+
+  // Helper function
+  const $$ = (selector) => document.querySelector(selector);
+
+  // Initialize on DOM load
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeEquipmentTab();
+  });
+
+  /**
+   * Initialize Equipment module
+   */
+  function initializeEquipmentTab() {
+    // Refresh button
+    const btnRefresh = $$('#btn-refresh-equipment');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', () => loadEquipmentData());
+    }
+
+    // Add equipment button
+    const btnAdd = $$('#btn-add-equipment');
+    if (btnAdd) {
+      btnAdd.addEventListener('click', showAddEquipmentModal);
+    }
+
+    // Export button
+    const btnExport = $$('#btn-export-equipment');
+    if (btnExport) {
+      btnExport.addEventListener('click', exportEquipmentCSV);
+    }
+
+    // Add vendor button
+    const btnAddVendor = $$('#btn-add-equipment-vendor');
+    if (btnAddVendor) {
+      btnAddVendor.addEventListener('click', showAddEquipmentVendorModal);
+    }
+
+    // Refresh purchases button
+    const btnRefreshPurchases = $$('#btn-refresh-purchases');
+    if (btnRefreshPurchases) {
+      btnRefreshPurchases.addEventListener('click', loadEquipmentPurchases);
+    }
+
+    // Search
+    const searchInput = $$('#equipment-search');
+    if (searchInput) {
+      let searchTimeout;
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          equipmentSearchQuery = e.target.value;
+          equipmentPage = 1;
+          loadEquipmentItems();
+        }, 500);
+      });
+    }
+
+    // Vendor filter
+    const vendorFilter = $$('#filter-equipment-vendor');
+    if (vendorFilter) {
+      vendorFilter.addEventListener('change', (e) => {
+        equipmentVendorFilter = e.target.value;
+        equipmentPage = 1;
+        loadEquipmentItems();
+      });
+    }
+
+    // Category filter
+    const categoryFilter = $$('#filter-equipment-category');
+    if (categoryFilter) {
+      categoryFilter.addEventListener('change', (e) => {
+        equipmentCategoryFilter = e.target.value;
+        equipmentPage = 1;
+        loadEquipmentItems();
+      });
+    }
+
+    // Pagination
+    const btnPrev = $$('#btn-equipment-prev');
+    const btnNext = $$('#btn-equipment-next');
+
+    if (btnPrev) {
+      btnPrev.addEventListener('click', () => {
+        if (equipmentPage > 1) {
+          equipmentPage--;
+          loadEquipmentItems();
+        }
+      });
+    }
+
+    if (btnNext) {
+      btnNext.addEventListener('click', () => {
+        const totalPages = Math.ceil(equipmentTotal / equipmentPerPage);
+        if (equipmentPage < totalPages) {
+          equipmentPage++;
+          loadEquipmentItems();
+        }
+      });
+    }
+
+    console.log('✅ Equipment Tab v23.4.0 initialized');
+  }
+
+  /**
+   * Load all equipment data
+   */
+  async function loadEquipmentData() {
+    await Promise.all([
+      loadEquipmentStats(),
+      loadEquipmentItems(),
+      loadEquipmentVendors(),
+      loadEquipmentPurchases()
+    ]);
+  }
+
+  /**
+   * Load equipment statistics
+   */
+  async function loadEquipmentStats() {
+    try {
+      const response = await fetchJSON('/api/equipment/stats');
+      if (response.success) {
+        const stats = response.stats;
+        const el = (id) => document.getElementById(id);
+        if (el('equipment-total-items')) el('equipment-total-items').textContent = stats.totalItems || 0;
+        if (el('equipment-total-value')) el('equipment-total-value').textContent = '$' + (stats.totalValue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        if (el('equipment-vendors-count')) el('equipment-vendors-count').textContent = stats.vendorCount || 0;
+        if (el('equipment-capital-assets')) el('equipment-capital-assets').textContent = stats.capitalAssets || 0;
+      }
+    } catch (error) {
+      console.error('Failed to load equipment stats:', error);
+    }
+  }
+
+  /**
+   * Load equipment items
+   */
+  async function loadEquipmentItems() {
+    const tbody = $$('#equipment-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center"><div class="spinner"></div> Loading equipment items...</td></tr>';
+
+    try {
+      const offset = (equipmentPage - 1) * equipmentPerPage;
+      const params = new URLSearchParams({
+        limit: equipmentPerPage,
+        offset: offset,
+        item_type: 'equipment'
+      });
+
+      if (equipmentSearchQuery) params.append('q', equipmentSearchQuery);
+      if (equipmentVendorFilter) params.append('vendor_id', equipmentVendorFilter);
+      if (equipmentCategoryFilter) params.append('category', equipmentCategoryFilter);
+
+      const response = await fetchJSON(`/api/equipment/items?${params.toString()}`);
+
+      if (response.success) {
+        equipmentTotal = response.total || 0;
+        renderEquipmentTable(response.items || []);
+        updateEquipmentPagination();
+      } else {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Failed to load equipment items</td></tr>';
+      }
+    } catch (error) {
+      console.error('Failed to load equipment items:', error);
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Error: ${error.message}</td></tr>`;
+    }
+  }
+
+  /**
+   * Render equipment table
+   */
+  function renderEquipmentTable(items) {
+    const tbody = $$('#equipment-tbody');
+    if (!tbody) return;
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center">No equipment items found. Add equipment or adjust filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => `
+      <tr data-id="${item.id}">
+        <td>${escapeHtml(item.supplier_item_code || item.item_code || '--')}</td>
+        <td>${escapeHtml(item.description || item.supplier_description || '--')}</td>
+        <td>${escapeHtml(item.supplier_name || '--')}</td>
+        <td>${escapeHtml(item.manufacturer || '--')}</td>
+        <td>${escapeHtml(item.model_number || '--')}</td>
+        <td>${escapeHtml(item.category || item.supplier_category || '--')}</td>
+        <td>${item.unit_price_cents ? '$' + (item.unit_price_cents / 100).toFixed(2) : '--'}</td>
+        <td>${item.quantity || 1}</td>
+        <td>${item.unit_price_cents ? '$' + ((item.unit_price_cents / 100) * (item.quantity || 1)).toFixed(2) : '--'}</td>
+        <td>
+          <button type="button" class="btn btn-xs btn-secondary" onclick="editEquipmentItem(${item.id})">Edit</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  /**
+   * Update equipment pagination
+   */
+  function updateEquipmentPagination() {
+    const totalPages = Math.ceil(equipmentTotal / equipmentPerPage) || 1;
+    const info = $$('#equipment-pagination-info');
+    const btnPrev = $$('#btn-equipment-prev');
+    const btnNext = $$('#btn-equipment-next');
+
+    if (info) info.textContent = `Page ${equipmentPage} of ${totalPages} (${equipmentTotal} items)`;
+    if (btnPrev) btnPrev.disabled = equipmentPage <= 1;
+    if (btnNext) btnNext.disabled = equipmentPage >= totalPages;
+  }
+
+  /**
+   * Load equipment vendors
+   */
+  async function loadEquipmentVendors() {
+    const grid = $$('#equipment-vendors-grid');
+    const vendorSelect = $$('#filter-equipment-vendor');
+
+    try {
+      const response = await fetchJSON('/api/equipment/vendors');
+
+      if (response.success) {
+        const vendors = response.vendors || [];
+
+        // Update vendor filter dropdown
+        if (vendorSelect) {
+          const currentValue = vendorSelect.value;
+          vendorSelect.innerHTML = '<option value="">All Vendors</option>' +
+            vendors.map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join('');
+          vendorSelect.value = currentValue;
+        }
+
+        // Update vendor grid
+        if (grid) {
+          if (vendors.length === 0) {
+            grid.innerHTML = '<div class="text-center">No equipment vendors found.</div>';
+            return;
+          }
+
+          grid.innerHTML = vendors.map(vendor => `
+            <div class="card stat-card">
+              <div class="stat-value">${escapeHtml(vendor.name)}</div>
+              <div class="stat-label">${vendor.item_count || 0} items</div>
+              <div class="text-muted" style="font-size: 11px;">
+                ${vendor.website ? `<a href="${escapeHtml(vendor.website)}" target="_blank">Website</a>` : 'No website'}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load equipment vendors:', error);
+      if (grid) grid.innerHTML = '<div class="text-danger">Failed to load vendors</div>';
+    }
+  }
+
+  /**
+   * Load recent equipment purchases
+   */
+  async function loadEquipmentPurchases() {
+    const tbody = $$('#equipment-purchases-tbody');
+    if (!tbody) return;
+
+    try {
+      const response = await fetchJSON('/api/equipment/purchases?limit=10');
+
+      if (response.success) {
+        const purchases = response.purchases || [];
+
+        if (purchases.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center">No recent equipment purchases found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = purchases.map(p => `
+          <tr>
+            <td>${p.order_date ? new Date(p.order_date).toLocaleDateString() : '--'}</td>
+            <td>${escapeHtml(p.order_number || '--')}</td>
+            <td>${escapeHtml(p.vendor_name || '--')}</td>
+            <td>${p.total_lines || 0}</td>
+            <td>$${((p.total_cents || 0) / 100).toFixed(2)}</td>
+            <td><span class="badge badge-${p.status === 'received' ? 'success' : 'info'}">${p.status || 'new'}</span></td>
+          </tr>
+        `).join('');
+      }
+    } catch (error) {
+      console.error('Failed to load equipment purchases:', error);
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load purchases</td></tr>';
+    }
+  }
+
+  /**
+   * Show add equipment modal (placeholder)
+   */
+  function showAddEquipmentModal() {
+    alert('Add Equipment Item - Coming soon!\n\nThis will allow you to manually add equipment items to the catalog.');
+  }
+
+  /**
+   * Show add equipment vendor modal (placeholder)
+   */
+  function showAddEquipmentVendorModal() {
+    alert('Add Equipment Vendor - Coming soon!\n\nThis will allow you to add new equipment vendors.');
+  }
+
+  /**
+   * Export equipment to CSV
+   */
+  async function exportEquipmentCSV() {
+    try {
+      const params = new URLSearchParams({ item_type: 'equipment' });
+      if (equipmentSearchQuery) params.append('q', equipmentSearchQuery);
+      if (equipmentVendorFilter) params.append('vendor_id', equipmentVendorFilter);
+      if (equipmentCategoryFilter) params.append('category', equipmentCategoryFilter);
+
+      const response = await authFetch(`/api/equipment/export-csv?${params.toString()}`);
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `equipment-export-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        throw new Error('Export failed');
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export equipment data: ' + error.message);
+    }
+  }
+
+  /**
+   * Edit equipment item (placeholder)
+   */
+  function editEquipmentItem(id) {
+    alert(`Edit Equipment Item ${id} - Coming soon!`);
+  }
+
+  // Helper: escape HTML
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Expose to global scope
+  window.loadEquipmentData = loadEquipmentData;
+  window.loadEquipmentItems = loadEquipmentItems;
+  window.loadEquipmentVendors = loadEquipmentVendors;
+  window.loadEquipmentPurchases = loadEquipmentPurchases;
+  window.editEquipmentItem = editEquipmentItem;
+  window.initEquipmentTab = initializeEquipmentTab;
+
+})();
 
 // ============================================================================
 // HEALTH MONITORING INITIALIZATION
