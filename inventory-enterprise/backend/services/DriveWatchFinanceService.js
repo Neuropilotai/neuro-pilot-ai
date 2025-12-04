@@ -624,6 +624,472 @@ class DriveWatchFinanceService {
       return { success: false, error: error.message };
     }
   }
+
+  // ============================================================================
+  // V23.6.2: Content Hashing & Duplicate Detection
+  // ============================================================================
+
+  /**
+   * Compute SHA-256 hash of file content
+   * @param {Buffer} buffer - File content buffer
+   * @returns {string} SHA-256 hash
+   */
+  computeContentHash(buffer) {
+    const crypto = require('crypto');
+    return crypto.createHash('sha256').update(buffer).digest('hex');
+  }
+
+  /**
+   * Compute text fingerprint (hash of extracted text, ignores formatting)
+   * @param {string} text - Extracted text content
+   * @returns {string} SHA-256 hash of normalized text
+   */
+  computeTextFingerprint(text) {
+    if (!text) return null;
+    const crypto = require('crypto');
+    // Normalize: lowercase, remove extra whitespace, remove non-alphanumeric except periods/dashes
+    const normalized = text
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[^a-z0-9.\-\s]/g, '')
+      .trim();
+    return crypto.createHash('sha256').update(normalized).digest('hex');
+  }
+
+  /**
+   * Download file and compute hashes
+   * @param {string} googleFileId - Google Drive file ID
+   * @returns {Object} Hash results
+   */
+  async computeFileHashes(googleFileId) {
+    await this.initDriveService();
+
+    try {
+      // Download file content
+      const { buffer, text } = await this.driveService.downloadFileWithText(googleFileId);
+
+      if (!buffer) {
+        return { success: false, error: 'Could not download file' };
+      }
+
+      const contentHash = this.computeContentHash(buffer);
+      const textFingerprint = text ? this.computeTextFingerprint(text) : null;
+
+      return {
+        success: true,
+        contentHash,
+        contentHashShort: contentHash.substring(0, 16),
+        textFingerprint,
+        fileSize: buffer.length
+      };
+
+    } catch (error) {
+      console.error('[DriveWatch] Compute hashes error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Find potential duplicates for a file
+   * @param {number} watchId - drive_files_watch.id
+   * @returns {Array} List of potential duplicates
+   */
+  async findDuplicates(watchId) {
+    const db = getPool();
+
+    try {
+      // Use the SQL function we created in migration
+      const result = await db.query(`
+        SELECT * FROM find_file_duplicates($1, $2)
+      `, [this.orgId, watchId]);
+
+      return {
+        success: true,
+        duplicates: result.rows.map(row => ({
+          watchId: row.duplicate_id,
+          fileName: row.file_name,
+          matchType: row.match_type,
+          matchConfidence: parseFloat(row.match_confidence)
+        }))
+      };
+
+    } catch (error) {
+      // If function doesn't exist yet, fall back to manual query
+      if (error.message.includes('does not exist')) {
+        return await this.findDuplicatesManual(watchId);
+      }
+      console.error('[DriveWatch] Find duplicates error:', error.message);
+      return { success: false, error: error.message, duplicates: [] };
+    }
+  }
+
+  /**
+   * Manual duplicate detection (fallback if SQL function not available)
+   * @param {number} watchId - drive_files_watch.id
+   * @returns {Array} List of potential duplicates
+   */
+  async findDuplicatesManual(watchId) {
+    const db = getPool();
+
+    try {
+      // Get the reference file
+      const refResult = await db.query(`
+        SELECT content_hash, text_fingerprint, google_file_name, detected_vendor, period_hint, file_size_bytes
+        FROM drive_files_watch
+        WHERE id = $1 AND org_id = $2
+      `, [watchId, this.orgId]);
+
+      if (refResult.rows.length === 0) {
+        return { success: false, error: 'File not found', duplicates: [] };
+      }
+
+      const ref = refResult.rows[0];
+      const duplicates = [];
+
+      // Find exact content hash matches
+      if (ref.content_hash) {
+        const hashMatches = await db.query(`
+          SELECT id, google_file_name, 'exact_hash' as match_type, 1.0 as match_confidence
+          FROM drive_files_watch
+          WHERE org_id = $1 AND id != $2 AND content_hash = $3 AND process_status != 'duplicate'
+        `, [this.orgId, watchId, ref.content_hash]);
+
+        duplicates.push(...hashMatches.rows);
+      }
+
+      // Find text fingerprint matches
+      if (ref.text_fingerprint) {
+        const textMatches = await db.query(`
+          SELECT id, google_file_name, 'text_fingerprint' as match_type, 0.95 as match_confidence
+          FROM drive_files_watch
+          WHERE org_id = $1 AND id != $2 AND text_fingerprint = $3
+            AND content_hash IS DISTINCT FROM $4
+            AND process_status != 'duplicate'
+        `, [this.orgId, watchId, ref.text_fingerprint, ref.content_hash]);
+
+        duplicates.push(...textMatches.rows);
+      }
+
+      // Find vendor + period + similar size matches
+      if (ref.detected_vendor && ref.period_hint && ref.file_size_bytes) {
+        const metaMatches = await db.query(`
+          SELECT id, google_file_name, 'vendor_period_match' as match_type, 0.75 as match_confidence
+          FROM drive_files_watch
+          WHERE org_id = $1 AND id != $2
+            AND detected_vendor = $3 AND period_hint = $4
+            AND file_size_bytes IS NOT NULL
+            AND ABS(file_size_bytes - $5) < ($5 * 0.05)
+            AND content_hash IS DISTINCT FROM $6
+            AND text_fingerprint IS DISTINCT FROM $7
+            AND process_status != 'duplicate'
+        `, [this.orgId, watchId, ref.detected_vendor, ref.period_hint, ref.file_size_bytes, ref.content_hash, ref.text_fingerprint]);
+
+        duplicates.push(...metaMatches.rows);
+      }
+
+      return {
+        success: true,
+        duplicates: duplicates.map(row => ({
+          watchId: row.id,
+          fileName: row.google_file_name,
+          matchType: row.match_type,
+          matchConfidence: parseFloat(row.match_confidence)
+        }))
+      };
+
+    } catch (error) {
+      console.error('[DriveWatch] Manual duplicate search error:', error.message);
+      return { success: false, error: error.message, duplicates: [] };
+    }
+  }
+
+  /**
+   * Mark a file as a duplicate
+   * @param {number} duplicateId - ID of the duplicate file
+   * @param {number} canonicalId - ID of the canonical (master) file
+   * @param {string} matchType - How the duplicate was detected
+   * @param {string} resolvedBy - User who confirmed
+   * @returns {Object} Result
+   */
+  async markAsDuplicate(duplicateId, canonicalId, matchType, resolvedBy = 'system') {
+    const db = getPool();
+
+    try {
+      // Record the duplicate relationship
+      await db.query(`
+        INSERT INTO file_duplicates (org_id, canonical_file_id, duplicate_file_id, match_type, match_confidence, resolution_status, resolved_by, resolved_at)
+        VALUES ($1, $2, $3, $4, $5, 'confirmed', $6, CURRENT_TIMESTAMP)
+        ON CONFLICT (canonical_file_id, duplicate_file_id)
+        DO UPDATE SET resolution_status = 'confirmed', resolved_by = $6, resolved_at = CURRENT_TIMESTAMP
+      `, [
+        this.orgId, canonicalId, duplicateId, matchType,
+        matchType === 'exact_hash' ? 1.0 : matchType === 'text_fingerprint' ? 0.95 : 0.75,
+        resolvedBy
+      ]);
+
+      // Update the duplicate file's status
+      await db.query(`
+        UPDATE drive_files_watch
+        SET process_status = 'duplicate', duplicate_of_id = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2 AND org_id = $3
+      `, [canonicalId, duplicateId, this.orgId]);
+
+      console.log(`[DriveWatch] Marked file ${duplicateId} as duplicate of ${canonicalId}`);
+
+      return { success: true };
+
+    } catch (error) {
+      console.error('[DriveWatch] Mark duplicate error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get all potential duplicates in the system
+   * @returns {Array} Groups of potential duplicates
+   */
+  async getAllPotentialDuplicates() {
+    const db = getPool();
+
+    try {
+      // Find files with matching content hashes
+      const hashDupes = await db.query(`
+        SELECT
+          content_hash,
+          array_agg(id) as file_ids,
+          array_agg(google_file_name) as file_names,
+          COUNT(*) as count
+        FROM drive_files_watch
+        WHERE org_id = $1 AND content_hash IS NOT NULL AND process_status != 'duplicate'
+        GROUP BY content_hash
+        HAVING COUNT(*) > 1
+        ORDER BY COUNT(*) DESC
+      `, [this.orgId]);
+
+      // Find files with matching text fingerprints (but different content hashes)
+      const textDupes = await db.query(`
+        SELECT
+          text_fingerprint,
+          array_agg(id) as file_ids,
+          array_agg(google_file_name) as file_names,
+          COUNT(*) as count
+        FROM drive_files_watch
+        WHERE org_id = $1 AND text_fingerprint IS NOT NULL AND process_status != 'duplicate'
+        GROUP BY text_fingerprint
+        HAVING COUNT(*) > 1
+        ORDER BY COUNT(*) DESC
+      `, [this.orgId]);
+
+      // Find files with matching vendor + period
+      const metaDupes = await db.query(`
+        SELECT
+          detected_vendor || '_' || period_hint as group_key,
+          detected_vendor,
+          period_hint,
+          array_agg(id) as file_ids,
+          array_agg(google_file_name) as file_names,
+          COUNT(*) as count
+        FROM drive_files_watch
+        WHERE org_id = $1 AND detected_vendor IS NOT NULL AND period_hint IS NOT NULL
+          AND process_status != 'duplicate'
+        GROUP BY detected_vendor, period_hint
+        HAVING COUNT(*) > 1
+        ORDER BY COUNT(*) DESC
+      `, [this.orgId]);
+
+      return {
+        success: true,
+        duplicateGroups: {
+          exactHash: hashDupes.rows.map(row => ({
+            matchType: 'exact_hash',
+            matchConfidence: 1.0,
+            fileIds: row.file_ids,
+            fileNames: row.file_names,
+            count: parseInt(row.count)
+          })),
+          textFingerprint: textDupes.rows.map(row => ({
+            matchType: 'text_fingerprint',
+            matchConfidence: 0.95,
+            fileIds: row.file_ids,
+            fileNames: row.file_names,
+            count: parseInt(row.count)
+          })),
+          vendorPeriod: metaDupes.rows.map(row => ({
+            matchType: 'vendor_period_match',
+            matchConfidence: 0.75,
+            vendor: row.detected_vendor,
+            period: row.period_hint,
+            fileIds: row.file_ids,
+            fileNames: row.file_names,
+            count: parseInt(row.count)
+          }))
+        },
+        totalExactDuplicates: hashDupes.rows.reduce((sum, r) => sum + parseInt(r.count) - 1, 0),
+        totalPotentialDuplicates: textDupes.rows.reduce((sum, r) => sum + parseInt(r.count) - 1, 0) +
+                                  metaDupes.rows.reduce((sum, r) => sum + parseInt(r.count) - 1, 0)
+      };
+
+    } catch (error) {
+      console.error('[DriveWatch] Get duplicates error:', error.message);
+      return { success: false, error: error.message, duplicateGroups: {} };
+    }
+  }
+
+  /**
+   * Process a file: download, hash, check duplicates, and parse
+   * @param {number} watchId - drive_files_watch.id
+   * @returns {Object} Processing result
+   */
+  async processFileWithDuplicateCheck(watchId) {
+    const db = getPool();
+
+    try {
+      // Get file info
+      const fileResult = await db.query(`
+        SELECT google_file_id, google_file_name, content_hash
+        FROM drive_files_watch
+        WHERE id = $1 AND org_id = $2
+      `, [watchId, this.orgId]);
+
+      if (fileResult.rows.length === 0) {
+        return { success: false, error: 'File not found' };
+      }
+
+      const file = fileResult.rows[0];
+
+      // Compute hashes if not already done
+      if (!file.content_hash) {
+        const hashResult = await this.computeFileHashes(file.google_file_id);
+
+        if (hashResult.success) {
+          await db.query(`
+            UPDATE drive_files_watch
+            SET content_hash = $1, content_hash_short = $2, text_fingerprint = $3, file_size_bytes = $4
+            WHERE id = $5
+          `, [hashResult.contentHash, hashResult.contentHashShort, hashResult.textFingerprint, hashResult.fileSize, watchId]);
+        }
+      }
+
+      // Check for duplicates
+      const dupResult = await this.findDuplicates(watchId);
+
+      if (dupResult.success && dupResult.duplicates.length > 0) {
+        // Found potential duplicates - check if any are exact matches
+        const exactMatch = dupResult.duplicates.find(d => d.matchType === 'exact_hash');
+
+        if (exactMatch) {
+          // Auto-mark as duplicate
+          await this.markAsDuplicate(watchId, exactMatch.watchId, 'exact_hash', 'auto_detect');
+          return {
+            success: true,
+            action: 'marked_duplicate',
+            duplicateOf: exactMatch.watchId,
+            message: `File is exact duplicate of ${exactMatch.fileName}`
+          };
+        }
+
+        // For non-exact matches, create a question for human review
+        const FinanceReportAgent = require('./FinanceReportAgent');
+        const agent = new FinanceReportAgent({ orgId: this.orgId, userId: this.userId });
+
+        await agent.createFinanceQuestion({
+          driveWatchId: watchId,
+          googleFileId: file.google_file_id,
+          questionType: 'potential_duplicate',
+          questionText: `This file may be a duplicate. Found ${dupResult.duplicates.length} similar file(s). Please review.`,
+          systemGuess: `Similar to: ${dupResult.duplicates.map(d => d.fileName).join(', ')}`,
+          confidence: dupResult.duplicates[0].matchConfidence,
+          options: ['Keep this file', 'Mark as duplicate', 'Keep both'],
+          context: {
+            fileName: file.google_file_name,
+            potentialDuplicates: dupResult.duplicates
+          },
+          priority: 'high'
+        });
+
+        return {
+          success: true,
+          action: 'needs_review',
+          potentialDuplicates: dupResult.duplicates,
+          message: 'File may be a duplicate - created question for human review'
+        };
+      }
+
+      // No duplicates - proceed with normal processing
+      return {
+        success: true,
+        action: 'ready_to_parse',
+        message: 'No duplicates found, file ready for parsing'
+      };
+
+    } catch (error) {
+      console.error('[DriveWatch] Process with duplicate check error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Batch compute hashes for all files without hashes
+   * @param {number} limit - Max files to process
+   * @returns {Object} Batch result
+   */
+  async batchComputeHashes(limit = 50) {
+    const db = getPool();
+
+    try {
+      // Get files without content hashes
+      const files = await db.query(`
+        SELECT id, google_file_id, google_file_name
+        FROM drive_files_watch
+        WHERE org_id = $1 AND content_hash IS NULL AND process_status != 'duplicate'
+        ORDER BY first_seen_at DESC
+        LIMIT $2
+      `, [this.orgId, limit]);
+
+      const results = {
+        processed: 0,
+        success: 0,
+        failed: 0,
+        errors: []
+      };
+
+      for (const file of files.rows) {
+        results.processed++;
+
+        try {
+          const hashResult = await this.computeFileHashes(file.google_file_id);
+
+          if (hashResult.success) {
+            await db.query(`
+              UPDATE drive_files_watch
+              SET content_hash = $1, content_hash_short = $2, text_fingerprint = $3, file_size_bytes = $4
+              WHERE id = $5
+            `, [hashResult.contentHash, hashResult.contentHashShort, hashResult.textFingerprint, hashResult.fileSize, file.id]);
+
+            results.success++;
+          } else {
+            results.failed++;
+            results.errors.push({ fileId: file.id, error: hashResult.error });
+          }
+
+        } catch (err) {
+          results.failed++;
+          results.errors.push({ fileId: file.id, error: err.message });
+        }
+      }
+
+      console.log(`[DriveWatch] Batch hash: ${results.success}/${results.processed} succeeded`);
+
+      return {
+        success: true,
+        ...results
+      };
+
+    } catch (error) {
+      console.error('[DriveWatch] Batch hash error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 module.exports = DriveWatchFinanceService;

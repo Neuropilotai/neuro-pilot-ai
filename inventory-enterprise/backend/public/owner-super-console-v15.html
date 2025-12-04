@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Owner Super Console | NeuroInnovate V21.1</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="css/owner-super.css?v=23.6.0">
+  <link rel="stylesheet" href="css/owner-super.css?v=23.6.2">
 </head>
 <body>
   <header>
@@ -1308,6 +1308,31 @@
         </div>
       </div>
 
+      <!-- Duplicate Detection (V23.6.2) -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">🔍 Zero Duplicates</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="loadDuplicates()">↻ Scan</button>
+        </div>
+        <div class="card-body">
+          <div id="fb-duplicates-summary" style="margin-bottom: 1rem;">
+            <div class="row" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+              <div class="stat-card" style="flex: 1; min-width: 120px; background: #fef3cd; border-radius: 4px; padding: 0.5rem;">
+                <div class="stat-value" id="fb-exact-dupes">0</div>
+                <div class="stat-label">Exact Duplicates</div>
+              </div>
+              <div class="stat-card" style="flex: 1; min-width: 120px; background: #fff3cd; border-radius: 4px; padding: 0.5rem;">
+                <div class="stat-value" id="fb-possible-dupes">0</div>
+                <div class="stat-label">Possible Duplicates</div>
+              </div>
+            </div>
+          </div>
+          <div id="fb-duplicates-list">
+            <p style="color: #666;"><em>Click "Scan" to check for duplicate files.</em></p>
+          </div>
+        </div>
+      </div>
+
       <!-- Open Questions for Human Review -->
       <div class="card card-cognitive">
         <div class="card-header">
@@ -2404,15 +2429,15 @@
   </script>
 
   <!-- v21.1: Centralized Config -->
-  <script src="js/config.js?v=23.6.0"></script>
+  <script src="js/config.js?v=23.6.2"></script>
 
   <!-- v15.5.0: RBAC Client -->
-  <script src="js/rbac-client.js?v=23.6.0"></script>
+  <script src="js/rbac-client.js?v=23.6.2"></script>
 
   <!-- v14.3: Shared Console Core (Zero Drift) -->
-  <script src="js/owner-console-core.js?v=23.6.0"></script>
+  <script src="js/owner-console-core.js?v=23.6.2"></script>
 
   <!-- v23.4: PDF invoice date field name fix -->
-  <script src="js/owner-super-console.js?v=23.6.0"></script>
+  <script src="js/owner-super-console.js?v=23.6.2"></script>
 </body>
 </html>

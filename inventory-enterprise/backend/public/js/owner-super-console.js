@@ -13236,15 +13236,130 @@ window.initShrinkageTab = initShrinkageTab;
       .replace(/"/g, '&quot;');
   }
 
+  /**
+   * Load duplicate detection data
+   */
+  async function loadDuplicates() {
+    const listEl = document.getElementById('fb-duplicates-list');
+
+    try {
+      listEl.innerHTML = '<em>Scanning for duplicates...</em>';
+
+      const result = await fetchAPI('/api/owner/finance/drivewatch/duplicates');
+
+      if (!result || !result.duplicateGroups) {
+        listEl.innerHTML = '<p style="color:#666;"><em>No duplicates found.</em></p>';
+        return;
+      }
+
+      const { duplicateGroups, totalExactDuplicates, totalPotentialDuplicates } = result;
+
+      // Update stats
+      document.getElementById('fb-exact-dupes').textContent = totalExactDuplicates || 0;
+      document.getElementById('fb-possible-dupes').textContent = totalPotentialDuplicates || 0;
+
+      // Render duplicate groups
+      let html = '';
+
+      // Exact hash duplicates (highest priority)
+      if (duplicateGroups.exactHash && duplicateGroups.exactHash.length > 0) {
+        html += '<div style="margin-bottom: 1rem;"><strong style="color:#dc3545;">🔴 Exact Duplicates (100% match)</strong>';
+        for (const group of duplicateGroups.exactHash) {
+          html += `<div class="card" style="margin: 0.5rem 0; padding: 0.5rem; background: #f8d7da;">
+            <strong>${group.count} identical files:</strong><br>
+            ${group.fileNames.map((name, i) => `
+              <span style="display:inline-block; margin:2px;">
+                📄 ${escapeHtml(name)}
+                ${i > 0 ? `<button class="btn btn-xs btn-danger" onclick="markAsDuplicate(${group.fileIds[i]}, ${group.fileIds[0]}, 'exact_hash')">Remove</button>` : '<small>(keep)</small>'}
+              </span><br>
+            `).join('')}
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      // Text fingerprint matches (same content, different file)
+      if (duplicateGroups.textFingerprint && duplicateGroups.textFingerprint.length > 0) {
+        html += '<div style="margin-bottom: 1rem;"><strong style="color:#ffc107;">🟡 Same Content (95% match)</strong>';
+        for (const group of duplicateGroups.textFingerprint) {
+          html += `<div class="card" style="margin: 0.5rem 0; padding: 0.5rem; background: #fff3cd;">
+            <strong>${group.count} files with same content:</strong><br>
+            ${group.fileNames.map((name, i) => `
+              <span style="display:inline-block; margin:2px;">
+                📄 ${escapeHtml(name)}
+                ${i > 0 ? `<button class="btn btn-xs btn-warning" onclick="markAsDuplicate(${group.fileIds[i]}, ${group.fileIds[0]}, 'text_fingerprint')">Mark Dupe</button>` : '<small>(canonical)</small>'}
+              </span><br>
+            `).join('')}
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      // Vendor + period matches (potential duplicates)
+      if (duplicateGroups.vendorPeriod && duplicateGroups.vendorPeriod.length > 0) {
+        html += '<div style="margin-bottom: 1rem;"><strong style="color:#17a2b8;">🔵 Same Vendor & Period (review)</strong>';
+        for (const group of duplicateGroups.vendorPeriod.slice(0, 5)) {
+          html += `<div class="card" style="margin: 0.5rem 0; padding: 0.5rem; background: #d1ecf1;">
+            <strong>${group.vendor} - ${group.period} (${group.count} files):</strong><br>
+            ${group.fileNames.slice(0, 5).map((name, i) => `
+              <span style="display:inline-block; margin:2px;">📄 ${escapeHtml(name)}</span><br>
+            `).join('')}
+            ${group.fileNames.length > 5 ? `<small>...and ${group.fileNames.length - 5} more</small>` : ''}
+          </div>`;
+        }
+        html += '</div>';
+      }
+
+      if (!html) {
+        html = '<p style="color:green;"><strong>✅ No duplicates found!</strong> All files are unique.</p>';
+      }
+
+      listEl.innerHTML = html;
+
+    } catch (err) {
+      console.error('Load duplicates error:', err);
+      listEl.innerHTML = `<span style="color:red;">❌ Error: ${err.message}</span>`;
+    }
+  }
+
+  /**
+   * Mark a file as a duplicate
+   */
+  async function markAsDuplicate(duplicateId, canonicalId, matchType) {
+    if (!confirm(`Mark file as duplicate and remove from processing?`)) {
+      return;
+    }
+
+    try {
+      const result = await fetchAPI(`/api/owner/finance/drivewatch/files/${duplicateId}/mark-duplicate`, {
+        method: 'POST',
+        body: JSON.stringify({ canonicalId, matchType })
+      });
+
+      if (result && result.success) {
+        alert('File marked as duplicate');
+        loadDuplicates();
+        loadFinanceBrainData();
+      } else {
+        alert('Failed to mark as duplicate: ' + (result?.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Mark duplicate error:', err);
+      alert('Error: ' + err.message);
+    }
+  }
+
   // Expose to global scope
   window.loadFinanceBrainData = loadFinanceBrainData;
   window.syncDriveWatch = syncDriveWatch;
   window.retryParseFile = retryParseFile;
   window.answerQuestion = answerQuestion;
+  window.loadDuplicates = loadDuplicates;
+  window.markAsDuplicate = markAsDuplicate;
 
 })();
 
-console.log('✅ Finance Brain v23.6.0 loaded (DriveWatch Monitor)');
+console.log('✅ Finance Brain v23.6.2 loaded (DriveWatch + Zero Duplicates)');
 
 // ============================================================================
 // HEALTH MONITORING INITIALIZATION

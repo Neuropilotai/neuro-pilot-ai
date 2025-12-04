@@ -749,4 +749,382 @@ router.get('/drivewatch/stats', async (req, res) => {
   }
 });
 
+// ============================================
+// V23.6.2: DUPLICATE DETECTION ENDPOINTS
+// ============================================
+
+/**
+ * GET /api/owner/finance/drivewatch/duplicates
+ * Get all potential duplicates in the system
+ */
+router.get('/drivewatch/duplicates', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+
+    if (!DriveWatchFinanceService) {
+      return res.status(503).json({
+        success: false,
+        error: 'DriveWatch service not available',
+        code: 'SERVICE_UNAVAILABLE'
+      });
+    }
+
+    const service = new DriveWatchFinanceService({
+      orgId,
+      userId: getUserId(req)
+    });
+
+    const result = await service.getAllPotentialDuplicates();
+
+    res.json({
+      success: true,
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[FinanceMonitor] Get duplicates error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get duplicates',
+      code: 'DUPLICATES_ERROR'
+    });
+  }
+});
+
+/**
+ * GET /api/owner/finance/drivewatch/files/:id/duplicates
+ * Find duplicates for a specific file
+ */
+router.get('/drivewatch/files/:id/duplicates', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const watchId = parseInt(req.params.id);
+
+    if (isNaN(watchId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file ID',
+        code: 'INVALID_ID'
+      });
+    }
+
+    if (!DriveWatchFinanceService) {
+      return res.status(503).json({
+        success: false,
+        error: 'DriveWatch service not available',
+        code: 'SERVICE_UNAVAILABLE'
+      });
+    }
+
+    const service = new DriveWatchFinanceService({
+      orgId,
+      userId: getUserId(req)
+    });
+
+    const result = await service.findDuplicates(watchId);
+
+    res.json({
+      success: true,
+      watchId,
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[FinanceMonitor] Find duplicates error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to find duplicates',
+      code: 'FIND_DUPLICATES_ERROR'
+    });
+  }
+});
+
+/**
+ * POST /api/owner/finance/drivewatch/files/:id/mark-duplicate
+ * Mark a file as a duplicate of another
+ */
+router.post('/drivewatch/files/:id/mark-duplicate', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const duplicateId = parseInt(req.params.id);
+    const { canonicalId, matchType } = req.body;
+
+    if (isNaN(duplicateId) || isNaN(parseInt(canonicalId))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file IDs',
+        code: 'INVALID_ID'
+      });
+    }
+
+    if (!DriveWatchFinanceService) {
+      return res.status(503).json({
+        success: false,
+        error: 'DriveWatch service not available',
+        code: 'SERVICE_UNAVAILABLE'
+      });
+    }
+
+    const service = new DriveWatchFinanceService({
+      orgId,
+      userId: getUserId(req)
+    });
+
+    const result = await service.markAsDuplicate(
+      duplicateId,
+      parseInt(canonicalId),
+      matchType || 'manual',
+      getUserId(req)
+    );
+
+    res.json({
+      success: true,
+      ...result,
+      message: `File ${duplicateId} marked as duplicate of ${canonicalId}`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[FinanceMonitor] Mark duplicate error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to mark as duplicate',
+      code: 'MARK_DUPLICATE_ERROR'
+    });
+  }
+});
+
+/**
+ * POST /api/owner/finance/drivewatch/files/:id/hash
+ * Compute content hash for a file
+ */
+router.post('/drivewatch/files/:id/hash', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const watchId = parseInt(req.params.id);
+
+    if (isNaN(watchId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file ID',
+        code: 'INVALID_ID'
+      });
+    }
+
+    if (!DriveWatchFinanceService) {
+      return res.status(503).json({
+        success: false,
+        error: 'DriveWatch service not available',
+        code: 'SERVICE_UNAVAILABLE'
+      });
+    }
+
+    // Get the google file ID
+    const fileResult = await pool.query(`
+      SELECT google_file_id FROM drive_files_watch
+      WHERE id = $1 AND org_id = $2
+    `, [watchId, orgId]);
+
+    if (fileResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found',
+        code: 'NOT_FOUND'
+      });
+    }
+
+    const service = new DriveWatchFinanceService({
+      orgId,
+      userId: getUserId(req)
+    });
+
+    const result = await service.computeFileHashes(fileResult.rows[0].google_file_id);
+
+    if (result.success) {
+      // Update the database
+      await pool.query(`
+        UPDATE drive_files_watch
+        SET content_hash = $1, content_hash_short = $2, text_fingerprint = $3, file_size_bytes = $4
+        WHERE id = $5
+      `, [result.contentHash, result.contentHashShort, result.textFingerprint, result.fileSize, watchId]);
+    }
+
+    res.json({
+      success: true,
+      watchId,
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[FinanceMonitor] Compute hash error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to compute hash',
+      code: 'HASH_ERROR'
+    });
+  }
+});
+
+/**
+ * POST /api/owner/finance/drivewatch/batch-hash
+ * Batch compute hashes for files without hashes
+ */
+router.post('/drivewatch/batch-hash', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const { limit = 50 } = req.body;
+
+    if (!DriveWatchFinanceService) {
+      return res.status(503).json({
+        success: false,
+        error: 'DriveWatch service not available',
+        code: 'SERVICE_UNAVAILABLE'
+      });
+    }
+
+    const service = new DriveWatchFinanceService({
+      orgId,
+      userId: getUserId(req)
+    });
+
+    const result = await service.batchComputeHashes(Math.min(limit, 100));
+
+    res.json({
+      success: true,
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[FinanceMonitor] Batch hash error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to batch compute hashes',
+      code: 'BATCH_HASH_ERROR'
+    });
+  }
+});
+
+/**
+ * POST /api/owner/finance/drivewatch/files/:id/process-with-dedup
+ * Process a file with duplicate checking
+ */
+router.post('/drivewatch/files/:id/process-with-dedup', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const watchId = parseInt(req.params.id);
+
+    if (isNaN(watchId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file ID',
+        code: 'INVALID_ID'
+      });
+    }
+
+    if (!DriveWatchFinanceService) {
+      return res.status(503).json({
+        success: false,
+        error: 'DriveWatch service not available',
+        code: 'SERVICE_UNAVAILABLE'
+      });
+    }
+
+    const service = new DriveWatchFinanceService({
+      orgId,
+      userId: getUserId(req)
+    });
+
+    const result = await service.processFileWithDuplicateCheck(watchId);
+
+    res.json({
+      success: true,
+      watchId,
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[FinanceMonitor] Process with dedup error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process file',
+      code: 'PROCESS_ERROR'
+    });
+  }
+});
+
+/**
+ * GET /api/owner/finance/drivewatch/questions
+ * Get open questions (alias route for finance brain UI)
+ */
+router.get('/drivewatch/questions', async (req, res) => {
+  try {
+    const orgId = getOrgId(req);
+    const { type, vendor, status = 'open', limit = 50 } = req.query;
+
+    let whereClause = 'WHERE org_id = $1';
+    const params = [orgId];
+    let paramIndex = 2;
+
+    if (status) {
+      whereClause += ` AND status = $${paramIndex++}`;
+      params.push(status);
+    }
+    if (type) {
+      whereClause += ` AND question_type = $${paramIndex++}`;
+      params.push(type);
+    }
+    if (vendor) {
+      whereClause += ` AND vendor = $${paramIndex++}`;
+      params.push(vendor);
+    }
+
+    const result = await pool.query(`
+      SELECT
+        question_id as id,
+        question_type,
+        question_text,
+        file_name,
+        vendor,
+        period,
+        system_guess,
+        system_confidence,
+        options,
+        status,
+        priority,
+        created_at
+      FROM finance_questions
+      ${whereClause}
+      ORDER BY
+        CASE priority
+          WHEN 'urgent' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'normal' THEN 3
+          ELSE 4
+        END,
+        created_at ASC
+      LIMIT $${paramIndex}
+    `, [...params, limit]);
+
+    res.json({
+      success: true,
+      questions: result.rows,
+      total: result.rows.length,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[FinanceMonitor] Get questions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get questions',
+      code: 'QUESTIONS_ERROR'
+    });
+  }
+});
+
 module.exports = router;
