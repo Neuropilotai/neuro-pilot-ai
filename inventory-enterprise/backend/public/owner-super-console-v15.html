@@ -46,6 +46,7 @@
       <div class="tab" onclick="switchTab('forecast')">📈 Forecast</div>
       <div class="tab" onclick="switchTab('menu')">🍽️ Menu</div>
       <div class="tab" onclick="switchTab('financials')">💰 Financials</div>
+      <div class="tab" onclick="switchTab('finance-brain')">🧠 Finance Brain</div>
       <div class="tab" onclick="switchTab('item-bank')">🏦 Item Bank</div>
       <div class="tab" onclick="switchTab('governance')">⚛️ Governance</div>
       <div class="tab" onclick="switchTab('intelligence')">🔮 Intelligence</div>
@@ -1248,6 +1249,75 @@
         </div>
         <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()">📥 Export CSV</button>
         <div id="reportContent"></div>
+      </div>
+    </div>
+
+    <!-- Finance Brain Tab (V23.6.0) -->
+    <div id="finance-brain" class="tab-panel">
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">🧠 Finance Brain - DriveWatch Monitor</h3>
+          <button type="button" class="btn btn-sm btn-primary" onclick="syncDriveWatch()">🔄 Sync Now</button>
+        </div>
+        <div class="card-body">
+          <div class="row" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+            <div class="stat-card" style="flex: 1; min-width: 150px;">
+              <div class="stat-value" id="fb-total-files">-</div>
+              <div class="stat-label">Watched Files</div>
+            </div>
+            <div class="stat-card" style="flex: 1; min-width: 150px;">
+              <div class="stat-value" id="fb-parsed-ok">-</div>
+              <div class="stat-label">Parsed OK</div>
+            </div>
+            <div class="stat-card" style="flex: 1; min-width: 150px;">
+              <div class="stat-value" id="fb-needs-review">-</div>
+              <div class="stat-label">Needs Review</div>
+            </div>
+            <div class="stat-card" style="flex: 1; min-width: 150px;">
+              <div class="stat-value" id="fb-open-questions">-</div>
+              <div class="stat-label">Open Questions</div>
+            </div>
+          </div>
+          <div id="fb-sync-status" style="padding: 0.5rem; background: #f0f0f0; border-radius: 4px; margin-bottom: 1rem;">
+            <em>Click "Sync Now" to scan Google Drive for new finance files</em>
+          </div>
+        </div>
+      </div>
+
+      <!-- Watched Files Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📁 Watched Files</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="loadFinanceBrainData()">↻ Refresh</button>
+        </div>
+        <div class="card-body">
+          <table class="table" id="fb-files-table">
+            <thead>
+              <tr>
+                <th>File Name</th>
+                <th>Status</th>
+                <th>Confidence</th>
+                <th>Last Parsed</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="fb-files-body">
+              <tr><td colspan="5" style="text-align:center;">Click Refresh to load files</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Open Questions for Human Review -->
+      <div class="card card-cognitive">
+        <div class="card-header">
+          <h3 class="card-title">❓ Questions Needing Human Review</h3>
+        </div>
+        <div class="card-body">
+          <div id="fb-questions-list">
+            <p style="color: #666;"><em>No open questions. Files are being parsed automatically.</em></p>
+          </div>
+        </div>
       </div>
     </div>
 

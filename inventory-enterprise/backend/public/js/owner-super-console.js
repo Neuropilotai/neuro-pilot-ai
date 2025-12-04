@@ -13075,6 +13075,178 @@ window.initShrinkageTab = initShrinkageTab;
 })();
 
 // ============================================================================
+// FINANCE BRAIN / DRIVEWATCH v23.6.0
+// ============================================================================
+(function() {
+  'use strict';
+
+  /**
+   * Load Finance Brain data - watched files and open questions
+   */
+  async function loadFinanceBrainData() {
+    const statusEl = document.getElementById('fb-sync-status');
+    const filesBody = document.getElementById('fb-files-body');
+    const questionsEl = document.getElementById('fb-questions-list');
+
+    try {
+      statusEl.innerHTML = '<em>Loading finance data...</em>';
+
+      // Fetch watched files
+      const filesRes = await fetchAPI('/api/owner/finance/drivewatch/files');
+      const filesData = filesRes || { files: [] };
+      const files = filesData.files || [];
+
+      // Update stats
+      document.getElementById('fb-total-files').textContent = files.length;
+      document.getElementById('fb-parsed-ok').textContent = files.filter(f => f.parse_status === 'parsed').length;
+      document.getElementById('fb-needs-review').textContent = files.filter(f => f.parse_status === 'needs_review').length;
+
+      // Render files table
+      if (files.length === 0) {
+        filesBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#666;">No watched files yet. Click "Sync Now" to scan Google Drive.</td></tr>';
+      } else {
+        filesBody.innerHTML = files.map(f => `
+          <tr>
+            <td>${escapeHtml(f.file_name || f.fileName || 'Unknown')}</td>
+            <td><span class="badge badge-${getStatusColor(f.parse_status)}">${f.parse_status || 'pending'}</span></td>
+            <td>${f.confidence_score != null ? (f.confidence_score * 100).toFixed(0) + '%' : '-'}</td>
+            <td>${f.last_parsed_at ? new Date(f.last_parsed_at).toLocaleDateString() : '-'}</td>
+            <td>
+              ${f.parse_status === 'needs_review' ? `<button class="btn btn-xs btn-secondary" onclick="retryParseFile('${f.id}')">🔄 Retry</button>` : ''}
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // Fetch open questions
+      const questionsRes = await fetchAPI('/api/owner/finance/drivewatch/questions');
+      const questionsData = questionsRes || { questions: [] };
+      const questions = questionsData.questions || [];
+
+      document.getElementById('fb-open-questions').textContent = questions.filter(q => q.status === 'open').length;
+
+      if (questions.length === 0) {
+        questionsEl.innerHTML = '<p style="color:#666;"><em>No open questions. All files parsed successfully.</em></p>';
+      } else {
+        questionsEl.innerHTML = questions.map(q => `
+          <div class="card" style="margin-bottom: 0.5rem; padding: 0.75rem;">
+            <strong>${escapeHtml(q.question_text || q.question)}</strong>
+            <br><small style="color:#666;">File: ${escapeHtml(q.file_name || 'Unknown')} | Created: ${new Date(q.created_at).toLocaleDateString()}</small>
+            <br>
+            <input type="text" id="answer-${q.id}" placeholder="Your answer..." style="width:60%; margin-top:0.5rem;">
+            <button class="btn btn-xs btn-primary" onclick="answerQuestion('${q.id}')">Submit</button>
+          </div>
+        `).join('');
+      }
+
+      statusEl.innerHTML = '<span style="color:green;">✅ Data loaded successfully</span>';
+    } catch (err) {
+      console.error('Finance Brain load error:', err);
+      statusEl.innerHTML = `<span style="color:red;">❌ Error: ${err.message}</span>`;
+    }
+  }
+
+  /**
+   * Trigger DriveWatch sync
+   */
+  async function syncDriveWatch() {
+    const statusEl = document.getElementById('fb-sync-status');
+
+    try {
+      statusEl.innerHTML = '<em>🔄 Syncing with Google Drive...</em>';
+
+      const result = await fetchAPI('/api/owner/finance/drivewatch/sync', {
+        method: 'POST'
+      });
+
+      if (result && result.success) {
+        const msg = `✅ Sync complete! New: ${result.newFiles || 0}, Updated: ${result.updatedFiles || 0}, Parsed: ${result.parsedFiles || 0}`;
+        statusEl.innerHTML = `<span style="color:green;">${msg}</span>`;
+        // Reload data after sync
+        setTimeout(() => loadFinanceBrainData(), 1000);
+      } else {
+        statusEl.innerHTML = `<span style="color:orange;">⚠️ ${result?.message || 'Sync completed with warnings'}</span>`;
+      }
+    } catch (err) {
+      console.error('DriveWatch sync error:', err);
+      statusEl.innerHTML = `<span style="color:red;">❌ Sync failed: ${err.message}</span>`;
+    }
+  }
+
+  /**
+   * Retry parsing a specific file
+   */
+  async function retryParseFile(fileId) {
+    try {
+      await fetchAPI(`/api/owner/finance/drivewatch/files/${fileId}/retry`, {
+        method: 'POST'
+      });
+      loadFinanceBrainData();
+    } catch (err) {
+      console.error('Retry parse error:', err);
+      alert('Failed to retry: ' + err.message);
+    }
+  }
+
+  /**
+   * Submit answer to a human review question
+   */
+  async function answerQuestion(questionId) {
+    const input = document.getElementById(`answer-${questionId}`);
+    const answer = input?.value?.trim();
+
+    if (!answer) {
+      alert('Please enter an answer');
+      return;
+    }
+
+    try {
+      await fetchAPI(`/api/owner/finance/drivewatch/questions/${questionId}/answer`, {
+        method: 'POST',
+        body: JSON.stringify({ answer })
+      });
+      loadFinanceBrainData();
+    } catch (err) {
+      console.error('Answer question error:', err);
+      alert('Failed to submit answer: ' + err.message);
+    }
+  }
+
+  /**
+   * Get bootstrap color class for status
+   */
+  function getStatusColor(status) {
+    switch (status) {
+      case 'parsed': return 'success';
+      case 'needs_review': return 'warning';
+      case 'error': return 'danger';
+      default: return 'secondary';
+    }
+  }
+
+  /**
+   * Escape HTML to prevent XSS
+   */
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Expose to global scope
+  window.loadFinanceBrainData = loadFinanceBrainData;
+  window.syncDriveWatch = syncDriveWatch;
+  window.retryParseFile = retryParseFile;
+  window.answerQuestion = answerQuestion;
+
+})();
+
+console.log('✅ Finance Brain v23.6.0 loaded (DriveWatch Monitor)');
+
+// ============================================================================
 // HEALTH MONITORING INITIALIZATION
 // ============================================================================
 // Start health monitoring when page loads (defined in owner-console-core.js)
