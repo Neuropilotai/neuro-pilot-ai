@@ -7389,8 +7389,9 @@ async function loadFinancialData() {
 
     // Update financial accuracy value and color
     const accuracyValue = document.getElementById('financialAccuracyValue');
-    if (statusData.financial_accuracy !== null && statusData.financial_accuracy !== undefined) {
-      accuracyValue.textContent = `${statusData.financial_accuracy.toFixed(1)}%`;
+    const accuracy = parseFloat(statusData.financial_accuracy);
+    if (!isNaN(accuracy)) {
+      accuracyValue.textContent = `${accuracy.toFixed(1)}%`;
       accuracyValue.style.color = statusData.financial_accuracy_color === 'green' ? '#22c55e' :
                                    statusData.financial_accuracy_color === 'yellow' ? '#f59e0b' : '#ef4444';
     } else {
@@ -7598,8 +7599,9 @@ async function loadFinancialData() {
 
     // Update financial accuracy value and color
     const accuracyValue = document.getElementById('financialAccuracyValue');
-    if (statusData.financial_accuracy !== null && statusData.financial_accuracy !== undefined) {
-      accuracyValue.textContent = `${statusData.financial_accuracy.toFixed(1)}%`;
+    const accuracy = parseFloat(statusData.financial_accuracy);
+    if (!isNaN(accuracy)) {
+      accuracyValue.textContent = `${accuracy.toFixed(1)}%`;
       accuracyValue.style.color = statusData.financial_accuracy_color === 'green' ? '#22c55e' :
                                    statusData.financial_accuracy_color === 'yellow' ? '#f59e0b' : '#ef4444';
     } else {
