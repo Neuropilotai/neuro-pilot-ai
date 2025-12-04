@@ -1632,7 +1632,16 @@ console.log('[STARTUP] ✓ All routes registered');
 // ============================================
 
 // Serve static files from public directory (AFTER API routes)
-app.use(express.static(path.join(__dirname, 'public')));
+// Disable caching for HTML files to ensure version updates are immediate
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // 404 handler (catches everything not handled by routes or static files)
 app.use((req, res) => {
