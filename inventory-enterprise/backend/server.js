@@ -451,6 +451,10 @@ app.use('/api/menu', authenticateToken, requireOwnerDevice, menuRoutes);
 const inventoryReconcileRoutes = require('./routes/inventory-reconcile');
 app.use('/api/inventory', authenticateToken, requireOwnerDevice, inventoryReconcileRoutes);
 
+// P1 Hardening - BRANCH 3: Inventory Snapshots Read API
+const snapshotsRoutes = require('./routes/snapshots');
+app.use('/api/inventory', authenticateToken, resolveTenant, snapshotsRoutes);
+
 // v15.4.0 - Finance Workspace (KPIs, summaries, pivots, AI copilot)
 const financeRoutes = require('./routes/finance');
 app.use('/api/finance', authenticateToken, requireOwnerDevice, financeRoutes);
