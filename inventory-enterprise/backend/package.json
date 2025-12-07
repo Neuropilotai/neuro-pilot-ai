@@ -25,6 +25,7 @@
     "test:all": "npm run test:aiops && npm run test:generative && npm run test:integration && npm run test:menu",
     "lint": "eslint .",
     "backup": "node utils/backup.js",
+    "backfill-waste": "node scripts/backfill-waste-to-inventory.js",
     "migrate": "node migrations/run.js",
     "migrate:reset": "node scripts/reset-migrations.js",
     "migrate:all": "npm run migrate:aiops && npm run migrate:generative",
