@@ -1,102 +1,141 @@
 /**
  * Tenant Context Middleware
- * Version: v2.4.0-2025-10-07
+ * Version: v2.5.0-P1-Hardening
  *
- * Resolves tenant from JWT/header/API key and attaches to request.
- * Enforces tenant isolation and validates tenant access.
+ * P1 Hardening Updates:
+ * - Priority order: JWT org_id → API key → subdomain → X-Org-Id header
+ * - TENANT_FAIL_OPEN_FOR_OWNER flag for owner device fallback
+ * - Structured debug logs with correlation ID
+ * - Better error diagnostics
  */
 
 const jwt = require('jsonwebtoken');
-const { pool } = require('../db');  // Use PostgreSQL pool directly
+const crypto = require('crypto');
+const { pool } = require('../db');
 const { logger } = require('../config/logger');
 const rbacEngine = require('../src/security/rbac');
 const metricsExporter = require('../utils/metricsExporter');
 
 /**
- * Extract tenant ID from request
- * Priority:
- * 1. X-Tenant-Id header (if user has access)
- * 2. JWT token (tenant_id claim)
- * 3. Host header mapping (subdomain tenant)
- * 4. API key mapping
+ * Extract tenant ID from request - P1 Hardening Priority Order:
+ * 1. JWT token (org_id claim)
+ * 2. API key mapping (X-Api-Key header)
+ * 3. Subdomain parsing (tenant.neuropilot.dev)
+ * 4. X-Org-Id header (explicit tenant override)
+ * 5. Fail-open for owner (if TENANT_FAIL_OPEN_FOR_OWNER=true)
  */
 async function resolveTenant(req, res, next) {
+  const ctx = {
+    cid: req.headers['x-correlation-id'] || crypto.randomUUID(),
+    path: req.path,
+    method: req.method,
+    ip: req.ip
+  };
+
   try {
     let tenantId = null;
     let source = null;
 
-    // 1. Check X-Tenant-Id header
-    const headerTenantId = req.headers['x-tenant-id'];
-    if (headerTenantId) {
-      // Verify user has access to this tenant
-      if (req.user && req.user.userId) {
-        const hasAccess = await verifyTenantAccess(req.user.userId, headerTenantId);
-        if (hasAccess) {
-          tenantId = headerTenantId;
-          source = 'header';
-        } else {
-          logger.warn(`[TenantContext] User ${req.user.userId} attempted access to tenant ${headerTenantId} without permission`);
-          return res.status(403).json({
-            success: false,
-            message: 'Access denied to specified tenant',
-            code: 'TENANT_ACCESS_DENIED'
-          });
-        }
-      }
-    }
+    logger.debug({ ...ctx, step: 'start' }, '[TenantResolver] Starting tenant resolution');
 
-    // 2. Check JWT token
-    if (!tenantId && req.user && req.user.tenantId) {
-      tenantId = req.user.tenantId;
+    // PRIORITY 1: JWT org_id claim
+    const orgFromJwt = req.user?.org_id || req.user?.tenant_id || req.user?.tenantId;
+    if (orgFromJwt) {
+      tenantId = orgFromJwt;
       source = 'jwt';
+      logger.debug({ ...ctx, tenantId, source }, '[TenantResolver] Resolved from JWT');
     }
 
-    // 3. Check host header for subdomain tenant
-    if (!tenantId && req.headers.host) {
-      const subdomain = extractSubdomain(req.headers.host);
-      if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
-        const mappedTenant = await getTenantBySubdomain(subdomain);
-        if (mappedTenant) {
-          tenantId = mappedTenant;
-          source = 'subdomain';
-        }
-      }
-    }
-
-    // 4. Check API key
+    // PRIORITY 2: API key lookup
     if (!tenantId && req.headers['x-api-key']) {
       const apiKey = req.headers['x-api-key'];
-      const mappedTenant = await getTenantByApiKey(apiKey);
-      if (mappedTenant) {
-        tenantId = mappedTenant;
+      const orgFromKey = await getTenantByApiKey(apiKey);
+      if (orgFromKey) {
+        tenantId = orgFromKey;
         source = 'api_key';
+        logger.debug({ ...ctx, tenantId, source }, '[TenantResolver] Resolved from API key');
+      } else {
+        logger.warn({ ...ctx, apiKeyPrefix: apiKey.substring(0, 8) }, '[TenantResolver] API key not found');
       }
     }
 
-    // Default to 'default' tenant if none resolved (single-tenant mode)
+    // PRIORITY 3: Subdomain parsing
+    if (!tenantId && req.headers.host) {
+      const orgFromSub = parseOrgFromSubdomain(req.headers.host);
+      if (orgFromSub) {
+        tenantId = orgFromSub;
+        source = 'subdomain';
+        logger.debug({ ...ctx, tenantId, source, hostname: req.headers.host }, '[TenantResolver] Resolved from subdomain');
+      }
+    }
+
+    // PRIORITY 4: X-Org-Id header
+    if (!tenantId && req.headers['x-org-id']) {
+      const orgFromHdr = req.headers['x-org-id'];
+      // Verify user has access to this org (if authenticated)
+      if (req.user && req.user.userId) {
+        const hasAccess = await verifyTenantAccess(req.user.userId, orgFromHdr);
+        if (hasAccess) {
+          tenantId = orgFromHdr;
+          source = 'header';
+          logger.debug({ ...ctx, tenantId, source }, '[TenantResolver] Resolved from X-Org-Id header');
+        } else {
+          logger.warn({ ...ctx, userId: req.user.userId, requestedOrg: orgFromHdr }, '[TenantResolver] User denied access to org in header');
+          return res.status(403).json({
+            error: 'Access denied to specified tenant',
+            code: 'TENANT_ACCESS_DENIED',
+            correlationId: ctx.cid
+          });
+        }
+      } else {
+        tenantId = orgFromHdr;
+        source = 'header_unauthenticated';
+        logger.debug({ ...ctx, tenantId, source }, '[TenantResolver] Resolved from X-Org-Id (unauthenticated)');
+      }
+    }
+
+    // PRIORITY 5: Fail-open for owner device (fallback)
     if (!tenantId) {
-      tenantId = 'default'; // Default tenant ID for single-tenant deployments
-      source = 'default';
-      logger.info('[TenantContext] Using default tenant (single-tenant mode)');
+      const failOpenEnabled = process.env.TENANT_FAIL_OPEN_FOR_OWNER === 'true';
+      const isOwner = req.user?.role === 'owner' || req.user?.role === 'OWNER';
+      const isDeviceBound = req.user?.device_bound === true;
+      const ownerOrgId = req.user?.owner_org_id || req.user?.org_id;
+
+      if (failOpenEnabled && isOwner && isDeviceBound && ownerOrgId) {
+        tenantId = ownerOrgId;
+        source = 'owner_failopen';
+        logger.warn({ ...ctx, tenantId, source, userId: req.user.userId }, '[TenantResolver] FAIL-OPEN: Owner device fallback');
+      }
+    }
+
+    // Final check: no tenant resolved
+    if (!tenantId) {
+      logger.error({ ...ctx, userId: req.user?.userId, headers: maskSensitiveHeaders(req.headers) }, '[TenantResolver] No org_id resolved');
+      return res.status(400).json({
+        error: 'Tenant not found',
+        code: 'TENANT_NOT_FOUND',
+        correlationId: ctx.cid,
+        hint: 'Ensure JWT contains org_id claim, or provide X-Org-Id header, or use valid API key'
+      });
     }
 
     // Verify tenant exists and is active
     const tenantStatus = await getTenantStatus(tenantId);
     if (!tenantStatus) {
-      logger.warn(`[TenantContext] Tenant ${tenantId} not found`);
+      logger.warn({ ...ctx, tenantId }, '[TenantResolver] Tenant not found in database');
       return res.status(404).json({
-        success: false,
-        message: 'Tenant not found',
-        code: 'TENANT_NOT_FOUND'
+        error: 'Tenant not found',
+        code: 'TENANT_NOT_FOUND',
+        correlationId: ctx.cid
       });
     }
 
     if (tenantStatus.status !== 'active') {
-      logger.warn(`[TenantContext] Tenant ${tenantId} is ${tenantStatus.status}`);
+      logger.warn({ ...ctx, tenantId, status: tenantStatus.status }, '[TenantResolver] Tenant inactive');
       return res.status(403).json({
-        success: false,
-        message: `Tenant is ${tenantStatus.status}`,
-        code: 'TENANT_INACTIVE'
+        error: `Tenant is ${tenantStatus.status}`,
+        code: 'TENANT_INACTIVE',
+        correlationId: ctx.cid
       });
     }
 
@@ -108,18 +147,26 @@ async function resolveTenant(req, res, next) {
       settings: tenantStatus.settings
     };
 
-    // Record metric
-    metricsExporter.recordTenantRequest(tenantId);
+    // Backward compatibility: also set req.org_id
+    req.org_id = tenantId;
 
-    logger.debug(`[TenantContext] Resolved tenant ${tenantId} from ${source} for user ${req.user?.userId || 'anonymous'}`);
+    // Record metric
+    try {
+      metricsExporter.recordTenantRequest(tenantId);
+    } catch (metricError) {
+      // Non-fatal - log and continue
+      logger.debug({ ...ctx, error: metricError.message }, '[TenantResolver] Metric recording failed');
+    }
+
+    logger.info({ ...ctx, tenantId, source, userId: req.user?.userId || 'anonymous' }, '[TenantResolver] Resolved successfully');
 
     next();
   } catch (error) {
-    logger.error('[TenantContext] Error resolving tenant:', error);
+    logger.error({ ...ctx, error: error.message, stack: error.stack }, '[TenantResolver] Tenant resolution error');
     res.status(500).json({
-      success: false,
-      message: 'Failed to resolve tenant context',
-      code: 'TENANT_RESOLUTION_ERROR'
+      error: 'Tenant resolution error',
+      code: 'TENANT_RESOLUTION_ERROR',
+      correlationId: ctx.cid
     });
   }
 }
@@ -130,29 +177,36 @@ async function resolveTenant(req, res, next) {
  */
 function requirePermission(permission) {
   return async (req, res, next) => {
+    const ctx = {
+      cid: req.headers['x-correlation-id'] || crypto.randomUUID(),
+      permission
+    };
+
     try {
       // Check for user (support both id and userId for compatibility)
       const userId = req.user?.id || req.user?.userId;
 
       if (!req.user || !userId) {
+        logger.warn({ ...ctx }, '[TenantResolver] Permission check failed: no user');
         return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-          code: 'AUTH_REQUIRED'
+          error: 'Authentication required',
+          code: 'AUTH_REQUIRED',
+          correlationId: ctx.cid
         });
       }
 
       if (!req.tenant || !req.tenant.tenantId) {
+        logger.warn({ ...ctx, userId }, '[TenantResolver] Permission check failed: no tenant');
         return res.status(400).json({
-          success: false,
-          message: 'Tenant context required',
-          code: 'TENANT_REQUIRED'
+          error: 'Tenant context required',
+          code: 'TENANT_REQUIRED',
+          correlationId: ctx.cid
         });
       }
 
       // Check if user has the permission in their JWT claims
       if (req.user.permissions && req.user.permissions.includes(permission)) {
-        logger.debug(`[TenantContext] User ${userId} has permission ${permission} (from JWT)`);
+        logger.debug({ ...ctx, userId, tenantId: req.tenant.tenantId }, '[TenantResolver] Permission granted (JWT)');
         next();
         return;
       }
@@ -171,32 +225,31 @@ function requirePermission(permission) {
         );
 
         if (hasPermission) {
-          logger.debug(`[TenantContext] User ${userId} has permission ${permission} (from RBAC)`);
+          logger.debug({ ...ctx, userId, tenantId: req.tenant.tenantId }, '[TenantResolver] Permission granted (RBAC)');
           next();
           return;
         }
       } catch (rbacError) {
         // If RBAC engine fails, log but continue with JWT-based check
-        logger.warn('[TenantContext] RBAC engine error, using JWT permissions:', rbacError.message);
-
+        logger.warn({ ...ctx, error: rbacError.message }, '[TenantResolver] RBAC engine error, using JWT permissions');
         // If JWT permissions check passed, we already returned
         // If we're here, user doesn't have permission
       }
 
-      logger.warn(`[TenantContext] User ${userId} denied ${permission} in tenant ${req.tenant.tenantId}`);
+      logger.warn({ ...ctx, userId, tenantId: req.tenant.tenantId }, '[TenantResolver] Permission denied');
       return res.status(403).json({
-        success: false,
-        message: 'Permission denied',
+        error: 'Permission denied',
         code: 'PERMISSION_DENIED',
-        required: permission
+        required: permission,
+        correlationId: ctx.cid
       });
 
     } catch (error) {
-      logger.error('[TenantContext] Error checking permission:', error);
+      logger.error({ ...ctx, error: error.message }, '[TenantResolver] Permission check error');
       res.status(500).json({
-        success: false,
-        message: 'Failed to check permissions',
-        code: 'PERMISSION_CHECK_ERROR'
+        error: 'Failed to check permissions',
+        code: 'PERMISSION_CHECK_ERROR',
+        correlationId: ctx.cid
       });
     }
   };
@@ -232,16 +285,28 @@ async function verifyTenantAccess(userId, tenantId) {
   try {
     const result = await pool.query(`
       SELECT COUNT(*) as count
-      FROM tenant_users
-      WHERE user_id = $1 AND tenant_id = $2 AND status = 'active'
+      FROM organization_members
+      WHERE user_id = $1 AND org_id = $2
     `, [userId, tenantId]);
 
-    return parseInt(result.rows[0]?.count || 0) > 0;
+    const hasAccess = parseInt(result.rows[0]?.count || 0) > 0;
+
+    // Also check if user's default org matches (from app_user table)
+    if (!hasAccess) {
+      const userResult = await pool.query(`
+        SELECT org_id FROM app_user WHERE id = $1
+      `, [userId]);
+
+      const userOrgId = userResult.rows[0]?.org_id;
+      return userOrgId === tenantId;
+    }
+
+    return hasAccess;
   } catch (error) {
-    logger.error('[TenantContext] Error verifying tenant access:', error);
+    logger.error('[TenantResolver] Error verifying tenant access:', error);
     // If table doesn't exist, allow access (single-tenant mode)
     if (error.code === '42P01') {
-      logger.info('[TenantContext] tenant_users table not found - allowing access (single-tenant mode)');
+      logger.info('[TenantResolver] organization_members table not found - allowing access (single-tenant mode)');
       return true;
     }
     return false;
@@ -249,41 +314,35 @@ async function verifyTenantAccess(userId, tenantId) {
 }
 
 /**
- * Helper: Extract subdomain from host header
+ * Helper: Parse org_id from subdomain
+ * Examples:
+ *   - camp-alpha.neuropilot.dev → camp-alpha
+ *   - api.neuropilot.dev → null (reserved)
+ *   - neuropilot.dev → null (no subdomain)
  */
-function extractSubdomain(host) {
+function parseOrgFromSubdomain(hostname) {
   // Remove port if present
-  const hostname = host.split(':')[0];
+  const host = hostname.split(':')[0];
 
   // Split by dots
-  const parts = hostname.split('.');
+  const parts = host.split('.');
 
   // If only 2 parts (e.g., example.com), no subdomain
   if (parts.length <= 2) {
     return null;
   }
 
-  // Return first part as subdomain
-  return parts[0];
-}
+  // Extract subdomain (first part)
+  const subdomain = parts[0];
 
-/**
- * Helper: Get tenant by subdomain
- */
-async function getTenantBySubdomain(subdomain) {
-  try {
-    const result = await pool.query(`
-      SELECT tenant_id
-      FROM tenants
-      WHERE settings->>'subdomain' = $1 AND status = 'active'
-      LIMIT 1
-    `, [subdomain]);
-
-    return result.rows[0]?.tenant_id || null;
-  } catch (error) {
-    logger.error('[TenantContext] Error getting tenant by subdomain:', error);
+  // Skip reserved subdomains
+  const reserved = ['www', 'api', 'app', 'admin', 'staging', 'dev', 'test'];
+  if (reserved.includes(subdomain)) {
     return null;
   }
+
+  // Return subdomain as org_id (could also do DB lookup here)
+  return subdomain;
 }
 
 /**
@@ -291,20 +350,36 @@ async function getTenantBySubdomain(subdomain) {
  */
 async function getTenantByApiKey(apiKey) {
   try {
-    // Hash the API key
-    const crypto = require('crypto');
+    // Hash the API key for lookup
     const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
 
+    // Check api_keys table (assumes table exists from migration 027)
     const result = await pool.query(`
-      SELECT tenant_id
-      FROM tenants
+      SELECT org_id
+      FROM api_keys
+      WHERE key_hash = $1 AND status = 'active'
+      LIMIT 1
+    `, [hashedKey]);
+
+    if (result.rows.length > 0) {
+      return result.rows[0].org_id;
+    }
+
+    // Fallback: check tenants table settings
+    const tenantResult = await pool.query(`
+      SELECT org_id
+      FROM organizations
       WHERE settings->>'api_key_hash' = $1 AND status = 'active'
       LIMIT 1
     `, [hashedKey]);
 
-    return result.rows[0]?.tenant_id || null;
+    return tenantResult.rows[0]?.org_id || null;
   } catch (error) {
-    logger.error('[TenantContext] Error getting tenant by API key:', error);
+    logger.error('[TenantResolver] Error getting tenant by API key:', error);
+    // Table not found - single-tenant mode
+    if (error.code === '42P01') {
+      return null;
+    }
     return null;
   }
 }
@@ -314,47 +389,48 @@ async function getTenantByApiKey(apiKey) {
  */
 async function getTenantStatus(tenantId) {
   try {
+    // Check organizations table
     const result = await pool.query(`
-      SELECT tenant_id, name, status, settings
-      FROM tenants
-      WHERE tenant_id = $1
+      SELECT org_id, name, status, settings
+      FROM organizations
+      WHERE org_id = $1
       LIMIT 1
     `, [tenantId]);
 
     const row = result.rows[0];
 
     if (!row) {
-      // For single-tenant mode or when tenants table doesn't exist,
+      // For single-tenant mode or when organizations table doesn't exist,
       // return a default active tenant
-      logger.debug(`[TenantContext] Tenant ${tenantId} not found - using default`);
+      logger.debug(`[TenantResolver] Org ${tenantId} not found in DB - using default`);
       return {
         tenantId: tenantId,
-        name: 'Default Tenant',
+        name: 'Default Organization',
         status: 'active',
         settings: {}
       };
     }
 
-    logger.debug(`[TenantContext] Found tenant ${tenantId}: ${row.name} (${row.status})`);
+    logger.debug(`[TenantResolver] Found org ${tenantId}: ${row.name} (${row.status})`);
 
     return {
-      tenantId: row.tenant_id,
+      tenantId: row.org_id,
       name: row.name,
       status: row.status,
       settings: typeof row.settings === 'string' ? JSON.parse(row.settings) : (row.settings || {})
     };
   } catch (error) {
-    // If tenants table doesn't exist (42P01), allow access in single-tenant mode
+    // If organizations table doesn't exist (42P01), allow access in single-tenant mode
     if (error.code === '42P01') {
-      logger.info('[TenantContext] tenants table not found - using single-tenant mode');
+      logger.info('[TenantResolver] organizations table not found - using single-tenant mode');
       return {
         tenantId: tenantId,
-        name: 'Default Tenant',
+        name: 'Default Organization',
         status: 'active',
         settings: {}
       };
     }
-    logger.error('[TenantContext] Error getting tenant status:', error);
+    logger.error('[TenantResolver] Error getting tenant status:', error);
     return null;
   }
 }
@@ -367,7 +443,7 @@ async function getTenantStatus(tenantId) {
  * @returns {string} - Scoped query
  */
 function applyScopeToQuery(query, tenantId, alias = '') {
-  const tenantColumn = alias ? `${alias}.tenant_id` : 'tenant_id';
+  const tenantColumn = alias ? `${alias}.org_id` : 'org_id';
 
   // Check if WHERE clause exists
   if (query.toUpperCase().includes('WHERE')) {
@@ -377,6 +453,20 @@ function applyScopeToQuery(query, tenantId, alias = '') {
     const regex = /(ORDER BY|GROUP BY|LIMIT|$)/i;
     return query.replace(regex, `WHERE ${tenantColumn} = '${tenantId}' $1`);
   }
+}
+
+/**
+ * Mask sensitive headers for logging
+ */
+function maskSensitiveHeaders(headers) {
+  const masked = { ...headers };
+  if (masked['x-api-key']) {
+    masked['x-api-key'] = masked['x-api-key'].substring(0, 8) + '***';
+  }
+  if (masked['authorization']) {
+    masked['authorization'] = 'Bearer ***';
+  }
+  return masked;
 }
 
 module.exports = {
