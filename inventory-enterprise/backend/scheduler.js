@@ -16,10 +16,12 @@ const CONFIG = {
   FORECAST_SCHEDULE: '0 2 * * *', // Daily at 2 AM UTC
   RETRAIN_SCHEDULE: '0 3 * * 0', // Sunday at 3 AM UTC
   HEALTH_CHECK_SCHEDULE: '*/5 * * * *', // Every 5 minutes
+  REORDER_ALERTS_SCHEDULE: '0 1 * * *', // Daily at 1 AM UTC (nightly)
   ML_SERVICE_URL: process.env.ML_SERVICE_URL || 'http://localhost:8001',
   ADMIN_EMAIL: process.env.ADMIN_EMAIL,
   BATCH_SIZE: 50,
   MAX_FORECAST_DURATION_MS: 600000, // 10 minutes
+  WEBHOOK_URL: process.env.REORDER_WEBHOOK_URL, // Optional webhook for reorder alerts
 };
 
 // Email transport
@@ -616,6 +618,20 @@ function startScheduler() {
   }, {
     timezone: 'UTC'
   });
+
+  // Nightly reorder alerts check (P1 Hardening)
+  if (global.db) {
+    const { runReorderAlertsCheck } = require('./services/reorderAlerts');
+    cron.schedule(CONFIG.REORDER_ALERTS_SCHEDULE, async () => {
+      log('info', 'Triggered: Nightly Reorder Alerts Check');
+      await runReorderAlertsCheck(global.db).catch(error => {
+        log('error', 'Reorder alerts check error', { error: error.message });
+      });
+    }, {
+      timezone: 'UTC'
+    });
+    log('info', `Reorder alerts schedule: ${CONFIG.REORDER_ALERTS_SCHEDULE}`);
+  }
 
   log('info', '✅ Scheduler initialized successfully');
   log('info', `Forecast schedule: ${CONFIG.FORECAST_SCHEDULE}`);

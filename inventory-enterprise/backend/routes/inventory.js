@@ -1967,4 +1967,69 @@ router.get('/snapshots/:id',
   }
 );
 
+// ============================================================================
+// REORDER ALERTS - P1 Hardening: Nightly job + endpoint + notifications
+// ============================================================================
+
+/**
+ * GET /api/inventory/reorder-alerts
+ * Get reorder alerts for current organization
+ * P1: Reorder alerts endpoint
+ */
+router.get('/reorder-alerts',
+  requirePermission(PERMISSIONS.INVENTORY_READ),
+  [
+    query('site_id').optional().isUUID(),
+    query('alert_level').optional().isIn(['critical', 'urgent', 'warning']),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 200 })
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { org_id, site_id: orgSiteId } = req.org || req.tenant || {};
+      const { site_id, alert_level, page = 1, limit = 100 } = req.query;
+      const offset = (page - 1) * limit;
+
+      if (!org_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Organization context required'
+        });
+      }
+
+      const { getReorderAlerts } = require('../services/reorderAlerts');
+      const result = await getReorderAlerts(
+        global.db,
+        org_id,
+        site_id || orgSiteId,
+        {
+          alert_level,
+          limit: parseInt(limit),
+          offset: parseInt(offset)
+        }
+      );
+
+      res.json({
+        success: true,
+        data: result.alerts,
+        summary: result.summary,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: result.pagination.total,
+          pages: Math.ceil(result.pagination.total / limit)
+        }
+      });
+
+    } catch (error) {
+      console.error('GET /api/inventory/reorder-alerts error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
 module.exports = router;
