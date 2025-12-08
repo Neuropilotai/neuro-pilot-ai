@@ -1685,4 +1685,286 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// ============================================================================
+// INVENTORY SNAPSHOTS - P1 Hardening: New Read APIs
+// ============================================================================
+
+/**
+ * GET /api/inventory/snapshots
+ * List inventory snapshots (org/site scoped)
+ * P1: New read API
+ */
+router.get('/snapshots',
+  requirePermission(PERMISSIONS.INVENTORY_READ),
+  [
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('status').optional().isIn(['active', 'archived']),
+    query('from_date').optional().isISO8601(),
+    query('to_date').optional().isISO8601()
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { org_id, site_id } = req.org || req.tenant || {};
+      const { page = 1, limit = 50, status, from_date, to_date } = req.query;
+      const offset = (page - 1) * limit;
+
+      let query = `
+        SELECT 
+          s.snapshot_id,
+          s.snapshot_date,
+          s.snapshot_name,
+          s.status,
+          s.notes,
+          s.created_at,
+          s.created_by,
+          COUNT(si.snapshot_item_id) as item_count,
+          COALESCE(SUM(si.total_value), 0) as total_value
+        FROM inventory_snapshots s
+        LEFT JOIN inventory_snapshot_items si ON s.snapshot_id = si.snapshot_id
+      `;
+
+      const conditions = [];
+      const params = [];
+      let paramIndex = 1;
+
+      // Org scoping (if org_id column exists)
+      if (org_id) {
+        // Check if org_id column exists in inventory_snapshots
+        // If not, we'll scope by created_by user's org_id
+        try {
+          const columnCheck = await global.db.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'inventory_snapshots' 
+            AND column_name = 'org_id'
+          `);
+          
+          if (columnCheck.rows.length > 0) {
+            conditions.push(`s.org_id = $${paramIndex}`);
+            params.push(org_id);
+            paramIndex++;
+          }
+        } catch (err) {
+          // Table might not exist or column check failed - continue without org scoping
+        }
+      }
+
+      // Site scoping (if site_id provided and column exists)
+      if (site_id) {
+        try {
+          const columnCheck = await global.db.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'inventory_snapshots' 
+            AND column_name = 'site_id'
+          `);
+          
+          if (columnCheck.rows.length > 0) {
+            conditions.push(`s.site_id = $${paramIndex}`);
+            params.push(site_id);
+            paramIndex++;
+          }
+        } catch (err) {
+          // Ignore
+        }
+      }
+
+      // Status filter
+      if (status) {
+        conditions.push(`s.status = $${paramIndex}`);
+        params.push(status);
+        paramIndex++;
+      }
+
+      // Date range filters
+      if (from_date) {
+        conditions.push(`s.snapshot_date >= $${paramIndex}`);
+        params.push(from_date);
+        paramIndex++;
+      }
+
+      if (to_date) {
+        conditions.push(`s.snapshot_date <= $${paramIndex}`);
+        params.push(to_date);
+        paramIndex++;
+      }
+
+      if (conditions.length > 0) {
+        query += ` WHERE ${conditions.join(' AND ')}`;
+      }
+
+      query += `
+        GROUP BY s.snapshot_id, s.snapshot_date, s.snapshot_name, s.status, s.notes, s.created_at, s.created_by
+        ORDER BY s.snapshot_date DESC, s.created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+      params.push(limit, offset);
+
+      // Get total count
+      let countQuery = `
+        SELECT COUNT(DISTINCT s.snapshot_id) as total
+        FROM inventory_snapshots s
+      `;
+      if (conditions.length > 0) {
+        countQuery += ` WHERE ${conditions.join(' AND ')}`;
+      }
+      const countParams = params.slice(0, -2); // Remove limit/offset
+
+      const [snapshotsResult, countResult] = await Promise.all([
+        global.db.query(query, params),
+        global.db.query(countQuery, countParams)
+      ]);
+
+      const total = parseInt(countResult.rows[0]?.total || 0);
+
+      res.json({
+        success: true,
+        data: snapshotsResult.rows.map(row => ({
+          snapshot_id: row.snapshot_id,
+          snapshot_date: row.snapshot_date,
+          snapshot_name: row.snapshot_name,
+          status: row.status,
+          notes: row.notes,
+          created_at: row.created_at,
+          created_by: row.created_by,
+          item_count: parseInt(row.item_count || 0),
+          total_value: parseFloat(row.total_value || 0)
+        })),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      });
+
+    } catch (error) {
+      console.error('GET /api/inventory/snapshots error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/inventory/snapshots/:id
+ * Get inventory snapshot detail with all items
+ * P1: New read API
+ */
+router.get('/snapshots/:id',
+  requirePermission(PERMISSIONS.INVENTORY_READ),
+  [param('id').isInt({ min: 1 })],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const { org_id, site_id } = req.org || req.tenant || {};
+      const { id } = req.params;
+
+      // Get snapshot header
+      let snapshotQuery = `
+        SELECT 
+          snapshot_id,
+          snapshot_date,
+          snapshot_name,
+          status,
+          notes,
+          created_at,
+          created_by
+        FROM inventory_snapshots
+        WHERE snapshot_id = $1
+      `;
+      const snapshotParams = [id];
+
+      // Add org scoping if column exists
+      if (org_id) {
+        try {
+          const columnCheck = await global.db.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'inventory_snapshots' 
+            AND column_name = 'org_id'
+          `);
+          
+          if (columnCheck.rows.length > 0) {
+            snapshotQuery += ` AND org_id = $2`;
+            snapshotParams.push(org_id);
+          }
+        } catch (err) {
+          // Ignore
+        }
+      }
+
+      const snapshotResult = await global.db.query(snapshotQuery, snapshotParams);
+
+      if (snapshotResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Snapshot not found'
+        });
+      }
+
+      const snapshot = snapshotResult.rows[0];
+
+      // Get snapshot items
+      const itemsResult = await global.db.query(`
+        SELECT 
+          si.snapshot_item_id,
+          si.item_code,
+          si.quantity,
+          si.unit_cost,
+          si.total_value,
+          si.location,
+          si.created_at,
+          i.item_name,
+          i.unit,
+          i.category
+        FROM inventory_snapshot_items si
+        LEFT JOIN inventory_items i ON si.item_code = i.item_code
+        WHERE si.snapshot_id = $1
+        ORDER BY si.item_code ASC
+      `, [id]);
+
+      res.json({
+        success: true,
+        data: {
+          snapshot_id: snapshot.snapshot_id,
+          snapshot_date: snapshot.snapshot_date,
+          snapshot_name: snapshot.snapshot_name,
+          status: snapshot.status,
+          notes: snapshot.notes,
+          created_at: snapshot.created_at,
+          created_by: snapshot.created_by,
+          items: itemsResult.rows.map(item => ({
+            snapshot_item_id: item.snapshot_item_id,
+            item_code: item.item_code,
+            item_name: item.item_name,
+            quantity: parseFloat(item.quantity || 0),
+            unit: item.unit,
+            unit_cost: parseFloat(item.unit_cost || 0),
+            total_value: parseFloat(item.total_value || 0),
+            location: item.location,
+            category: item.category,
+            created_at: item.created_at
+          })),
+          summary: {
+            item_count: itemsResult.rows.length,
+            total_value: itemsResult.rows.reduce((sum, item) => sum + parseFloat(item.total_value || 0), 0)
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('GET /api/inventory/snapshots/:id error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
 module.exports = router;

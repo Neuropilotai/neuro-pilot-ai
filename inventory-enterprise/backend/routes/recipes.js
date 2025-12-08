@@ -426,4 +426,124 @@ router.get('/:id/cost/history', async (req, res) => {
   }
 });
 
+// ============================================================================
+// BATCH RECIPE COSTING - P1 Hardening: New Read API
+// ============================================================================
+
+/**
+ * POST /api/recipes/cost/batch
+ * Calculate cost for multiple recipes at once
+ * P1: New read API (batch operation)
+ * 
+ * Request body:
+ * {
+ *   "recipe_ids": [1, 2, 3],
+ *   "date": "2025-12-08" (optional, defaults to today)
+ * }
+ */
+router.post('/cost/batch', async (req, res) => {
+  const { org_id } = req.user;
+  const { recipe_ids, date } = req.body;
+
+  if (!recipe_ids || !Array.isArray(recipe_ids) || recipe_ids.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'recipe_ids array is required and must not be empty'
+    });
+  }
+
+  if (recipe_ids.length > 100) {
+    return res.status(400).json({
+      success: false,
+      error: 'Maximum 100 recipes per batch request'
+    });
+  }
+
+  try {
+    const cost_date = date || new Date().toISOString().split('T')[0];
+
+    // Verify all recipes belong to org
+    const placeholders = recipe_ids.map((_, i) => `$${i + 1}`).join(',');
+    const recipeCheck = await global.db.query(
+      `SELECT id FROM recipes WHERE org_id = $1 AND id IN (${placeholders})`,
+      [org_id, ...recipe_ids]
+    );
+
+    const validRecipeIds = recipeCheck.rows.map(r => r.id);
+    const invalidIds = recipe_ids.filter(id => !validRecipeIds.includes(id));
+
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Recipes not found or not accessible: ${invalidIds.join(', ')}`,
+        invalid_ids: invalidIds
+      });
+    }
+
+    // Calculate cost for each recipe
+    const results = await Promise.all(
+      validRecipeIds.map(async (recipeId) => {
+        try {
+          // Call calculate_recipe_cost helper function
+          const result = await global.db.query(`
+            SELECT * FROM calculate_recipe_cost($1, $2)
+          `, [recipeId, cost_date]);
+
+          if (result.rows.length === 0) {
+            return {
+              recipe_id: recipeId,
+              success: false,
+              error: 'Cost calculation returned no results',
+              total_cost: 0,
+              cost_per_portion: 0,
+              items_costed: 0,
+              items_missing_price: 0
+            };
+          }
+
+          return {
+            recipe_id: recipeId,
+            success: true,
+            ...result.rows[0]
+          };
+        } catch (error) {
+          return {
+            recipe_id: recipeId,
+            success: false,
+            error: error.message,
+            total_cost: 0,
+            cost_per_portion: 0,
+            items_costed: 0,
+            items_missing_price: 0
+          };
+        }
+      })
+    );
+
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    res.json({
+      success: true,
+      date: cost_date,
+      total_requested: recipe_ids.length,
+      successful,
+      failed,
+      results,
+      summary: {
+        total_cost: results.reduce((sum, r) => sum + parseFloat(r.total_cost || 0), 0),
+        total_items_costed: results.reduce((sum, r) => sum + parseInt(r.items_costed || 0), 0),
+        total_items_missing_price: results.reduce((sum, r) => sum + parseInt(r.items_missing_price || 0), 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('POST /api/recipes/cost/batch error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
