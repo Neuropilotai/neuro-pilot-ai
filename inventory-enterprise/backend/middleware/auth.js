@@ -231,7 +231,9 @@ const authenticateToken = (req, res, next) => {
       role: normalizedRole,
       roles: [normalizedRole],  // RBAC module expects array
       permissions: PERMISSIONS[ROLES[normalizedRole]] || [],
-      tenant_id: decoded.tenant_id
+      tenant_id: decoded.tenant_id,  // Legacy support
+      org_id: decoded.org_id || decoded.tenant_id,  // P1: Support org_id from JWT
+      site_id: decoded.site_id || null
     };
 
     next();
