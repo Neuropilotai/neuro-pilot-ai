@@ -1661,6 +1661,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
     }
+    // v23.6.7: Also disable caching for JS files to ensure auth fixes are loaded
+    if (filePath.endsWith('.js') && filePath.includes('owner-console-core.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
   }
 }));
 
