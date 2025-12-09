@@ -2439,49 +2439,71 @@
 
   <!-- v14.3: Shared Console Core (Zero Drift) -->
   <!-- v23.6.10: Removed duplicate loadAIOpsStatus() to fix 401 errors on /api/owner/ops/status -->
-  <script src="js/owner-console-core.js?v=23.6.10"></script>
+  <script src="js/owner-console-core.js?v=23.6.10&_t=1733779200"></script>
 
   <!-- v23.6.10: Fixed 401 errors - use correct loadAIOpsStatus() function -->
-  <script src="js/owner-super-console.js?v=23.6.10"></script>
+  <script src="js/owner-super-console.js?v=23.6.10&_t=1733779200"></script>
   
   <!-- v23.6.10: Version check - force reload if wrong version detected -->
   <script>
     (function() {
+      const EXPECTED_VERSION = '23.6.10';
+      const TIMESTAMP = Date.now();
+      
       // Check if scripts loaded with correct version
       const scripts = document.querySelectorAll('script[src*="owner-console-core"], script[src*="owner-super-console"]');
       let needsReload = false;
+      let wrongVersions = [];
       
       scripts.forEach(script => {
         const src = script.src || script.getAttribute('src') || '';
-        if (src.includes('owner-console-core.js') && !src.includes('v=23.6.10')) {
-          console.warn('⚠️ Wrong version detected: owner-console-core.js - forcing reload');
-          needsReload = true;
+        if (src.includes('owner-console-core.js')) {
+          const match = src.match(/v=([0-9.]+)/);
+          const version = match ? match[1] : 'unknown';
+          if (version !== EXPECTED_VERSION) {
+            console.warn('⚠️ Wrong version detected: owner-console-core.js', version, 'expected', EXPECTED_VERSION);
+            wrongVersions.push('owner-console-core.js: ' + version);
+            needsReload = true;
+          }
         }
-        if (src.includes('owner-super-console.js') && !src.includes('v=23.6.10')) {
-          console.warn('⚠️ Wrong version detected: owner-super-console.js - forcing reload');
-          needsReload = true;
+        if (src.includes('owner-super-console.js')) {
+          const match = src.match(/v=([0-9.]+)/);
+          const version = match ? match[1] : 'unknown';
+          if (version !== EXPECTED_VERSION) {
+            console.warn('⚠️ Wrong version detected: owner-super-console.js', version, 'expected', EXPECTED_VERSION);
+            wrongVersions.push('owner-super-console.js: ' + version);
+            needsReload = true;
+          }
         }
       });
       
       if (needsReload) {
+        console.error('🔄 WRONG VERSION DETECTED:', wrongVersions.join(', '));
         console.warn('🔄 Forcing page reload to get correct version...');
-        // Clear cache and reload
-        if ('caches' in window) {
-          caches.keys().then(names => {
-            names.forEach(name => caches.delete(name));
-            setTimeout(() => {
-              localStorage.clear();
-              sessionStorage.clear();
-              window.location.reload(true);
-            }, 100);
-          });
-        } else {
-          setTimeout(() => {
+        
+        // Clear everything and reload
+        const clearAndReload = () => {
+          try {
             localStorage.clear();
             sessionStorage.clear();
+            if ('caches' in window) {
+              caches.keys().then(names => {
+                names.forEach(name => caches.delete(name));
+                window.location.href = '/owner-super-console-v15.html?_nocache=' + TIMESTAMP;
+              });
+            } else {
+              window.location.href = '/owner-super-console-v15.html?_nocache=' + TIMESTAMP;
+            }
+          } catch (e) {
+            console.error('Reload error:', e);
             window.location.reload(true);
-          }, 100);
-        }
+          }
+        };
+        
+        // Wait a moment for console messages, then reload
+        setTimeout(clearAndReload, 500);
+      } else {
+        console.log('✅ Correct version loaded:', EXPECTED_VERSION);
       }
     })();
   </script>

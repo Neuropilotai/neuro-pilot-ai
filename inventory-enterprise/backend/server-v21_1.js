@@ -1677,6 +1677,18 @@ app.get('/quick_login.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'quick_login.html'));
 });
 
+// v23.6.10: Force cache-busting for owner console HTML
+app.get('/owner-super-console-v15.html', (req, res) => {
+  const filePath = path.join(__dirname, 'public', 'owner-super-console-v15.html');
+  // Set aggressive no-cache headers
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Last-Modified', new Date().toUTCString());
+  res.setHeader('ETag', `"${Date.now()}"`);
+  res.sendFile(filePath);
+});
+
 // 404 handler (catches everything not handled by routes or static files)
 app.use((req, res) => {
   res.status(404).json({
