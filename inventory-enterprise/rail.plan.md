@@ -94,11 +94,14 @@ Finance reports endpoint was using SQLite syntax (`strftime`, `datetime`) but th
 
 ### To-dos ✅ ALL COMPLETE
 
-- [x] Update all version numbers in owner-super-console-v15.html to 23.6.8
+- [x] Update all version numbers in owner-super-console-v15.html to 23.6.9
 - [x] Add cache-prevention meta tags to HTML head section
 - [x] Verify server cache headers are working for HTML files
 - [x] Fix database queries in finance reports (PostgreSQL syntax)
 - [x] Update package.json version to 23.6.8
+- [x] Fix owner-super-console.js fetch calls to use authHeaders()
+- [x] Fix loadAIOpsStatus() to use fetchAPI() with auth
+- [x] Update all owner routes to use authenticateToken + requireOwnerDevice
 - [x] Commit and push all changes
 
 ## Current Status
@@ -111,8 +114,40 @@ Finance reports endpoint was using SQLite syntax (`strftime`, `datetime`) but th
 3. Clear browser cache (hard refresh: `Cmd+Shift+R`)
 4. Test owner console login
 
+## Additional Fixes Applied ✅
+
+### Problem 3: Authentication Issues in owner-super-console.js ✅ FIXED
+
+**Issues Found:**
+- Hardcoded fetch calls using old token format (`ownerToken`)
+- Missing `X-Owner-Device` header
+- `loadAIOpsStatus()` making direct fetch without auth headers
+
+**Fixes Applied:**
+- ✅ Updated all fetch calls to use `authHeaders()` function
+- ✅ Updated local `authHeaders()` functions to read `np_owner_jwt` and include `X-Owner-Device`
+- ✅ Fixed `loadAIOpsStatus()` to use `fetchAPI()` with proper auth
+- ✅ Fixed: `viewGFSInvoiceStatus()`, `loadGFSInvoiceStats()`, `generateGFSReport()`, PDF upload
+- ✅ Version bumped to `v=23.6.9`
+
+### Problem 4: Owner Routes Missing Device Binding ✅ FIXED
+
+**Issues Found:**
+- `/api/owner/pdfs` using `authGuard(['owner'])` instead of `authenticateToken + requireOwnerDevice`
+- `/api/owner/ops` using `authGuard(['owner'])` instead of `authenticateToken + requireOwnerDevice`
+- Other owner routes also missing device binding
+
+**Fixes Applied:**
+- ✅ Updated all owner routes in `server-v21_1.js` to use `authenticateToken + requireOwnerDevice`
+- ✅ Added imports for `authenticateToken` and `requireOwnerDevice`
+- ✅ All owner routes now have consistent authentication
+
 ## Documentation
 
 - `FIXES_COMPLETE_SUMMARY.md` - Complete summary of all fixes
 - `RAILWAY_DEPLOYMENT_WAIT.md` - Deployment wait guide
 - `REMAINING_ISSUES.md` - Optional future fixes
+- `DEVICE_ID_403_FIX.md` - Device ID troubleshooting
+- `JWT_MALFORMED_FIX.md` - JWT error troubleshooting
+- `DEBUG_401_403_ERRORS.md` - Comprehensive debugging guide
+- `ALL_FIXES_COMPLETE.md` - Final comprehensive summary
