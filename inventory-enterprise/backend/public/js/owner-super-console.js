@@ -6305,6 +6305,7 @@ window.loadInventory = loadInventory;
 window.loadLocations = loadLocations;
 window.loadPDFs = loadPDFs;
 window.loadAIConsole = loadAIConsole;
+window.loadAIOpsStatus = loadAIOpsStatus; // v23.6.10: Export to window for owner-console-core.js to use
 window.loadForecast = loadForecast;
 window.loadReports = loadReports;
 window.loadSettings = loadSettings;

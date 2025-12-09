@@ -149,9 +149,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadCountLocations();
 
   // Auto-refresh AI Ops status every 15 seconds
+  // v23.6.10: Use loadAIOpsStatus from owner-super-console.js (correct function with proper endpoint)
   setInterval(() => {
     if (currentTab === 'ai' || currentTab === 'dashboard') {
-      loadAIOpsStatus();
+      // Call loadAIOpsStatus from owner-super-console.js if available
+      if (typeof window.loadAIOpsStatus === 'function') {
+        window.loadAIOpsStatus();
+      }
       loadCognitiveIntelligence();
       loadActivityFeed();
     }
@@ -664,51 +668,13 @@ function renderLearningInsights(learningInsights) {
 // AI OPS STATUS - v13.5 ADAPTIVE
 // ============================================================================
 
-async function loadAIOpsStatus() {
-  console.log('🔄 Loading AI Ops Status...');
-
-  try {
-    const data = await fetchAPI('/owner/ai-ops/status');
-
-    // v23.4.6: Guard against null response (401 errors, etc.)
-    if (!data) {
-      console.warn('⚠️ AI Ops status returned null (possible 401)');
-      renderAIOpsHealth({ score: 0, explanations: ['AI Ops data unavailable'] }, null);
-      return;
-    }
-
-    // v22.3: Prefer V2 scoring with V1 fallback
-    renderAIOpsHealth(data.ai_ops_health || data, data.ai_ops_health_v2);
-
-    // Render checks
-    const checksEl = document.getElementById('aiOpsChecks');
-    if (checksEl && data.checks) {
-      let html = '<div class="grid-gap-2-base">';
-
-      data.checks.forEach(check => {
-        const statusIcon = check.status === 'OK' ? '✅' : check.status === 'WARNING' ? '⚠️' : '❌';
-        const statusClass = check.status === 'OK' ? 'border-left-success' : check.status === 'WARNING' ? 'border-left-warning' : 'border-left-danger';
-
-        html += `
-          <div class="small-padded-bg ${statusClass}">
-            ${statusIcon} <strong>${check.name}</strong>: ${check.message}
-          </div>
-        `;
-      });
-
-      html += '</div>';
-      checksEl.innerHTML = html;
-    }
-
-    console.log('✅ AI Ops Status loaded');
-  } catch (error) {
-    console.error('❌ AI Ops Status error:', error);
-    const checksEl = document.getElementById('aiOpsChecks');
-    if (checksEl) {
-      checksEl.innerHTML = showError('AI Ops', error.message);
-    }
-  }
-}
+// v23.6.10: REMOVED - This function was calling wrong endpoint /owner/ai-ops/status
+// The correct function is in owner-super-console.js which calls /owner/ops/status
+// This was causing 401 errors because the wrong endpoint doesn't exist
+// async function loadAIOpsStatus() {
+//   console.log('🔄 Loading AI Ops Status...');
+//   ... (removed to prevent function name conflict)
+// }
 
 // ============================================================================
 // COGNITIVE INTELLIGENCE
@@ -1657,7 +1623,8 @@ window.renderDBMetrics = renderDBMetrics;
 window.renderAuditLogs = renderAuditLogs;
 window.renderVersionInfo = renderVersionInfo;
 window.renderLearningInsights = renderLearningInsights;
-window.loadAIOpsStatus = loadAIOpsStatus;
+// v23.6.10: REMOVED - loadAIOpsStatus export to prevent overriding correct function from owner-super-console.js
+// window.loadAIOpsStatus = loadAIOpsStatus;
 window.loadCognitiveIntelligence = loadCognitiveIntelligence;
 window.loadActivityFeed = loadActivityFeed;
 window.loadLearningTimeline = loadLearningTimeline;

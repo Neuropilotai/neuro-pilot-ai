@@ -984,8 +984,10 @@ async function maybeAutoHeal(healthPct, phase3Cron, now = Date.now()) {
 /**
  * GET /api/owner/ops/status
  * Get comprehensive AI Ops system health status
+ * v23.6.10: Removed redundant authenticateToken, requireOwner middleware
+ * Mount already applies authenticateToken + requireOwnerDevice (server-v21_1.js line 1598)
  */
-router.get('/status', authenticateToken, requireOwner, async (req, res) => {
+router.get('/status', async (req, res) => {
   try {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
