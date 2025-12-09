@@ -2,6 +2,91 @@
 
 All notable changes to NeuroPilot Inventory Enterprise System.
 
+## [23.6.11] - 2025-12-09
+
+### 🐛 Critical Bug Fixes
+
+#### Owner Console Authentication (401 Errors)
+- **Fixed Function Conflict**: Removed duplicate `loadAIOpsStatus()` function in `owner-console-core.js` that was calling wrong endpoint
+- **Fixed Authentication Headers**: Updated `authHeaders()` to prioritize `np_owner_jwt` and include `X-Owner-Device` header
+- **Fixed Route Middleware**: Updated all owner routes to use `authenticateToken` + `requireOwnerDevice` instead of `authGuard(['owner'])`
+- **Fixed Dockerfile Build**: Ensured `backend/public/` (updated HTML v23.6.11) takes precedence over `frontend/public/` (old HTML v23.5.1)
+
+#### Cache-Busting Improvements
+- **Version Bump**: Updated to v23.6.11 with timestamp-based cache busting
+- **Server-Side Headers**: Added `no-cache, no-store, must-revalidate` headers for all `.js` files
+- **Client-Side Version Check**: Added automatic version detection with auto-reload if wrong version detected
+- **Service Worker Unregister**: Added script to unregister service workers that might cache old versions
+
+### ✨ New Features
+
+#### Usage Report Viewer
+- **Implemented**: Full usage report viewer with stats, summary, and detailed items table
+- **Features**: Shows opening, purchases, closing, and usage quantities per item
+- **Anomaly Detection**: Highlights items with negative usage anomalies and items not counted
+- **CSV Export**: Added export functionality for usage reports
+- **Location**: `backend/public/js/owner-super-console.js` (resolves TODO at line 4684)
+
+### 🔧 Infrastructure
+
+#### Dockerfile Improvements
+- **Fixed Copy Order**: Ensured `backend/public/` is copied last to override `frontend/public/` files
+- **Build Optimization**: Updated comments explaining file copy precedence
+
+#### Testing & Verification
+- **Added Test Script**: `scripts/test-owner-endpoints.sh` for automated endpoint testing
+- **Added Verification Script**: `scripts/verify-railway-deployment.sh` for deployment verification
+- **Documentation**: Created comprehensive guides for troubleshooting and verification
+
+### 📝 Documentation
+
+#### New Documentation Files
+- `COMPLETE_FIX_SUMMARY.md` - Complete summary of all fixes
+- `401_FIX_COMPLETE.md` - 401 error fix details
+- `RAILWAY_DEPLOYMENT_ISSUE.md` - Diagnostic guide for deployment issues
+- `NEXT_TODO_ITEMS.md` - Prioritized TODO list
+- `IMMEDIATE_BROWSER_FIX.md` - Browser cache clearing guide
+
+### 🔄 Files Changed
+
+#### Modified Files
+- `backend/public/js/owner-console-core.js` - Removed duplicate function, fixed auth headers
+- `backend/public/js/owner-super-console.js` - Fixed auth headers, implemented usage report viewer
+- `backend/server-v21_1.js` - Updated route middleware, added cache headers
+- `backend/routes/owner-ops.js` - Removed redundant middleware
+- `backend/public/owner-super-console-v15.html` - Version bump, version check script, service worker unregister
+- `Dockerfile` - Fixed file copy order to ensure correct HTML version
+
+#### New Files
+- `scripts/test-owner-endpoints.sh` - Endpoint testing script
+- `scripts/verify-railway-deployment.sh` - Deployment verification script
+- Multiple documentation files (see above)
+
+### ⚠️ Breaking Changes
+
+None - This is a bug fix release.
+
+### 🎯 Upgrade Path
+
+#### From v23.6.8 or earlier
+1. Pull latest code: `git pull origin main`
+2. Hard refresh browser: `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows)
+3. Re-login via `/quick_login.html` to get fresh token
+4. Verify version: Check console for `✅ Correct version loaded: 23.6.11`
+
+### 🧪 Testing
+
+#### Automated
+- Railway deployment verification script
+- Owner endpoint testing script
+
+#### Manual Testing Required
+- Verify `/api/owner/ops/status` returns 200 (no 401 errors)
+- Verify all owner console endpoints work correctly
+- Test usage report viewer functionality
+
+---
+
 ## [14.4.0] - 2025-10-12
 
 ### 🎉 Major Features
