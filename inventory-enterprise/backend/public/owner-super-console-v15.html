@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>Owner Super Console | NeuroInnovate V21.1</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="css/owner-super.css?v=23.6.8">
+  <link rel="stylesheet" href="css/owner-super.css?v=23.6.11">
 </head>
 <body>
   <header>
@@ -2432,22 +2432,22 @@
   </script>
 
   <!-- v21.1: Centralized Config -->
-  <script src="js/config.js?v=23.6.8"></script>
+  <script src="js/config.js?v=23.6.11"></script>
 
   <!-- v15.5.0: RBAC Client -->
-  <script src="js/rbac-client.js?v=23.6.8"></script>
+  <script src="js/rbac-client.js?v=23.6.11"></script>
 
   <!-- v14.3: Shared Console Core (Zero Drift) -->
-  <!-- v23.6.10: Removed duplicate loadAIOpsStatus() to fix 401 errors on /api/owner/ops/status -->
-  <script src="js/owner-console-core.js?v=23.6.10&_t=1733779200"></script>
+  <!-- v23.6.11: Removed duplicate loadAIOpsStatus() to fix 401 errors on /api/owner/ops/status -->
+  <script src="js/owner-console-core.js?v=23.6.11&_t=1733780000"></script>
 
-  <!-- v23.6.10: Fixed 401 errors - use correct loadAIOpsStatus() function -->
-  <script src="js/owner-super-console.js?v=23.6.10&_t=1733779200"></script>
+  <!-- v23.6.11: Fixed 401 errors - use correct loadAIOpsStatus() function -->
+  <script src="js/owner-super-console.js?v=23.6.11&_t=1733780000"></script>
   
   <!-- v23.6.10: Version check - force reload if wrong version detected -->
   <script>
     (function() {
-      const EXPECTED_VERSION = '23.6.10';
+      const EXPECTED_VERSION = '23.6.11';
       const TIMESTAMP = Date.now();
       
       // Check if scripts loaded with correct version
@@ -2461,7 +2461,7 @@
           const match = src.match(/v=([0-9.]+)/);
           const version = match ? match[1] : 'unknown';
           if (version !== EXPECTED_VERSION) {
-            console.warn('⚠️ Wrong version detected: owner-console-core.js', version, 'expected', EXPECTED_VERSION);
+            console.error('❌ WRONG VERSION: owner-console-core.js', version, 'expected', EXPECTED_VERSION, '- FORCING RELOAD');
             wrongVersions.push('owner-console-core.js: ' + version);
             needsReload = true;
           }
@@ -2470,7 +2470,7 @@
           const match = src.match(/v=([0-9.]+)/);
           const version = match ? match[1] : 'unknown';
           if (version !== EXPECTED_VERSION) {
-            console.warn('⚠️ Wrong version detected: owner-super-console.js', version, 'expected', EXPECTED_VERSION);
+            console.error('❌ WRONG VERSION: owner-super-console.js', version, 'expected', EXPECTED_VERSION, '- FORCING RELOAD');
             wrongVersions.push('owner-super-console.js: ' + version);
             needsReload = true;
           }
