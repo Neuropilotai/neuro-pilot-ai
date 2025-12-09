@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Headers</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #0f172a; color: #e2e8f0; }
+        pre { background: #1e293b; padding: 12px; border-radius: 6px; }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>Header Test</h1>
+    <div id="results"></div>
+    <script>
+        const jwt = localStorage.getItem('np_owner_jwt');
+        const device = localStorage.getItem('np_owner_device');
+        
+        const results = document.getElementById('results');
+        let html = '<h2>LocalStorage:</h2>';
+        html += '<pre>JWT: ' + (jwt ? jwt.substring(0, 50) + '...' : 'MISSING') + '</pre>';
+        html += '<pre>Device: ' + (device || 'MISSING') + '</pre>';
+        
+        if (jwt && device) {
+            html += '<h2>Generated Headers:</h2>';
+            html += '<pre>Authorization: Bearer ' + jwt.substring(0, 30) + '...\n';
+            html += 'X-Owner-Device: ' + device + '</pre>';
+            
+            html += '<h2>Testing Endpoint:</h2>';
+            html += '<pre>Fetching /api/owner/auth-check...</pre>';
+            
+            fetch('/api/owner/auth-check', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + jwt,
+                    'X-Owner-Device': device,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => {
+                html += '<pre class="' + (res.ok ? 'success' : 'error') + '">';
+                html += 'Status: ' + res.status + ' ' + res.statusText + '\n';
+                html += 'Headers sent:\n';
+                html += '  Authorization: Bearer ' + jwt.substring(0, 30) + '...\n';
+                html += '  X-Owner-Device: ' + device + '\n';
+                html += '</pre>';
+                return res.json();
+            })
+            .then(data => {
+                html += '<pre>Response:\n' + JSON.stringify(data, null, 2) + '</pre>';
+                results.innerHTML = html;
+            })
+            .catch(err => {
+                html += '<pre class="error">Error: ' + err.message + '</pre>';
+                results.innerHTML = html;
+            });
+        } else {
+            html += '<pre class="error">Missing JWT or Device ID. Please login first.</pre>';
+            results.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+
