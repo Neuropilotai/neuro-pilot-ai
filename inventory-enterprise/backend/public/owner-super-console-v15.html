@@ -2441,7 +2441,49 @@
   <!-- v23.6.10: Removed duplicate loadAIOpsStatus() to fix 401 errors on /api/owner/ops/status -->
   <script src="js/owner-console-core.js?v=23.6.10"></script>
 
-  <!-- v23.4: PDF invoice date field name fix -->
-  <script src="js/owner-super-console.js?v=23.6.9"></script>
+  <!-- v23.6.10: Fixed 401 errors - use correct loadAIOpsStatus() function -->
+  <script src="js/owner-super-console.js?v=23.6.10"></script>
+  
+  <!-- v23.6.10: Version check - force reload if wrong version detected -->
+  <script>
+    (function() {
+      // Check if scripts loaded with correct version
+      const scripts = document.querySelectorAll('script[src*="owner-console-core"], script[src*="owner-super-console"]');
+      let needsReload = false;
+      
+      scripts.forEach(script => {
+        const src = script.src || script.getAttribute('src') || '';
+        if (src.includes('owner-console-core.js') && !src.includes('v=23.6.10')) {
+          console.warn('⚠️ Wrong version detected: owner-console-core.js - forcing reload');
+          needsReload = true;
+        }
+        if (src.includes('owner-super-console.js') && !src.includes('v=23.6.10')) {
+          console.warn('⚠️ Wrong version detected: owner-super-console.js - forcing reload');
+          needsReload = true;
+        }
+      });
+      
+      if (needsReload) {
+        console.warn('🔄 Forcing page reload to get correct version...');
+        // Clear cache and reload
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => caches.delete(name));
+            setTimeout(() => {
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.reload(true);
+            }, 100);
+          });
+        } else {
+          setTimeout(() => {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.reload(true);
+          }, 100);
+        }
+      }
+    })();
+  </script>
 </body>
 </html>
