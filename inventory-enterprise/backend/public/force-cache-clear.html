@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Force Cache Clear - Owner Console</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .container {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+    }
+    h1 {
+      color: #60a5fa;
+      margin-top: 0;
+    }
+    .button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+      display: inline-block;
+    }
+    .button:hover {
+      background: #2563eb;
+    }
+    .button.danger {
+      background: #ef4444;
+    }
+    .button.danger:hover {
+      background: #dc2626;
+    }
+    .info {
+      background: #1e3a8a;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+      border-left: 4px solid #60a5fa;
+    }
+    .warning {
+      background: #78350f;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+      border-left: 4px solid #fbbf24;
+    }
+    .success {
+      background: #065f46;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+      border-left: 4px solid #10b981;
+    }
+    code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Courier New', monospace;
+    }
+    pre {
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+    .status {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Force Cache Clear - Owner Console</h1>
+    
+    <div class="info">
+      <strong>Purpose:</strong> This page helps you clear browser cache and localStorage to ensure you're loading the latest version of the owner console.
+    </div>
+
+    <h2>Current Status</h2>
+    <div id="status"></div>
+
+    <h2>Actions</h2>
+    
+    <button class="button" onclick="checkVersion()">1. Check Current Version</button>
+    <button class="button" onclick="clearAuth()">2. Clear Auth Data</button>
+    <button class="button" onclick="clearAllCache()">3. Clear All Cache</button>
+    <button class="button danger" onclick="nuclearOption()">4. Nuclear Option (Clear Everything)</button>
+    <button class="button" onclick="redirectToLogin()">5. Go to Login</button>
+    <button class="button" onclick="redirectToConsole()">6. Go to Console</button>
+
+    <h2>Instructions</h2>
+    <ol>
+      <li>Click "Check Current Version" to see what's loaded</li>
+      <li>Click "Clear Auth Data" to remove corrupted tokens</li>
+      <li>Click "Clear All Cache" to force browser to reload</li>
+      <li>Click "Go to Login" to re-authenticate</li>
+      <li>After login, click "Go to Console"</li>
+    </ol>
+
+    <div class="warning">
+      <strong>⚠️ Nuclear Option:</strong> This will clear ALL localStorage, sessionStorage, and cache. Use this if nothing else works.
+    </div>
+  </div>
+
+  <script>
+    function updateStatus(message, type = 'info') {
+      const statusEl = document.getElementById('status');
+      const className = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+      statusEl.innerHTML = `<div class="${className}">${message}</div>`;
+    }
+
+    function checkVersion() {
+      const scripts = Array.from(document.querySelectorAll('script[src*="owner-super-console"]'));
+      const htmlVersion = scripts.length > 0 ? scripts[0].src.match(/v=(\d+\.\d+\.\d+)/)?.[1] : 'unknown';
+      
+      // Check localStorage
+      const token = localStorage.getItem('np_owner_jwt');
+      const device = localStorage.getItem('np_owner_device');
+      
+      let message = '<strong>Current Status:</strong><br><br>';
+      message += `📄 HTML Version: ${htmlVersion}<br>`;
+      message += `🔑 JWT Token: ${token ? 'EXISTS' : 'MISSING'}<br>`;
+      message += `📱 Device ID: ${device || 'MISSING'}<br><br>`;
+      
+      if (htmlVersion === '23.5.1') {
+        message += '⚠️ <strong>Old version detected!</strong> Clear cache and reload.';
+      } else if (htmlVersion === '23.6.9') {
+        message += '✅ <strong>Latest version detected!</strong>';
+      } else {
+        message += `ℹ️ Version: ${htmlVersion}`;
+      }
+      
+      updateStatus(message, htmlVersion === '23.6.9' ? 'success' : 'warning');
+    }
+
+    function clearAuth() {
+      localStorage.removeItem('np_owner_jwt');
+      localStorage.removeItem('np_owner_device');
+      localStorage.removeItem('NP_TOKEN');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('ownerToken');
+      sessionStorage.removeItem('ownerToken');
+      
+      updateStatus('✅ Auth data cleared! Now click "Go to Login" to re-authenticate.', 'success');
+    }
+
+    function clearAllCache() {
+      // Clear all localStorage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Try to clear cache (may not work in all browsers)
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        });
+      }
+      
+      updateStatus('✅ Cache cleared! Reloading page...', 'success');
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 1000);
+    }
+
+    function nuclearOption() {
+      if (!confirm('⚠️ This will clear EVERYTHING (localStorage, sessionStorage, cache). Continue?')) {
+        return;
+      }
+      
+      // Clear everything
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Clear cache
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        });
+      }
+      
+      // Clear IndexedDB (if exists)
+      if ('indexedDB' in window) {
+        indexedDB.databases().then(dbs => {
+          dbs.forEach(db => {
+            if (db.name) indexedDB.deleteDatabase(db.name);
+          });
+        });
+      }
+      
+      updateStatus('✅ Everything cleared! Redirecting to login...', 'success');
+      setTimeout(() => {
+        window.location.href = '/quick_login.html';
+      }, 1500);
+    }
+
+    function redirectToLogin() {
+      window.location.href = '/quick_login.html';
+    }
+
+    function redirectToConsole() {
+      window.location.href = '/owner-super-console-v15.html';
+    }
+
+    // Auto-check on load
+    window.addEventListener('DOMContentLoaded', () => {
+      checkVersion();
+    });
+  </script>
+</body>
+</html>
+
