@@ -2,12 +2,23 @@
 
 ## ✅ Completed
 
+### Authentication & Owner Console (v23.6.11)
 1. ✅ Fixed owner-reports route in `server-v21_1.js`
 2. ✅ Removed duplicate finance route
 3. ✅ Improved fetch patch for absolute URLs
 4. ✅ Added diagnostic endpoint `/api/owner/auth-check`
 5. ✅ Created test script `scripts/test-owner-auth.sh`
 6. ✅ All code pushed to GitHub and deployed to Railway
+7. ✅ Fixed 401 errors (function conflict, auth headers, route middleware)
+8. ✅ Fixed Dockerfile build issue (file copy order)
+9. ✅ Implemented usage report viewer (TODO #4684)
+10. ✅ Updated CHANGELOG.md and package.json to v23.6.11
+
+### CSP Refactor (In Progress - 26% Complete)
+11. ✅ Phase 1: Tab navigation, header buttons, dashboard (19 handlers)
+12. ✅ Phase 2: Locations, PDFs, Count, AI Console (16 handlers)
+13. 🔄 **Total: 35/136 handlers converted (26%)**
+14. ⏳ Remaining: ~101 handlers (Forecast, Menu, Financials, Reports, Modals)
 
 ## 🎯 Immediate Next Steps
 
@@ -140,22 +151,52 @@ git push origin --delete experiment-backup
 
 ## 📋 Production Readiness Checklist
 
-- [ ] Railway env vars verified (`JWT_SECRET`, `OWNER_DEVICE_ID`, `DATABASE_URL`)
-- [ ] Authentication test script passes
-- [ ] Browser login works via `/quick_login.html`
-- [ ] Owner console loads without 401 errors
-- [ ] Finance endpoint returns data
-- [ ] Ops status endpoint works
-- [ ] All owner endpoints functional
+### Authentication & Core Features
+- [x] Railway env vars verified (`JWT_SECRET`, `OWNER_DEVICE_ID`, `DATABASE_URL`)
+- [x] Authentication test script passes
+- [x] Browser login works via `/quick_login.html`
+- [x] Owner console loads without 401 errors
+- [x] Finance endpoint returns data
+- [x] Ops status endpoint works
+- [x] All owner endpoints functional
+- [x] Usage report viewer implemented
+
+### Security & Best Practices
+- [ ] CSP refactor complete (35/136 handlers - 26% done)
+- [ ] Remove `'unsafe-inline'` from CSP once all handlers converted
+- [ ] Test all converted handlers work correctly
+- [ ] Handle dynamically generated handlers (innerHTML)
+
+### Maintenance
 - [ ] Stale branches cleaned up (optional)
 
-## 🎯 After Authentication Works
+## 🎯 Current Priorities
 
-1. **Monitor:** Check Railway logs for any errors
-2. **Test:** Use owner console features (finance, ops, reports)
-3. **Optimize:** Consider branch cleanup for cleaner repo
-4. **Document:** Update team docs with authentication flow
-5. **Scale:** Prepare for team growth with clean branch strategy
+### Immediate (This Week)
+1. **CSP Refactor:** Continue converting remaining inline handlers
+   - Phase 3: Forecast, Menu, Financials buttons (~30 handlers)
+   - Phase 4: Modal handlers (~20 handlers)
+   - Phase 5: Dynamic content handlers (~50 handlers)
+   - **Goal:** Complete refactor, remove `'unsafe-inline'` from CSP
+
+2. **Testing:** Verify all converted handlers work
+   - Test tab navigation
+   - Test all button actions
+   - Test input/change handlers
+   - Browser compatibility check
+
+### Short-term (Next 2 Weeks)
+3. **Monitor:** Check Railway logs for any errors
+4. **Test:** Use owner console features (finance, ops, reports, usage viewer)
+5. **Optimize:** Consider branch cleanup for cleaner repo
+6. **Document:** Update team docs with authentication flow and CSP changes
+7. **Scale:** Prepare for team growth with clean branch strategy
+
+### Future Enhancements
+- Tenant scoping for API routes
+- Role management endpoints
+- Integration tests for owner console
+- Metrics exporter extensions
 
 ## 📚 Reference Documents
 
