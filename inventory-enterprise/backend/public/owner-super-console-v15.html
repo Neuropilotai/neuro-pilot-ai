@@ -2444,7 +2444,21 @@
   <!-- v23.6.11: Fixed 401 errors - use correct loadAIOpsStatus() function -->
   <script src="js/owner-super-console.js?v=23.6.11&_t=1733780000"></script>
   
-  <!-- v23.6.10: Version check - force reload if wrong version detected -->
+  <!-- v23.6.11: Unregister service workers to prevent caching -->
+  <script>
+    (function() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          registrations.forEach(registration => {
+            console.warn('🗑️ Unregistering service worker:', registration.scope);
+            registration.unregister();
+          });
+        });
+      }
+    })();
+  </script>
+  
+  <!-- v23.6.11: Version check - force reload if wrong version detected -->
   <script>
     (function() {
       const EXPECTED_VERSION = '23.6.11';
