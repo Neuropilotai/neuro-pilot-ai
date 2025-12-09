@@ -472,10 +472,13 @@ app.use('/api/owner/inventory', authenticateToken, requireOwnerDevice, ownerInve
 // v3.2.0 - Owner Super Console Extensions (One-Command, Recovery, Reports)
 const ownerOrchestrateRoutes = require('./routes/owner-orchestrate');
 const ownerRecoveryRoutes = require('./routes/owner-recovery');
+console.log('[STARTUP] Loading owner-reports...');
 const ownerReportsRoutes = require('./routes/owner-reports');
+console.log('[STARTUP] ✓ owner-reports loaded');
 app.use('/api/super/orchestrate', authenticateToken, requireOwnerDevice, ownerOrchestrateRoutes);
 app.use('/api/owner/recovery', authenticateToken, requireOwnerDevice, ownerRecoveryRoutes);
 app.use('/api/owner/reports', authenticateToken, requireOwnerDevice, ownerReportsRoutes);
+console.log('[STARTUP] ✓ owner-reports routes registered at /api/owner/reports');
 
 // v12.5 - AI Ops Monitoring & Real-Time Status (NeuroPilot v12.5)
 const ownerOpsRoutes = require('./routes/owner-ops');
