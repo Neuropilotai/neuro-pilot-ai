@@ -1595,15 +1595,15 @@ app.use('/api', safeRequire('./routes/version-api', 'version-api'));
 // ============================================
 
 // V21.1 Owner Console Routes - Full Feature Restoration
-app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
+app.use('/api/owner/ops', authenticateToken, requireOwnerDevice, rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
 app.use('/api/owner/pdfs', authenticateToken, requireOwnerDevice, rateLimitMiddleware, auditLog('OWNER_PDFS'), safeRequire('./routes/owner-pdfs', 'owner-pdfs'));
-app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
+app.use('/api/owner', authenticateToken, requireOwnerDevice, rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
 // v3.2.0 - Owner Reports (Finance, Executive, Ops, Production, Purchasing, GFS, Fiscal Period)
 console.log('[STARTUP] Loading owner-reports...');
-app.use('/api/owner/reports', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_REPORTS'), safeRequire('./routes/owner-reports', 'owner-reports'));
+app.use('/api/owner/reports', authenticateToken, requireOwnerDevice, rateLimitMiddleware, auditLog('OWNER_REPORTS'), safeRequire('./routes/owner-reports', 'owner-reports'));
 console.log('[STARTUP] ✓ owner-reports loaded');
 // Diagnostic endpoint to check auth status (owner only)
-app.get('/api/owner/auth-check', authGuard(['owner']), (req, res) => {
+app.get('/api/owner/auth-check', authenticateToken, requireOwnerDevice, (req, res) => {
   res.json({
     success: true,
     authenticated: true,
