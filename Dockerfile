@@ -20,11 +20,15 @@ COPY inventory-enterprise/backend/package*.json ./
 RUN npm ci --omit=dev --ignore-scripts \
     && npm cache clean --force
 
-# Copy backend source code (includes backend/public/ with updated HTML files)
+# Copy backend source code FIRST (includes backend/public/ with updated HTML files)
+# This ensures backend/public/owner-super-console-v15.html (v23.6.11) is included
 COPY inventory-enterprise/backend/ ./
 
-# Copy frontend static files (merge with backend/public, backend files take precedence)
-COPY inventory-enterprise/frontend/public/ ./public/ || true
+# Copy frontend static files - will overwrite backend/public/ files
+# BUT: We need backend/public/ to take precedence, so copy it again AFTER
+# This ensures updated HTML from backend/public/ is the final version
+COPY inventory-enterprise/frontend/public/ ./public/
+COPY inventory-enterprise/backend/public/ ./public/
 
 # Railway provides PORT dynamically (usually 8080), expose for documentation
 EXPOSE 8080
