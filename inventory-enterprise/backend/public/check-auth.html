@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Check - Owner Console</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+            font-weight: 600;
+        }
+        .success { background: #065f46; color: #d1fae5; }
+        .error { background: #7f1d1d; color: #fecaca; }
+        .warning { background: #78350f; color: #fef3c7; }
+        .info { background: #1e3a8a; color: #dbeafe; }
+        pre {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            border: 1px solid #334155;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px 8px 8px 0;
+            font-weight: 600;
+        }
+        button:hover { background: #2563eb; }
+        button.danger { background: #dc2626; }
+        button.danger:hover { background: #b91c1c; }
+        .test-result {
+            margin-top: 12px;
+            padding: 12px;
+            background: #0f172a;
+            border-radius: 6px;
+            border-left: 4px solid #3b82f6;
+        }
+        code {
+            background: #0f172a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 Owner Console Authentication Check</h1>
+    
+    <div class="card">
+        <h2>1. LocalStorage Status</h2>
+        <div id="localStorage-status"></div>
+        <button onclick="checkLocalStorage()">🔄 Refresh Check</button>
+        <button class="danger" onclick="clearAuth()">🗑️ Clear Auth Data</button>
+    </div>
+
+    <div class="card">
+        <h2>2. Test Authentication Headers</h2>
+        <div id="headers-status"></div>
+        <button onclick="testHeaders()">🧪 Test Headers</button>
+    </div>
+
+    <div class="card">
+        <h2>3. Test Owner Endpoints</h2>
+        <div id="endpoint-test-status"></div>
+        <button onclick="testAllEndpoints()">🧪 Test All Endpoints</button>
+    </div>
+
+    <div class="card">
+        <h2>4. Quick Actions</h2>
+        <button onclick="window.location.href='/quick_login.html'">🔑 Go to Login</button>
+        <button onclick="window.location.href='/owner-super-console-v15.html'">📊 Go to Owner Console</button>
+        <button onclick="window.location.href='/auth-debug.html'">🔍 Full Debug Page</button>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const jwt = localStorage.getItem('np_owner_jwt');
+            const device = localStorage.getItem('np_owner_device');
+            
+            const statusDiv = document.getElementById('localStorage-status');
+            let html = '';
+            
+            if (jwt && device) {
+                html += '<div class="status success">✅ JWT Token: Present</div>';
+                html += '<div class="status success">✅ Device ID: Present</div>';
+                
+                // Decode JWT payload
+                try {
+                    const parts = jwt.split('.');
+                    if (parts.length === 3) {
+                        const payload = JSON.parse(atob(parts[1]));
+                        html += '<pre>JWT Payload:\n' + JSON.stringify(payload, null, 2) + '</pre>';
+                        
+                        // Check expiration
+                        if (payload.exp) {
+                            const expDate = new Date(payload.exp * 1000);
+                            const now = new Date();
+                            if (expDate < now) {
+                                html += '<div class="status error">❌ JWT Token is EXPIRED</div>';
+                                html += '<div class="status warning">⚠️ Expired at: ' + expDate.toLocaleString() + '</div>';
+                            } else {
+                                const timeLeft = Math.floor((expDate - now) / 1000 / 60);
+                                html += '<div class="status info">⏰ Token expires in: ' + timeLeft + ' minutes</div>';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    html += '<div class="status warning">⚠️ Could not decode JWT payload</div>';
+                }
+                
+                html += '<pre>Device ID: ' + device + '</pre>';
+            } else {
+                html += '<div class="status error">❌ Missing authentication data</div>';
+                if (!jwt) html += '<div class="status warning">⚠️ np_owner_jwt not found in localStorage</div>';
+                if (!device) html += '<div class="status warning">⚠️ np_owner_device not found in localStorage</div>';
+                html += '<div class="status info">💡 Go to /quick_login.html to authenticate</div>';
+            }
+            
+            statusDiv.innerHTML = html;
+        }
+
+        function getAuthHeaders() {
+            const jwt = localStorage.getItem('np_owner_jwt');
+            const device = localStorage.getItem('np_owner_device');
+            
+            if (!jwt || !device) {
+                return null;
+            }
+            
+            return {
+                'Authorization': 'Bearer ' + jwt,
+                'X-Owner-Device': device,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function testHeaders() {
+            const statusDiv = document.getElementById('headers-status');
+            const headers = getAuthHeaders();
+            
+            if (!headers) {
+                statusDiv.innerHTML = '<div class="status error">❌ No auth headers available. Please login first.</div>';
+                return;
+            }
+            
+            let html = '<div class="status success">✅ Headers generated successfully</div>';
+            html += '<pre>Authorization: ' + headers['Authorization'].substring(0, 50) + '...\n';
+            html += 'X-Owner-Device: ' + headers['X-Owner-Device'] + '</pre>';
+            
+            statusDiv.innerHTML = html;
+        }
+
+        async function testAllEndpoints() {
+            const statusDiv = document.getElementById('endpoint-test-status');
+            statusDiv.innerHTML = '<div class="status info">Testing endpoints...</div>';
+            
+            const headers = getAuthHeaders();
+            if (!headers) {
+                statusDiv.innerHTML = '<div class="status error">❌ No auth headers available. Please login first.</div>';
+                return;
+            }
+            
+            const endpoints = [
+                { name: 'Auth Check', url: '/api/owner/auth-check' },
+                { name: 'Ops Status', url: '/api/owner/ops/status' },
+                { name: 'Finance Report', url: '/api/owner/reports/finance' }
+            ];
+            
+            let html = '<h3>Test Results:</h3>';
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint.url, {
+                        method: 'GET',
+                        headers: headers
+                    });
+                    
+                    const data = await response.json().catch(() => ({ error: 'No JSON response' }));
+                    
+                    if (response.ok) {
+                        html += '<div class="test-result">';
+                        html += '<div class="status success">✅ ' + endpoint.name + ': HTTP ' + response.status + '</div>';
+                        html += '<pre>' + JSON.stringify(data, null, 2).substring(0, 200) + '...</pre>';
+                        html += '</div>';
+                    } else {
+                        html += '<div class="test-result">';
+                        html += '<div class="status error">❌ ' + endpoint.name + ': HTTP ' + response.status + '</div>';
+                        html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                        if (response.status === 401) {
+                            html += '<div class="status warning">⚠️ Authentication failed. Check JWT token and device ID.</div>';
+                        } else if (response.status === 403) {
+                            html += '<div class="status warning">⚠️ Device ID mismatch. Verify OWNER_DEVICE_ID in Railway matches what you entered in login.</div>';
+                        }
+                        html += '</div>';
+                    }
+                } catch (error) {
+                    html += '<div class="test-result">';
+                    html += '<div class="status error">❌ ' + endpoint.name + ': Error - ' + error.message + '</div>';
+                    html += '</div>';
+                }
+            }
+            
+            statusDiv.innerHTML = html;
+        }
+
+        function clearAuth() {
+            if (confirm('Clear all authentication data from localStorage?')) {
+                localStorage.removeItem('np_owner_jwt');
+                localStorage.removeItem('np_owner_device');
+                checkLocalStorage();
+                alert('Auth data cleared. Please login again.');
+            }
+        }
+
+        // Auto-check on load
+        checkLocalStorage();
+    </script>
+</body>
+</html>
+
