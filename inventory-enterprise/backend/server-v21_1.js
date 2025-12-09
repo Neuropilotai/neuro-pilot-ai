@@ -1600,6 +1600,23 @@ app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER
 console.log('[STARTUP] Loading owner-reports...');
 app.use('/api/owner/reports', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_REPORTS'), safeRequire('./routes/owner-reports', 'owner-reports'));
 console.log('[STARTUP] ✓ owner-reports loaded');
+// Diagnostic endpoint to check auth status (owner only)
+app.get('/api/owner/auth-check', authGuard(['owner']), (req, res) => {
+  res.json({
+    success: true,
+    authenticated: true,
+    user: {
+      id: req.user?.id,
+      email: req.user?.email,
+      role: req.user?.role,
+      org_id: req.user?.org_id
+    },
+    headers: {
+      hasAuth: !!req.headers.authorization,
+      hasDevice: !!req.headers['x-owner-device']
+    }
+  });
+});
 app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), safeRequire('./routes/governance', 'governance'));
 
 // V22.2: AI Engine Routes - PostgreSQL-native AI inventory intelligence
