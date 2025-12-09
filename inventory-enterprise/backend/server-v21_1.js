@@ -1643,6 +1643,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// Explicit quick login route to avoid 404 if static resolution fails
+app.get('/quick_login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quick_login.html'));
+});
+
 // 404 handler (catches everything not handled by routes or static files)
 app.use((req, res) => {
   res.status(404).json({

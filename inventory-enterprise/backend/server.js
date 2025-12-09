@@ -353,6 +353,11 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/public', express.static(path.join(__dirname, '../frontend/public')));
 app.use('/dashboard', express.static(path.join(__dirname, '../frontend/dashboard')));
 
+// Explicit quick login route to avoid 404 in production deployments
+app.get('/quick_login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quick_login.html'));
+});
+
 // Serve GFS Monthly Reports (Owner-only access, served statically)
 const gfsReportsPath = '/Users/davidmikulis/Desktop/GFS_Monthly_Reports';
 if (require('fs').existsSync(gfsReportsPath)) {
