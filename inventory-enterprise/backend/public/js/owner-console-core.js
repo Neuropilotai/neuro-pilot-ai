@@ -140,6 +140,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   updateTokenTTL();
   setInterval(updateTokenTTL, 1000);
 
+  // v23.6.11: Setup event listeners for CSP compliance (replaces inline onclick handlers)
+  setupEventListeners();
+
   // Load saved tab preference
   const savedTab = localStorage.getItem('ownerConsoleTab') || 'dashboard';
   switchTab(savedTab);
@@ -161,6 +164,70 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }, 15000);
 });
+
+/**
+ * Setup event listeners for CSP compliance (v23.6.11)
+ * Replaces inline onclick/onchange handlers with addEventListener
+ */
+function setupEventListeners() {
+  // Tab navigation - use event delegation for all tabs
+  const tabsContainer = document.querySelector('.tabs');
+  if (tabsContainer) {
+    tabsContainer.addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab');
+      if (tab && tab.dataset.tab) {
+        switchTab(tab.dataset.tab);
+      }
+    });
+  }
+
+  // Header buttons
+  const healthBadge = document.getElementById('healthBadge');
+  if (healthBadge && healthBadge.dataset.action === 'checkHealth') {
+    healthBadge.addEventListener('click', () => {
+      if (typeof checkHealth === 'function') {
+        checkHealth();
+      }
+    });
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      if (typeof logout === 'function') {
+        logout();
+      }
+    });
+  }
+
+  // Buttons with data-action attribute (general pattern for CSP compliance)
+  // This handles buttons like: data-action="loadCognitiveIntelligence", data-action="loadInventory", etc.
+  // Functions may be defined in owner-console-core.js or owner-super-console.js
+  // Since both scripts are loaded in the same scope, functions are accessible via window or directly
+  document.querySelectorAll('[data-action]').forEach(el => {
+    const action = el.dataset.action;
+    if (action) {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Try window scope first (functions exported to window)
+        if (typeof window[action] === 'function') {
+          window[action]();
+        } else {
+          // Try to call function directly (functions are hoisted and available in global scope)
+          try {
+            // Use Function constructor to safely call function by name
+            const func = new Function('return typeof ' + action + ' === "function" ? ' + action + '() : null')();
+            if (func === null && typeof window[action] === 'undefined') {
+              console.warn(`Function ${action} not found`);
+            }
+          } catch (err) {
+            console.warn(`Could not execute ${action}:`, err.message);
+          }
+        }
+      });
+    }
+  });
+}
 
 // ============================================================================
 // AUTH & SESSION

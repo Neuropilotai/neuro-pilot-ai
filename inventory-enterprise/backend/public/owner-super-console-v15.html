@@ -17,7 +17,7 @@
       <span id="liveBadge" class="badge badge-live">
         LIVE 🟢
       </span>
-      <span id="healthBadge" class="badge badge-health" onclick="checkHealth()" title="Click to refresh health status">
+      <span id="healthBadge" class="badge badge-health" data-action="checkHealth" title="Click to refresh health status">
         <span id="healthIcon">⏳</span> <span id="healthText">Checking...</span>
       </span>
       <span class="badge badge-version">
@@ -31,30 +31,30 @@
       <span id="currentUser"></span>
       <span class="token-ttl" id="tokenTTL"></span>
       <span id="authStatus"></span>
-      <button type="button" class="btn btn-sm btn-secondary" onclick="logout()">Logout</button>
+      <button type="button" class="btn btn-sm btn-secondary" id="logoutBtn">Logout</button>
     </div>
   </header>
 
   <nav class="tabs tabs-2rows">
     <div class="tabs-row">
-      <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
-      <div class="tab" onclick="switchTab('inventory')">📦 Inventory</div>
-      <div class="tab" onclick="switchTab('locations')">📍 Locations</div>
-      <div class="tab" onclick="switchTab('pdfs')">📄 Orders/PDFs</div>
-      <div class="tab" onclick="switchTab('count')">🔢 Count</div>
-      <div class="tab" onclick="switchTab('playground')">🎮 Playground</div>
+      <div class="tab active" data-tab="dashboard">📊 Dashboard</div>
+      <div class="tab" data-tab="inventory">📦 Inventory</div>
+      <div class="tab" data-tab="locations">📍 Locations</div>
+      <div class="tab" data-tab="pdfs">📄 Orders/PDFs</div>
+      <div class="tab" data-tab="count">🔢 Count</div>
+      <div class="tab" data-tab="playground">🎮 Playground</div>
     </div>
     <div class="tabs-row">
-      <div class="tab" onclick="switchTab('ai')">🤖 AI Console</div>
-      <div class="tab" onclick="switchTab('forecast')">📈 Forecast</div>
-      <div class="tab" onclick="switchTab('menu')">🍽️ Menu</div>
-      <div class="tab" onclick="switchTab('financials')">💰 Financials</div>
-      <div class="tab" onclick="switchTab('finance-brain')">🧠 Finance Brain</div>
-      <div class="tab" onclick="switchTab('item-bank')">🏦 Item Bank</div>
-      <div class="tab" onclick="switchTab('governance')">⚛️ Governance</div>
-      <div class="tab" onclick="switchTab('intelligence')">🔮 Intelligence</div>
-      <div class="tab" onclick="switchTab('reports')">📋 Reports</div>
-      <div class="tab" onclick="switchTab('settings')">⚙️ Settings</div>
+      <div class="tab" data-tab="ai">🤖 AI Console</div>
+      <div class="tab" data-tab="forecast">📈 Forecast</div>
+      <div class="tab" data-tab="menu">🍽️ Menu</div>
+      <div class="tab" data-tab="financials">💰 Financials</div>
+      <div class="tab" data-tab="finance-brain">🧠 Finance Brain</div>
+      <div class="tab" data-tab="item-bank">🏦 Item Bank</div>
+      <div class="tab" data-tab="governance">⚛️ Governance</div>
+      <div class="tab" data-tab="intelligence">🔮 Intelligence</div>
+      <div class="tab" data-tab="reports">📋 Reports</div>
+      <div class="tab" data-tab="settings">⚙️ Settings</div>
     </div>
   </nav>
 
@@ -65,7 +65,7 @@
       <div class="card card-cognitive">
         <div class="card-header">
           <h3 class="card-title">🧠 Cognitive Overview - AI Intelligence Status</h3>
-          <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadCognitiveIntelligence()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" data-action="loadCognitiveIntelligence">↻ Refresh</button>
         </div>
         <div class="cognitive-grid">
           <!-- v14.4: AI Intelligence Index - Featured -->
@@ -100,11 +100,11 @@
           <div class="stat-value" id="systemHealth">--</div>
           <div class="stat-label">System Health</div>
         </div>
-        <div class="card stat-card cursor-pointer" onclick="showForecastDetail()" title="Click to see details">
+        <div class="card stat-card cursor-pointer" data-action="showForecastDetail" title="Click to see details">
           <div class="stat-value" id="forecastCoverage">--</div>
           <div class="stat-label">Forecast Coverage</div>
         </div>
-        <div class="card stat-card cursor-pointer" onclick="showStockoutDetail()" title="Click to see details">
+        <div class="card stat-card cursor-pointer" data-action="showStockoutDetail" title="Click to see details">
           <div class="stat-value" id="stockoutCount">--</div>
           <div class="stat-label">Stockout Risk</div>
         </div>
@@ -118,7 +118,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">📡 Live AI Activity Feed</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadActivityFeed()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadActivityFeed">↻ Refresh</button>
         </div>
         <div id="activityFeed"></div>
       </div>
@@ -144,8 +144,8 @@
       <div class="card">
         <div class="toolbar">
           <input type="text" class="input toolbar-search" id="inventorySearch" placeholder="Search items...">
-          <button type="button" class="btn btn-primary" onclick="loadInventory()">🔍 Search</button>
-          <button type="button" class="btn btn-secondary" onclick="openSpotCheckModal()">📋 Spot Check</button>
+          <button type="button" class="btn btn-primary" data-action="loadInventory">🔍 Search</button>
+          <button type="button" class="btn btn-secondary" data-action="openSpotCheckModal">📋 Spot Check</button>
         </div>
         <div id="inventoryTable"></div>
       </div>
