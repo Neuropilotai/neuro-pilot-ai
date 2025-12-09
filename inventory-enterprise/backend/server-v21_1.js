@@ -728,6 +728,8 @@ if (process.env.SCHEDULER_ENABLED === 'true' && process.env.AUTO_RETRAIN_ENABLED
 // V21.1 Security Middleware
 console.log('[STARTUP] Loading middleware...');
 const { authGuard: rbacAuthGuard, requirePermissions } = require('./middleware/authorize');
+const { authenticateToken } = require('./middleware/auth');
+const { requireOwnerDevice } = require('./middleware/deviceBinding');
 const { auditLog } = require('./middleware/audit');
 const { privacyGuard, executeScheduledDeletions } = require('./middleware/privacy');
 const { validatePayment } = require('./middleware/payments.validate');
@@ -1594,7 +1596,7 @@ app.use('/api', safeRequire('./routes/version-api', 'version-api'));
 
 // V21.1 Owner Console Routes - Full Feature Restoration
 app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
-app.use('/api/owner/pdfs', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_PDFS'), safeRequire('./routes/owner-pdfs', 'owner-pdfs'));
+app.use('/api/owner/pdfs', authenticateToken, requireOwnerDevice, rateLimitMiddleware, auditLog('OWNER_PDFS'), safeRequire('./routes/owner-pdfs', 'owner-pdfs'));
 app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
 // v3.2.0 - Owner Reports (Finance, Executive, Ops, Production, Purchasing, GFS, Fiscal Period)
 console.log('[STARTUP] Loading owner-reports...');
