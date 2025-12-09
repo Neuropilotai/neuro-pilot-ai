@@ -4678,16 +4678,192 @@ async function viewWorkspaceUsage() {
     return;
   }
 
+  // Create or get modal for usage report
+  let modal = document.getElementById('workspaceUsageModal');
+  if (!modal) {
+    // Create modal if it doesn't exist
+    modal = document.createElement('div');
+    modal.id = 'workspaceUsageModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 1200px;">
+        <div class="modal-header">
+          <h3>Usage Report</h3>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="closeWorkspaceUsageModal()">✕ Close</button>
+        </div>
+        <div class="modal-body">
+          <div id="workspaceUsageContent"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeWorkspaceUsageModal()">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  const contentDiv = document.getElementById('workspaceUsageContent');
+  if (!contentDiv) {
+    showToast('Usage report content div not found', 'danger');
+    return;
+  }
+
+  contentDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Loading usage report...</div>';
+  modal.classList.add('active');
+
   try {
     const usageData = await fetchAPI(`/owner/count/workspaces/${window.currentWorkspaceId}/usage`);
 
-    // TODO: Implement usage report viewer
-    // For now, just show a summary
-    showToast(`Usage report: ${usageData.total_items || 0} items, $${usageData.total_value || 0} value`, 'info');
-    console.log('Usage data:', usageData);
+    if (!usageData || !usageData.items) {
+      contentDiv.innerHTML = '<div class="empty-state-centered">No usage data available</div>';
+      return;
+    }
+
+    // Build usage report HTML following the pattern of other reports
+    let html = `
+      <div class="grid grid-3 u-mb-6">
+        <div class="card stat-card">
+          <div class="stat-value">${usageData.total_items || 0}</div>
+          <div class="stat-label">Total Items</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value">$${(usageData.total_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div class="stat-label">Total Value</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value">${usageData.locations_count || 0}</div>
+          <div class="stat-label">Locations</div>
+        </div>
+      </div>
+    `;
+
+    // Summary section
+    if (usageData.summary) {
+      html += `
+        <h4 class="u-mb-2">Summary</h4>
+        <div class="card u-mb-6">
+          <div class="flex-col-gap">
+            <div class="flex-between-center">
+              <span class="text-bold-base">Period:</span>
+              <span>${usageData.summary.period_start || 'N/A'} to ${usageData.summary.period_end || 'N/A'}</span>
+            </div>
+            ${usageData.summary.invoices_count ? `
+              <div class="flex-between-center">
+                <span class="text-bold-base">Invoices Attached:</span>
+                <span>${usageData.summary.invoices_count}</span>
+              </div>
+            ` : ''}
+            ${usageData.summary.counts_completed ? `
+              <div class="flex-between-center">
+                <span class="text-bold-base">Counts Completed:</span>
+                <span>${usageData.summary.counts_completed}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // Items table
+    if (usageData.items && usageData.items.length > 0) {
+      html += `
+        <h4 class="u-mb-2">Items by Location</h4>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item Code</th>
+                <th>Item Name</th>
+                <th>Location</th>
+                <th>Quantity</th>
+                <th>Unit</th>
+                <th>Value</th>
+                <th>Counted At</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      usageData.items.forEach(item => {
+        html += `
+          <tr>
+            <td><strong>${item.item_code || 'N/A'}</strong></td>
+            <td>${item.item_name || ''}</td>
+            <td>${item.location_name || item.location_id || 'N/A'}</td>
+            <td>${(item.quantity || 0).toFixed(2)}</td>
+            <td>${item.unit || 'EA'}</td>
+            <td>$${(item.value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="text-light-small">${item.counted_at ? new Date(item.counted_at).toLocaleString() : 'N/A'}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      html += '<div class="empty-state-centered">No items counted yet</div>';
+    }
+
+    // Export button
+    html += `
+      <div class="u-mt-4 u-text-center">
+        <button type="button" class="btn btn-primary" onclick="exportUsageReport('${window.currentWorkspaceId}')">
+          📥 Export CSV
+        </button>
+      </div>
+    `;
+
+    contentDiv.innerHTML = html;
+
   } catch (error) {
     console.error('Error loading usage report:', error);
+    contentDiv.innerHTML = showError('usageReport', error.message || 'Failed to load usage report');
     showToast(`Error loading usage report: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Export usage report as CSV
+ */
+async function exportUsageReport(workspaceId) {
+  try {
+    const usageData = await fetchAPI(`/owner/count/workspaces/${workspaceId}/usage`);
+
+    if (!usageData || !usageData.items || usageData.items.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    let csv = 'Item Code,Item Name,Location,Quantity,Unit,Value,Counted At\n';
+    usageData.items.forEach(item => {
+      csv += `${item.item_code || ''},${item.item_name || ''},${item.location_name || item.location_id || ''},${item.quantity || 0},${item.unit || 'EA'},${item.value || 0},${item.counted_at || ''}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `usage_report_${workspaceId}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast('CSV exported successfully!', 'success');
+  } catch (error) {
+    console.error('Error exporting usage report:', error);
+    showToast(`Error exporting CSV: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Close workspace usage modal
+ */
+function closeWorkspaceUsageModal() {
+  const modal = document.getElementById('workspaceUsageModal');
+  if (modal) {
+    modal.classList.remove('active');
   }
 }
 
