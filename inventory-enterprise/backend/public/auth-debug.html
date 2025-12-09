@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Debug - Owner Console</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Owner Console Auth Debug</h1>
+    
+    <div class="card">
+        <h2>1. LocalStorage Status</h2>
+        <div id="localStorage-status"></div>
+        <button onclick="checkLocalStorage()">Refresh Check</button>
+        <button class="danger" onclick="clearAuth()">Clear Auth Data</button>
+    </div>
+
+    <div class="card">
+        <h2>2. Test Authentication</h2>
+        <div id="auth-test-status"></div>
+        <button onclick="testAuth()">Test Auth Endpoint</button>
+    </div>
+
+    <div class="card">
+        <h2>3. Test Owner Endpoints</h2>
+        <div id="endpoint-test-status"></div>
+        <button onclick="testOwnerEndpoints()">Test All Owner Endpoints</button>
+    </div>
+
+    <div class="card">
+        <h2>4. Quick Actions</h2>
+        <button onclick="window.location.href='/quick_login.html'">Go to Login</button>
+        <button onclick="window.location.href='/owner-super-console-v15.html'">Go to Owner Console</button>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const jwt = localStorage.getItem('np_owner_jwt');
+            const device = localStorage.getItem('np_owner_device');
+            
+            const statusDiv = document.getElementById('localStorage-status');
+            let html = '';
+            
+            if (jwt && device) {
+                html += '<div class="status success">✅ JWT Token: Present</div>';
+                html += '<div class="status success">✅ Device ID: Present</div>';
+                html += '<pre>JWT: ' + jwt.substring(0, 50) + '...\nDevice: ' + device + '</pre>';
+                
+                // Try to decode JWT payload (base64)
+                try {
+                    const payload = JSON.parse(atob(jwt.split('.')[1]));
+                    html += '<pre>JWT Payload:\n' + JSON.stringify(payload, null, 2) + '</pre>';
+                } catch (e) {
+                    html += '<div class="status warning">⚠️ Could not decode JWT payload</div>';
+                }
+            } else {
+                html += '<div class="status error">❌ Missing authentication data</div>';
+                if (!jwt) html += '<div class="status warning">⚠️ np_owner_jwt not found</div>';
+                if (!device) html += '<div class="status warning">⚠️ np_owner_device not found</div>';
+                html += '<div class="status info">💡 Go to /quick_login.html to authenticate</div>';
+            }
+            
+            statusDiv.innerHTML = html;
+        }
+
+        function getAuthHeaders() {
+            const jwt = localStorage.getItem('np_owner_jwt');
+            const device = localStorage.getItem('np_owner_device');
+            
+            if (!jwt || !device) {
+                return null;
+            }
+            
+            return {
+                'Authorization': 'Bearer ' + jwt,
+                'X-Owner-Device': device,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        async function testAuth() {
+            const statusDiv = document.getElementById('auth-test-status');
+            statusDiv.innerHTML = '<div class="status info">Testing...</div>';
+            
+            const headers = getAuthHeaders();
+            if (!headers) {
+                statusDiv.innerHTML = '<div class="status error">❌ No auth headers available. Please login first.</div>';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/owner/auth-check', {
+                    method: 'GET',
+                    headers: headers
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="status success">✅ Auth check passed!</div><pre>' + 
+                        JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    statusDiv.innerHTML = '<div class="status error">❌ Auth check failed (HTTP ' + response.status + ')</div><pre>' + 
+                        JSON.stringify(data, null, 2) + '</pre>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Error: ' + error.message + '</div>';
+            }
+        }
+
+        async function testOwnerEndpoints() {
+            const statusDiv = document.getElementById('endpoint-test-status');
+            statusDiv.innerHTML = '<div class="status info">Testing endpoints...</div>';
+            
+            const headers = getAuthHeaders();
+            if (!headers) {
+                statusDiv.innerHTML = '<div class="status error">❌ No auth headers available. Please login first.</div>';
+                return;
+            }
+            
+            const endpoints = [
+                { name: 'Auth Check', url: '/api/owner/auth-check' },
+                { name: 'Ops Status', url: '/api/owner/ops/status' },
+                { name: 'Finance Report', url: '/api/owner/reports/finance' }
+            ];
+            
+            let results = '<h3>Test Results:</h3>';
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint.url, {
+                        method: 'GET',
+                        headers: headers
+                    });
+                    
+                    const data = await response.json().catch(() => ({ error: 'No JSON response' }));
+                    
+                    if (response.ok) {
+                        results += '<div class="status success">✅ ' + endpoint.name + ': HTTP ' + response.status + '</div>';
+                    } else {
+                        results += '<div class="status error">❌ ' + endpoint.name + ': HTTP ' + response.status + '</div>';
+                        results += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    }
+                } catch (error) {
+                    results += '<div class="status error">❌ ' + endpoint.name + ': Error - ' + error.message + '</div>';
+                }
+            }
+            
+            statusDiv.innerHTML = results;
+        }
+
+        function clearAuth() {
+            if (confirm('Clear all authentication data from localStorage?')) {
+                localStorage.removeItem('np_owner_jwt');
+                localStorage.removeItem('np_owner_device');
+                checkLocalStorage();
+                alert('Auth data cleared. Please login again.');
+            }
+        }
+
+        // Auto-check on load
+        checkLocalStorage();
+    </script>
+</body>
+</html>
+
