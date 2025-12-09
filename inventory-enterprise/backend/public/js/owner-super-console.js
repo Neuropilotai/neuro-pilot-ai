@@ -3451,13 +3451,11 @@ async function loadAIOpsStatus() {
     learningDivergenceEl.textContent = '...';
 
     // === v14.4.0: Safe fetch with fallback for AI Ops status ===
-    const base = (window.NP_CONFIG && window.NP_CONFIG.API_BASE) || window.API_URL || '';
-    const url = `${base}/api/owner/ops/status`;
+    // v23.6.9: Use fetchAPI() which includes authHeaders() (Authorization + X-Owner-Device)
     let opsStatus = null;
 
     try {
-      const r = await fetch(url, { headers: { 'Accept': 'application/json' }});
-      opsStatus = await r.json().catch(() => null);
+      opsStatus = await fetchAPI('/owner/ops/status');
     } catch (e) {
       window.NP_LAST_API_ERROR = { ts: Date.now(), scope: 'AI_OPS', message: String(e) };
     }
