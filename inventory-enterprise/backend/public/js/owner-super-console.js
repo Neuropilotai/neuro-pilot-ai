@@ -79,6 +79,44 @@ function swapText(el, state) {
 }
 
 /* ============================================
+   Owner Auth Helpers (JWT + Device Binding)
+   ============================================ */
+
+function getOwnerAuthHeaders(extraHeaders = {}) {
+  const token = localStorage.getItem('np_owner_jwt');
+  const device = localStorage.getItem('np_owner_device');
+  const headers = { ...extraHeaders };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (device) headers['X-Owner-Device'] = device;
+  return headers;
+}
+
+// Patch fetch to automatically attach owner headers for /api/owner/*
+if (!window.__ownerFetchPatched) {
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => {
+    try {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url && url.startsWith('/api/owner')) {
+        const mergedHeaders = getOwnerAuthHeaders(init.headers || {});
+        init = { ...init, headers: mergedHeaders };
+      }
+    } catch (err) {
+      console.warn('Owner fetch patch warning:', err);
+    }
+    return originalFetch(input, init).then(async (res) => {
+      if (res.status === 401) {
+        console.warn('Owner session expired. Redirecting to quick_login.');
+        alert('Session expired. Please log in again.');
+        window.location.href = '/quick_login.html';
+      }
+      return res;
+    });
+  };
+  window.__ownerFetchPatched = true;
+}
+
+/* ============================================
    End CSP Helpers
    ============================================ */
 

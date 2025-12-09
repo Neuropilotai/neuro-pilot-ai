@@ -20,6 +20,10 @@ const posRegistersRoutes = require('./routes/pos.registers');
 const posPaymentsRoutes = require('./routes/pos.payments');
 const posReportsRoutes = require('./routes/pos.reports');
 
+// P1 Hardening - Recipes and Waste routes
+const recipesRoutes = require('./routes/recipes');
+const wasteRoutes = require('./routes/waste');
+
 // PASS G v2.4.0 - Multi-Tenancy & RBAC
 const webhooksRoutes = require('./routes/webhooks_2025-10-07');
 
@@ -382,6 +386,10 @@ app.use('/api/pos/orders', authenticateToken, posOrdersRoutes);
 app.use('/api/pos/registers', authenticateToken, posRegistersRoutes);
 app.use('/api/pos/payments', authenticateToken, posPaymentsRoutes);
 app.use('/api/pos/reports', authenticateToken, posReportsRoutes);
+
+// P1 Hardening - Recipes and Waste routes (org-scoped)
+app.use('/api/recipes', authenticateToken, resolveTenant, recipesRoutes);
+app.use('/api/waste', authenticateToken, resolveTenant, wasteRoutes);
 
 // v21.1 - Alias /api/items to /api/inventory for frontend compatibility
 app.use('/api/items', authenticateToken, resolveTenant, inventoryRoutes);
