@@ -86,7 +86,12 @@ function swapText(el, state) {
 
 window.addEventListener('DOMContentLoaded', async () => {
   // Re-read token from localStorage (may have been set after script load)
-  token = localStorage.getItem('NP_TOKEN') || localStorage.getItem('authToken') || window.NP_TOKEN || window.authToken;
+  // Support both new format (np_owner_jwt from quick_login.html) and old format (NP_TOKEN/authToken)
+  token = localStorage.getItem('np_owner_jwt') || 
+          localStorage.getItem('NP_TOKEN') || 
+          localStorage.getItem('authToken') || 
+          window.NP_TOKEN || 
+          window.authToken;
 
   if (!token) {
     window.location.href = 'login.html';
@@ -186,15 +191,32 @@ function logout() {
 
 /**
  * Build auth headers - gracefully handles missing token
+ * Supports both new format (np_owner_jwt + np_owner_device) and old format (NP_TOKEN/authToken)
  */
 function authHeaders() {
-  const t = localStorage.getItem('NP_TOKEN') || localStorage.getItem('authToken') || window.NP_TOKEN || window.authToken;
+  // Check for token in both new and old formats (same priority as token initialization)
+  const t = localStorage.getItem('np_owner_jwt') || 
+            localStorage.getItem('NP_TOKEN') || 
+            localStorage.getItem('authToken') || 
+            window.NP_TOKEN || 
+            window.authToken;
+  
+  // Check for device ID (new format from quick_login.html)
+  const deviceId = localStorage.getItem('np_owner_device');
+  
   const h = { 'Accept': 'application/json' };
+  
   if (t) {
     h['Authorization'] = `Bearer ${t}`;
   } else {
     console.warn('⚠️ No auth token found - API calls may fail');
   }
+  
+  // Include X-Owner-Device header if device ID is present (required for owner routes)
+  if (deviceId) {
+    h['X-Owner-Device'] = deviceId;
+  }
+  
   return h;
 }
 
