@@ -1,102 +1,74 @@
 #!/bin/bash
-# Verify Railway Deployment Status
-# Checks if latest code is deployed and routes are working
 
-set -e
+# Railway Deployment Verification Script
+# Checks if Railway is serving the correct version of owner-super-console-v15.html
 
-BASE_URL="${RAILWAY_URL:-https://inventory-backend-production-3a2c.up.railway.app}"
+RAILWAY_URL="https://inventory-backend-production-3a2c.up.railway.app"
+EXPECTED_VERSION="23.6.11"
 
-echo "🔍 Verifying Railway Deployment"
-echo "================================"
-echo "Base URL: $BASE_URL"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 Railway Deployment Verification"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Checking: $RAILWAY_URL"
+echo "Expected version: $EXPECTED_VERSION"
 echo ""
 
-# Check health endpoint
-echo "1️⃣  Checking health endpoint..."
-HEALTH=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$BASE_URL/health")
-HTTP_CODE=$(echo "$HEALTH" | grep "HTTP_CODE:" | cut -d: -f2)
-BODY=$(echo "$HEALTH" | sed '/HTTP_CODE:/d')
+# Fetch HTML and check versions
+HTML=$(curl -s "${RAILWAY_URL}/owner-super-console-v15.html")
 
-if [ "$HTTP_CODE" = "200" ]; then
-  echo "✅ Health check passed"
-  echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
-else
-  echo "❌ Health check failed (HTTP $HTTP_CODE)"
-  echo "$BODY"
+if [ -z "$HTML" ]; then
+  echo "❌ ERROR: Could not fetch HTML from Railway"
+  echo "   Check if Railway service is running"
   exit 1
 fi
+
+# Check for expected version
+VERSIONS=$(echo "$HTML" | grep -oE "v=23\.[0-9]+\.[0-9]+" | sort -u)
+
+echo "📊 Versions found in HTML:"
+echo "$VERSIONS" | while read -r version; do
+  if [ "$version" = "v=$EXPECTED_VERSION" ]; then
+    echo "   ✅ $version (CORRECT)"
+  else
+    echo "   ❌ $version (WRONG - expected v=$EXPECTED_VERSION)"
+  fi
+done
+
 echo ""
 
-# Check if quick_login.html is accessible
-echo "2️⃣  Checking quick_login.html..."
-QUICK_LOGIN=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$BASE_URL/quick_login.html")
-HTTP_CODE=$(echo "$QUICK_LOGIN" | grep "HTTP_CODE:" | cut -d: -f2)
+# Check specific script tags
+echo "📄 Script tags:"
+echo "$HTML" | grep -E "owner-console-core\.js|owner-super-console\.js" | head -2 | while read -r line; do
+  if echo "$line" | grep -q "v=$EXPECTED_VERSION"; then
+    echo "   ✅ $line"
+  else
+    echo "   ❌ $line"
+  fi
+done
 
-if [ "$HTTP_CODE" = "200" ]; then
-  echo "✅ quick_login.html is accessible"
+echo ""
+
+# Determine overall status
+if echo "$VERSIONS" | grep -q "v=$EXPECTED_VERSION"; then
+  echo "✅ SUCCESS: Railway is serving correct version ($EXPECTED_VERSION)"
+  echo ""
+  echo "Next steps:"
+  echo "   1. Hard refresh browser: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)"
+  echo "   2. Check browser console for: '✅ Correct version loaded: $EXPECTED_VERSION'"
+  echo "   3. Verify /api/owner/ops/status returns 200 (no 401 errors)"
+  exit 0
 else
-  echo "❌ quick_login.html not found (HTTP $HTTP_CODE)"
-  echo "This may indicate a deployment issue"
+  echo "❌ FAILURE: Railway is NOT serving correct version"
+  echo ""
+  echo "Current versions found:"
+  echo "$VERSIONS"
+  echo ""
+  echo "Action required:"
+  echo "   1. Check Railway dashboard → Deployments"
+  echo "   2. Verify latest commit is deployed (should be 0f50701ba9 or later)"
+  echo "   3. Trigger manual redeploy if needed"
+  echo "   4. Wait 2-3 minutes and run this script again"
+  exit 1
 fi
-echo ""
-
-# Check auth endpoint (should return 400/401 without credentials, not 404)
-echo "3️⃣  Checking auth/login endpoint..."
-AUTH_CHECK=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "$BASE_URL/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{}')
-HTTP_CODE=$(echo "$AUTH_CHECK" | grep "HTTP_CODE:" | cut -d: -f2)
-BODY=$(echo "$AUTH_CHECK" | sed '/HTTP_CODE:/d')
-
-if [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "401" ]; then
-  echo "✅ Auth endpoint exists (HTTP $HTTP_CODE - expected without credentials)"
-elif [ "$HTTP_CODE" = "404" ]; then
-  echo "❌ Auth endpoint not found (HTTP 404)"
-  echo "Route may not be registered"
-else
-  echo "⚠️  Unexpected response (HTTP $HTTP_CODE)"
-  echo "$BODY"
-fi
-echo ""
-
-# Check owner/reports endpoint (should return 401 without auth, not 404)
-echo "4️⃣  Checking owner/reports endpoint..."
-REPORTS_CHECK=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$BASE_URL/api/owner/reports/finance")
-HTTP_CODE=$(echo "$REPORTS_CHECK" | grep "HTTP_CODE:" | cut -d: -f2)
-BODY=$(echo "$REPORTS_CHECK" | sed '/HTTP_CODE:/d')
-
-if [ "$HTTP_CODE" = "401" ]; then
-  echo "✅ Owner reports endpoint exists (HTTP 401 - auth required, route is working!)"
-elif [ "$HTTP_CODE" = "404" ]; then
-  echo "❌ Owner reports endpoint not found (HTTP 404)"
-  echo "Route may not be registered in server-v21_1.js"
-  echo "Check Railway logs for: [STARTUP] ✓ owner-reports loaded"
-else
-  echo "⚠️  Unexpected response (HTTP $HTTP_CODE)"
-  echo "$BODY"
-fi
-echo ""
-
-# Check owner/ops endpoint
-echo "5️⃣  Checking owner/ops endpoint..."
-OPS_CHECK=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$BASE_URL/api/owner/ops/status")
-HTTP_CODE=$(echo "$OPS_CHECK" | grep "HTTP_CODE:" | cut -d: -f2)
-
-if [ "$HTTP_CODE" = "401" ]; then
-  echo "✅ Owner ops endpoint exists (HTTP 401 - auth required)"
-elif [ "$HTTP_CODE" = "404" ]; then
-  echo "❌ Owner ops endpoint not found (HTTP 404)"
-else
-  echo "⚠️  Unexpected response (HTTP $HTTP_CODE)"
-fi
-echo ""
-
-echo "📊 Summary"
-echo "=========="
-echo "If all endpoints return 401 (not 404), routes are registered correctly."
-echo "Next step: Log in via /quick_login.html to get authentication token."
-echo ""
-echo "💡 To test with authentication:"
-echo "   export OWNER_DEVICE_ID='your-device-id'"
-echo "   ./scripts/test-owner-auth.sh"
 
