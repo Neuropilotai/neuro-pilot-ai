@@ -203,22 +203,78 @@ function setupEventListeners() {
   // Buttons with data-action attribute (general pattern for CSP compliance)
   // This handles buttons like: data-action="loadCognitiveIntelligence", data-action="loadInventory", etc.
   // Functions may be defined in owner-console-core.js or owner-super-console.js
-  // Since both scripts are loaded in the same scope, functions are accessible via window or directly
+  // Since both scripts are loaded before DOMContentLoaded, functions are hoisted and available
   document.querySelectorAll('[data-action]').forEach(el => {
     const action = el.dataset.action;
     if (action) {
       el.addEventListener('click', (e) => {
         e.preventDefault();
-        // Try window scope first (functions exported to window)
+        // Check for data-action-arg (for functions that take parameters like triggerJob)
+        const actionArg = el.dataset.actionArg;
+        
+        // Try window scope first (functions exported to window like loadInventory, loadCognitiveIntelligence)
+        if (typeof window[action] === 'function') {
+          if (actionArg !== undefined) {
+            window[action](actionArg);
+          } else {
+            window[action]();
+          }
+        } else {
+          // Functions declared with 'function' keyword are hoisted and available in global scope
+          // Use eval only as fallback for functions not on window (safe here since action comes from data attribute)
+          try {
+            // Check if function exists in global scope
+            const funcExists = typeof eval(action) === 'function';
+            if (funcExists) {
+              if (actionArg !== undefined) {
+                eval(`${action}('${actionArg}')`);
+              } else {
+                eval(`${action}()`);
+              }
+            } else {
+              console.warn(`Function ${action} not found. Make sure it's exported to window or declared globally.`);
+            }
+          } catch (err) {
+            console.warn(`Could not execute ${action}:`, err.message);
+          }
+        }
+      });
+    }
+  });
+
+  // Input fields with data-input-action attribute (for oninput handlers)
+  document.querySelectorAll('[data-input-action]').forEach(el => {
+    const action = el.dataset.inputAction;
+    if (action) {
+      el.addEventListener('input', () => {
         if (typeof window[action] === 'function') {
           window[action]();
         } else {
-          // Try to call function directly (functions are hoisted and available in global scope)
           try {
-            // Use Function constructor to safely call function by name
-            const func = new Function('return typeof ' + action + ' === "function" ? ' + action + '() : null')();
-            if (func === null && typeof window[action] === 'undefined') {
-              console.warn(`Function ${action} not found`);
+            const funcExists = typeof eval(action) === 'function';
+            if (funcExists) {
+              eval(`${action}()`);
+            }
+          } catch (err) {
+            console.warn(`Could not execute ${action}:`, err.message);
+          }
+        }
+      });
+    }
+  });
+
+  // Checkboxes/selects with data-change-action attribute (for onchange handlers)
+  document.querySelectorAll('[data-change-action]').forEach(el => {
+    const action = el.dataset.changeAction;
+    if (action) {
+      el.addEventListener('change', () => {
+        if (typeof window[action] === 'function') {
+          window[action]();
+        } else {
+          try {
+            const funcExists = typeof eval(action) === 'function';
+            if (funcExists) {
+              eval(`${action}()`);
             }
           } catch (err) {
             console.warn(`Could not execute ${action}:`, err.message);

@@ -259,8 +259,8 @@
           <div class="card-header">
             <h3 class="card-title">Storage Locations</h3>
             <div class="flex-gap-half">
-              <button type="button" class="btn btn-sm btn-success" onclick="openAddLocationModal()">➕ Add New</button>
-              <button type="button" class="btn btn-sm btn-primary" onclick="loadLocations()">↻ Refresh</button>
+              <button type="button" class="btn btn-sm btn-success" data-action="openAddLocationModal">➕ Add New</button>
+              <button type="button" class="btn btn-sm btn-primary" data-action="loadLocations">↻ Refresh</button>
             </div>
           </div>
           <div id="locationsList"></div>
@@ -279,12 +279,12 @@
         <div class="card-header">
           <h3 class="card-title">📦 Unassigned Items</h3>
           <div class="flex-gap-half">
-            <button type="button" class="btn btn-sm btn-success" onclick="assignSelectedItems()" id="assignSelectedBtn" disabled>📍 Assign Selected</button>
-            <button type="button" class="btn btn-sm btn-primary" onclick="loadUnassignedItems()">↻ Refresh</button>
+            <button type="button" class="btn btn-sm btn-success" data-action="assignSelectedItems" id="assignSelectedBtn" disabled>📍 Assign Selected</button>
+            <button type="button" class="btn btn-sm btn-primary" data-action="loadUnassignedItems">↻ Refresh</button>
           </div>
         </div>
         <div class="toolbar">
-          <input type="text" class="input toolbar-search" id="unassignedSearch" placeholder="Search items..." oninput="debounceUnassignedSearch()">
+          <input type="text" class="input toolbar-search" id="unassignedSearch" placeholder="Search items..." data-input-action="debounceUnassignedSearch">
           <span class="text-light-med">
             Total: <strong id="unassignedTotal">--</strong>
           </span>
@@ -294,7 +294,7 @@
             <thead>
               <tr>
                 <th>
-                  <input type="checkbox" id="selectAllUnassigned" onchange="toggleSelectAllUnassigned()" aria-label="Select all unassigned items">
+                  <input type="checkbox" id="selectAllUnassigned" data-change-action="toggleSelectAllUnassigned" aria-label="Select all unassigned items">
                 </th>
                 <th>Item Code</th>
                 <th>Name</th>
@@ -319,9 +319,9 @@
             <option value="unprocessed">Unprocessed</option>
             <option value="processed">Processed</option>
           </select>
-          <button type="button" class="btn btn-primary" onclick="loadPDFs()">🔍 Search</button>
-          <button type="button" class="btn btn-success" onclick="openUploadPDFModal()">📤 Upload PDF</button>
-          <button type="button" class="btn btn-success" onclick="openIncludeOrdersModal()">✓ Include in Count</button>
+          <button type="button" class="btn btn-primary" data-action="loadPDFs">🔍 Search</button>
+          <button type="button" class="btn btn-success" data-action="openUploadPDFModal">📤 Upload PDF</button>
+          <button type="button" class="btn btn-success" data-action="openIncludeOrdersModal">✓ Include in Count</button>
         </div>
         <div id="pdfTable"></div>
       </div>
@@ -353,7 +353,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">📊 Reconciliation Reports</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadRecentReconciliations()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadRecentReconciliations">↻ Refresh</button>
         </div>
         <div id="reconciliationReportsList">
           <div class="loading"><div class="spinner"></div> Loading reconciliation reports...</div>
@@ -389,7 +389,7 @@
             <label class="form-label">Notes</label>
             <textarea class="textarea" id="countNotes" placeholder="Count notes..."></textarea>
           </div>
-          <button type="button" class="btn btn-primary btn-full" onclick="startNewPhysicalCount()">🎯 Start Count</button>
+          <button type="button" class="btn btn-primary btn-full" data-action="startNewPhysicalCount">🎯 Start Count</button>
         </div>
 
         <div class="card">
@@ -403,8 +403,8 @@
             </div>
           </div>
           <div id="activeCountActions" class="hidden flex-gap-1">
-            <button type="button" class="btn btn-secondary" onclick="addItemToActiveCount()">➕ Add Item</button>
-            <button type="button" class="btn btn-success" onclick="closeActiveCount()">✓ Close Count</button>
+            <button type="button" class="btn btn-secondary" data-action="addItemToActiveCount">➕ Add Item</button>
+            <button type="button" class="btn btn-success" data-action="closeActiveCount">✓ Close Count</button>
           </div>
         </div>
       </div>
@@ -413,7 +413,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">📋 Count History</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadCountHistory()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadCountHistory">↻ Refresh</button>
         </div>
         <table class="table" id="countHistoryTable">
           <thead>
@@ -439,7 +439,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">🎮 Month-End Playground - Workspace Manager</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadPlayground()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadPlayground">↻ Refresh</button>
         </div>
         <div class="alert alert-info">
           <strong>Month-End Workflow:</strong> Create workspaces, attach invoices, count inventory across locations, and generate usage reports.
@@ -454,7 +454,7 @@
       <div class="card card-bordered">
         <div class="card-header">
           <h3 class="card-title">🚀 AI Ops System Health (v13.5 Adaptive)</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadAIOpsStatus()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadAIOpsStatus">↻ Refresh</button>
         </div>
         <div class="grid grid-4" id="aiOpsHealthGrid">
           <div class="stat-card">
@@ -481,8 +481,8 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">⏰ Autonomous Cron Schedule</h3>
-          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_forecast')">▶️ Run Forecast Now</button>
-          <button type="button" class="btn btn-sm btn-secondary" onclick="triggerJob('ai_learning')">▶️ Run Learning Now</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="triggerJob" data-action-arg="ai_forecast">▶️ Run Forecast Now</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="triggerJob" data-action-arg="ai_learning">▶️ Run Learning Now</button>
         </div>
         <div class="grid grid-2" id="cronSchedule">
           <div>
