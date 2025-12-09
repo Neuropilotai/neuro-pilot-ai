@@ -127,37 +127,64 @@ const verifyOwnerDevice = (req) => {
 
 /**
  * Middleware to enforce device binding for owner routes
- * TEMPORARILY DISABLED FOR DEBUGGING
+ * Railway Production: Checks X-Owner-Device header against OWNER_DEVICE_ID env var
  */
 const requireOwnerDevice = (req, res, next) => {
-  // TEMPORARILY DISABLED - skip device verification
-  return next();
-
-  // Only apply to owner users
+  // Only apply to owner/admin users
   if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'owner')) {
     return next();
   }
 
-  const verification = verifyOwnerDevice(req);
+  // Railway Production: Check X-Owner-Device header against OWNER_DEVICE_ID
+  const expectedDeviceId = process.env.OWNER_DEVICE_ID;
+  const providedDeviceId = req.headers['x-owner-device'] || req.headers['X-Owner-Device'];
 
-  if (!verification.verified) {
-    logger.warn('Owner device verification failed', {
+  if (!expectedDeviceId) {
+    logger.error('OWNER_DEVICE_ID not configured - owner routes disabled for security', {
       userId: req.user.id,
-      reason: verification.reason,
       ip: req.ip,
       endpoint: req.path
     });
 
+    return res.status(500).json({
+      error: 'Owner device authentication not configured',
+      code: 'DEVICE_ID_NOT_CONFIGURED',
+      security: 'CONFIGURATION_ERROR'
+    });
+  }
+
+  if (!providedDeviceId) {
+    logger.warn('Owner route accessed without X-Owner-Device header', {
+      userId: req.user.id,
+      ip: req.ip,
+      endpoint: req.path
+    });
+
+    return res.status(401).json({
+      error: 'X-Owner-Device header required',
+      code: 'DEVICE_HEADER_MISSING',
+      security: 'DEVICE_BINDING_ENFORCED'
+    });
+  }
+
+  if (providedDeviceId !== expectedDeviceId) {
+    logger.warn('Owner device ID mismatch - unauthorized access attempt', {
+      userId: req.user.id,
+      ip: req.ip,
+      endpoint: req.path,
+      providedDeviceId: providedDeviceId.substring(0, 8) + '...' // Log partial for security
+    });
+
     return res.status(403).json({
-      error: verification.message,
-      code: verification.reason,
+      error: 'Invalid owner device ID',
+      code: 'DEVICE_ID_MISMATCH',
       security: 'DEVICE_BINDING_ENFORCED'
     });
   }
 
   // Device verified, proceed
   req.deviceVerified = true;
-  req.deviceFingerprint = verification.fingerprint;
+  req.deviceId = providedDeviceId;
   next();
 };
 
