@@ -9776,9 +9776,7 @@ async function uploadGFSInvoice() {
 
       const response = await fetch('/api/owner/pdfs/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
-        },
+        headers: authHeaders(),
         body: formData
       });
 
@@ -9837,9 +9835,7 @@ async function uploadGFSInvoice() {
 function viewGFSInvoiceStatus() {
   // Show invoice status by fiscal period
   fetch('/api/owner/pdfs?vendor=GFS&period=FY26-P02', {
-    headers: {
-      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
-    }
+    headers: authHeaders()
   })
   .then(response => response.json())
   .then(data => {
@@ -9864,7 +9860,7 @@ function generateGFSReport() {
   fetch('/api/owner/generate-gfs-report', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`,
+      ...authHeaders(),
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -9888,9 +9884,7 @@ function generateGFSReport() {
 function loadGFSInvoiceStats() {
   // Load stats for the GFS Invoice Management card
   fetch('/api/owner/pdfs?vendor=GFS&period=FY26-P02', {
-    headers: {
-      'Authorization': `Bearer ${sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken')}`
-    }
+    headers: authHeaders()
   })
   .then(response => response.json())
   .then(data => {
@@ -9940,9 +9934,26 @@ document.addEventListener('DOMContentLoaded', function() {
   const fmtPct = (n) => (n==null ? '—' : Number(n).toFixed(1) + '%');
 
   function authHeaders(){
-    const t = localStorage.getItem('authToken') || window.authToken || sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken');
+    // Use new format (np_owner_jwt) with fallback to old formats for compatibility
+    const t = localStorage.getItem('np_owner_jwt') || 
+              localStorage.getItem('NP_TOKEN') || 
+              localStorage.getItem('authToken') || 
+              window.NP_TOKEN || 
+              window.authToken ||
+              sessionStorage.getItem('ownerToken') || 
+              localStorage.getItem('ownerToken');
+    
+    // Check for device ID (new format from quick_login.html)
+    const deviceId = localStorage.getItem('np_owner_device');
+    
     const h = { 'Accept':'application/json' };
     if (t) h['Authorization'] = `Bearer ${t}`;
+    
+    // Include X-Owner-Device header if device ID is present (required for owner routes)
+    if (deviceId) {
+      h['X-Owner-Device'] = deviceId;
+    }
+    
     return h;
   }
 
@@ -10057,9 +10068,26 @@ document.addEventListener('DOMContentLoaded', function() {
   function $$(sel) { return document.querySelector(sel); }
 
   function authHeaders(){
-    const t = localStorage.getItem('authToken') || window.authToken || sessionStorage.getItem('ownerToken') || localStorage.getItem('ownerToken');
+    // Use new format (np_owner_jwt) with fallback to old formats for compatibility
+    const t = localStorage.getItem('np_owner_jwt') || 
+              localStorage.getItem('NP_TOKEN') || 
+              localStorage.getItem('authToken') || 
+              window.NP_TOKEN || 
+              window.authToken ||
+              sessionStorage.getItem('ownerToken') || 
+              localStorage.getItem('ownerToken');
+    
+    // Check for device ID (new format from quick_login.html)
+    const deviceId = localStorage.getItem('np_owner_device');
+    
     const h = { 'Accept':'application/json' };
     if (t) h['Authorization'] = `Bearer ${t}`;
+    
+    // Include X-Owner-Device header if device ID is present (required for owner routes)
+    if (deviceId) {
+      h['X-Owner-Device'] = deviceId;
+    }
+    
     return h;
   }
 
