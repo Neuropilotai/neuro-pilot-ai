@@ -1596,6 +1596,10 @@ app.use('/api', safeRequire('./routes/version-api', 'version-api'));
 app.use('/api/owner/ops', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_OPS'), safeRequire('./routes/owner-ops', 'owner-ops'));
 app.use('/api/owner/pdfs', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_PDFS'), safeRequire('./routes/owner-pdfs', 'owner-pdfs'));
 app.use('/api/owner', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_CONSOLE'), safeRequire('./routes/owner', 'owner'));
+// v3.2.0 - Owner Reports (Finance, Executive, Ops, Production, Purchasing, GFS, Fiscal Period)
+console.log('[STARTUP] Loading owner-reports...');
+app.use('/api/owner/reports', authGuard(['owner']), rateLimitMiddleware, auditLog('OWNER_REPORTS'), safeRequire('./routes/owner-reports', 'owner-reports'));
+console.log('[STARTUP] ✓ owner-reports loaded');
 app.use('/api/governance', authGuard(['admin', 'owner']), rateLimitMiddleware, auditLog('GOVERNANCE'), safeRequire('./routes/governance', 'governance'));
 
 // V22.2: AI Engine Routes - PostgreSQL-native AI inventory intelligence
