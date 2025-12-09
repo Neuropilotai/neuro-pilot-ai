@@ -155,6 +155,35 @@ let autonomousScheduler = null;
 let backgroundWorkers = null;
 
 const app = express();
+
+// ============================================================================
+// Critical environment validation (prod-safe)
+// ============================================================================
+function requireEnv(name, opts = {}) {
+  const value = process.env[name];
+  if (!value || value.trim() === '') {
+    const msg = `Missing required environment variable: ${name}`;
+    if (opts.optional) {
+      console.warn(msg);
+      return null;
+    }
+    console.error(msg);
+    process.exit(1);
+  }
+  return value;
+}
+
+// Required for auth & owner device binding
+requireEnv('JWT_SECRET');
+requireEnv('OWNER_DEVICE_ID');
+// Required for database connectivity
+requireEnv('DATABASE_URL');
+// Optional integrations
+requireEnv('SMTP_SERVER', { optional: true });
+requireEnv('SMTP_USERNAME', { optional: true });
+requireEnv('SMTP_PASSWORD', { optional: true });
+requireEnv('REORDER_WEBHOOK_URL', { optional: true });
+
 // v14.4.2: Maximum security - no unsafe-inline anywhere
 app.use(helmet({
   contentSecurityPolicy: {
