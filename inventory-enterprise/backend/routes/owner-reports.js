@@ -504,15 +504,15 @@ router.get('/finance', authenticateToken, requireOwner, async (req, res) => {
       }
     };
 
-    // Counts closed this month
+    // Counts closed this month (PostgreSQL syntax)
     const countsThisMonthSql = `
       SELECT
         COUNT(*) as total_counts,
-        SUM(item_count) as total_items_counted,
-        AVG(item_count) as avg_items_per_count
+        COUNT(*) as total_items_counted,
+        COUNT(*) as avg_items_per_count
       FROM inventory_counts
       WHERE status = 'closed'
-        AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+        AND to_char(created_at, 'YYYY-MM') = to_char(CURRENT_DATE, 'YYYY-MM')
     `;
 
     let countsThisMonth = { total_counts: 0, total_items_counted: 0, avg_items_per_count: 0 };
@@ -524,16 +524,16 @@ router.get('/finance', authenticateToken, requireOwner, async (req, res) => {
 
     report.countsThisMonth = countsThisMonth;
 
-    // PDFs included in counts (this month)
+    // PDFs included in counts (this month) - table may not exist, handled in try-catch
     const pdfsInCountsSql = `
       SELECT
         COUNT(DISTINCT cp.document_id) as pdfs_included,
         COUNT(DISTINCT cp.count_id) as counts_with_pdfs,
-        SUM(d.total_value) as total_invoice_value
+        COALESCE(SUM(d.total_value), 0) as total_invoice_value
       FROM count_pdfs cp
       JOIN documents d ON cp.document_id = d.id
-      JOIN inventory_counts ic ON cp.count_id = ic.id
-      WHERE strftime('%Y-%m', ic.created_at) = strftime('%Y-%m', 'now')
+      JOIN inventory_counts ic ON cp.count_id = ic.count_id
+      WHERE to_char(ic.created_at, 'YYYY-MM') = to_char(CURRENT_DATE, 'YYYY-MM')
     `;
 
     let pdfsInCounts = { pdfs_included: 0, counts_with_pdfs: 0, total_invoice_value: 0 };
@@ -563,16 +563,16 @@ router.get('/finance', authenticateToken, requireOwner, async (req, res) => {
 
     report.currentInventoryValue = inventoryValue;
 
-    // Variance markers (compare this month vs last month)
+    // Variance markers (compare this month vs last month) - PostgreSQL syntax
     const varianceSql = `
       SELECT
-        strftime('%Y-%m', created_at) as month,
+        to_char(created_at, 'YYYY-MM') as month,
         COUNT(*) as count_frequency,
-        SUM(item_count) as items_counted
+        COUNT(*) as items_counted
       FROM inventory_counts
       WHERE status = 'closed'
-        AND created_at >= datetime('now', '-2 months')
-      GROUP BY strftime('%Y-%m', created_at)
+        AND created_at >= NOW() - INTERVAL '2 months'
+      GROUP BY to_char(created_at, 'YYYY-MM')
       ORDER BY month DESC
     `;
 
@@ -600,20 +600,19 @@ router.get('/finance', authenticateToken, requireOwner, async (req, res) => {
       };
     }
 
-    // Recent closed counts (this month)
+    // Recent closed counts (this month) - PostgreSQL syntax, using count_id as primary key
     const recentClosedSql = `
       SELECT
-        id,
+        count_id as id,
         count_id,
         created_at,
         closed_at,
-        item_count,
         owner_id,
         notes
       FROM inventory_counts
       WHERE status = 'closed'
-        AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
-      ORDER BY closed_at DESC
+        AND to_char(created_at, 'YYYY-MM') = to_char(CURRENT_DATE, 'YYYY-MM')
+      ORDER BY closed_at DESC NULLS LAST, created_at DESC
       LIMIT 10
     `;
 
