@@ -11,36 +11,6 @@ const { requireOwner } = require('../middleware/requireOwner');
 const db = require('../config/database');
 
 /**
- * GET /api/owner/reports/finance
- * Returns finance summary; uses stub if data unavailable
- */
-router.get('/finance', authenticateToken, requireOwner, async (req, res) => {
-  try {
-    // TODO: replace stub with real finance aggregation when schema is finalized
-    const payload = {
-      status: 'ok',
-      range: 'last_30_days',
-      rows: [],
-      totals: {
-        revenue: 0,
-        expenses: 0,
-        net: 0
-      },
-      org_id: req.user?.org_id || null,
-      generated_at: new Date().toISOString()
-    };
-
-    res.json(payload);
-  } catch (error) {
-    console.error('Finance report error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-/**
  * GET /api/owner/reports/executive
  * Owner Executive Summary
  * - Today vs Tomorrow demand from forecast

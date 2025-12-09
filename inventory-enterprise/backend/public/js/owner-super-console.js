@@ -96,8 +96,9 @@ if (!window.__ownerFetchPatched) {
   const originalFetch = window.fetch.bind(window);
   window.fetch = (input, init = {}) => {
     try {
-      const url = typeof input === 'string' ? input : input.url;
-      if (url && url.startsWith('/api/owner')) {
+      const url = typeof input === 'string' ? input : (input?.url || '');
+      // Match both relative (/api/owner) and absolute URLs (https://.../api/owner)
+      if (url && (url.startsWith('/api/owner') || url.includes('/api/owner'))) {
         const mergedHeaders = getOwnerAuthHeaders(init.headers || {});
         init = { ...init, headers: mergedHeaders };
       }
