@@ -20,11 +20,11 @@ COPY inventory-enterprise/backend/package*.json ./
 RUN npm ci --omit=dev --ignore-scripts \
     && npm cache clean --force
 
-# Copy backend source code
+# Copy backend source code (includes backend/public/ with updated HTML files)
 COPY inventory-enterprise/backend/ ./
 
-# Copy frontend static files
-COPY inventory-enterprise/frontend/public/ ./public/
+# Copy frontend static files (merge with backend/public, backend files take precedence)
+COPY inventory-enterprise/frontend/public/ ./public/ || true
 
 # Railway provides PORT dynamically (usually 8080), expose for documentation
 EXPOSE 8080
