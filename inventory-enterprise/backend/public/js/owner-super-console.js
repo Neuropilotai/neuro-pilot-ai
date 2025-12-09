@@ -4712,51 +4712,65 @@ async function viewWorkspaceUsage() {
   modal.classList.add('active');
 
   try {
-    const usageData = await fetchAPI(`/owner/count/workspaces/${window.currentWorkspaceId}/usage`);
+    const response = await fetchAPI(`/owner/count/workspaces/${window.currentWorkspaceId}/usage`);
 
-    if (!usageData || !usageData.items) {
+    if (!response || !response.success) {
       contentDiv.innerHTML = '<div class="empty-state-centered">No usage data available</div>';
       return;
     }
 
+    const { workspace, summary, usage } = response;
+
     // Build usage report HTML following the pattern of other reports
     let html = `
-      <div class="grid grid-3 u-mb-6">
+      <div class="grid grid-4 u-mb-6">
         <div class="card stat-card">
-          <div class="stat-value">${usageData.total_items || 0}</div>
+          <div class="stat-value">${summary?.total_items || 0}</div>
           <div class="stat-label">Total Items</div>
         </div>
         <div class="card stat-card">
-          <div class="stat-value">$${(usageData.total_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-          <div class="stat-label">Total Value</div>
+          <div class="stat-value">${(summary?.total_opening || 0).toFixed(0)}</div>
+          <div class="stat-label">Opening Qty</div>
         </div>
         <div class="card stat-card">
-          <div class="stat-value">${usageData.locations_count || 0}</div>
-          <div class="stat-label">Locations</div>
+          <div class="stat-value">${(summary?.total_purchases || 0).toFixed(0)}</div>
+          <div class="stat-label">Purchases</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-value">${(summary?.total_usage || 0).toFixed(0)}</div>
+          <div class="stat-label">Total Usage</div>
         </div>
       </div>
     `;
 
     // Summary section
-    if (usageData.summary) {
+    if (workspace) {
       html += `
-        <h4 class="u-mb-2">Summary</h4>
+        <h4 class="u-mb-2">Workspace Summary</h4>
         <div class="card u-mb-6">
           <div class="flex-col-gap">
             <div class="flex-between-center">
-              <span class="text-bold-base">Period:</span>
-              <span>${usageData.summary.period_start || 'N/A'} to ${usageData.summary.period_end || 'N/A'}</span>
+              <span class="text-bold-base">Workspace:</span>
+              <span>${workspace.name || 'N/A'}</span>
             </div>
-            ${usageData.summary.invoices_count ? `
+            <div class="flex-between-center">
+              <span class="text-bold-base">Period:</span>
+              <span>${workspace.period_start || 'N/A'} to ${workspace.period_end || 'N/A'}</span>
+            </div>
+            <div class="flex-between-center">
+              <span class="text-bold-base">Status:</span>
+              <span class="badge ${workspace.status === 'closed' ? 'badge-success' : 'badge-warning'}">${workspace.status || 'N/A'}</span>
+            </div>
+            ${summary?.items_not_counted > 0 ? `
               <div class="flex-between-center">
-                <span class="text-bold-base">Invoices Attached:</span>
-                <span>${usageData.summary.invoices_count}</span>
+                <span class="text-bold-base">Items Not Counted:</span>
+                <span class="badge badge-warning">${summary.items_not_counted}</span>
               </div>
             ` : ''}
-            ${usageData.summary.counts_completed ? `
+            ${summary?.items_with_anomalies > 0 ? `
               <div class="flex-between-center">
-                <span class="text-bold-base">Counts Completed:</span>
-                <span>${usageData.summary.counts_completed}</span>
+                <span class="text-bold-base">Anomalies:</span>
+                <span class="badge badge-danger">${summary.items_with_anomalies}</span>
               </div>
             ` : ''}
           </div>
@@ -4764,36 +4778,42 @@ async function viewWorkspaceUsage() {
       `;
     }
 
-    // Items table
-    if (usageData.items && usageData.items.length > 0) {
+    // Usage table
+    if (usage && usage.length > 0) {
       html += `
-        <h4 class="u-mb-2">Items by Location</h4>
+        <h4 class="u-mb-2">Usage by Item</h4>
         <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
                 <th>Item Code</th>
                 <th>Item Name</th>
-                <th>Location</th>
-                <th>Quantity</th>
-                <th>Unit</th>
-                <th>Value</th>
-                <th>Counted At</th>
+                <th>Opening</th>
+                <th>Purchases</th>
+                <th>Closing</th>
+                <th>Usage</th>
+                <th>Source</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
       `;
 
-      usageData.items.forEach(item => {
+      usage.forEach(item => {
+        const notesBadge = item.notes ? 
+          `<span class="badge ${item.notes === 'negative_usage_anomaly' ? 'badge-danger' : 'badge-warning'}">${item.notes}</span>` : 
+          '';
+        
         html += `
           <tr>
             <td><strong>${item.item_code || 'N/A'}</strong></td>
             <td>${item.item_name || ''}</td>
-            <td>${item.location_name || item.location_id || 'N/A'}</td>
-            <td>${(item.quantity || 0).toFixed(2)}</td>
-            <td>${item.unit || 'EA'}</td>
-            <td>$${(item.value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td class="text-light-small">${item.counted_at ? new Date(item.counted_at).toLocaleString() : 'N/A'}</td>
+            <td>${(item.opening_qty || 0).toFixed(2)}</td>
+            <td>${(item.purchases_qty || 0).toFixed(2)}</td>
+            <td>${(item.closing_qty || 0).toFixed(2)}</td>
+            <td><strong>${(item.usage_qty || 0).toFixed(2)}</strong></td>
+            <td class="text-light-small">${item.opening_source || 'estimate'}</td>
+            <td>${notesBadge}</td>
           </tr>
         `;
       });
@@ -4804,7 +4824,7 @@ async function viewWorkspaceUsage() {
         </div>
       `;
     } else {
-      html += '<div class="empty-state-centered">No items counted yet</div>';
+      html += '<div class="empty-state-centered">No usage data available</div>';
     }
 
     // Export button
@@ -4830,16 +4850,18 @@ async function viewWorkspaceUsage() {
  */
 async function exportUsageReport(workspaceId) {
   try {
-    const usageData = await fetchAPI(`/owner/count/workspaces/${workspaceId}/usage`);
+    const response = await fetchAPI(`/owner/count/workspaces/${workspaceId}/usage`);
 
-    if (!usageData || !usageData.items || usageData.items.length === 0) {
+    if (!response || !response.success || !response.usage || response.usage.length === 0) {
       alert('No data to export');
       return;
     }
 
-    let csv = 'Item Code,Item Name,Location,Quantity,Unit,Value,Counted At\n';
-    usageData.items.forEach(item => {
-      csv += `${item.item_code || ''},${item.item_name || ''},${item.location_name || item.location_id || ''},${item.quantity || 0},${item.unit || 'EA'},${item.value || 0},${item.counted_at || ''}\n`;
+    const { workspace, usage } = response;
+
+    let csv = 'Item Code,Item Name,Opening Qty,Purchases Qty,Closing Qty,Usage Qty,Opening Source,Notes\n';
+    usage.forEach(item => {
+      csv += `${item.item_code || ''},${item.item_name || ''},${item.opening_qty || 0},${item.purchases_qty || 0},${item.closing_qty || 0},${item.usage_qty || 0},${item.opening_source || 'estimate'},${item.notes || ''}\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv' });
