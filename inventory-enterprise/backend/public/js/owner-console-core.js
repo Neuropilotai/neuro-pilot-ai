@@ -181,6 +181,18 @@ function setupEventListeners() {
     });
   }
 
+  // Report tab navigation - use event delegation for report tabs
+  const reportTabsContainer = document.querySelector('[data-report-tab]')?.closest('.flex-gap-half-wrap') || 
+                              document.querySelector('.flex-gap-half-wrap');
+  if (reportTabsContainer) {
+    reportTabsContainer.addEventListener('click', (e) => {
+      const reportTab = e.target.closest('[data-report-tab]');
+      if (reportTab && reportTab.dataset.reportTab && typeof switchReportTab === 'function') {
+        switchReportTab(reportTab.dataset.reportTab);
+      }
+    });
+  }
+
   // Header buttons
   const healthBadge = document.getElementById('healthBadge');
   if (healthBadge && healthBadge.dataset.action === 'checkHealth') {
@@ -209,13 +221,24 @@ function setupEventListeners() {
     if (action) {
       el.addEventListener('click', (e) => {
         e.preventDefault();
-        // Check for data-action-arg (for functions that take parameters like triggerJob)
+        // Check for data-action-arg (for functions that take parameters like triggerJob, adjustPopulation)
         const actionArg = el.dataset.actionArg;
         
         // Try window scope first (functions exported to window like loadInventory, loadCognitiveIntelligence)
         if (typeof window[action] === 'function') {
           if (actionArg !== undefined) {
-            window[action](actionArg);
+            // Handle comma-separated arguments (e.g., "25,0" for adjustPopulation)
+            if (actionArg.includes(',')) {
+              const args = actionArg.split(',').map(arg => {
+                const trimmed = arg.trim();
+                // Try to parse as number, otherwise keep as string
+                const num = Number(trimmed);
+                return isNaN(num) ? trimmed : num;
+              });
+              window[action](...args);
+            } else {
+              window[action](actionArg);
+            }
           } else {
             window[action]();
           }
@@ -227,7 +250,17 @@ function setupEventListeners() {
             const funcExists = typeof eval(action) === 'function';
             if (funcExists) {
               if (actionArg !== undefined) {
-                eval(`${action}('${actionArg}')`);
+                // Handle comma-separated arguments
+                if (actionArg.includes(',')) {
+                  const args = actionArg.split(',').map(arg => {
+                    const trimmed = arg.trim();
+                    const num = Number(trimmed);
+                    return isNaN(num) ? `'${trimmed}'` : trimmed;
+                  });
+                  eval(`${action}(${args.join(',')})`);
+                } else {
+                  eval(`${action}('${actionArg}')`);
+                }
               } else {
                 eval(`${action}()`);
               }

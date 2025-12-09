@@ -623,7 +623,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">Population Controls</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadPopulation()">↻</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadPopulation">↻</button>
         </div>
         <div class="flex-gap-1-wrap">
           <div>
@@ -634,11 +634,11 @@
             <label class="form-label">Indian Meals</label>
             <input type="number" class="input" id="indianCount" aria-label="Indian meals count">
           </div>
-          <button type="button" class="btn btn-primary" onclick="updatePopulation()">💾 Update</button>
-          <div class="chip" onclick="adjustPopulation(25, 0)">+25 People</div>
-          <div class="chip" onclick="adjustPopulation(-25, 0)">-25 People</div>
-          <div class="chip" onclick="adjustPopulation(0, 5)">+5 Indian</div>
-          <div class="chip" onclick="adjustPopulation(0, -5)">-5 Indian</div>
+          <button type="button" class="btn btn-primary" data-action="updatePopulation">💾 Update</button>
+          <div class="chip" data-action="adjustPopulation" data-action-arg="25,0">+25 People</div>
+          <div class="chip" data-action="adjustPopulation" data-action-arg="-25,0">-25 People</div>
+          <div class="chip" data-action="adjustPopulation" data-action-arg="0,5">+5 Indian</div>
+          <div class="chip" data-action="adjustPopulation" data-action-arg="0,-5">-5 Indian</div>
         </div>
       </div>
       <div class="card">
@@ -650,7 +650,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">Today's Predictions</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadDailyForecast()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadDailyForecast">↻ Refresh</button>
         </div>
         <div id="forecastTable"></div>
       </div>
@@ -710,7 +710,7 @@
       <div class="card card-cognitive">
         <div class="card-header">
           <h3 class="card-title">💰 Financial Accuracy & Usage Intelligence (v15.3)</h3>
-          <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadFinancialData()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-cognitive-refresh" data-action="loadFinancialData">↻ Refresh</button>
         </div>
 
         <!-- Financial Accuracy Stats -->
@@ -751,7 +751,7 @@
             <input type="date" class="input" id="financialImportFrom" value="2025-01-01" aria-label="Financial import start date">
             <span class="flex-align-center">→</span>
             <input type="date" class="input" id="financialImportTo" value="2025-06-30" aria-label="Financial import end date">
-            <button type="button" class="btn btn-primary" onclick="importFinancialData()">📥 Import Financial Data</button>
+            <button type="button" class="btn btn-primary" data-action="importFinancialData">📥 Import Financial Data</button>
           </div>
         </div>
 
@@ -768,11 +768,11 @@
         <div class="card-header">
           <h3 class="card-title">📊 Financial Summary & Reports</h3>
           <div class="flex-gap-half">
-            <select class="select" id="financialPeriodType" onchange="loadFinancialSummary()" aria-label="Financial summary period type">
+            <select class="select" id="financialPeriodType" data-change-action="loadFinancialSummary" aria-label="Financial summary period type">
               <option value="monthly">Monthly</option>
               <option value="weekly">Weekly</option>
             </select>
-            <button type="button" class="btn btn-sm btn-primary" onclick="loadFinancialSummary()">↻ Refresh</button>
+            <button type="button" class="btn btn-sm btn-primary" data-action="loadFinancialSummary">↻ Refresh</button>
           </div>
         </div>
 
@@ -845,8 +845,8 @@
           <input type="text" class="input" id="financeAIQuestion" placeholder="e.g., show top 5 vendors by total for 2025-H1 and export pdf" aria-label="AI Finance Question">
         </div>
         <div class="flex-gap-1">
-          <button type="button" class="btn btn-primary" onclick="askFinanceAI()">🔮 Ask AI</button>
-          <button type="button" class="btn btn-secondary" onclick="showFinanceAIPreview()">👁️ Preview SQL</button>
+          <button type="button" class="btn btn-primary" data-action="askFinanceAI">🔮 Ask AI</button>
+          <button type="button" class="btn btn-secondary" data-action="showFinanceAIPreview">👁️ Preview SQL</button>
         </div>
         <div id="financeAIResults" class="hidden">
           <hr>
@@ -859,7 +859,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">🔍 Data Quality Monitor</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadFinanceDataQuality()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadFinanceDataQuality">↻ Refresh</button>
         </div>
         <div id="financeDataQualityContainer">
           <div class="loading">Click Refresh to check data quality...</div>
@@ -1059,9 +1059,9 @@
               <option value="en">🇬🇧 English</option>
               <option value="fr">🇫🇷 Français</option>
             </select>
-            <button type="button" class="btn btn-sm btn-cognitive-refresh" onclick="loadIntelligence()">↻ Refresh</button>
-            <button type="button" class="btn btn-sm btn-primary u-owner-only" onclick="recomputeIntelligence()">🔄 Recompute</button>
-            <button type="button" class="btn btn-sm btn-primary u-owner-only" onclick="generateIntelligenceReport()">📄 Report</button>
+            <button type="button" class="btn btn-sm btn-cognitive-refresh" data-action="loadIntelligence">↻ Refresh</button>
+            <button type="button" class="btn btn-sm btn-primary u-owner-only" data-action="recomputeIntelligence">🔄 Recompute</button>
+            <button type="button" class="btn btn-sm btn-primary u-owner-only" data-action="generateIntelligenceReport">📄 Report</button>
           </div>
         </div>
 
@@ -1183,11 +1183,11 @@
           </div>
 
           <button type="button" id="gi-simulate-btn" class="btn btn-sm btn-primary u-owner-only"
-                  onclick="simulateForecast()">
+                  data-action="simulateForecast">
             🔮 <span id="gi-simulate-label">Simulate</span>
           </button>
 
-          <button type="button" class="btn btn-sm btn-secondary" onclick="loadForecastChart()">
+          <button type="button" class="btn btn-sm btn-secondary" data-action="loadForecastChart">
             ↻ <span id="gi-refresh-forecast-label">Refresh</span>
           </button>
         </div>
@@ -1233,7 +1233,7 @@
           <p>
             Access all monthly GFS accounting reports (Jan-Sep 2025) with clickable PDF links, cost code breakdowns, and copy/paste ready format.
           </p>
-          <button type="button" class="btn btn-white-full" onclick="openGFSReports()">
+          <button type="button" class="btn btn-white-full" data-action="openGFSReports">
             🚀 Open GFS Monthly Reports Dashboard
           </button>
         </div>
@@ -1244,9 +1244,9 @@
           <h3 class="card-title">Tiered Reporting Center</h3>
         </div>
         <div class="flex-gap-half-wrap">
-          <div class="chip active" id="reportTab-executive" onclick="switchReportTab('executive')">👔 Executive</div>
-          <div class="chip" id="reportTab-ops" onclick="switchReportTab('ops')">📊 Ops Manager</div>
-          <div class="chip" id="reportTab-production" onclick="switchReportTab('production')">👨‍🍳 Production</div>
+          <div class="chip active" id="reportTab-executive" data-tab="executive" data-report-tab="executive">👔 Executive</div>
+          <div class="chip" id="reportTab-ops" data-tab="ops" data-report-tab="ops">📊 Ops Manager</div>
+          <div class="chip" id="reportTab-production" data-tab="production" data-report-tab="production">👨‍🍳 Production</div>
           <div class="chip" id="reportTab-purchasing" onclick="switchReportTab('purchasing')">🛒 Purchasing</div>
           <div class="chip" id="reportTab-finance" onclick="switchReportTab('finance')">💰 Finance</div>
         </div>
