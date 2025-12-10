@@ -146,7 +146,12 @@
           <input type="text" class="input toolbar-search" id="inventorySearch" placeholder="Search items...">
           <button type="button" class="btn btn-primary" data-action="loadInventory">🔍 Search</button>
           <button type="button" class="btn btn-secondary" data-action="openSpotCheckModal">📋 Spot Check</button>
+          <div class="flex-gap-1" style="align-items: center;">
+            <input type="text" class="input" id="latestPriceCode" placeholder="Item code for price lookup" aria-label="Item code for price lookup" style="max-width: 220px;">
+            <button type="button" class="btn btn-outline" data-action="fetchLatestPrice">💲 Check Latest Price</button>
+          </div>
         </div>
+        <div id="latestPriceResult" class="text-muted" style="margin-top: 8px;"></div>
         <div id="inventoryTable"></div>
       </div>
 

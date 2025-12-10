@@ -13659,3 +13659,58 @@ if (document.readyState === 'loading') {
     startHealthMonitoring();
   }
 }
+
+// ============================================================================
+// PRICE BANK LOOKUP (v23.6.13)
+// ============================================================================
+async function fetchLatestPrice() {
+  const codeInput = document.getElementById('latestPriceCode');
+  const resultDiv = document.getElementById('latestPriceResult');
+
+  if (!codeInput || !resultDiv) return;
+
+  const itemCode = codeInput.value.trim();
+  if (!itemCode) {
+    resultDiv.textContent = 'Please enter an item code.';
+    return;
+  }
+
+  resultDiv.textContent = 'Loading latest price...';
+
+  try {
+    const resp = await fetch(`${getAPIBase()}/api/price-bank/items/${encodeURIComponent(itemCode)}/latest`, {
+      headers: authHeaders()
+    });
+
+    if (resp.status === 404) {
+      resultDiv.textContent = 'No price found for this item yet.';
+      return;
+    }
+
+    if (!resp.ok) {
+      resultDiv.textContent = `Error fetching price: ${resp.status}`;
+      return;
+    }
+
+    const data = await resp.json();
+    const p = data.latest;
+    if (!p) {
+      resultDiv.textContent = 'No price data returned.';
+      return;
+    }
+
+    const parts = [];
+    parts.push(`Vendor: ${p.vendor}`);
+    parts.push(`Unit cost: ${Number(p.unit_cost).toFixed(2)} ${p.currency || 'USD'}`);
+    if (p.pack_size) parts.push(`Pack: ${p.pack_size}`);
+    if (p.effective_date) parts.push(`Effective: ${p.effective_date}`);
+    if (p.source_pdf) {
+      parts.push(`Source: ${p.source_pdf}${p.source_page ? ` (page ${p.source_page})` : ''}`);
+    }
+
+    resultDiv.textContent = parts.join(' • ');
+  } catch (err) {
+    console.error('fetchLatestPrice error', err);
+    resultDiv.textContent = 'Failed to fetch latest price.';
+  }
+}

@@ -1639,6 +1639,7 @@ app.use('/api/pos/orders', authGuard(['staff', 'manager', 'admin', 'owner']), ra
 app.use('/api/pos/payments', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, validatePayment(), auditLog('POS_PAYMENT'), safeRequire('./routes/pos.payments', 'pos.payments'));
 app.use('/api/pos/reports', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('POS_REPORT'), safeRequire('./routes/pos.reports', 'pos.reports'));
 app.use('/api/pdfs/pos', authGuard(['manager', 'admin', 'owner']), auditLog('POS_PDF'), safeRequire('./routes/pdfs.pos', 'pdfs.pos'));
+app.use('/api/price-bank', authGuard(['manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('PRICE_BANK'), safeRequire('./routes/price-bank', 'price-bank'));
 
 // v23.0 - PostgreSQL-native Counts API (Phase A/B inventory model)
 app.use('/api/counts', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('COUNTS'), safeRequire('./routes/counts-api', 'counts-api'));
