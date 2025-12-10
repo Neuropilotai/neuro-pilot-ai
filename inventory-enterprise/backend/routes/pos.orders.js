@@ -1,6 +1,11 @@
 /**
  * POS Orders Route
  * Manages order creation, line items, discounts, and void operations
+ * 
+ * v23.6.13: Added tenant scoping for multi-tenant isolation
+ * - Uses req.tenant.org_id for tenant context
+ * - All queries scoped by org_id and site_id
+ * - Maintains backward compatibility with req.user.org_id
  */
 
 const express = require('express');
@@ -122,9 +127,10 @@ router.post('/', async (req, res) => {
   try {
     const data = createOrderSchema.parse(req.body);
 
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
-    const userId = req.user.user_id || req.user.id;
+    // v23.6.13: Use tenant context if available, fallback to user context
+    const orgId = req.tenant?.org_id || req.org?.org_id || req.user?.org_id || 1;
+    const siteId = req.user?.site_id || 1;
+    const userId = req.user?.user_id || req.user?.id;
 
     // Verify shift is open
     const shift = await global.db.query(
@@ -208,9 +214,10 @@ router.post('/:orderId/line', async (req, res) => {
     const orderId = parseInt(req.params.orderId);
     const data = addLineSchema.parse(req.body);
 
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
-    const userId = req.user.user_id || req.user.id;
+    // v23.6.13: Use tenant context if available, fallback to user context
+    const orgId = req.tenant?.org_id || req.org?.org_id || req.user?.org_id || 1;
+    const siteId = req.user?.site_id || 1;
+    const userId = req.user?.user_id || req.user?.id;
 
     // Verify order exists and is open
     const order = await global.db.query(
@@ -354,9 +361,10 @@ router.delete('/:orderId/line/:lineId', async (req, res) => {
     const orderId = parseInt(req.params.orderId);
     const lineId = parseInt(req.params.lineId);
 
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
-    const userId = req.user.user_id || req.user.id;
+    // v23.6.13: Use tenant context if available, fallback to user context
+    const orgId = req.tenant?.org_id || req.org?.org_id || req.user?.org_id || 1;
+    const siteId = req.user?.site_id || 1;
+    const userId = req.user?.user_id || req.user?.id;
 
     // Delete line
     const result = await global.db.query(
@@ -418,9 +426,10 @@ router.post('/:orderId/discount', async (req, res) => {
     const orderId = parseInt(req.params.orderId);
     const data = applyDiscountSchema.parse(req.body);
 
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
-    const userId = req.user.user_id || req.user.id;
+    // v23.6.13: Use tenant context if available, fallback to user context
+    const orgId = req.tenant?.org_id || req.org?.org_id || req.user?.org_id || 1;
+    const siteId = req.user?.site_id || 1;
+    const userId = req.user?.user_id || req.user?.id;
 
     // Get order
     const order = await global.db.query(
@@ -505,9 +514,10 @@ router.post('/:orderId/void', async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
 
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
-    const userId = req.user.user_id || req.user.id;
+    // v23.6.13: Use tenant context if available, fallback to user context
+    const orgId = req.tenant?.org_id || req.org?.org_id || req.user?.org_id || 1;
+    const siteId = req.user?.site_id || 1;
+    const userId = req.user?.user_id || req.user?.id;
 
     // Verify order is not paid
     const order = await global.db.query(
@@ -574,8 +584,9 @@ router.post('/:orderId/void', async (req, res) => {
 router.get('/:orderId', async (req, res) => {
   try {
     const orderId = parseInt(req.params.orderId);
-    const orgId = req.user.org_id || 1;
-    const siteId = req.user.site_id || 1;
+    // v23.6.13: Use tenant context if available, fallback to user context
+    const orgId = req.tenant?.org_id || req.org?.org_id || req.user?.org_id || 1;
+    const siteId = req.user?.site_id || 1;
 
     // Get order
     const order = await global.db.query(
