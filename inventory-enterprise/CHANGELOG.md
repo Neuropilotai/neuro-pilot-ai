@@ -2,6 +2,30 @@
 
 All notable changes to NeuroPilot Inventory Enterprise System.
 
+## [23.6.12] - 2025-12-09
+
+### 🔒 Security - CSP Strict Mode Enabled
+
+#### Complete CSP Refactor - Remove 'unsafe-inline'
+- **Achievement:** Converted all 143 inline event handlers to CSP-compliant `addEventListener` pattern
+- **Details:**
+  - **Phase 1-5:** Converted 100 static handlers (tab nav, buttons, modals, filters)
+  - **Phase 6:** Converted 43 dynamic innerHTML handlers
+  - **Form handlers:** 5 onsubmit handlers handled dynamically by `setupEventListeners`
+  - **Total:** 143 handlers converted, 0 onclick handlers remaining
+- **CSP Updates:**
+  - Removed `'unsafe-inline'` from `scriptSrc` directive
+  - Removed `'unsafe-eval'` from `scriptSrc` directive
+  - Changed `scriptSrcAttr` from `['unsafe-inline']` to `['none']`
+  - Strict CSP mode now enabled
+- **Features Added:**
+  - Scroll-to functionality: `data-scroll-to` attribute support
+  - Helper functions: `openUrl()`, `scrollToElement()`, `closeParentCard()`, `reloadPage()`
+  - Enhanced argument parsing: supports comma-separated args and escaped quotes
+  - Automatic form onsubmit conversion at runtime
+- **Files:** `backend/public/owner-super-console-v15.html`, `backend/public/js/owner-console-core.js`, `backend/public/js/owner-super-console.js`, `backend/server-v21_1.js`
+- **Documentation:** `CSP_TESTING_GUIDE.md`, `CSP_REFACTOR_COMPLETE.md`
+
 ## [23.6.11] - 2025-12-09
 
 ### 🐛 Critical Bug Fixes
