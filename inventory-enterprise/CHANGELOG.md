@@ -2,6 +2,36 @@
 
 All notable changes to NeuroPilot Inventory Enterprise System.
 
+## [23.6.13] - 2025-12-09
+
+### 🎯 Version Automation & CSP Compliance
+
+#### Automatic Version Injection
+- **Build System**: Enhanced `scripts/inject-version.js` to automatically inject version and timestamp into all console assets
+- **Version Display**: Console header now shows visible version badge: `Console v23.6.13`
+- **Cache Busting**: All script and CSS files now use `?v=23.6.13&_t=<timestamp>` for automatic cache invalidation
+- **Version Check**: `owner-console-version-check.js` automatically detects wrong versions and forces reload
+- **Single Source of Truth**: Version comes from `backend/package.json` and is injected at build time
+- **Files Updated**: `backend/scripts/inject-version.js`, `backend/public/owner-super-console-v15.html`, `backend/public/js/owner-console-version-check.js`
+
+#### CSP Compliance - Login Pages
+- **Fixed CSP Violations**: Moved all inline scripts from `login.html` and `quick_login.html` to external files
+- **New Files**: 
+  - `backend/public/js/login-handler.js` - Main login form handler
+  - `backend/public/js/quick-login-handler.js` - Quick owner login handler
+- **Result**: Login pages now fully CSP-compliant, no more "checking connection" failures
+
+#### CSP Compliance - Owner Console
+- **Fixed CSP Violations**: Moved all inline scripts from `owner-super-console-v15.html` to external files
+- **New Files**:
+  - `backend/public/js/owner-console-bootstrap.js` - API_BASE configuration
+  - `backend/public/js/owner-console-service-worker.js` - Service worker cleanup
+  - `backend/public/js/owner-console-version-check.js` - Version validation
+- **Result**: Owner console now fully CSP-compliant, all inline scripts removed
+
+### 📝 Documentation
+- Updated `CHANGELOG.md` to document version automation and CSP fixes
+
 ## [23.6.12] - 2025-12-09
 
 ### 🔒 Security - CSP Strict Mode Enabled
