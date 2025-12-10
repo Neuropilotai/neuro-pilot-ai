@@ -223,21 +223,27 @@ function setupEventListeners() {
         e.preventDefault();
         // Check for data-action-arg (for functions that take parameters like triggerJob, adjustPopulation)
         const actionArg = el.dataset.actionArg;
+        const scrollTo = el.dataset.scrollTo; // v23.6.11: Support scroll-to after action
         
         // Try window scope first (functions exported to window like loadInventory, loadCognitiveIntelligence)
         if (typeof window[action] === 'function') {
           if (actionArg !== undefined) {
-            // Handle comma-separated arguments (e.g., "25,0" for adjustPopulation)
+            // Handle comma-separated arguments (e.g., "25,0" for adjustPopulation, "id,name,type" for editLocation)
             if (actionArg.includes(',')) {
               const args = actionArg.split(',').map(arg => {
                 const trimmed = arg.trim();
+                // Unescape single quotes that were escaped for HTML
+                const unescaped = trimmed.replace(/\\'/g, "'");
                 // Try to parse as number, otherwise keep as string
-                const num = Number(trimmed);
-                return isNaN(num) ? trimmed : num;
+                const num = Number(unescaped);
+                return isNaN(num) ? unescaped : num;
               });
               window[action](...args);
             } else {
-              window[action](actionArg);
+              // Single argument - unescape quotes
+              const unescaped = actionArg.replace(/\\'/g, "'");
+              const num = Number(unescaped);
+              window[action](isNaN(num) ? unescaped : num);
             }
           } else {
             window[action]();
@@ -269,6 +275,32 @@ function setupEventListeners() {
             }
           } catch (err) {
             console.warn(`Could not execute ${action}:`, err.message);
+          }
+        }
+        
+        // v23.6.11: Handle scroll-to after action (for dashboard cards)
+        if (scrollTo) {
+          setTimeout(() => {
+            const targetEl = document.getElementById(scrollTo);
+            if (targetEl) {
+              targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+
+        // v23.6.11: Handle special actions
+        if (action === 'openUrl' && actionArg) {
+          const target = el.dataset.target || '_blank';
+          window.open(actionArg, target);
+        } else if (action === 'scrollToElement' && actionArg) {
+          const el = document.querySelector(actionArg);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        } else if (action === 'closeParentCard') {
+          const card = el.closest('.card');
+          if (card) {
+            card.remove();
           }
         }
       });
@@ -314,6 +346,65 @@ function setupEventListeners() {
           }
         }
       });
+    }
+  });
+
+  // v23.6.11: Helper functions for dynamic handlers
+  // openUrl - opens URL in new window
+  window.openUrl = function(url, target = '_blank') {
+    window.open(url, target);
+  };
+
+  // scrollToElement - scrolls to element by selector
+  window.scrollToElement = function(selector) {
+    const el = document.querySelector(selector);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // closeParentCard - removes parent card element
+  window.closeParentCard = function(button) {
+    const card = button.closest('.card');
+    if (card) {
+      card.remove();
+    }
+  };
+
+  // reloadPage - reloads the current page
+  window.reloadPage = function() {
+    location.reload();
+  };
+
+  // Forms with onsubmit handlers - convert to addEventListener
+  // v23.6.11: Handle forms that have onsubmit="event.preventDefault(); functionName();"
+  document.querySelectorAll('form[onsubmit]').forEach(form => {
+    const onsubmitAttr = form.getAttribute('onsubmit');
+    if (onsubmitAttr) {
+      // Remove onsubmit attribute to prevent CSP violation
+      form.removeAttribute('onsubmit');
+      
+      // Parse the onsubmit handler
+      // Pattern: "event.preventDefault(); functionName();"
+      const match = onsubmitAttr.match(/event\.preventDefault\(\);\s*(\w+)\(\)/);
+      if (match && match[1]) {
+        const functionName = match[1];
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (typeof window[functionName] === 'function') {
+            window[functionName]();
+          } else {
+            try {
+              const funcExists = typeof eval(functionName) === 'function';
+              if (funcExists) {
+                eval(`${functionName}()`);
+              }
+            } catch (err) {
+              console.warn(`Could not execute ${functionName}:`, err.message);
+            }
+          }
+        });
+      }
     }
   });
 }

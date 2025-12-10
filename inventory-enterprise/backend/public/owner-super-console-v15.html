@@ -314,7 +314,7 @@
       <div class="card">
         <div class="toolbar">
           <input type="text" class="input toolbar-search" id="pdfSearch" placeholder="Search invoice number...">
-          <select class="select" id="pdfStatus" onchange="loadPDFs()" aria-label="PDF status filter">
+          <select class="select" id="pdfStatus" data-change-action="loadPDFs" aria-label="PDF status filter">
             <option value="all">All PDFs</option>
             <option value="unprocessed">Unprocessed</option>
             <option value="processed">Processed</option>
@@ -331,19 +331,19 @@
     <div id="count" class="tab-panel">
       <!-- Quick Actions -->
       <div class="grid grid-4">
-        <div class="card stat-card cursor-pointer" onclick="switchTab('inventory'); setTimeout(() => { document.getElementById('pdfImportFrom').scrollIntoView({behavior: 'smooth', block: 'center'}); }, 100);">
+        <div class="card stat-card cursor-pointer" data-action="switchTab" data-action-arg="inventory" data-scroll-to="pdfImportFrom">
           <div class="stat-value">📥</div>
           <div class="stat-label">Import PDFs</div>
         </div>
-        <div class="card stat-card cursor-pointer" onclick="switchTab('inventory'); setTimeout(() => { document.getElementById('reconcileAsOfDate').scrollIntoView({behavior: 'smooth', block: 'center'}); }, 100);">
+        <div class="card stat-card cursor-pointer" data-action="switchTab" data-action-arg="inventory" data-scroll-to="reconcileAsOfDate">
           <div class="stat-value">⚖️</div>
           <div class="stat-label">Run Reconciliation</div>
         </div>
-        <div class="card stat-card cursor-pointer" onclick="viewRecentReconciliations()">
+        <div class="card stat-card cursor-pointer" data-action="viewRecentReconciliations">
           <div class="stat-value" id="countRecentReconciles">--</div>
           <div class="stat-label">Recent Reports</div>
         </div>
-        <div class="card stat-card cursor-pointer" onclick="viewCountHistory()">
+        <div class="card stat-card cursor-pointer" data-action="viewCountHistory">
           <div class="stat-value" id="countHistoryCount">--</div>
           <div class="stat-label">Count History</div>
         </div>
@@ -502,7 +502,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">📚 Learning Timeline (Last 10 Insights)</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningTimeline()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadLearningTimeline">↻ Refresh</button>
         </div>
         <div id="learningTimeline"></div>
       </div>
@@ -511,21 +511,21 @@
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Reorder Recommendations</h3>
-            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIReorder()">↻</button>
+            <button type="button" class="btn btn-sm btn-primary" data-action="loadAIReorder">↻</button>
           </div>
           <div id="aiReorderList"></div>
         </div>
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Anomaly Watchlist</h3>
-            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIAnomalies()">↻</button>
+            <button type="button" class="btn btn-sm btn-primary" data-action="loadAIAnomalies">↻</button>
           </div>
           <div id="aiAnomalyList"></div>
         </div>
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">System Upgrade Advisor</h3>
-            <button type="button" class="btn btn-sm btn-primary" onclick="loadAIUpgrade()">↻</button>
+            <button type="button" class="btn btn-sm btn-primary" data-action="loadAIUpgrade">↻</button>
           </div>
           <div id="aiUpgradeAdvice"></div>
         </div>
@@ -538,16 +538,16 @@
           <textarea class="textarea" id="aiFeedback" placeholder="Enter feedback (e.g., 'coffee 1.5 cups/person', 'eggs 2 per person for breakfast')"></textarea>
         </div>
         <div class="flex-gap-1">
-          <button type="button" class="btn btn-primary" onclick="submitFeedback()">💬 Submit Feedback</button>
-          <button type="button" class="btn btn-success" onclick="trainAI()">🚀 Train Now</button>
-          <button type="button" class="btn btn-secondary" onclick="loadFeedbackHistory()">📜 History</button>
+          <button type="button" class="btn btn-primary" data-action="submitFeedback">💬 Submit Feedback</button>
+          <button type="button" class="btn btn-success" data-action="trainAI">🚀 Train Now</button>
+          <button type="button" class="btn btn-secondary" data-action="loadFeedbackHistory">📜 History</button>
         </div>
         <div id="feedbackHistory"></div>
       </div>
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">AI Learning Nudge</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadLearningNudges()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadLearningNudges">↻ Refresh</button>
         </div>
         <div id="learningNudges"></div>
       </div>
@@ -600,9 +600,9 @@
           Upload GFS invoices to populate monthly reports with accurate category breakdowns.
         </div>
         <div class="flex-gap-1">
-          <button type="button" class="btn btn-success" onclick="openGFSUploadModal()">📤 Upload GFS Invoice</button>
-          <button type="button" class="btn btn-primary" onclick="viewGFSInvoiceStatus()">📊 View Invoice Status</button>
-          <button type="button" class="btn btn-secondary" onclick="generateGFSReport()">📈 Generate Report</button>
+          <button type="button" class="btn btn-success" data-action="openGFSUploadModal">📤 Upload GFS Invoice</button>
+          <button type="button" class="btn btn-primary" data-action="viewGFSInvoiceStatus">📊 View Invoice Status</button>
+          <button type="button" class="btn btn-secondary" data-action="generateGFSReport">📈 Generate Report</button>
         </div>
         <div id="gfsInvoiceStats" class="grid grid-3 gfs-stats-grid">
           <div class="stat-card">
@@ -1247,10 +1247,10 @@
           <div class="chip active" id="reportTab-executive" data-tab="executive" data-report-tab="executive">👔 Executive</div>
           <div class="chip" id="reportTab-ops" data-tab="ops" data-report-tab="ops">📊 Ops Manager</div>
           <div class="chip" id="reportTab-production" data-tab="production" data-report-tab="production">👨‍🍳 Production</div>
-          <div class="chip" id="reportTab-purchasing" onclick="switchReportTab('purchasing')">🛒 Purchasing</div>
-          <div class="chip" id="reportTab-finance" onclick="switchReportTab('finance')">💰 Finance</div>
+          <div class="chip" id="reportTab-purchasing" data-report-tab="purchasing">🛒 Purchasing</div>
+          <div class="chip" id="reportTab-finance" data-report-tab="finance">💰 Finance</div>
         </div>
-        <button type="button" class="btn btn-secondary" onclick="exportCurrentReport()">📥 Export CSV</button>
+        <button type="button" class="btn btn-secondary" data-action="exportCurrentReport">📥 Export CSV</button>
         <div id="reportContent"></div>
       </div>
     </div>
@@ -1260,7 +1260,7 @@
       <div class="card card-cognitive">
         <div class="card-header">
           <h3 class="card-title">🧠 Finance Brain - DriveWatch Monitor</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="syncDriveWatch()">🔄 Sync Now</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="syncDriveWatch">🔄 Sync Now</button>
         </div>
         <div class="card-body">
           <div class="row" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
@@ -1291,7 +1291,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">📁 Watched Files</h3>
-          <button type="button" class="btn btn-sm btn-secondary" onclick="loadFinanceBrainData()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="loadFinanceBrainData">↻ Refresh</button>
         </div>
         <div class="card-body">
           <table class="table" id="fb-files-table">
@@ -1315,7 +1315,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">🔍 Zero Duplicates</h3>
-          <button type="button" class="btn btn-sm btn-secondary" onclick="loadDuplicates()">↻ Scan</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="loadDuplicates">↻ Scan</button>
         </div>
         <div class="card-body">
           <div id="fb-duplicates-summary" style="margin-bottom: 1rem;">
@@ -1523,7 +1523,7 @@
             <h3 class="card-title">Device Binding</h3>
           </div>
           <div id="deviceInfo"></div>
-          <button type="button" class="btn btn-primary" onclick="rebindDevice()">🔐 Rebind Device</button>
+          <button type="button" class="btn btn-primary" data-action="rebindDevice">🔐 Rebind Device</button>
         </div>
         <div class="card">
           <div class="card-header">
@@ -1535,7 +1535,7 @@
               <span>Warm Forecast Cache on Load</span>
             </label>
           </div>
-          <button type="button" class="btn btn-secondary" onclick="exportDailyCSV()">📥 Export Daily Summary CSV</button>
+          <button type="button" class="btn btn-secondary" data-action="exportDailyCSV">📥 Export Daily Summary CSV</button>
         </div>
       </div>
       <div class="grid grid-2">
@@ -1543,17 +1543,17 @@
           <div class="card-header">
             <h3 class="card-title">System Orchestration</h3>
           </div>
-          <button type="button" class="btn btn-success" onclick="orchestrateStart()">🚀 Start All Services</button>
-          <button type="button" class="btn btn-warning" onclick="orchestrateStop()">🛑 Stop All Services (Safe)</button>
+          <button type="button" class="btn btn-success" data-action="orchestrateStart">🚀 Start All Services</button>
+          <button type="button" class="btn btn-warning" data-action="orchestrateStop">🛑 Stop All Services (Safe)</button>
           <div id="orchestrationStatus"></div>
         </div>
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">Backup & Recovery</h3>
           </div>
-          <button type="button" class="btn btn-primary" onclick="createRecoveryKit()">💾 Create Recovery Kit</button>
-          <button type="button" class="btn btn-secondary" onclick="verifyRecoveryKit()">🔍 Verify Recovery Kit</button>
-          <button type="button" class="btn btn-secondary" onclick="dryRunRestore()">🔄 Dry-Run Restore</button>
+          <button type="button" class="btn btn-primary" data-action="createRecoveryKit">💾 Create Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" data-action="verifyRecoveryKit">🔍 Verify Recovery Kit</button>
+          <button type="button" class="btn btn-secondary" data-action="dryRunRestore">🔄 Dry-Run Restore</button>
         </div>
       </div>
       <div class="card">
@@ -1623,7 +1623,7 @@
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">🔗 Broken Links & 404 Telemetry</h3>
-          <button type="button" class="btn btn-sm btn-primary" onclick="loadBrokenLinks()">↻ Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="loadBrokenLinks">↻ Refresh</button>
         </div>
 
         <!-- Summary Stats -->
@@ -1692,7 +1692,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="pdfModalTitle">PDF Viewer</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closePDFModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closePDFModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <iframe id="pdfFrame" title="PDF document viewer"></iframe>
@@ -1704,7 +1704,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>Include PDFs in Count</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeIncludeOrdersModal()">✕</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeIncludeOrdersModal">✕</button>
       </div>
       <div class="modal-body">
         <div class="alert alert-info">
@@ -1717,8 +1717,8 @@
         <div class="checkbox-list" id="pdfCheckboxList"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeIncludeOrdersModal()">Cancel</button>
-        <button type="button" class="btn btn-success" onclick="includeSelectedPDFs()">✓ Include Selected</button>
+        <button type="button" class="btn btn-secondary" data-action="closeIncludeOrdersModal">Cancel</button>
+        <button type="button" class="btn btn-success" data-action="includeSelectedPDFs">✓ Include Selected</button>
       </div>
     </div>
   </div>
@@ -1727,14 +1727,14 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="orchestrationModalTitle">System Orchestration</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeOrchestrationModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeOrchestrationModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div id="orchestrationSteps"></div>
         <div id="orchestrationCurl"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeOrchestrationModal()">Close</button>
+        <button type="button" class="btn btn-secondary" data-action="closeOrchestrationModal">Close</button>
       </div>
     </div>
   </div>
@@ -1743,13 +1743,13 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="recoveryModalTitle">Recovery Operation</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecoveryModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeRecoveryModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div id="recoveryDetails"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeRecoveryModal()">Close</button>
+        <button type="button" class="btn btn-secondary" data-action="closeRecoveryModal">Close</button>
       </div>
     </div>
   </div>
@@ -1758,7 +1758,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="recoveryInputModalTitle">Recovery Input</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecoveryInputModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeRecoveryInputModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <form id="recoveryInputForm" onsubmit="event.preventDefault(); submitRecoveryInput();">
@@ -1777,8 +1777,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeRecoveryInputModal()">Cancel</button>
-        <button type="button" class="btn btn-primary" id="recoveryInputSubmit" onclick="submitRecoveryInput()">Submit</button>
+        <button type="button" class="btn btn-secondary" data-action="closeRecoveryInputModal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="recoveryInputSubmit" data-action="submitRecoveryInput">Submit</button>
       </div>
     </div>
   </div>
@@ -1788,13 +1788,13 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>📈 Forecast Coverage Details</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeForecastDetailModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeForecastDetailModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div id="forecastDetailContent"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeForecastDetailModal()">Close</button>
+        <button type="button" class="btn btn-secondary" data-action="closeForecastDetailModal">Close</button>
       </div>
     </div>
   </div>
@@ -1804,13 +1804,13 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>⚠️ Stockout Risk Details</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeStockoutDetailModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeStockoutDetailModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div id="stockoutDetailContent"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeStockoutDetailModal()">Close</button>
+        <button type="button" class="btn btn-secondary" data-action="closeStockoutDetailModal">Close</button>
       </div>
     </div>
   </div>
@@ -1820,7 +1820,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>Upload PDF Invoice</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeUploadPDFModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeUploadPDFModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <form id="uploadPDFForm" onsubmit="event.preventDefault(); uploadPDF();">
@@ -1836,8 +1836,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeUploadPDFModal()">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="uploadPDF()">📤 Upload</button>
+        <button type="button" class="btn btn-secondary" data-action="closeUploadPDFModal">Cancel</button>
+        <button type="button" class="btn btn-primary" data-action="uploadPDF">📤 Upload</button>
       </div>
     </div>
   </div>
@@ -1847,7 +1847,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>Upload GFS Invoice</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeGFSUploadModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeGFSUploadModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div class="alert alert-info">
@@ -1880,8 +1880,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeGFSUploadModal()">Cancel</button>
-        <button type="button" class="btn btn-primary" id="gfsUploadBtn" onclick="uploadGFSInvoice()">📤 Upload</button>
+        <button type="button" class="btn btn-secondary" data-action="closeGFSUploadModal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="gfsUploadBtn" data-action="uploadGFSInvoice">📤 Upload</button>
       </div>
     </div>
   </div>
@@ -1891,7 +1891,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="locationModalTitle">Add New Location</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeLocationModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeLocationModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <form id="locationForm" onsubmit="event.preventDefault(); saveLocation();">
@@ -1918,8 +1918,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeLocationModal()">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="saveLocation()">💾 Save Location</button>
+        <button type="button" class="btn btn-secondary" data-action="closeLocationModal">Cancel</button>
+        <button type="button" class="btn btn-primary" data-action="saveLocation">💾 Save Location</button>
       </div>
     </div>
   </div>
@@ -1929,7 +1929,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>Add Item to Count</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeAddItemToCountModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeAddItemToCountModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <form id="addItemToCountForm" onsubmit="event.preventDefault(); submitItemToCount();">
@@ -1941,7 +1941,7 @@
             <input type="hidden" id="selectedItemCode">
             <div id="selectedItemDisplay" class="hidden">
               <strong>Selected:</strong> <span id="selectedItemText"></span>
-              <button type="button" class="btn btn-sm btn-secondary btn-float-right" onclick="clearSelectedItem()">Clear</button>
+              <button type="button" class="btn btn-sm btn-secondary btn-float-right" data-action="clearSelectedItem">Clear</button>
             </div>
           </div>
 
@@ -1967,8 +1967,8 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeAddItemToCountModal()">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="submitItemToCount()">✓ Add Item</button>
+        <button type="button" class="btn btn-secondary" data-action="closeAddItemToCountModal">Cancel</button>
+        <button type="button" class="btn btn-primary" data-action="submitItemToCount">✓ Add Item</button>
       </div>
     </div>
   </div>
@@ -1978,7 +1978,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>Assign Items to Locations</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeAssignLocationsModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeAssignLocationsModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div class="alert alert-info">
@@ -1993,8 +1993,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeAssignLocationsModal()">Cancel</button>
-        <button type="button" class="btn btn-success" onclick="confirmAssignLocations()">✓ Assign</button>
+        <button type="button" class="btn btn-secondary" data-action="closeAssignLocationsModal">Cancel</button>
+        <button type="button" class="btn btn-success" data-action="confirmAssignLocations">✓ Assign</button>
       </div>
     </div>
   </div>
@@ -2004,7 +2004,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="workspaceModalTitle">🎮 Workspace Details</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeWorkspaceModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeWorkspaceModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div id="workspaceDetails">
@@ -2012,8 +2012,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeWorkspaceModal()">Close</button>
-        <button type="button" class="btn btn-primary hidden" id="workspaceUsageBtn" onclick="viewWorkspaceUsage()">📊 View Usage Report</button>
+        <button type="button" class="btn btn-secondary" data-action="closeWorkspaceModal">Close</button>
+        <button type="button" class="btn btn-primary hidden" id="workspaceUsageBtn" data-action="viewWorkspaceUsage">📊 View Usage Report</button>
       </div>
     </div>
   </div>
@@ -2023,7 +2023,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="recipeDrawerTitle">Recipe Details</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeRecipeDrawer()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeRecipeDrawer">✕ Close</button>
       </div>
       <div class="modal-body">
         <div id="recipeDrawerContent">
@@ -2031,7 +2031,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeRecipeDrawer()">Close</button>
+        <button type="button" class="btn btn-secondary" data-action="closeRecipeDrawer">Close</button>
         <button type="button" class="btn btn-primary hidden" id="recipeEditBtn">Edit Recipe</button>
       </div>
     </div>
@@ -2042,7 +2042,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>👥 Adjust Headcount</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeHeadcountModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeHeadcountModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div class="alert alert-info">
@@ -2060,8 +2060,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeHeadcountModal()">Cancel</button>
-        <button type="button" class="btn btn-success" onclick="updateHeadcount()">💾 Update</button>
+        <button type="button" class="btn btn-secondary" data-action="closeHeadcountModal">Cancel</button>
+        <button type="button" class="btn btn-success" data-action="updateHeadcount">💾 Update</button>
       </div>
     </div>
   </div>
@@ -2071,7 +2071,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>🛒 Shopping List</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeShoppingListModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeShoppingListModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div class="alert alert-info">
@@ -2098,8 +2098,8 @@
         <div id="shoppingListCSV" class="hidden"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeShoppingListModal()">Close</button>
-        <button type="button" class="btn btn-primary" onclick="downloadShoppingListCSV()">📥 Download CSV</button>
+        <button type="button" class="btn btn-secondary" data-action="closeShoppingListModal">Close</button>
+        <button type="button" class="btn btn-primary" data-action="downloadShoppingListCSV">📥 Download CSV</button>
       </div>
     </div>
   </div>
@@ -2109,7 +2109,7 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3>📄 Count PDF Management</h3>
-        <button type="button" class="btn btn-sm btn-secondary" onclick="closeCountPdfModal()">✕ Close</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closeCountPdfModal">✕ Close</button>
       </div>
       <div class="modal-body">
         <div class="alert alert-info">
@@ -2136,11 +2136,11 @@
           <div id="availablePdfsList">
             <div class="loading"><div class="spinner"></div> Loading...</div>
           </div>
-          <button type="button" class="btn btn-success btn-full" id="attachSelectedPdfsBtn" onclick="attachSelectedPdfs()" disabled>✓ Attach Selected PDFs</button>
+          <button type="button" class="btn btn-success btn-full" id="attachSelectedPdfsBtn" data-action="attachSelectedPdfs" disabled>✓ Attach Selected PDFs</button>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeCountPdfModal()">Close</button>
+        <button type="button" class="btn btn-secondary" data-action="closeCountPdfModal">Close</button>
       </div>
     </div>
   </div>

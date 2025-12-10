@@ -823,7 +823,7 @@ async function loadZeroCountMode() {
             <strong>🧮 Zero-Count Smart Mode</strong> — No physical inventory snapshot yet.
             Showing inferred quantities from par levels, recent invoices, and AI forecasts.
           </div>
-          <button class="btn btn-sm btn-primary" onclick="startFirstCount()">🎯 Start First Count</button>
+          <button class="btn btn-sm btn-primary" data-action="startFirstCount">🎯 Start First Count</button>
         </div>
       </div>
 
@@ -950,7 +950,7 @@ async function loadNormalMode(lastCount) {
             <strong>✅ Normal Mode</strong> — Physical inventory active.
             Last count: ${lastCount ? new Date(lastCount.closed_at).toLocaleDateString() : 'N/A'}
           </div>
-          <button class="btn btn-sm btn-secondary" onclick="switchTab('count')">🔢 New Count</button>
+          <button class="btn btn-sm btn-secondary" data-action="switchTab" data-action-arg="count">🔢 New Count</button>
         </div>
       </div>
 
@@ -1015,7 +1015,7 @@ async function loadNormalMode(lastCount) {
           <td>${item.par_level || 0}</td>
           <td><small>${fifoSummary}</small></td>
           <td>
-            <button class="btn btn-sm btn-primary" onclick="adjustInventory('${item.item_code}', '${item.item_name}')">Adjust</button>
+            <button class="btn btn-sm btn-primary" data-action="adjustInventory" data-action-arg="${item.item_code},${item.item_name.replace(/'/g, "\\'")}">Adjust</button>
           </td>
         </tr>
       `;
@@ -1136,7 +1136,7 @@ function renderLocationsList(locations) {
 
     html += `
       <div class="bordered-surface-clickable"
-           onclick="switchTab('locations')">
+           data-action="switchTab" data-action-arg="locations">
         <div class="flex-gap-2-items-center">
           <span class="u-text-1-25">${typeIcon}</span>
           <div>
@@ -1270,12 +1270,12 @@ async function loadLocations() {
 
       html += `
         <div class="chip ${loc.active ? '' : 'disabled'}" class="chip-spaced">
-          <span onclick="filterByLocation('${id}', '${name}')" class="flex-1-clickable">
+          <span data-action="filterByLocation" data-action-arg="${id},${name.replace(/'/g, "\\'")}" class="flex-1-clickable">
             ${name} <small>(${type})</small>
           </span>
           <div class="flex-gap-1">
-            <button type="button" class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editLocation('${id}', '${name}', '${type}')" title="Edit">✏️</button>
-            <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteLocation('${id}', '${name}')" title="Delete">🗑️</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-action="editLocation" data-action-arg="${id},${name.replace(/'/g, "\\'")},${type}" title="Edit">✏️</button>
+            <button type="button" class="btn btn-sm btn-danger" data-action="deleteLocation" data-action-arg="${id},${name.replace(/'/g, "\\'")}" title="Delete">🗑️</button>
           </div>
         </div>
       `;
@@ -1562,9 +1562,9 @@ async function loadPDFs() {
       // View action - different for vendor orders vs uploaded PDFs
       let viewAction;
       if (item.source === 'vendor_order' && item.pdfPreviewUrl) {
-        viewAction = `<button type="button" class="btn btn-sm btn-primary" onclick="window.open('${item.pdfPreviewUrl}', '_blank')">👁️ View</button>`;
+        viewAction = `<button type="button" class="btn btn-sm btn-primary" data-action="openUrl" data-action-arg="${item.pdfPreviewUrl}" data-target="_blank">👁️ View</button>`;
       } else {
-        viewAction = `<button type="button" class="btn btn-sm btn-primary" onclick="viewPDF('${item.id}', '${escapedInvoiceNum}')">👁️ View</button>`;
+        viewAction = `<button type="button" class="btn btn-sm btn-primary" data-action="viewPDF" data-action-arg="${item.id},${escapedInvoiceNum}">👁️ View</button>`;
       }
 
       html += `
@@ -1611,7 +1611,8 @@ function viewPDF(pdfId, invoiceNum) {
   }
 
   // Construct API URL with token for authentication
-  const apiUrl = `${API_BASE}/owner/pdfs/${pdfId}/preview?token=${encodeURIComponent(accessToken)}`;
+  const apiBase = typeof getAPIBase === 'function' ? getAPIBase() : '';
+  const apiUrl = `${apiBase}/api/owner/pdfs/${pdfId}/preview?token=${encodeURIComponent(accessToken)}`;
 
   // Open PDF in new tab using API endpoint
   const newWindow = window.open(apiUrl, '_blank');
@@ -1747,7 +1748,9 @@ async function uploadPDF() {
     }
 
     // Upload the file
-    const response = await fetch(`${API_BASE}/owner/pdfs/upload`, {
+    const apiBase = typeof getAPIBase === 'function' ? getAPIBase() : '';
+    const uploadUrl = `${apiBase}/api/owner/pdfs/upload`;
+    const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -1823,7 +1826,7 @@ async function loadActiveCount() {
   const detailsDiv = document.getElementById('activeCountDetails');
 
   if (!activeCountId) {
-    detailsDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔢</div><div>No active count</div><div class="u-mt-2"><button class="btn btn-primary" onclick="document.querySelector(\'#count\').scrollIntoView()">Start a count to begin</button></div></div>';
+    detailsDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔢</div><div>No active count</div><div class="u-mt-2"><button class="btn btn-primary" data-action="scrollToElement" data-action-arg="#count">Start a count to begin</button></div></div>';
     return;
   }
 
@@ -1843,9 +1846,9 @@ async function loadActiveCount() {
         <strong>Locations:</strong> ${count.locations_touched || 0}
       </div>
       <div class="flex-gap-2-mb">
-        <button class="btn btn-sm btn-primary" onclick="showAddItemForm()">+ Add Item</button>
-        <button class="btn btn-sm btn-primary" onclick="showAttachPDFForm()">📎 Attach PDF</button>
-        ${count.status !== 'closed' ? '<button class="btn btn-sm btn-success" onclick="closeCount()">✓ Close Count</button>' : ''}
+        <button class="btn btn-sm btn-primary" data-action="showAddItemForm">+ Add Item</button>
+        <button class="btn btn-sm btn-primary" data-action="showAttachPDFForm">📎 Attach PDF</button>
+        ${count.status !== 'closed' ? '<button class="btn btn-sm btn-success" data-action="closeCount">✓ Close Count</button>' : ''}
       </div>
     `;
 
@@ -1863,7 +1866,7 @@ async function loadActiveCount() {
       html += '<div class="u-text-base">';
       pdfs.forEach(pdf => {
         const escapedFilename = pdf.filename.replace(/'/g, "\\'");
-        html += `<div class="bordered-item"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" class="u-text-primary">${pdf.filename}</a></div>`;
+        html += `<div class="bordered-item"><a href="#" data-action="viewPDF" data-action-arg="${pdf.document_id},${escapedFilename}" class="u-text-primary">${pdf.filename}</a></div>`;
       });
       html += '</div>';
     }
@@ -1952,7 +1955,7 @@ async function searchItems(query) {
     data.items.forEach(item => {
       html += `
         <div class="search-result-item"
-             onclick="selectItem('${item.item_code}', '${item.item_name.replace(/'/g, "\\'")}', '${item.unit || 'EA'}')">
+             data-action="selectItem" data-action-arg="${item.item_code},${item.item_name.replace(/'/g, "\\'")},${item.unit || 'EA'}">
           <strong>${item.item_code}</strong> - ${item.item_name}
           <div class="u-text-xs u-text-light-inline">
             ${item.category || 'N/A'} | ${item.unit || 'EA'} | On hand: ${item.current_quantity || 0}
@@ -2085,12 +2088,12 @@ async function closeCount() {
       <div class="scrollable-200-my">
         ${pdfs.map(pdf => {
           const escapedFilename = pdf.filename.replace(/'/g, "\\'");
-          return `<div class="bordered-item"><a href="#" onclick="viewPDF('${pdf.document_id}', '${escapedFilename}')" class="u-text-primary">${pdf.filename}</a></div>`;
+          return `<div class="bordered-item"><a href="#" data-action="viewPDF" data-action-arg="${pdf.document_id},${escapedFilename}" class="u-text-primary">${pdf.filename}</a></div>`;
         }).join('')}
       </div>
       <div class="flex-gap-4-mt">
-        <button class="btn btn-success" onclick="confirmCloseCount()">✓ Confirm & Close</button>
-        <button class="btn btn-secondary" onclick="cancelCloseCount()">Cancel</button>
+        <button class="btn btn-success" data-action="confirmCloseCount">✓ Confirm & Close</button>
+        <button class="btn btn-secondary" data-action="cancelCloseCount">Cancel</button>
       </div>
     `;
 
@@ -3337,7 +3340,7 @@ async function loadLearningNudges() {
           <div class="nudge-answer-box">
             <strong>Suggestion:</strong> ${nudge.suggestedInsight}
           </div>
-          <button class="btn btn-sm btn-primary" onclick="handleNudgeAction('${nudge.id}', '${nudge.action}')" class="w-full">
+          <button class="btn btn-sm btn-primary" data-action="handleNudgeAction" data-action-arg="${nudge.id},${nudge.action}" class="w-full">
             ${nudge.action}
           </button>
         </div>
@@ -4132,7 +4135,7 @@ function showError(context, message) {
     <div class="alert alert-danger">
       <strong>Error:</strong> ${message}
       <div class="u-mt-2 u-text-base">
-        Context: ${context} | <a href="#" onclick="location.reload()" class="link-inherit">Reload page</a>
+        Context: ${context} | <a href="#" data-action="reloadPage" class="link-inherit">Reload page</a>
       </div>
     </div>
   `;
@@ -4195,7 +4198,7 @@ async function loadUnassignedItems(page = 1) {
           <td>${item.item_name}</td>
           <td>${item.unit}</td>
           <td>
-            <button type="button" class="btn btn-sm btn-success" onclick="assignSingleItem('${item.item_code}')">
+            <button type="button" class="btn btn-sm btn-success" data-action="assignSingleItem" data-action-arg="${item.item_code}">
               Assign
             </button>
           </td>
@@ -4208,11 +4211,11 @@ async function loadUnassignedItems(page = 1) {
     const totalPages = Math.ceil(data.total / data.limit);
     html = '';
     if (page > 1) {
-      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="loadUnassignedItems(${page - 1})">« Prev</button>`;
+      html += `<button type="button" class="btn btn-sm btn-secondary" data-action="loadUnassignedItems" data-action-arg="${page - 1}">« Prev</button>`;
     }
     html += `<span class="mx-4">Page ${page} of ${totalPages}</span>`;
     if (page < totalPages) {
-      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="loadUnassignedItems(${page + 1})">Next »</button>`;
+      html += `<button type="button" class="btn btn-sm btn-secondary" data-action="loadUnassignedItems" data-action-arg="${page + 1}">Next »</button>`;
     }
     paginationEl.innerHTML = html;
 
@@ -4615,7 +4618,7 @@ async function openWorkspace(workspaceId) {
             <!-- Attach Inventory Count -->
             <div>
               <h5 class="u-mb-2">📊 Inventory Count</h5>
-              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachCountModal('${workspaceId}')" class="w-full">
+              <button type="button" class="btn btn-primary btn-sm" data-action="openAttachCountModal" data-action-arg="${workspaceId}" class="w-full">
                 Attach Existing Count
               </button>
             </div>
@@ -4623,7 +4626,7 @@ async function openWorkspace(workspaceId) {
             <!-- Attach GFS PDFs -->
             <div>
               <h5 class="u-mb-2">📄 GFS Orders</h5>
-              <button type="button" class="btn btn-primary btn-sm" onclick="openAttachPDFsModal('${workspaceId}')" class="w-full">
+              <button type="button" class="btn btn-primary btn-sm" data-action="openAttachPDFsModal" data-action-arg="${workspaceId}" class="w-full">
                 Attach PDFs
               </button>
             </div>
@@ -4631,7 +4634,7 @@ async function openWorkspace(workspaceId) {
             <!-- Upload File -->
             <div>
               <h5 class="u-mb-2">📤 Upload File</h5>
-              <button type="button" class="btn btn-success btn-sm" onclick="openUploadFileModal('${workspaceId}')" class="w-full">
+              <button type="button" class="btn btn-success btn-sm" data-action="openUploadFileModal" data-action-arg="${workspaceId}" class="w-full">
                 Upload PDF/Excel
               </button>
             </div>
@@ -4689,13 +4692,13 @@ async function viewWorkspaceUsage() {
       <div class="modal-content" style="max-width: 1200px;">
         <div class="modal-header">
           <h3>Usage Report</h3>
-          <button type="button" class="btn btn-sm btn-secondary" onclick="closeWorkspaceUsageModal()">✕ Close</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-action="closeWorkspaceUsageModal">✕ Close</button>
         </div>
         <div class="modal-body">
           <div id="workspaceUsageContent"></div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="closeWorkspaceUsageModal()">Close</button>
+          <button type="button" class="btn btn-secondary" data-action="closeWorkspaceUsageModal">Close</button>
         </div>
       </div>
     `;
@@ -4830,7 +4833,7 @@ async function viewWorkspaceUsage() {
     // Export button
     html += `
       <div class="u-mt-4 u-text-center">
-        <button type="button" class="btn btn-primary" onclick="exportUsageReport('${window.currentWorkspaceId}')">
+        <button type="button" class="btn btn-primary" data-action="exportUsageReport" data-action-arg="${window.currentWorkspaceId}">
           📥 Export CSV
         </button>
       </div>
@@ -4942,8 +4945,8 @@ async function openAttachCountModal(workspaceId) {
           </table>
         </div>
         <div class="mt-right">
-          <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
-          <button type="button" class="btn btn-primary" onclick="attachCountToWorkspace('${workspaceId}')">Attach Count</button>
+          <button type="button" class="btn btn-secondary" data-action="closeParentCard">Cancel</button>
+          <button type="button" class="btn btn-primary" data-action="attachCountToWorkspace" data-action-arg="${workspaceId}">Attach Count</button>
         </div>
       </div>
     `;
@@ -5033,8 +5036,8 @@ async function openAttachPDFsModal(workspaceId) {
           </table>
         </div>
         <div class="mt-right">
-          <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
-          <button type="button" class="btn btn-primary" onclick="attachPDFsToWorkspace('${workspaceId}')">Attach Selected</button>
+          <button type="button" class="btn btn-secondary" data-action="closeParentCard">Cancel</button>
+          <button type="button" class="btn btn-primary" data-action="attachPDFsToWorkspace" data-action-arg="${workspaceId}">Attach Selected</button>
         </div>
       </div>
     `;
@@ -5105,8 +5108,8 @@ function openUploadFileModal(workspaceId) {
         </form>
       </div>
       <div class="footer-right-padded">
-        <button type="button" class="btn btn-secondary" onclick="this.closest('.card').remove()">Cancel</button>
-        <button type="button" class="btn btn-success" onclick="uploadFileToWorkspace('${workspaceId}')">Upload</button>
+        <button type="button" class="btn btn-secondary" data-action="closeParentCard">Cancel</button>
+        <button type="button" class="btn btn-success" data-action="uploadFileToWorkspace" data-action-arg="${workspaceId}">Upload</button>
       </div>
     </div>
   `;
@@ -5134,7 +5137,9 @@ async function uploadFileToWorkspace(workspaceId) {
   formData.append('notes', notesInput.value || '');
 
   try {
-    const response = await fetch(`${API_BASE}/owner/count/workspaces/${workspaceId}/upload`, {
+    const apiBase = typeof getAPIBase === 'function' ? getAPIBase() : '';
+    const uploadUrl = `${apiBase}/api/owner/count/workspaces/${workspaceId}/upload`;
+    const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -5858,7 +5863,7 @@ async function openRecipeDrawer(recipeId) {
               <span id="perPerson_${idx}">${perPerson}</span>
             </td>
             <td>
-              <button type="button" class="btn btn-sm btn-danger" onclick="removeRecipeItem(${idx})" title="Remove item">
+              <button type="button" class="btn btn-sm btn-danger" data-action="removeRecipeItem" data-action-arg="${idx}" title="Remove item">
                 ✕
               </button>
             </td>
@@ -5910,9 +5915,9 @@ async function openRecipeDrawer(recipeId) {
             </tbody>
           </table>
           <div class="flex-gap-half" style="margin-top: 1rem;">
-            <button type="button" class="btn btn-primary" onclick="addRecipeItem()">➕ Add Item</button>
-            <button type="button" class="btn btn-success" onclick="saveRecipeChanges('${recipeId}')">💾 Save Changes</button>
-            <button type="button" class="btn btn-secondary" onclick="resetRecipeQuantities()">↻ Reset</button>
+            <button type="button" class="btn btn-primary" data-action="addRecipeItem">➕ Add Item</button>
+            <button type="button" class="btn btn-success" data-action="saveRecipeChanges" data-action-arg="${recipeId}">💾 Save Changes</button>
+            <button type="button" class="btn btn-secondary" data-action="resetRecipeQuantities">↻ Reset</button>
           </div>
         </div>
       `;
@@ -5977,7 +5982,7 @@ async function searchInventoryItems(query, rowIdx) {
     let html = '';
     res.items.forEach(item => {
       html += `
-        <div class="search-result-item" onclick="selectInventoryItem(${rowIdx}, '${item.item_code}', '${item.item_name.replace(/'/g, "\\'")}', '${item.issue_unit || 'EA'}')">
+        <div class="search-result-item" data-action="selectInventoryItem" data-action-arg="${rowIdx},${item.item_code},${item.item_name.replace(/'/g, "\\'")},${item.issue_unit || 'EA'}">
           <strong>${item.item_code}</strong> - ${item.item_name}
         </div>
       `;
@@ -6059,7 +6064,7 @@ function addRecipeItem() {
       <span id="perPerson_${newIdx}">0.357</span>
     </td>
     <td>
-      <button type="button" class="btn btn-sm btn-danger" onclick="removeRecipeItem(${newIdx})" title="Remove item">
+      <button type="button" class="btn btn-sm btn-danger" data-action="removeRecipeItem" data-action-arg="${newIdx}" title="Remove item">
         ✕
       </button>
     </td>
@@ -6880,8 +6885,8 @@ async function loadRecentReconciliations() {
       html += `<td class="text-over">${report.summary.over_items || 0}</td>`;
       html += `<td class="text-short">${report.summary.short_items || 0}</td>`;
       html += `<td>`;
-      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="downloadReconcileReportCSV('${report.reconcile_id}')">📥 CSV</button> `;
-      html += `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReconciliationReport('${report.reconcile_id}')">🗑️ Delete</button>`;
+      html += `<button type="button" class="btn btn-sm btn-secondary" data-action="downloadReconcileReportCSV" data-action-arg="${report.reconcile_id}">📥 CSV</button> `;
+      html += `<button type="button" class="btn btn-sm btn-danger" data-action="deleteReconciliationReport" data-action-arg="${report.reconcile_id}">🗑️ Delete</button>`;
       html += `</td>`;
       html += '</tr>';
     }
@@ -7063,9 +7068,9 @@ async function loadCountHistory() {
       html += `<td>${count.item_count || 0}</td>`;
       html += `<td>${count.location_id || 'All'}</td>`;
       html += `<td>`;
-      html += `<button type="button" class="btn btn-sm btn-secondary" onclick="viewCountDetails('${count.id}')">👁️ View</button> `;
+      html += `<button type="button" class="btn btn-sm btn-secondary" data-action="viewCountDetails" data-action-arg="${count.id}">👁️ View</button> `;
       if (status === 'approved') {
-        html += `<button type="button" class="btn btn-sm btn-primary" onclick="useCountForReconciliation('${count.id}', '${count.created_at}')">⚖️ Reconcile</button>`;
+        html += `<button type="button" class="btn btn-sm btn-primary" data-action="useCountForReconciliation" data-action-arg="${count.id},${count.created_at}">⚖️ Reconcile</button>`;
       }
       html += `</td>`;
       html += '</tr>';
@@ -7224,7 +7229,7 @@ async function loadAttachedPdfs(countId) {
       html += `<td>${date}</td>`;
       html += `<td>${pdf.vendor || '--'}</td>`;
       html += `<td>${amount}</td>`;
-      html += `<td><button type="button" class="btn btn-sm btn-danger" onclick="detachPdf('${countId}', '${pdf.id}')">❌ Remove</button></td>`;
+      html += `<td><button type="button" class="btn btn-sm btn-danger" data-action="detachPdf" data-action-arg="${countId},${pdf.id}">❌ Remove</button></td>`;
       html += '</tr>';
     }
 
@@ -7782,7 +7787,7 @@ async function loadFinancialSummary() {
             <td>$${period.gstTotal.toFixed(2)}</td>
             <td>$${period.qstTotal.toFixed(2)}</td>
             <td>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="viewPeriodDetails('${period.period}', '${periodType}')">
+              <button type="button" class="btn btn-sm btn-secondary" data-action="viewPeriodDetails" data-action-arg="${period.period},${periodType}">
                 📊 View
               </button>
             </td>
@@ -7992,7 +7997,7 @@ async function loadFinancialSummary() {
             <td>$${period.gstTotal.toFixed(2)}</td>
             <td>$${period.qstTotal.toFixed(2)}</td>
             <td>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="viewPeriodDetails('${period.period}', '${periodType}')">
+              <button type="button" class="btn btn-sm btn-secondary" data-action="viewPeriodDetails" data-action-arg="${period.period},${periodType}">
                 📊 View
               </button>
             </td>
@@ -8083,7 +8088,7 @@ async function askFinanceAI() {
                 <p><strong>Format:</strong> ${data.result.format}</p>
                 <p><strong>Row Count:</strong> ${data.result.rowcount}</p>
                 <pre class="code-block">${escapeHtml(data.result.content.substring(0, 500))}${data.result.content.length > 500 ? '...' : ''}</pre>
-                <button type="button" class="btn btn-primary" onclick="downloadFinanceExport('${data.result.format}', \`${escapeHtml(data.result.content)}\`)">
+                <button type="button" class="btn btn-primary" data-action="downloadFinanceExport" data-action-arg="${data.result.format},${escapeHtml(data.result.content)}">
                   💾 Download ${data.result.format.toUpperCase()}
                 </button>
               </div>
@@ -8230,7 +8235,7 @@ async function showFinanceAIPreview() {
       html += `
           </div>
         </div>
-        <button type="button" class="btn btn-primary" onclick="askFinanceAI()">
+        <button type="button" class="btn btn-primary" data-action="askFinanceAI">
           ✅ Execute Query
         </button>
       `;
@@ -8442,7 +8447,7 @@ async function askFinanceAI() {
                 <p><strong>Format:</strong> ${data.result.format}</p>
                 <p><strong>Row Count:</strong> ${data.result.rowcount}</p>
                 <pre class="code-block">${previewContent}${data.result.content.length > 500 ? '...' : ''}</pre>
-                <button type="button" class="btn btn-primary" onclick='downloadFinanceExport("${data.result.format}", \`${downloadContent}\`)'>
+                <button type="button" class="btn btn-primary" data-action="downloadFinanceExport" data-action-arg="${data.result.format},${downloadContent}">
                   💾 Download ${data.result.format.toUpperCase()}
                 </button>
               </div>
@@ -8589,7 +8594,7 @@ async function showFinanceAIPreview() {
       html += `
           </div>
         </div>
-        <button type="button" class="btn btn-primary" onclick="askFinanceAI()">
+        <button type="button" class="btn btn-primary" data-action="askFinanceAI">
           ✅ Execute Query
         </button>
       `;
@@ -11805,10 +11810,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <td>${item.taxable_qst ? '✅' : '❌'}</td>
         <td><span class="badge ${item.status === 'ACTIVE' ? 'badge-success' : 'badge-secondary'}">${item.status}</span></td>
         <td>
-          <button type="button" class="btn btn-xs btn-secondary" onclick="editItem('${escapeHtml(item.gfs_item_no)}')">✏️</button>
+          <button type="button" class="btn btn-xs btn-secondary" data-action="editItem" data-action-arg="${escapeHtml(item.gfs_item_no)}">✏️</button>
           ${item.status === 'ACTIVE'
-            ? `<button type="button" class="btn btn-xs btn-warning" onclick="retireItem('${escapeHtml(item.gfs_item_no)}')">🗑️</button>`
-            : `<button type="button" class="btn btn-xs btn-success" onclick="activateItem('${escapeHtml(item.gfs_item_no)}')">♻️</button>`
+            ? `<button type="button" class="btn btn-xs btn-warning" data-action="retireItem" data-action-arg="${escapeHtml(item.gfs_item_no)}">🗑️</button>`
+            : `<button type="button" class="btn btn-xs btn-success" data-action="activateItem" data-action-arg="${escapeHtml(item.gfs_item_no)}">♻️</button>`
           }
         </td>
       </tr>
@@ -12079,8 +12084,8 @@ document.addEventListener('DOMContentLoaded', function() {
           <td><span class="badge ${confidenceClass}">${confidencePct}%</span></td>
           <td><span class="badge badge-secondary">${escapeHtml(item.strategy)}</span></td>
           <td>
-            <button type="button" class="btn btn-xs btn-primary np-btn-confirm" onclick="confirmMapping('${escapeHtml(item.invoice_id)}', '${escapeHtml(item.line_id)}', '${escapeHtml(item.new_code)}')">✅ Confirm</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="editMapping('${escapeHtml(item.invoice_id)}', '${escapeHtml(item.line_id)}')">✏️</button>
+            <button type="button" class="btn btn-xs btn-primary np-btn-confirm" data-action="confirmMapping" data-action-arg="${escapeHtml(item.invoice_id)},${escapeHtml(item.line_id)},${escapeHtml(item.new_code)}">✅ Confirm</button>
+            <button type="button" class="btn btn-xs btn-secondary" data-action="editMapping" data-action-arg="${escapeHtml(item.invoice_id)},${escapeHtml(item.line_id)}">✏️</button>
           </td>
         </tr>
       `;
@@ -12585,8 +12590,8 @@ async function loadGfsOrders() {
           <td>${order.totalLines}</td>
           <td>$${order.total}</td>
           <td>
-            <button class="btn btn-sm btn-outline" onclick="viewGfsOrder('${order.id}')">View</button>
-            ${order.status === 'parsed' ? `<button class="btn btn-sm btn-primary" onclick="populateFifoForOrder('${order.id}')">Populate FIFO</button>` : ''}
+            <button class="btn btn-sm btn-outline" data-action="viewGfsOrder" data-action-arg="${order.id}">View</button>
+            ${order.status === 'parsed' ? `<button class="btn btn-sm btn-primary" data-action="populateFifoForOrder" data-action-arg="${order.id}">Populate FIFO</button>` : ''}
           </td>
         </tr>
       `;
@@ -12661,7 +12666,7 @@ async function viewGfsOrder(orderId) {
           </tbody>
         </table>
         <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+          <button class="btn btn-secondary" data-action="closeModal">Close</button>
         </div>
       </div>
     `;
@@ -12897,7 +12902,7 @@ function renderShrinkageReport(data) {
 
     <div class="shrinkage-footer">
       <span>Report generated: ${new Date(data.generatedAt).toLocaleString()}</span>
-      <button class="btn btn-secondary" onclick="refreshShrinkageView()">Refresh View</button>
+      <button class="btn btn-secondary" data-action="refreshShrinkageView">Refresh View</button>
     </div>
   `;
 }
@@ -13170,7 +13175,7 @@ window.initShrinkageTab = initShrinkageTab;
         <td>${item.quantity || 1}</td>
         <td>${item.unit_price_cents ? '$' + ((item.unit_price_cents / 100) * (item.quantity || 1)).toFixed(2) : '--'}</td>
         <td>
-          <button type="button" class="btn btn-xs btn-secondary" onclick="editEquipmentItem(${item.id})">Edit</button>
+          <button type="button" class="btn btn-xs btn-secondary" data-action="editEquipmentItem" data-action-arg="${item.id}">Edit</button>
         </td>
       </tr>
     `).join('');
@@ -13378,7 +13383,7 @@ window.initShrinkageTab = initShrinkageTab;
             <td>${f.confidence_score != null ? (f.confidence_score * 100).toFixed(0) + '%' : '-'}</td>
             <td>${f.last_parsed_at ? new Date(f.last_parsed_at).toLocaleDateString() : '-'}</td>
             <td>
-              ${f.parse_status === 'needs_review' ? `<button class="btn btn-xs btn-secondary" onclick="retryParseFile('${f.id}')">🔄 Retry</button>` : ''}
+              ${f.parse_status === 'needs_review' ? `<button class="btn btn-xs btn-secondary" data-action="retryParseFile" data-action-arg="${f.id}">🔄 Retry</button>` : ''}
             </td>
           </tr>
         `).join('');
@@ -13400,7 +13405,7 @@ window.initShrinkageTab = initShrinkageTab;
             <br><small style="color:#666;">File: ${escapeHtml(q.file_name || 'Unknown')} | Created: ${new Date(q.created_at).toLocaleDateString()}</small>
             <br>
             <input type="text" id="answer-${q.id}" placeholder="Your answer..." style="width:60%; margin-top:0.5rem;">
-            <button class="btn btn-xs btn-primary" onclick="answerQuestion('${q.id}')">Submit</button>
+            <button class="btn btn-xs btn-primary" data-action="answerQuestion" data-action-arg="${q.id}">Submit</button>
           </div>
         `).join('');
       }
@@ -13547,7 +13552,7 @@ window.initShrinkageTab = initShrinkageTab;
             ${group.fileNames.map((name, i) => `
               <span style="display:inline-block; margin:2px;">
                 📄 ${escapeHtml(name)}
-                ${i > 0 ? `<button class="btn btn-xs btn-danger" onclick="markAsDuplicate(${group.fileIds[i]}, ${group.fileIds[0]}, 'exact_hash')">Remove</button>` : '<small>(keep)</small>'}
+                ${i > 0 ? `<button class="btn btn-xs btn-danger" data-action="markAsDuplicate" data-action-arg="${group.fileIds[i]},${group.fileIds[0]},exact_hash">Remove</button>` : '<small>(keep)</small>'}
               </span><br>
             `).join('')}
           </div>`;
@@ -13564,7 +13569,7 @@ window.initShrinkageTab = initShrinkageTab;
             ${group.fileNames.map((name, i) => `
               <span style="display:inline-block; margin:2px;">
                 📄 ${escapeHtml(name)}
-                ${i > 0 ? `<button class="btn btn-xs btn-warning" onclick="markAsDuplicate(${group.fileIds[i]}, ${group.fileIds[0]}, 'text_fingerprint')">Mark Dupe</button>` : '<small>(canonical)</small>'}
+                ${i > 0 ? `<button class="btn btn-xs btn-warning" data-action="markAsDuplicate" data-action-arg="${group.fileIds[i]},${group.fileIds[0]},text_fingerprint">Mark Dupe</button>` : '<small>(canonical)</small>'}
               </span><br>
             `).join('')}
           </div>`;

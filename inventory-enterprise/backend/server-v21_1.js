@@ -786,9 +786,9 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", ...cdnSources],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", ...cdnSources],
-      scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers (onclick, etc.)
+      styleSrc: ["'self'", "'unsafe-inline'", ...cdnSources], // Keep for CSS (can be refactored later)
+      scriptSrc: ["'self'", ...cdnSources], // ✅ Removed 'unsafe-inline' and 'unsafe-eval' - all handlers use addEventListener
+      scriptSrcAttr: ["'none'"], // ✅ Removed 'unsafe-inline' - no inline event handlers (onclick, etc.)
       imgSrc: ["'self'", "data:", "https:"],
       fontSrc: ["'self'", ...cdnSources, "data:"],
       connectSrc: connectSources,
@@ -815,6 +815,7 @@ app.use(helmet({
 }));
 
 console.log('[CSP] Mode:', cspStrictMode ? 'STRICT (no CDNs)' : 'STANDARD');
+console.log('[CSP] ✅ Strict CSP enabled - no unsafe-inline in script-src or scriptSrcAttr');
 
 // Body parsers
 app.use(express.json({ limit: '10mb' }));
