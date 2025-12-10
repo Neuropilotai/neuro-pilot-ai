@@ -2309,9 +2309,10 @@
   <style>
     .system-owner-bubble {
       position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      bottom: 16px;
+      right: 16px;
+      left: auto;
+      transform: none;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       padding: 12px 20px;
@@ -2322,6 +2323,7 @@
       animation: slideUpFade 0.5s ease-out;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.2);
+      max-width: 320px;
     }
 
     .system-owner-content {
@@ -2385,9 +2387,10 @@
 
     @media (max-width: 768px) {
       .system-owner-bubble {
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
+        bottom: 12px;
+        right: 12px;
+        left: auto;
+        max-width: calc(100% - 24px);
         transform: none;
         font-size: 11px;
       }
