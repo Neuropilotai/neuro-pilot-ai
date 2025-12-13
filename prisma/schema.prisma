@@ -1,0 +1,387 @@
+// prisma/schema.prisma
+// Enterprise Inventory System Data Model
+// PostgreSQL 14+ required for enums and advanced features
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  VIEWER      // Read-only access
+  COUNTER     // Can create and edit count sheets
+  EDITOR      // Can post counts and adjust inventory
+  APPROVER    // Can approve high-value adjustments
+  ADMIN       // Full system access
+}
+
+enum LocationKind {
+  FREEZER
+  COOLER
+  DRY
+  OTHER
+}
+
+enum MoveType {
+  COUNT_POSTED      // Physical count adjustment
+  RECEIPT           // Supplier delivery
+  TRANSFER_IN       // From another location
+  TRANSFER_OUT      // To another location
+  ADJUSTMENT        // Manual correction
+  CONSUMPTION       // Used/sold
+  WASTE             // Spoiled/damaged
+  RETURN_TO_VENDOR  // RTV
+}
+
+enum CountSheetStatus {
+  DRAFT       // Being created
+  OPEN        // Ready for counting
+  IN_PROGRESS // Counting started
+  COMPLETED   // Count finished, not posted
+  POSTED      // Applied to inventory ledger
+  VOIDED      // Cancelled
+}
+
+enum SupplierCode {
+  SYSCO
+  GFS
+  OTHER
+}
+
+// ==================== CORE ENTITIES ====================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  subdomain   String?  @unique // For subdomain-based routing
+  apiKey      String?  @unique // For API key authentication
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users            User[]
+  items            Item[]
+  locations        Location[]
+  ledgerEntries    InventoryLedger[]
+  countSheets      CountSheet[]
+  auditLogs        AuditLog[]
+  featureFlags     FeatureFlag[]
+  inventoryBalances InventoryBalance[]
+
+  @@index([subdomain])
+  @@index([apiKey])
+  @@map("organizations")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  orgId         String?  // Nullable for zero-downtime migration
+  email         String
+  passwordHash  String
+  role          UserRole @default(COUNTER)
+  tfaEnabled    Boolean  @default(false)
+  tfaSecret     String?
+  oidcSub       String?  @unique // For SSO integration
+  firstName     String?
+  lastName      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  org            Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  ledgerEntries   InventoryLedger[]
+  countSheets     CountSheet[]
+  auditLogs       AuditLog[]
+  sessionTokens   SessionToken[]
+
+  @@unique([orgId, email])
+  @@index([email])
+  @@index([role])
+  @@index([orgId])
+  @@map("users")
+}
+
+model SessionToken {
+  id          String   @id @default(cuid())
+  userId      String
+  token       String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("session_tokens")
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  orgId       String?      // Nullable for zero-downtime migration
+  name        String       // e.g., "Freezer 1"
+  site        String       @default("Main") // For multi-site support
+  kind        LocationKind
+  isActive    Boolean      @default(true)
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  ledgerEntries InventoryLedger[]
+  countLines    CountLine[]
+  inventoryBalances InventoryBalance[]
+
+  @@unique([orgId, site, name])
+  @@index([kind])
+  @@index([orgId])
+  @@map("locations")
+}
+
+model Item {
+  id              String   @id @default(cuid())
+  orgId           String?  // Nullable for zero-downtime migration
+  itemNumber      String   // Internal SKU
+  name            String
+  nameEn          String?  // English name
+  nameFr          String?  // French name
+  category        String?  // Produce, Meat, Dairy, etc.
+  canonicalUom    String   @default("g") // g, ml, ea (grams, milliliters, each)
+  isPerishable    Boolean  @default(false)
+  requiresLot     Boolean  @default(false)
+  parLevel        Decimal? @db.Decimal(18, 6)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  org             Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uomConversions  ItemUom[]
+  supplierItems   SupplierItem[]
+  lots            Lot[]
+  ledgerEntries   InventoryLedger[]
+  countLines      CountLine[]
+  inventoryBalances InventoryBalance[]
+
+  @@unique([orgId, itemNumber])
+  @@index([itemNumber])
+  @@index([category])
+  @@index([isActive])
+  @@index([orgId])
+  @@map("items")
+}
+
+model ItemUom {
+  id             String  @id @default(cuid())
+  itemId         String
+  uom            String  // CS, BX, LB, KG, etc.
+  toCanonical    Decimal @db.Decimal(18, 6) // Conversion factor to canonical UOM
+  isDefault      Boolean @default(false)
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, uom])
+  @@index([itemId])
+  @@map("item_uoms")
+}
+
+model SupplierItem {
+  id             String       @id @default(cuid())
+  supplier       SupplierCode
+  supplierCode   String       @unique // Supplier's SKU
+  supplierName   String       // Supplier's product name
+  packSize       String?      // e.g., "12/1LB"
+  sellUom        String       // CS, BX, EA
+  itemId         String       // Link to our Item
+  costPerUnit    Decimal?     @db.Decimal(10, 2)
+  lastUpdated    DateTime     @default(now())
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([supplier])
+  @@index([itemId])
+  @@map("supplier_items")
+}
+
+model Lot {
+  id          String    @id @default(cuid())
+  itemId      String
+  lotCode     String?   // Batch/lot number
+  expiryDate  DateTime?
+  receivedAt  DateTime  @default(now())
+
+  item            Item              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  ledgerEntries   InventoryLedger[]
+
+  @@index([itemId])
+  @@index([expiryDate])
+  @@map("lots")
+}
+
+// ==================== INVENTORY LEDGER ====================
+// Double-entry ledger approach for full audit trail
+
+model InventoryLedger {
+  id              String    @id @default(cuid())
+  orgId           String?   // Nullable for zero-downtime migration
+  itemId          String
+  locationId      String
+  lotId           String?
+  qtyCanonical    Decimal   @db.Decimal(18, 6) // SIGNED quantity in canonical UOM
+  moveType        MoveType
+  reasonCode      String?   // Optional classification (shrink, theft, etc.)
+  sourceRef       String?   // Reference to count sheet, PO, etc.
+  notes           String?
+  actorId         String
+  correlationId   String?   // Group related entries
+  createdAt       DateTime  @default(now())
+
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  item      Item      @relation(fields: [itemId], references: [id])
+  location  Location  @relation(fields: [locationId], references: [id])
+  lot       Lot?      @relation(fields: [lotId], references: [id])
+  actor     User      @relation(fields: [actorId], references: [id])
+
+  @@index([itemId, locationId])
+  @@index([lotId])
+  @@index([moveType])
+  @@index([createdAt])
+  @@index([correlationId])
+  @@index([orgId])
+  @@map("inventory_ledger")
+}
+
+// ==================== PHYSICAL COUNTS ====================
+
+model CountSheet {
+  id              String            @id @default(cuid())
+  orgId           String?           // Nullable for zero-downtime migration
+  countNumber     String            // COUNT-YYYY-MM-DD-001
+  status          CountSheetStatus  @default(DRAFT)
+  countDate       DateTime          @default(now())
+  scheduledFor    DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  postedAt        DateTime?
+  postedBy        String?
+  createdBy       String
+  notes           String?
+  correlationId   String?           // For ledger posting
+
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator     User         @relation(fields: [createdBy], references: [id])
+  lines       CountLine[]
+
+  @@unique([orgId, countNumber])
+  @@index([status])
+  @@index([countDate])
+  @@index([createdBy])
+  @@index([orgId])
+  @@map("count_sheets")
+}
+
+model CountLine {
+  id              String   @id @default(cuid())
+  orgId           String?  // Nullable for zero-downtime migration (inherited from CountSheet)
+  countSheetId    String
+  itemId          String
+  locationId      String
+  lotId           String?
+  expectedQty     Decimal? @db.Decimal(18, 6) // System balance
+  countedQty      Decimal  @db.Decimal(18, 6) // Physical count
+  countedUom      String   @default("ea")
+  varianceQty     Decimal? @db.Decimal(18, 6) // Calculated
+  notes           String?
+  countedAt       DateTime @default(now())
+  countedBy       String?
+
+  countSheet CountSheet @relation(fields: [countSheetId], references: [id], onDelete: Cascade)
+  item       Item       @relation(fields: [itemId], references: [id])
+  location   Location   @relation(fields: [locationId], references: [id])
+  lot        Lot?       @relation(fields: [lotId], references: [id])
+
+  @@unique([countSheetId, itemId, locationId, lotId])
+  @@index([countSheetId])
+  @@index([itemId])
+  @@index([locationId])
+  @@index([orgId])
+  @@map("count_lines")
+}
+
+// ==================== AUDIT & COMPLIANCE ====================
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  orgId           String?  // Nullable for zero-downtime migration
+  route           String   // API endpoint
+  method          String   // GET, POST, etc.
+  entity          String?  // Table/resource affected
+  entityId        String?
+  before          Json?    // Previous state
+  after           Json?    // New state
+  actorId         String?
+  ipAddress       String?
+  userAgent       String?
+  correlationId   String?
+  createdAt       DateTime @default(now())
+
+  org   Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([correlationId])
+  @@index([orgId])
+  @@map("audit_logs")
+}
+
+// ==================== INVENTORY BALANCE (MATERIALIZED) ====================
+
+model InventoryBalance {
+  id          String   @id @default(cuid())
+  orgId       String
+  itemId      String
+  locationId  String
+  lotId       String?
+  qtyCanonical Decimal  @db.Decimal(18, 6) // Current balance
+  lastUpdated DateTime  @default(now())
+  lastLedgerId String? // Track last processed ledger entry
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  item     Item         @relation(fields: [itemId], references: [id])
+  location Location     @relation(fields: [locationId], references: [id])
+  lot      Lot?         @relation(fields: [lotId], references: [id])
+
+  @@unique([orgId, itemId, locationId, lotId])
+  @@index([orgId, itemId, locationId])
+  @@index([orgId, itemId])
+  @@index([lastUpdated])
+  @@map("inventory_balances")
+}
+
+// ==================== FEATURE FLAGS ====================
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  orgId       String?  // Nullable for zero-downtime migration
+  key         String   // "counts_enabled", "valuation_enabled", etc.
+  enabled     Boolean  @default(true)
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
+  @@index([orgId])
+  @@map("feature_flags")
+}

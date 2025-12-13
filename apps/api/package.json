@@ -1,0 +1,31 @@
+{
+  "name": "@neuro/api",
+  "version": "1.0.0",
+  "description": "Enterprise inventory management API",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.7.0",
+    "@neuro/shared": "workspace:*",
+    "fastify": "^4.24.3",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/helmet": "^11.1.1",
+    "@fastify/rate-limit": "^8.0.3",
+    "@fastify/jwt": "^7.2.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
