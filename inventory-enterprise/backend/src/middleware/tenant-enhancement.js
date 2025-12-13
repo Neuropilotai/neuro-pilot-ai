@@ -88,8 +88,9 @@ async function enhanceTenantResolution(req, res, next) {
       );
       org = result.rows[0] || null;
     }
-    // Priority 2: Subdomain parsing
-    else if (req.hostname || req.headers.host) {
+    
+    // Priority 2: Subdomain parsing (only if org not resolved yet)
+    if (!org && (req.hostname || req.headers.host)) {
       const hostname = req.hostname || req.headers.host || '';
       const subdomain = extractSubdomain(hostname);
       if (subdomain) {
@@ -99,16 +100,18 @@ async function enhanceTenantResolution(req, res, next) {
         }
       }
     }
-    // Priority 3: API key lookup
-    else if (req.headers['x-api-key']) {
+    
+    // Priority 3: API key lookup (only if org not resolved yet)
+    if (!org && req.headers['x-api-key']) {
       const apiKey = req.headers['x-api-key'].trim();
       org = await resolveOrgByApiKey(apiKey);
       if (org) {
         orgId = org.id;
       }
     }
-    // Priority 4: Default org from environment
-    else if (process.env.DEFAULT_ORG_ID) {
+    
+    // Priority 4: Default org from environment (only if org not resolved yet)
+    if (!org && process.env.DEFAULT_ORG_ID) {
       orgId = process.env.DEFAULT_ORG_ID;
       const result = await pool.query(
         'SELECT id, name, slug, billing_status FROM organizations WHERE id = $1 AND deleted_at IS NULL',
