@@ -34,7 +34,17 @@
     "seed:roles": "node scripts/seed_roles_2025-10-07.js",
     "validate:go-live": "bash scripts/validate_go_live_2025-10-07.sh",
     "health": "curl -s http://localhost:8083/health | json_pp",
-    "metrics": "curl -s http://localhost:8083/metrics | grep -E '^(governance|insight|compliance|aiops)_'"
+    "metrics": "curl -s http://localhost:8083/metrics | grep -E '^(governance|insight|compliance|aiops)_'",
+    "migrate:balance": "psql $DATABASE_URL -f migrations/postgres/041_inventory_balance_table.sql",
+    "backfill:balances": "node scripts/backfill-balances.js",
+    "reconcile:balances": "node src/jobs/balance-reconciliation.js",
+    "monitor:backups": "node src/jobs/backup-monitor.js",
+    "validate:migration": "node scripts/validate-migration.js",
+    "org:create": "node scripts/create-organization.js",
+    "org:list": "node scripts/list-organizations.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -75,7 +85,9 @@
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
     "xlsx": "^0.18.5",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@prisma/client": "^5.7.0",
+    "prisma": "^5.7.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

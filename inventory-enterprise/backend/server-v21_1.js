@@ -1548,6 +1548,38 @@ function safeRequire(path, name) {
   }
 }
 
+// ============================================
+// ENTERPRISE HARDENING MIDDLEWARE
+// ============================================
+// Enhanced tenant resolution (works alongside existing tenant middleware)
+try {
+  const { enhanceTenantResolution } = require('./src/middleware/tenant-enhancement');
+  app.use(enhanceTenantResolution);
+  console.log('[STARTUP] ✓ Enhanced tenant resolution middleware loaded');
+} catch (err) {
+  console.warn('[STARTUP] ⚠ Enhanced tenant resolution not available:', err.message);
+}
+
+// Enhanced authentication (works alongside existing auth middleware)
+try {
+  const { enhanceAuth } = require('./src/middleware/auth-enhancement');
+  // Apply to all routes except health checks (existing auth handles most routes)
+  app.use((req, res, next) => {
+    const path = req.path || req.url || '';
+    if (path.startsWith('/health') || path.startsWith('/ping') || path.startsWith('/metrics') || path.startsWith('/api/health')) {
+      return next();
+    }
+    return enhanceAuth(req, res, next);
+  });
+  console.log('[STARTUP] ✓ Enhanced authentication middleware loaded');
+} catch (err) {
+  console.warn('[STARTUP] ⚠ Enhanced authentication not available:', err.message);
+}
+
+// ============================================
+// STANDARD ROUTES
+// ============================================
+
 // Auth routes (no auth guard for login/register, but audit login attempts)
 app.use('/api/auth', auditLog('AUTH'), safeRequire('./routes/auth', 'auth'));
 
@@ -1570,6 +1602,14 @@ app.use('/api/population', authGuard(['staff', 'manager', 'admin', 'owner']), ra
 app.use('/api/waste', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('WASTE'), safeRequire('./routes/waste', 'waste'));
 app.use('/api/pdfs', authGuard(['manager', 'admin', 'owner']), auditLog('PDF_GENERATION'), safeRequire('./routes/pdfs', 'pdfs'));
 app.use('/api/locations', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS'), safeRequire('./routes/locations', 'locations'));
+
+// ============================================
+// ENTERPRISE HARDENING ROUTES
+// ============================================
+// Enhanced routes with balance table integration and improved tenant isolation
+app.use('/api/items-enterprise', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('INVENTORY_ENTERPRISE'), safeRequire('./routes/items-enterprise', 'items-enterprise'));
+app.use('/api/locations-enterprise', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('LOCATIONS_ENTERPRISE'), safeRequire('./routes/locations-enterprise', 'locations-enterprise'));
+app.use('/api/counts-enterprise', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('COUNTS_ENTERPRISE'), safeRequire('./routes/counts-enterprise', 'counts-enterprise'));
 
 // V22.2: Vendor Orders with Google Drive PDF Integration
 app.use('/api/vendor-orders', authGuard(['staff', 'manager', 'admin', 'owner']), rateLimitMiddleware, auditLog('VENDOR_ORDERS'), safeRequire('./routes/vendor-orders', 'vendor-orders'));
