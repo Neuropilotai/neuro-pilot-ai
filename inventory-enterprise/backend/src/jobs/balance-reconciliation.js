@@ -157,6 +157,25 @@ async function reconcileBalances(autoCorrectThreshold = 0.01, alertThreshold = 0
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ Reconciliation error:', error);
+    
+    // Construct proper error object matching result.errors structure
+    // This ensures error handling is consistent with the expected error format
+    const errorEntry = {
+      orgId: null,
+      itemId: null,
+      locationId: null,
+      lotId: null,
+      ledgerSum: 0,
+      balanceQty: 0,
+      diff: 0,
+      error: error.message || String(error),
+      stack: error.stack,
+    };
+    
+    result.errors.push(errorEntry);
+    result.requiresManualReview++;
+    
+    // Re-throw to allow caller to handle if needed
     throw error;
   } finally {
     client.release();

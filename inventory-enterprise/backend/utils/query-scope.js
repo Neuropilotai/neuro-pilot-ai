@@ -10,15 +10,25 @@ const { pool } = require('../../db');
 /**
  * Add orgId filter to WHERE clause
  * Prevents duplicate orgId in composite key scenarios (e.g., upsert operations)
+ * SECURITY: Validates that existing orgId matches intended orgId to prevent tenant isolation bypass
  * @param {string} orgId - Organization ID
  * @param {object} where - Existing where clause
- * @returns {object} Where clause with orgId added (only if not already present)
+ * @returns {object} Where clause with orgId added (validated if already present)
  */
 function scopeWhere(orgId, where = {}) {
   // Check if org_id or orgId already exists in where clause
-  // This prevents duplicate orgId in composite key scenarios (e.g., upsert with orgId_itemId_locationId_lotId)
-  if (where.org_id !== undefined || where.orgId !== undefined) {
-    // orgId already present - return as-is to avoid duplicate
+  const existingOrgId = where.org_id || where.orgId;
+  
+  if (existingOrgId !== undefined) {
+    // SECURITY: Validate that existing orgId matches intended orgId
+    // This prevents tenant isolation bypass from developer mistakes or malicious input
+    if (existingOrgId !== orgId) {
+      throw new Error(
+        `Security violation: Query specifies orgId '${existingOrgId}' but expected '${orgId}'. ` +
+        `Tenant isolation cannot be bypassed.`
+      );
+    }
+    // orgId already present and matches - return as-is to avoid duplicate
     return where;
   }
   
