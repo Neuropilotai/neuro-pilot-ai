@@ -436,6 +436,100 @@ function setupEventListeners() {
       }
     }
   });
+
+  // v23.6.13: Handle forms with data-action attribute (for CSP compliance)
+  document.querySelectorAll('form[data-action]').forEach(form => {
+    const action = form.dataset.action;
+    if (action) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (typeof window[action] === 'function') {
+          window[action]();
+        } else {
+          try {
+            const funcExists = typeof eval(action) === 'function';
+            if (funcExists) {
+              eval(`${action}()`);
+            }
+          } catch (err) {
+            console.warn(`Could not execute ${action}:`, err.message);
+          }
+        }
+      });
+    }
+  });
+
+  // v23.6.13: Event delegation for dynamically generated checkboxes/inputs
+  // Handle checkboxes with data-change-action that are added via innerHTML
+  document.addEventListener('change', (e) => {
+    const target = e.target;
+    
+    // Handle data-change-action on checkboxes/selects
+    if (target.hasAttribute('data-change-action')) {
+      const action = target.dataset.changeAction;
+      const actionArg = target.dataset.changeArg;
+      
+      if (action) {
+        if (typeof window[action] === 'function') {
+          // Handle special case: "this.checked" argument
+          if (actionArg === 'this.checked' && target.type === 'checkbox') {
+            window[action](target.checked);
+          } else if (actionArg !== undefined) {
+            // Try to parse as number, otherwise use as string
+            const num = Number(actionArg);
+            window[action](isNaN(num) ? actionArg : num);
+          } else {
+            window[action]();
+          }
+        } else {
+          try {
+            const funcExists = typeof eval(action) === 'function';
+            if (funcExists) {
+              if (actionArg === 'this.checked' && target.type === 'checkbox') {
+                eval(`${action}(${target.checked})`);
+              } else if (actionArg !== undefined) {
+                eval(`${action}('${actionArg}')`);
+              } else {
+                eval(`${action}()`);
+              }
+            }
+          } catch (err) {
+            console.warn(`Could not execute ${action}:`, err.message);
+          }
+        }
+      }
+    }
+    
+    // Handle checkboxes with data-action (for click-like behavior on change)
+    if (target.hasAttribute('data-action') && (target.type === 'checkbox' || target.type === 'radio')) {
+      const action = target.dataset.action;
+      const actionArg = target.dataset.actionArg;
+      
+      if (action) {
+        if (typeof window[action] === 'function') {
+          if (actionArg !== undefined) {
+            const num = Number(actionArg);
+            window[action](isNaN(num) ? actionArg : num);
+          } else {
+            window[action]();
+          }
+        } else {
+          try {
+            const funcExists = typeof eval(action) === 'function';
+            if (funcExists) {
+              if (actionArg !== undefined) {
+                eval(`${action}('${actionArg}')`);
+              } else {
+                eval(`${action}()`);
+              }
+            }
+          } catch (err) {
+            console.warn(`Could not execute ${action}:`, err.message);
+          }
+        }
+      }
+    }
+  });
 }
 
 // ============================================================================
@@ -642,7 +736,7 @@ function showError(context, message) {
       <strong>Error in ${context}:</strong><br>
       ${message}
       <br><br>
-      <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">Reload Page</button>
+      <button type="button" class="btn btn-sm btn-primary" data-action="reloadPage">Reload Page</button>
     </div>
   `;
 }
@@ -1234,7 +1328,7 @@ async function loadAIUpgrade() {
             <span class="badge ${priorityBadge}">${rec.priority}</span>
           </div>
           <div class="text-sm-light">${rec.description}</div>
-          ${rec.action ? `<button class="btn btn-sm btn-primary" onclick="applyNextBestAction('${rec.id}')" class="u-mt-2">Apply</button>` : ''}
+          ${rec.action ? `<button class="btn btn-sm btn-primary" data-action="applyNextBestAction" data-action-arg="${rec.id}" class="u-mt-2">Apply</button>` : ''}
         </div>
       `;
     });
@@ -1302,7 +1396,7 @@ async function loadUnassignedItems(page = 1) {
           <td>${item.item_name}</td>
           <td>${item.unit || 'EA'}</td>
           <td>
-            <button class="btn btn-sm btn-primary" onclick="assignSingleItem('${item.item_code}')">📍 Assign</button>
+            <button class="btn btn-sm btn-primary" data-action="assignSingleItem" data-action-arg="${item.item_code}">📍 Assign</button>
           </td>
         </tr>
       `;
@@ -1373,7 +1467,7 @@ async function loadActiveCount() {
               Started: ${formatTimeAgo(data.count.created_at)}<br>
               Items: ${data.count.item_count || 0}
             </div>
-            <button class="btn btn-sm btn-primary" onclick="closeCount()" class="w-full-mt">
+            <button class="btn btn-sm btn-primary" data-action="closeCount" class="w-full-mt">
               Close Count
             </button>
           </div>
@@ -1412,7 +1506,7 @@ async function loadPlayground() {
       <div class="card">
         <div class="card-header">
           <h3 class="card-title">🎮 Month-End Playground</h3>
-          <button class="btn btn-sm btn-primary" onclick="openNewWorkspaceModal()">➕ New Workspace</button>
+          <button class="btn btn-sm btn-primary" data-action="openNewWorkspaceModal">➕ New Workspace</button>
         </div>
         <div class="modal-scrollable-content">
           <table class="table">
@@ -1435,7 +1529,7 @@ async function loadPlayground() {
           <td>${ws.period_start} to ${ws.period_end}</td>
           <td><span class="badge ${statusBadge}">${ws.status}</span></td>
           <td>
-            <button class="btn btn-sm btn-primary" onclick="openWorkspace('${ws.id}')">Open</button>
+            <button class="btn btn-sm btn-primary" data-action="openWorkspace" data-action-arg="${ws.id}">Open</button>
           </td>
         </tr>
       `;
@@ -1616,19 +1710,31 @@ function attachMenuEventListeners() {
   // Refresh button
   const refreshBtn = document.getElementById('menuRefreshBtn');
   if (refreshBtn) {
-    refreshBtn.onclick = () => loadMenu();
+    refreshBtn.addEventListener('click', () => {
+      if (typeof loadMenu === 'function') {
+        loadMenu();
+      }
+    });
   }
 
   // Headcount button
   const headcountBtn = document.getElementById('menuHeadcountBtn');
   if (headcountBtn) {
-    headcountBtn.onclick = () => openHeadcountModal();
+    headcountBtn.addEventListener('click', () => {
+      if (typeof openHeadcountModal === 'function') {
+        openHeadcountModal();
+      }
+    });
   }
 
   // Shopping list button
   const shoppingListBtn = document.getElementById('menuShoppingListBtn');
   if (shoppingListBtn) {
-    shoppingListBtn.onclick = () => openShoppingListModal();
+    shoppingListBtn.addEventListener('click', () => {
+      if (typeof openShoppingListModal === 'function') {
+        openShoppingListModal();
+      }
+    });
   }
 }
 

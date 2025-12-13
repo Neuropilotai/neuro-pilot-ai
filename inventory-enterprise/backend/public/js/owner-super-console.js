@@ -896,7 +896,7 @@ async function loadZeroCountMode() {
         <div class="card-header">
           <h3 class="card-title">➕ Quick Add Item</h3>
         </div>
-        <form onsubmit="event.preventDefault(); quickAddItem();" class="grid-auto-fit">
+        <form data-action="quickAddItem" class="grid-auto-fit">
           <div class="form-group" class="u-m-0">
             <input type="text" class="input" id="quickAddCode" placeholder="Item Code" required>
           </div>
@@ -1496,7 +1496,7 @@ async function loadPDFs() {
       <table class="table">
         <thead>
           <tr>
-            <th width="30"><input type="checkbox" onchange="toggleAllPDFs(this.checked)"></th>
+            <th width="30"><input type="checkbox" data-change-action="toggleAllPDFs" data-change-arg="this.checked"></th>
             <th>Invoice #</th>
             <th>Invoice Date</th>
             <th>Vendor</th>
@@ -4192,7 +4192,7 @@ async function loadUnassignedItems(page = 1) {
         <tr>
           <td>
             <input type="checkbox" class="unassigned-checkbox" value="${item.item_code}"
-              ${isChecked ? 'checked' : ''} onchange="toggleUnassignedItem('${item.item_code}')">
+              ${isChecked ? 'checked' : ''} data-action="toggleUnassignedItem" data-action-arg="${item.item_code}">
           </td>
           <td><code class="code-inline">${item.item_code}</code></td>
           <td>${item.item_name}</td>
@@ -5007,7 +5007,7 @@ async function openAttachPDFsModal(workspaceId) {
           <table class="table">
             <thead>
               <tr>
-                <th class="w-40"><input type="checkbox" id="selectAllPDFs" onchange="toggleSelectAllPDFs()" /></th>
+                <th class="w-40"><input type="checkbox" id="selectAllPDFs" data-change-action="toggleSelectAllPDFs" /></th>
                 <th>Filename</th>
                 <th>Date</th>
                 <th>Vendor</th>
@@ -6549,6 +6549,7 @@ window.openAttachCountModal = openAttachCountModal;
 window.attachCountToWorkspace = attachCountToWorkspace;
 window.openAttachPDFsModal = openAttachPDFsModal;
 window.toggleSelectAllPDFs = toggleSelectAllPDFs;
+window.toggleAllPDFs = toggleAllPDFs;
 window.attachPDFsToWorkspace = attachPDFsToWorkspace;
 window.openUploadFileModal = openUploadFileModal;
 window.uploadFileToWorkspace = uploadFileToWorkspace;
@@ -6561,11 +6562,9 @@ window.repriceRecipe = repriceRecipe;
 window.updateRecipeItemPrices = updateRecipeItemPrices;
 window.updateRecipeItemLineCost = updateRecipeItemLineCost;
 window.updateRecipeTotalCost = updateRecipeTotalCost;
-window.repriceRecipe = repriceRecipe;
-window.updateRecipeItemPrices = updateRecipeItemPrices;
-window.updateRecipeItemLineCost = updateRecipeItemLineCost;
-window.updateRecipeTotalCost = updateRecipeTotalCost;
 window.closeRecipeDrawer = closeRecipeDrawer;
+window.quickAddItem = quickAddItem;
+window.toggleUnassignedItem = toggleUnassignedItem;
 window.openHeadcountModal = openHeadcountModal;
 window.closeHeadcountModal = closeHeadcountModal;
 window.updateHeadcount = updateHeadcount;
@@ -7302,14 +7301,14 @@ async function loadAvailablePdfs(countId) {
       return;
     }
 
-    let html = '<table class="table"><thead><tr><th><input type="checkbox" id="selectAllAvailablePdfs" onchange="toggleSelectAllAvailablePdfs()"></th><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th></tr></thead><tbody>';
+    let html = '<table class="table"><thead><tr><th><input type="checkbox" id="selectAllAvailablePdfs" data-change-action="toggleSelectAllAvailablePdfs"></th><th>Filename</th><th>Date</th><th>Vendor</th><th>Amount</th></tr></thead><tbody>';
 
     for (const pdf of pdfs) {
       const date = pdf.invoiceDate ? new Date(pdf.invoiceDate).toLocaleDateString() : '--';
       const amount = pdf.invoice_amount ? `$${parseFloat(pdf.invoice_amount).toFixed(2)}` : '--';
 
       html += '<tr>';
-      html += `<td><input type="checkbox" class="pdf-checkbox" value="${pdf.id}" onchange="updateAttachButtonState()"></td>`;
+      html += `<td><input type="checkbox" class="pdf-checkbox" value="${pdf.id}" data-change-action="updateAttachButtonState"></td>`;
       html += `<td>${pdf.filename || 'Unknown'}</td>`;
       html += `<td>${date}</td>`;
       html += `<td>${pdf.vendor || '--'}</td>`;
@@ -7467,6 +7466,7 @@ window.loadAttachedPdfs = loadAttachedPdfs;
 window.loadAvailablePdfs = loadAvailablePdfs;
 window.toggleSelectAllAvailablePdfs = toggleSelectAllAvailablePdfs;
 window.updateAttachButtonState = updateAttachButtonState;
+window.closeCount = closeCount;
 window.attachSelectedPdfs = attachSelectedPdfs;
 window.detachPdf = detachPdf;
 
