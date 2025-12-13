@@ -1185,6 +1185,58 @@ class MetricsExporter {
       buckets: [0.1, 0.5, 1, 2, 5, 10, 30]
     });
 
+    // ========================================================================
+    // PRICE BANK METRICS (v23.6.13)
+    // ========================================================================
+
+    this.priceBankIngestItemsCounter = new promClient.Counter({
+      name: 'price_bank_ingest_items_total',
+      help: 'Total price items ingested into price bank',
+      labelNames: ['vendor', 'status'] // status: 'success', 'error', 'skipped'
+    });
+
+    this.priceBankIngestDuration = new promClient.Histogram({
+      name: 'price_bank_ingest_duration_seconds',
+      help: 'Duration of price bank ingestion operations',
+      buckets: [0.1, 0.5, 1, 2, 5, 10]
+    });
+
+    this.priceBankLookupsCounter = new promClient.Counter({
+      name: 'price_bank_lookups_total',
+      help: 'Total price lookups from price bank',
+      labelNames: ['type', 'status'] // type: 'latest', 'history'; status: 'found', 'not_found', 'error'
+    });
+
+    this.priceBankLookupDuration = new promClient.Histogram({
+      name: 'price_bank_lookup_duration_seconds',
+      help: 'Duration of price bank lookup operations',
+      buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+    });
+
+    this.priceBankItemsTotalGauge = new promClient.Gauge({
+      name: 'price_bank_items_total',
+      help: 'Total unique items in price bank',
+      labelNames: ['vendor']
+    });
+
+    this.priceBankHistoryEntriesTotalGauge = new promClient.Gauge({
+      name: 'price_bank_history_entries_total',
+      help: 'Total price history entries',
+      labelNames: ['vendor']
+    });
+
+    this.priceBankRecipeRepriceCounter = new promClient.Counter({
+      name: 'price_bank_recipe_reprice_total',
+      help: 'Total recipe reprice operations using price bank',
+      labelNames: ['status'] // 'success' or 'error'
+    });
+
+    this.priceBankRecipeRepriceDuration = new promClient.Histogram({
+      name: 'price_bank_recipe_reprice_duration_seconds',
+      help: 'Duration of recipe reprice operations',
+      buckets: [0.1, 0.5, 1, 2, 5, 10]
+    });
+
     // Register all metrics
     this.register.registerMetric(this.httpRequestDuration);
     this.register.registerMetric(this.httpRequestsTotal);
@@ -1359,6 +1411,16 @@ class MetricsExporter {
     this.register.registerMetric(this.driveWatchQuestionsAnsweredCounter);
     this.register.registerMetric(this.driveWatchParseAttemptsCounter);
     this.register.registerMetric(this.driveWatchParseDuration);
+
+    // Register Price Bank metrics (v23.6.13)
+    this.register.registerMetric(this.priceBankIngestItemsCounter);
+    this.register.registerMetric(this.priceBankIngestDuration);
+    this.register.registerMetric(this.priceBankLookupsCounter);
+    this.register.registerMetric(this.priceBankLookupDuration);
+    this.register.registerMetric(this.priceBankItemsTotalGauge);
+    this.register.registerMetric(this.priceBankHistoryEntriesTotalGauge);
+    this.register.registerMetric(this.priceBankRecipeRepriceCounter);
+    this.register.registerMetric(this.priceBankRecipeRepriceDuration);
   }
 
   /**
@@ -2343,6 +2405,79 @@ class MetricsExporter {
    */
   recordFinancePeriodVerifiedTotal(period, value = 1) {
     this.financePeriodVerifiedTotalGauge.labels(period).set(value);
+  }
+
+  // ========================================================================
+  // PRICE BANK RECORDING METHODS (v23.6.13)
+  // ========================================================================
+
+  /**
+   * Record price bank ingestion
+   * @param {string} vendor - Vendor name
+   * @param {number} itemCount - Number of items ingested
+   * @param {string} status - 'success', 'error', or 'skipped'
+   */
+  recordPriceBankIngest(vendor, itemCount, status = 'success') {
+    this.priceBankIngestItemsCounter.labels(vendor, status).inc(itemCount);
+  }
+
+  /**
+   * Record price bank ingestion duration
+   * @param {number} durationSeconds - Duration in seconds
+   */
+  recordPriceBankIngestDuration(durationSeconds) {
+    this.priceBankIngestDuration.observe(durationSeconds);
+  }
+
+  /**
+   * Record price bank lookup
+   * @param {string} type - 'latest' or 'history'
+   * @param {string} status - 'found', 'not_found', or 'error'
+   */
+  recordPriceBankLookup(type, status = 'found') {
+    this.priceBankLookupsCounter.labels(type, status).inc();
+  }
+
+  /**
+   * Record price bank lookup duration
+   * @param {number} durationSeconds - Duration in seconds
+   */
+  recordPriceBankLookupDuration(durationSeconds) {
+    this.priceBankLookupDuration.observe(durationSeconds);
+  }
+
+  /**
+   * Set total items in price bank
+   * @param {string} vendor - Vendor name
+   * @param {number} total - Total unique items
+   */
+  setPriceBankItemsTotal(vendor, total) {
+    this.priceBankItemsTotalGauge.labels(vendor).set(total);
+  }
+
+  /**
+   * Set total history entries in price bank
+   * @param {string} vendor - Vendor name
+   * @param {number} total - Total history entries
+   */
+  setPriceBankHistoryEntriesTotal(vendor, total) {
+    this.priceBankHistoryEntriesTotalGauge.labels(vendor).set(total);
+  }
+
+  /**
+   * Record recipe reprice operation
+   * @param {string} status - 'success' or 'error'
+   */
+  recordPriceBankRecipeReprice(status = 'success') {
+    this.priceBankRecipeRepriceCounter.labels(status).inc();
+  }
+
+  /**
+   * Record recipe reprice duration
+   * @param {number} durationSeconds - Duration in seconds
+   */
+  recordPriceBankRecipeRepriceDuration(durationSeconds) {
+    this.priceBankRecipeRepriceDuration.observe(durationSeconds);
   }
 
   // ========================================================================

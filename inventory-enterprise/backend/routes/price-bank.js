@@ -16,6 +16,7 @@
 const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
 const router = express.Router();
+const metricsExporter = require('../utils/metricsExporter');
 
 const TENANT_FALLBACK = 'default';
 
@@ -82,8 +83,13 @@ router.post(
     const orgId = getOrgId(req);
     const { items } = req.body;
 
+    const startTime = Date.now();
+
     try {
       await ensureTables(global.db);
+
+      // Track vendors for metrics
+      const vendorCounts = {};
 
       for (const row of items) {
         const {
@@ -99,41 +105,70 @@ router.post(
           hash = null
         } = row;
 
-        // Upsert into price_bank
-        await global.db.query(
-          `
-          INSERT INTO price_bank
-            (org_id, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash)
-          VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-          ON CONFLICT (org_id, item_code, vendor, effective_date, hash)
-          DO UPDATE SET
-            description = EXCLUDED.description,
-            pack_size = EXCLUDED.pack_size,
-            unit_cost = EXCLUDED.unit_cost,
-            currency = EXCLUDED.currency,
-            source_pdf = EXCLUDED.source_pdf,
-            source_page = EXCLUDED.source_page,
-            updated_at = NOW()
-          `,
-          [orgId, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash]
-        );
+        // Track vendor for metrics
+        if (!vendorCounts[vendor]) {
+          vendorCounts[vendor] = { success: 0, error: 0 };
+        }
 
-        // Append to history
-        await global.db.query(
-          `
-          INSERT INTO price_history
-            (org_id, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash)
-          VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-          `,
-          [orgId, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash]
-        );
+        try {
+          // Upsert into price_bank
+          await global.db.query(
+            `
+            INSERT INTO price_bank
+              (org_id, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash)
+            VALUES
+              ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            ON CONFLICT (org_id, item_code, vendor, effective_date, hash)
+            DO UPDATE SET
+              description = EXCLUDED.description,
+              pack_size = EXCLUDED.pack_size,
+              unit_cost = EXCLUDED.unit_cost,
+              currency = EXCLUDED.currency,
+              source_pdf = EXCLUDED.source_pdf,
+              source_page = EXCLUDED.source_page,
+              updated_at = NOW()
+            `,
+            [orgId, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash]
+          );
+
+          // Append to history
+          await global.db.query(
+            `
+            INSERT INTO price_history
+              (org_id, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash)
+            VALUES
+              ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            `,
+            [orgId, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash]
+          );
+
+          vendorCounts[vendor].success++;
+        } catch (rowError) {
+          console.error(`Error ingesting item ${item_code} from ${vendor}:`, rowError);
+          vendorCounts[vendor].error++;
+        }
+      }
+
+      // Record metrics
+      const duration = (Date.now() - startTime) / 1000;
+      metricsExporter.recordPriceBankIngestDuration(duration);
+
+      for (const [vendor, counts] of Object.entries(vendorCounts)) {
+        if (counts.success > 0) {
+          metricsExporter.recordPriceBankIngest(vendor, counts.success, 'success');
+        }
+        if (counts.error > 0) {
+          metricsExporter.recordPriceBankIngest(vendor, counts.error, 'error');
+        }
       }
 
       return res.json({ success: true, ingested: items.length });
     } catch (error) {
       console.error('price-bank ingest error', error);
+      const duration = (Date.now() - startTime) / 1000;
+      metricsExporter.recordPriceBankIngestDuration(duration);
+      // Record error for unknown vendor if we can't determine vendor
+      metricsExporter.recordPriceBankIngest('unknown', items.length, 'error');
       return res.status(500).json({ error: 'Failed to ingest price data' });
     }
   }
@@ -152,6 +187,8 @@ router.get(
     const orgId = getOrgId(req);
     const { itemCode } = req.params;
 
+    const startTime = Date.now();
+
     try {
       await ensureTables(global.db);
 
@@ -166,13 +203,21 @@ router.get(
         [orgId, itemCode]
       );
 
+      const duration = (Date.now() - startTime) / 1000;
+      metricsExporter.recordPriceBankLookupDuration(duration);
+
       if (result.rows.length === 0) {
+        metricsExporter.recordPriceBankLookup('latest', 'not_found');
         return res.status(404).json({ error: 'No price found for item' });
       }
 
+      metricsExporter.recordPriceBankLookup('latest', 'found');
       return res.json({ latest: result.rows[0] });
     } catch (error) {
       console.error('price-bank latest error', error);
+      const duration = (Date.now() - startTime) / 1000;
+      metricsExporter.recordPriceBankLookupDuration(duration);
+      metricsExporter.recordPriceBankLookup('latest', 'error');
       return res.status(500).json({ error: 'Failed to fetch latest price' });
     }
   }
@@ -193,6 +238,8 @@ router.get(
     const { itemCode } = req.params;
     const limit = parseInt(req.query.limit || '50', 10);
 
+    const startTime = Date.now();
+
     try {
       await ensureTables(global.db);
 
@@ -207,9 +254,16 @@ router.get(
         [orgId, itemCode, limit]
       );
 
+      const duration = (Date.now() - startTime) / 1000;
+      metricsExporter.recordPriceBankLookupDuration(duration);
+      metricsExporter.recordPriceBankLookup('history', result.rows.length > 0 ? 'found' : 'not_found');
+
       return res.json({ history: result.rows });
     } catch (error) {
       console.error('price-bank history error', error);
+      const duration = (Date.now() - startTime) / 1000;
+      metricsExporter.recordPriceBankLookupDuration(duration);
+      metricsExporter.recordPriceBankLookup('history', 'error');
       return res.status(500).json({ error: 'Failed to fetch price history' });
     }
   }
