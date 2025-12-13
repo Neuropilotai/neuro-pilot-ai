@@ -9,11 +9,19 @@ const { pool } = require('../../db');
 
 /**
  * Add orgId filter to WHERE clause
+ * Prevents duplicate orgId in composite key scenarios (e.g., upsert operations)
  * @param {string} orgId - Organization ID
  * @param {object} where - Existing where clause
- * @returns {object} Where clause with orgId added
+ * @returns {object} Where clause with orgId added (only if not already present)
  */
 function scopeWhere(orgId, where = {}) {
+  // Check if org_id or orgId already exists in where clause
+  // This prevents duplicate orgId in composite key scenarios (e.g., upsert with orgId_itemId_locationId_lotId)
+  if (where.org_id !== undefined || where.orgId !== undefined) {
+    // orgId already present - return as-is to avoid duplicate
+    return where;
+  }
+  
   return {
     ...where,
     org_id: orgId,

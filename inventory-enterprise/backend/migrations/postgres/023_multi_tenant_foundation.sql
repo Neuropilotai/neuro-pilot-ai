@@ -237,6 +237,19 @@ DECLARE
     t TEXT;
     default_org_id UUID := '00000000-0000-0000-0000-000000000001';
 BEGIN
+    -- Validate that default_org_id is not null before proceeding
+    -- This prevents setting all org_id columns to NULL if default org doesn't exist
+    IF default_org_id IS NULL THEN
+        RAISE EXCEPTION 'default_org_id cannot be NULL. Cannot proceed with backfill.';
+    END IF;
+    
+    -- Verify default org exists in database
+    IF NOT EXISTS (
+        SELECT 1 FROM organizations WHERE id = default_org_id AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Default organization % does not exist. Cannot proceed with backfill.', default_org_id;
+    END IF;
+    
     FOREACH t IN ARRAY tables_to_update
     LOOP
         IF EXISTS (
