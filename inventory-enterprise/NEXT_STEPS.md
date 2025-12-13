@@ -17,6 +17,15 @@
 12. ✅ Completed CSP refactor for all static handlers (100 handlers)
 13. ✅ Created CSP testing guide and completion documentation
 
+### Price Bank & Recipe Costing (v23.6.13)
+14. ✅ Wired PDF parser to auto-call `/api/price-bank/ingest` on upload
+15. ✅ Created price bank routes (`/api/price-bank/items/:itemCode/latest`, `/history`, `/ingest`)
+16. ✅ Exposed price history UI (modal/table with clickable PDF links)
+17. ✅ Added recipe cost roll-up using latest prices from price bank
+18. ✅ Recipe drawer now shows unit prices, line costs, and total recipe cost
+19. ✅ Added "Reprice Recipe" button to refresh all ingredient prices
+20. ✅ Price bank stores document references for PDF linking
+
 ### CSP Refactor (Complete - 74% Static Handlers)
 11. ✅ Phase 1: Tab navigation, header buttons, dashboard (19 handlers)
 12. ✅ Phase 2: Locations, PDFs, Count, AI Console (16 handlers)

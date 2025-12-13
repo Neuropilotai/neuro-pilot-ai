@@ -21,6 +21,138 @@ const db = require('../config/database');
 const metricsExporter = require('../utils/metricsExporter');
 const promClient = require('prom-client');
 const GFSInvoiceExtractor = require('../utils/gfsInvoiceExtractor');
+const priceBankTablesReady = { ready: false };
+
+async function ensurePriceBankTables(db) {
+  if (priceBankTablesReady.ready) return;
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS price_bank (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      org_id TEXT NOT NULL,
+      item_code TEXT NOT NULL,
+      vendor TEXT NOT NULL,
+      description TEXT,
+      pack_size TEXT,
+      unit_cost NUMERIC(12,4) NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      effective_date DATE NOT NULL,
+      source_pdf TEXT,
+      source_page INTEGER,
+      hash TEXT,
+      parsed_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(org_id, item_code, vendor, effective_date, hash)
+    );
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS price_history (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      org_id TEXT NOT NULL,
+      item_code TEXT NOT NULL,
+      vendor TEXT NOT NULL,
+      description TEXT,
+      pack_size TEXT,
+      unit_cost NUMERIC(12,4) NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      effective_date DATE NOT NULL,
+      source_pdf TEXT,
+      source_page INTEGER,
+      hash TEXT,
+      parsed_at TIMESTAMPTZ DEFAULT NOW(),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  priceBankTablesReady.ready = true;
+}
+
+async function ingestPriceItems(db, orgId, items) {
+  if (!items || items.length === 0) return 0;
+  await ensurePriceBankTables(db);
+
+  for (const row of items) {
+    const {
+      item_code,
+      vendor,
+      description,
+      pack_size,
+      unit_cost,
+      currency = 'USD',
+      effective_date,
+      source_pdf = null,
+      source_page = null,
+      hash = null
+    } = row;
+
+    // Basic validation
+    if (!item_code || !vendor || !unit_cost || !effective_date) continue;
+
+    // Upsert into price_bank
+    await db.query(
+      `
+      INSERT INTO price_bank
+        (org_id, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash)
+      VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      ON CONFLICT (org_id, item_code, vendor, effective_date, hash)
+      DO UPDATE SET
+        description = EXCLUDED.description,
+        pack_size = EXCLUDED.pack_size,
+        unit_cost = EXCLUDED.unit_cost,
+        currency = EXCLUDED.currency,
+        source_pdf = EXCLUDED.source_pdf,
+        source_page = EXCLUDED.source_page,
+        updated_at = NOW()
+      `,
+      [orgId, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash]
+    );
+
+    // Append history
+    await db.query(
+      `
+      INSERT INTO price_history
+        (org_id, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash)
+      VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `,
+      [orgId, item_code, vendor, description, pack_size, unit_cost, currency, effective_date, source_pdf, source_page, hash]
+    );
+  }
+  return items.length;
+}
+
+// Very light heuristic line parser (MVP) - parses codes and prices from text lines
+function parseLineItemsFromText(text, vendor, invoiceDate) {
+  if (!text) return [];
+  const lines = text.split('\n');
+  const items = [];
+  const date = invoiceDate || new Date().toISOString().slice(0, 10);
+
+  for (const line of lines) {
+    // Look for patterns: ITEMCODE ... $price
+    const codeMatch = line.match(/\b(\d{5,})\b/);
+    const priceMatch = line.match(/\$?\s*([\d,]+\.\d{2})\b/);
+    if (codeMatch && priceMatch) {
+      const item_code = codeMatch[1];
+      const unit_cost = parseFloat(priceMatch[1].replace(/,/g, ''));
+      if (isFinite(unit_cost)) {
+        items.push({
+          item_code,
+          vendor: vendor || 'GFS',
+          description: line.trim().slice(0, 120),
+          pack_size: null,
+          unit_cost,
+          currency: 'USD',
+          effective_date: date,
+          source_pdf: null,
+          source_page: null,
+          hash: null
+        });
+      }
+    }
+  }
+  return items;
+}
 
 // ============================================================================
 // PROMETHEUS METRICS
@@ -1081,7 +1213,7 @@ router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
         });
 
         // Get tenant_id from user
-        const tenantId = req.user.tenant_id || 'default';
+        const tenantId = req.user.tenant_id || req.tenant?.org_id || 'default';
         const userId = req.user.id || 'unknown';
 
         // Insert into documents table with extracted metadata
@@ -1128,6 +1260,25 @@ router.post('/upload', authenticateToken, requireOwner, async (req, res) => {
         ]);
 
         timer();
+
+        // v23.6.13: Attempt to parse line items and ingest into price bank
+        try {
+          const lineItems = parseLineItemsFromText(extracted.text, extracted.vendor, extracted.invoiceDate);
+          if (lineItems.length > 0) {
+            // Store document reference for price bank (documentId for linking, filename for display)
+            const pdfReference = `${documentId}|${req.file.originalname}`;
+            const ingested = await ingestPriceItems(global.db, tenantId, lineItems.map(li => ({
+              ...li,
+              source_pdf: pdfReference,
+              hash: sha256.substring(0, 16) // Store truncated hash for deduplication
+            })));
+            console.log(`📊 Price bank ingest: ${ingested} line items from PDF ${req.file.originalname}`);
+          } else {
+            console.log('ℹ️ No line items parsed for price bank ingestion (heuristic parser)');
+          }
+        } catch (ingestErr) {
+          console.warn('Price bank ingest failed (non-blocking):', ingestErr.message);
+        }
 
         res.status(201).json({
           success: true,

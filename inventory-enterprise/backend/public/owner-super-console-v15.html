@@ -149,6 +149,7 @@
           <div class="flex-gap-1" style="align-items: center;">
             <input type="text" class="input" id="latestPriceCode" placeholder="Item code for price lookup" aria-label="Item code for price lookup" style="max-width: 220px;">
             <button type="button" class="btn btn-outline" data-action="fetchLatestPrice">💲 Check Latest Price</button>
+            <button type="button" class="btn btn-outline" data-action="openPriceHistoryModal">📜 Price History</button>
           </div>
         </div>
         <div id="latestPriceResult" class="text-muted" style="margin-top: 8px;"></div>
@@ -1843,6 +1844,22 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-action="closeUploadPDFModal">Cancel</button>
         <button type="button" class="btn btn-primary" data-action="uploadPDF">📤 Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Price History Modal -->
+  <div id="priceHistoryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📜 Price History</h3>
+        <button type="button" class="btn btn-sm btn-secondary" data-action="closePriceHistoryModal">✕ Close</button>
+      </div>
+      <div class="modal-body">
+        <div id="priceHistoryTable" class="table table-striped"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-action="closePriceHistoryModal">Close</button>
       </div>
     </div>
   </div>

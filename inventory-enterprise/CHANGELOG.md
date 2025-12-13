@@ -4,6 +4,38 @@ All notable changes to NeuroPilot Inventory Enterprise System.
 
 ## [23.6.13] - 2025-12-09
 
+### 💰 Price Bank & Recipe Costing
+
+#### Price Bank System
+- **New API Routes**: Created `/api/price-bank` routes for tracking vendor pricing
+  - `GET /api/price-bank/items/:itemCode/latest` - Get latest price for an item
+  - `GET /api/price-bank/items/:itemCode/history?limit=20` - Get price history
+  - `POST /api/price-bank/ingest` - Ingest pricing data from PDFs
+- **Database Tables**: 
+  - `price_bank` - Latest price snapshot per item/vendor
+  - `price_history` - Append-only price history with source PDF references
+- **PDF Integration**: PDF uploads now automatically parse and ingest line items into price bank
+- **Price History UI**: Added modal to view price history with clickable PDF source links
+- **Files Created**: `backend/routes/price-bank.js`
+
+#### Recipe Cost Roll-Up
+- **Recipe Drawer Enhancements**: Recipe drawer now displays:
+  - Unit Price column (fetched from price bank)
+  - Line Cost column (quantity × unit price)
+  - Total Recipe Cost display
+- **Reprice Functionality**: Added "Reprice Recipe" button to refresh all ingredient prices
+- **Real-Time Updates**: Line costs and total cost update automatically when quantities change
+- **Price Lookup**: Automatically fetches latest prices from price bank for all recipe ingredients
+
+#### PDF Parser Integration
+- **Automatic Ingestion**: PDF uploads now automatically:
+  1. Extract invoice metadata (vendor, date, invoice number)
+  2. Parse line items using heuristic parser
+  3. Ingest pricing data into price bank
+  4. Store document references for PDF linking
+- **Document Linking**: Price history includes clickable links to source PDFs via preview endpoint
+- **Error Handling**: Price bank ingestion is non-blocking (failures don't break PDF upload)
+
 ### 🎯 Version Automation & CSP Compliance
 
 #### Automatic Version Injection
@@ -30,7 +62,8 @@ All notable changes to NeuroPilot Inventory Enterprise System.
 - **Result**: Owner console now fully CSP-compliant, all inline scripts removed
 
 ### 📝 Documentation
-- Updated `CHANGELOG.md` to document version automation and CSP fixes
+- Updated `CHANGELOG.md` to document price bank features, version automation and CSP fixes
+- Updated `NEXT_STEPS.md` with completed price bank work
 
 ## [23.6.12] - 2025-12-09
 

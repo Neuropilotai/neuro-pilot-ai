@@ -101,13 +101,42 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Parse JWT to get user and expiry
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
+    
+    // Validate token has required fields
+    if (!payload.exp) {
+      console.error('Token missing expiration');
+      localStorage.removeItem('np_owner_jwt');
+      localStorage.removeItem('NP_TOKEN');
+      localStorage.removeItem('authToken');
+      window.location.href = 'login.html';
+      return;
+    }
+
+    // Check if token is already expired
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (payload.exp < currentTime) {
+      console.warn('Token already expired');
+      localStorage.removeItem('np_owner_jwt');
+      localStorage.removeItem('NP_TOKEN');
+      localStorage.removeItem('authToken');
+      window.location.href = 'login.html';
+      return;
+    }
+
     currentUser = payload;
     window.currentUser = payload; // v15.5.1: Make available globally for RBAC
     tokenExpiresAt = payload.exp * 1000;
-    document.getElementById('currentUser').textContent = payload.email || 'Owner';
+    
+    const currentUserEl = document.getElementById('currentUser');
+    if (currentUserEl) {
+      currentUserEl.textContent = payload.email || 'Owner';
+    }
   } catch (e) {
     console.error('Invalid token:', e);
-    logout();
+    localStorage.removeItem('np_owner_jwt');
+    localStorage.removeItem('NP_TOKEN');
+    localStorage.removeItem('authToken');
+    window.location.href = 'login.html';
     return;
   }
 
@@ -413,6 +442,8 @@ function setupEventListeners() {
 // AUTH & SESSION
 // ============================================================================
 
+let tokenTTLInitialized = false;
+
 function updateTokenTTL() {
   const ttlEl = document.getElementById('tokenTTL');
   if (!tokenExpiresAt || !ttlEl) return;
@@ -424,15 +455,25 @@ function updateTokenTTL() {
   ttlEl.textContent = `Token: ${minutes}:${seconds.toString().padStart(2, '0')}`;
   ttlEl.className = remaining < 120 ? 'token-ttl warning' : 'token-ttl';
 
-  if (remaining === 0) {
+  // Only show alert if token expires after initial load (not on first check)
+  if (remaining === 0 && tokenTTLInitialized) {
     alert('Session expired. Please login again.');
+    logout();
+  } else if (remaining > 0) {
+    tokenTTLInitialized = true;
+  } else if (remaining === 0 && !tokenTTLInitialized) {
+    // Token expired on initial load - redirect silently
     logout();
   }
 }
 
 function logout() {
+  // Clear all token formats
+  localStorage.removeItem('np_owner_jwt');
+  localStorage.removeItem('NP_TOKEN');
   localStorage.removeItem('authToken');
   localStorage.removeItem('user');
+  localStorage.removeItem('NP_USER');
   window.location.href = 'login.html';
 }
 

@@ -5820,6 +5820,8 @@ async function openRecipeDrawer(recipeId) {
                 <th style="width: 150px;">Quantity</th>
                 <th style="width: 80px;">Unit</th>
                 <th style="width: 100px;">Per Person</th>
+                <th style="width: 120px;">Unit Price</th>
+                <th style="width: 120px;">Line Cost</th>
                 <th style="width: 100px;">Actions</th>
               </tr>
             </thead>
@@ -5863,6 +5865,12 @@ async function openRecipeDrawer(recipeId) {
               <span id="perPerson_${idx}">${perPerson}</span>
             </td>
             <td>
+              <span id="itemPrice_${idx}" class="text-muted">—</span>
+            </td>
+            <td>
+              <span id="itemLineCost_${idx}" class="text-muted">—</span>
+            </td>
+            <td>
               <button type="button" class="btn btn-sm btn-danger" data-action="removeRecipeItem" data-action-arg="${idx}" title="Remove item">
                 ✕
               </button>
@@ -5872,7 +5880,10 @@ async function openRecipeDrawer(recipeId) {
       });
 
       // Add event listeners after rendering
-      setTimeout(() => {
+      setTimeout(async () => {
+        // Fetch prices for all items
+        await updateRecipeItemPrices(recipe.items);
+        
         recipe.items.forEach((item, idx) => {
           // Quantity change listener
           const qtyInput = document.getElementById(`itemQty_${idx}`);
@@ -5884,6 +5895,8 @@ async function openRecipeDrawer(recipeId) {
               if (perPersonSpan) {
                 perPersonSpan.textContent = newPerPerson;
               }
+              // Update line cost when quantity changes
+              updateRecipeItemLineCost(idx);
             });
           }
 
@@ -5914,10 +5927,14 @@ async function openRecipeDrawer(recipeId) {
       html += `
             </tbody>
           </table>
+          <div style="margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 4px;">
+            <strong>Total Recipe Cost: <span id="recipeTotalCost">$0.00</span></strong>
+          </div>
           <div class="flex-gap-half" style="margin-top: 1rem;">
             <button type="button" class="btn btn-primary" data-action="addRecipeItem">➕ Add Item</button>
             <button type="button" class="btn btn-success" data-action="saveRecipeChanges" data-action-arg="${recipeId}">💾 Save Changes</button>
             <button type="button" class="btn btn-secondary" data-action="resetRecipeQuantities">↻ Reset</button>
+            <button type="button" class="btn btn-info" data-action="repriceRecipe" data-action-arg="${recipeId}">💰 Reprice Recipe</button>
           </div>
         </div>
       `;
@@ -5931,6 +5948,15 @@ async function openRecipeDrawer(recipeId) {
     window.currentRecipeData = {
       id: recipeId,
       items: recipe.items
+    };
+    
+    // Store recipe for reprice function
+    window.currentRecipe = {
+      id: recipeId,
+      ingredients: recipe.items.map(item => ({
+        item_code: item.item_code,
+        qty: item.qty_scaled
+      }))
     };
 
     console.log(`✅ Recipe ${recipeId} loaded`);
@@ -6531,6 +6557,14 @@ window.uploadFileToWorkspace = uploadFileToWorkspace;
 window.loadMenu = loadMenu;
 window.loadMenuWeek = loadMenuWeek;
 window.openRecipeDrawer = openRecipeDrawer;
+window.repriceRecipe = repriceRecipe;
+window.updateRecipeItemPrices = updateRecipeItemPrices;
+window.updateRecipeItemLineCost = updateRecipeItemLineCost;
+window.updateRecipeTotalCost = updateRecipeTotalCost;
+window.repriceRecipe = repriceRecipe;
+window.updateRecipeItemPrices = updateRecipeItemPrices;
+window.updateRecipeItemLineCost = updateRecipeItemLineCost;
+window.updateRecipeTotalCost = updateRecipeTotalCost;
 window.closeRecipeDrawer = closeRecipeDrawer;
 window.openHeadcountModal = openHeadcountModal;
 window.closeHeadcountModal = closeHeadcountModal;
@@ -13713,4 +13747,249 @@ async function fetchLatestPrice() {
     console.error('fetchLatestPrice error', err);
     resultDiv.textContent = 'Failed to fetch latest price.';
   }
+}
+
+// Price history modal
+function openPriceHistoryModal() {
+  const modal = document.getElementById('priceHistoryModal');
+  const codeInput = document.getElementById('latestPriceCode');
+  if (!modal || !codeInput) return;
+
+  const itemCode = codeInput.value.trim();
+  if (!itemCode) {
+    alert('Enter an item code first.');
+    return;
+  }
+
+  modal.classList.add('active');
+  loadPriceHistory(itemCode);
+}
+
+function closePriceHistoryModal() {
+  const modal = document.getElementById('priceHistoryModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function loadPriceHistory(itemCode) {
+  const tableDiv = document.getElementById('priceHistoryTable');
+  if (!tableDiv) return;
+  tableDiv.innerHTML = 'Loading...';
+
+  try {
+    const resp = await fetch(`${getAPIBase()}/api/price-bank/items/${encodeURIComponent(itemCode)}/history?limit=50`, {
+      headers: authHeaders()
+    });
+    if (!resp.ok) {
+      tableDiv.innerHTML = `Error fetching history: ${resp.status}`;
+      return;
+    }
+    const data = await resp.json();
+    const history = data.history || [];
+    if (history.length === 0) {
+      tableDiv.innerHTML = '<p class="text-muted">No price history found.</p>';
+      return;
+    }
+
+    let html = '<table class="table small"><thead><tr><th>Vendor</th><th>Unit Cost</th><th>Pack</th><th>Effective</th><th>Source</th></tr></thead><tbody>';
+    for (const row of history) {
+      let sourceLink = '';
+      if (row.source_pdf) {
+        // Handle both formats: "documentId|filename" and plain filename
+        const parts = row.source_pdf.split('|');
+        const docId = parts.length > 1 ? parts[0] : null;
+        const filename = parts.length > 1 ? parts[1] : row.source_pdf;
+        
+        // Simple HTML escape function
+        const escapeHtml = (str) => {
+          if (!str) return '';
+          return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        };
+        
+        if (docId) {
+          // Link to PDF preview endpoint
+          const previewUrl = `${getAPIBase()}/api/owner/pdfs/${docId}/preview`;
+          sourceLink = `<a href="${previewUrl}" target="_blank" rel="noreferrer" class="text-link">${escapeHtml(filename)}${row.source_page ? ` (p${row.source_page})` : ''}</a>`;
+        } else {
+          sourceLink = escapeHtml(filename) + (row.source_page ? ` (p${row.source_page})` : '');
+        }
+      }
+      html += `<tr>
+        <td>${row.vendor || ''}</td>
+        <td>${Number(row.unit_cost).toFixed(2)} ${row.currency || 'USD'}</td>
+        <td>${row.pack_size || ''}</td>
+        <td>${row.effective_date || ''}</td>
+        <td>${sourceLink}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    tableDiv.innerHTML = html;
+  } catch (err) {
+    console.error('loadPriceHistory error', err);
+    tableDiv.innerHTML = 'Failed to load history.';
+  }
+}
+
+// Update prices for all recipe items
+async function updateRecipeItemPrices(items) {
+  if (!items || !Array.isArray(items)) return;
+  
+  for (let idx = 0; idx < items.length; idx++) {
+    const item = items[idx];
+    if (!item.item_code) continue;
+    
+    try {
+      const resp = await fetch(`${getAPIBase()}/api/price-bank/items/${encodeURIComponent(item.item_code)}/latest`, {
+        headers: authHeaders()
+      });
+      
+      if (!resp.ok) {
+        const priceSpan = document.getElementById(`itemPrice_${idx}`);
+        if (priceSpan) priceSpan.textContent = '—';
+        continue;
+      }
+      
+      const data = await resp.json();
+      const p = data.latest;
+      
+      if (p) {
+        const priceSpan = document.getElementById(`itemPrice_${idx}`);
+        if (priceSpan) {
+          priceSpan.textContent = `$${Number(p.unit_cost).toFixed(2)}`;
+          priceSpan.title = `${p.vendor} • ${p.effective_date || 'N/A'}`;
+        }
+        
+        // Update line cost
+        updateRecipeItemLineCost(idx);
+      } else {
+        const priceSpan = document.getElementById(`itemPrice_${idx}`);
+        if (priceSpan) priceSpan.textContent = '—';
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch price for ${item.item_code}:`, err.message);
+      const priceSpan = document.getElementById(`itemPrice_${idx}`);
+      if (priceSpan) priceSpan.textContent = '—';
+    }
+  }
+  
+  // Update total cost
+  updateRecipeTotalCost();
+}
+
+// Update line cost for a specific item
+function updateRecipeItemLineCost(idx) {
+  const qtyInput = document.getElementById(`itemQty_${idx}`);
+  const priceSpan = document.getElementById(`itemPrice_${idx}`);
+  const lineCostSpan = document.getElementById(`itemLineCost_${idx}`);
+  
+  if (!qtyInput || !priceSpan || !lineCostSpan) return;
+  
+  const qty = parseFloat(qtyInput.value) || 0;
+  const priceText = priceSpan.textContent;
+  
+  if (priceText === '—' || !priceText.startsWith('$')) {
+    lineCostSpan.textContent = '—';
+    return;
+  }
+  
+  const unitPrice = parseFloat(priceText.replace('$', '')) || 0;
+  const lineCost = qty * unitPrice;
+  
+  lineCostSpan.textContent = `$${lineCost.toFixed(2)}`;
+  
+  // Update total cost
+  updateRecipeTotalCost();
+}
+
+// Calculate and display total recipe cost
+function updateRecipeTotalCost() {
+  const totalCostSpan = document.getElementById('recipeTotalCost');
+  if (!totalCostSpan) return;
+  
+  let total = 0;
+  const itemCount = window.currentRecipe?.ingredients?.length || 0;
+  
+  for (let idx = 0; idx < itemCount; idx++) {
+    const lineCostSpan = document.getElementById(`itemLineCost_${idx}`);
+    if (!lineCostSpan) continue;
+    
+    const lineCostText = lineCostSpan.textContent;
+    if (lineCostText === '—' || !lineCostText.startsWith('$')) continue;
+    
+    const lineCost = parseFloat(lineCostText.replace('$', '')) || 0;
+    total += lineCost;
+  }
+  
+  totalCostSpan.textContent = `$${total.toFixed(2)}`;
+}
+
+// Reprice recipe (refresh all prices)
+async function repriceRecipe(recipeId) {
+  if (!window.currentRecipe || !window.currentRecipe.ingredients) {
+    showToast('No recipe loaded', 'warning');
+    return;
+  }
+  
+  showToast('Repricing recipe...', 'info');
+  
+  // Get current quantities from inputs
+  const ingredients = [];
+  const itemCount = window.currentRecipe.ingredients.length;
+  
+  for (let idx = 0; idx < itemCount; idx++) {
+    const codeInput = document.getElementById(`itemCode_${idx}`);
+    const qtyInput = document.getElementById(`itemQty_${idx}`);
+    
+    if (codeInput && qtyInput) {
+      const itemCode = codeInput.value.trim();
+      const qty = parseFloat(qtyInput.value) || 0;
+      
+      if (itemCode && qty > 0) {
+        ingredients.push({ item_code: itemCode, qty });
+      }
+    }
+  }
+  
+  // Update window.currentRecipe with current values
+  window.currentRecipe.ingredients = ingredients;
+  
+  // Fetch fresh prices for all items
+  await updateRecipeItemPrices(ingredients.map(ing => ({ item_code: ing.item_code, qty_scaled: ing.qty })));
+  
+  showToast('Recipe repriced successfully', 'success');
+}
+
+// Simple recipe cost roll-up using price bank (expects window.currentRecipe.ingredients with item_code and qty)
+async function repriceCurrentRecipe() {
+  if (!window.currentRecipe || !Array.isArray(window.currentRecipe.ingredients)) {
+    alert('No current recipe or ingredients found.');
+    return;
+  }
+  const ingredients = window.currentRecipe.ingredients;
+  let total = 0;
+  const lines = [];
+
+  for (const ing of ingredients) {
+    if (!ing.item_code || !ing.qty) continue;
+    try {
+      const resp = await fetch(`${getAPIBase()}/api/price-bank/items/${encodeURIComponent(ing.item_code)}/latest`, {
+        headers: authHeaders()
+      });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const p = data.latest;
+      if (!p) continue;
+      const cost = Number(p.unit_cost) * Number(ing.qty);
+      total += cost;
+      lines.push(`${ing.item_code}: ${ing.qty} x ${Number(p.unit_cost).toFixed(2)} = ${cost.toFixed(2)}`);
+    } catch (err) {
+      console.warn('reprice ingredient failed', ing.item_code, err.message);
+    }
+  }
+
+  alert(`Recipe cost: $${total.toFixed(2)}\n\n${lines.join('\n')}`);
 }

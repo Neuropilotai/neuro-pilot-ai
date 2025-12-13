@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   const EXPECTED_VERSION = '23.6.13';
-  const TIMESTAMP = '1765353951859';
+  const TIMESTAMP = '1765354398301';
   const BUILD_TS = Number(TIMESTAMP) || Date.now();
   
   // Check if scripts loaded with correct version
