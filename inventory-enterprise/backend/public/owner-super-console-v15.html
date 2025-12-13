@@ -2331,10 +2331,10 @@
   <style>
     .system-owner-bubble {
       position: fixed;
-      bottom: 16px;
-      right: 16px;
-      left: auto;
-      transform: none;
+      bottom: 20px;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       padding: 12px 20px;
@@ -2410,10 +2410,10 @@
     @media (max-width: 768px) {
       .system-owner-bubble {
         bottom: 12px;
-        right: 12px;
-        left: auto;
+        left: 50%;
+        right: auto;
         max-width: calc(100% - 24px);
-        transform: none;
+        transform: translateX(-50%);
         font-size: 11px;
       }
 
